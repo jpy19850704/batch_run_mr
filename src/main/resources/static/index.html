@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MR API Console</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: #f3f5f8;
+            color: #1f2a37;
+        }
+        .wrap {
+            max-width: 1080px;
+            margin: 24px auto;
+            padding: 0 16px 32px;
+        }
+        .card {
+            background: #fff;
+            border: 1px solid #d9e0ea;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(31, 42, 55, 0.05);
+        }
+        h1 {
+            margin: 0 0 12px;
+            font-size: 24px;
+        }
+        h2 {
+            margin: 0 0 10px;
+            font-size: 18px;
+        }
+        .row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        textarea, input {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #c7d2e0;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 13px;
+            background: #fcfdff;
+        }
+        textarea {
+            min-height: 132px;
+            resize: vertical;
+            font-family: Consolas, "Courier New", monospace;
+        }
+        input {
+            height: 36px;
+        }
+        button {
+            border: 1px solid #0b66d6;
+            background: #0b66d6;
+            color: #fff;
+            border-radius: 6px;
+            padding: 7px 12px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        button.secondary {
+            border-color: #4b5563;
+            background: #4b5563;
+        }
+        pre {
+            margin: 0;
+            background: #0f172a;
+            color: #dbeafe;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 12px;
+            line-height: 1.45;
+            overflow: auto;
+            min-height: 180px;
+        }
+        .hint {
+            font-size: 12px;
+            color: #4b5563;
+            margin: 0 0 8px;
+        }
+        .w340 {
+            width: 340px;
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <h1>MR API Console</h1>
+
+    <div class="card">
+        <h2>Sync Run</h2>
+        <p class="hint">POST /api/v1/engine/run</p>
+        <textarea id="syncPayload">{
+  "requestId": "ui-sync-001",
+  "engineCode": "mr_calc",
+  "payload": {}
+}</textarea>
+        <div class="row">
+            <button onclick="runSync()">Run Sync</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Async Job</h2>
+        <p class="hint">submit, detail, result, cancel, polling</p>
+        <textarea id="asyncPayload">{
+  "requestId": "ui-async-001",
+  "engineCode": "mr_calc",
+  "idempotencyKey": "ui-idem-001",
+  "payload": {}
+}</textarea>
+        <div class="row">
+            <button onclick="submitJob()">Submit</button>
+        </div>
+        <div class="row">
+            <input id="jobIdInput" class="w340" placeholder="JOB-..." />
+            <button onclick="getDetail()">Detail</button>
+            <button onclick="getResult()">Result</button>
+            <button class="secondary" onclick="cancelJob()">Cancel</button>
+            <button class="secondary" onclick="autoPoll()">Auto Poll</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Output</h2>
+        <pre id="output"></pre>
+    </div>
+</div>
+
+<script>
+    async function callApi(method, url, payloadText) {
+        const options = { method: method, headers: {} };
+        if (payloadText !== undefined) {
+            options.headers["Content-Type"] = "application/json";
+            options.body = payloadText;
+        }
+        const resp = await fetch(url, options);
+        const text = await resp.text();
+        let data = text;
+        try { data = JSON.parse(text); } catch (e) {}
+        return { status: resp.status, body: data };
+    }
+
+    function print(title, content) {
+        const out = document.getElementById("output");
+        const now = new Date().toISOString();
+        out.textContent =
+            "[" + now + "] " + title + "\n" +
+            JSON.stringify(content, null, 2);
+    }
+
+    function getJobId() {
+        return document.getElementById("jobIdInput").value.trim();
+    }
+
+    async function runSync() {
+        const payload = document.getElementById("syncPayload").value;
+        const result = await callApi("POST", "/api/v1/engine/run", payload);
+        print("SYNC /api/v1/engine/run", result);
+    }
+
+    async function submitJob() {
+        const payload = document.getElementById("asyncPayload").value;
+        const result = await callApi("POST", "/api/v1/jobs/submit", payload);
+        if (result.body && result.body.data && result.body.data.jobId) {
+            document.getElementById("jobIdInput").value = result.body.data.jobId;
+        }
+        print("ASYNC /api/v1/jobs/submit", result);
+    }
+
+    async function getDetail() {
+        const jobId = getJobId();
+        if (!jobId) {
+            print("DETAIL", { error: "jobId is required" });
+            return;
+        }
+        const result = await callApi("GET", "/api/v1/jobs/" + encodeURIComponent(jobId));
+        print("ASYNC /api/v1/jobs/{jobId}", result);
+    }
+
+    async function getResult() {
+        const jobId = getJobId();
+        if (!jobId) {
+            print("RESULT", { error: "jobId is required" });
+            return;
+        }
+        const result = await callApi("GET", "/api/v1/jobs/" + encodeURIComponent(jobId) + "/result");
+        print("ASYNC /api/v1/jobs/{jobId}/result", result);
+    }
+
+    async function cancelJob() {
+        const jobId = getJobId();
+        if (!jobId) {
+            print("CANCEL", { error: "jobId is required" });
+            return;
+        }
+        const result = await callApi("POST", "/api/v1/jobs/" + encodeURIComponent(jobId) + "/cancel");
+        print("ASYNC /api/v1/jobs/{jobId}/cancel", result);
+    }
+
+    async function autoPoll() {
+        const jobId = getJobId();
+        if (!jobId) {
+            print("AUTO POLL", { error: "jobId is required" });
+            return;
+        }
+        for (let i = 0; i < 20; i++) {
+            const detail = await callApi("GET", "/api/v1/jobs/" + encodeURIComponent(jobId));
+            print("AUTO POLL round=" + (i + 1), detail);
+            const data = detail.body && detail.body.data ? detail.body.data : null;
+            if (data && data.done) {
+                return;
+            }
+            let sleepMs = 500;
+            if (data && data.pollAfterMs && data.pollAfterMs > 0) {
+                sleepMs = data.pollAfterMs;
+            }
+            await new Promise(function (resolve) { setTimeout(resolve, sleepMs); });
+        }
+    }
+</script>
+</body>
+</html>
