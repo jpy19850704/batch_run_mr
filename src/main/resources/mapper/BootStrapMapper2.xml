@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zcyh.batch.mapper.BootStrapMapper2">
+
+    <select id="getIrCurveList" resultType="hashmap">
+        select t.*,IFNULL(t2.CALENDAR,'BEJ') CALENDAR from TB_19_IR_CURVE t LEFT JOIN TB_19_CURVE_ALL_INFO t1 on t.CURVE_CODE=t1.CURVE_CODE LEFT JOIN
+        TB_17_CURRENCY_CALENDAR t2 on t1.CURRENCY_CODE=t2.CURRENCY
+        <where>
+            <if test="dataDate!=null"> and t.DATA_DATE = #{dataDate}</if>
+        </where>
+    </select>
+
+    <select id="getBondCurveList" resultType="hashmap">
+        select DATA_DATE, CURVE_CODE,TERM_CODE, RATE YIELD_RATE,TERM_DAYCOUNT,FREQ TERM_FRQ,
+        CASE WHEN FREQ='0D' THEN 'ZERO' ELSE 'SWAP' END as TERM_TYPE,'Calpek' CALENDAR from TB_19_BOND_CURVE
+        <where>
+            <if test="dataDate!=null"> and DATA_DATE = #{dataDate}</if>
+        </where>
+    </select>
+
+    <select id="getCsSplitMpList" resultType="hashmap">
+        select * from TB_19_CS_SPLIT_MP
+    </select>
+
+    <select id="getFxCurveList" resultType="hashmap">
+        select t.*,IFNULL(t2.CALENDAR,'BEJ') CALENDAR  from TB_19_FX_CURVE t LEFT JOIN TB_19_CURVE_ALL_INFO t1 on t.CURVE_CODE=t1.CURVE_CODE LEFT JOIN
+        TB_17_CURRENCY_CALENDAR t2 on t1.CURRENCY_CODE=t2.CURRENCY
+        <where>
+            <if test="dataDate!=null"> and t.DATA_DATE = #{dataDate}</if>
+        </where>
+    </select>
+
+    <select id="getCalendarList" resultType="hashmap">
+        select * from TB_17_CALENDAR
+    </select>
+
+    <insert id="insertBootStrapData" parameterType="java.util.List">
+        INSERT INTO TB_19_IR_CURVE_BOOTSTRAP
+        (
+        CURVE_CODE,
+        DATA_DATE,
+        TERM_CODE,
+        TERM_DAYS,
+        TERM_YEAR,
+        TERM_DAYCOUNT,
+        RATE,
+        DISCOUNT_FACTOR,
+        FREQ,
+        UPDATE_TIME
+        ) VALUES
+        <foreach collection="list" item="item" index="index" separator=",">
+            (
+            #{item.CURVE_CODE},
+            #{item.DATA_DATE},
+            #{item.TERM_CODE},
+            #{item.TERM_DAYS},
+            #{item.TERM_YEAR},
+            #{item.TERM_DAYCOUNT},
+            #{item.RATE},
+            #{item.DISCOUNT_FACTOR},
+            'cont',
+            #{item.UPDATE_TIME}
+            )
+        </foreach>
+    </insert>
+
+    <delete id="deleteBootStrapData">
+        delete from TB_19_IR_CURVE_BOOTSTRAP where data_date = #{dataDate}
+    </delete>
+
+</mapper>

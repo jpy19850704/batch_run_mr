@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zcyh.batch.mapper.PCAMapper">
+
+    <select id="selectIrData" resultType="java.util.HashMap">
+        select 'IR_SPOT' as CURVE_TYPE, t.CURVE_CODE, t.TERM_DAYS, t.DATA_DATE, t.TERM_CODE, t.RATE as YIELD_RATE
+        from TB_19_IR_CURVE_BOOTSTRAP t
+        where t.CURVE_CODE = #{curveCode}
+        and t.DATA_DATE between date #{beginDate,jdbcType=DATE} and date #{endDate,jdbcType=DATE}
+        order by TERM_DAYS,DATA_DATE
+    </select>
+
+    <select id="selectCommData" resultType="java.util.HashMap">
+        select 'COMM_SPOT' as CURVE_TYPE, CURVE_CODE, DATA_DATE, TERM_DAYS, TERM_CODE, COMM_PRICE as YIELD_RATE
+        from TB_19_COMM_CURVE
+        where CURVE_CODE = #{curveCode}
+        and DATA_DATE between date #{beginDate,jdbcType=DATE} and date #{endDate,jdbcType=DATE}
+        order by TERM_DAYS,DATA_DATE
+    </select>
+
+</mapper>
