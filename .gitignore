@@ -59,3 +59,6 @@ src/main/java/com/zcyh/build.log
 # Local large artifacts
 irs_doc.pdf
 lib/
+
+# Release-only: do not track tests in super repo
+src/test/
