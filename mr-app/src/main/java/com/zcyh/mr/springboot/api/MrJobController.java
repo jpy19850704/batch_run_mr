@@ -1,0 +1,185 @@
+package com.zcyh.mr.springboot.api;
+
+import com.zcyh.mr.springboot.context.RequestContextHolder;
+import com.zcyh.mr.springboot.model.ApiResponse;
+import com.zcyh.mr.springboot.model.BatchDetailResult;
+import com.zcyh.mr.springboot.model.BatchPatchRequest;
+import com.zcyh.mr.springboot.model.BatchRunRequest;
+import com.zcyh.mr.springboot.model.BatchRunResult;
+import com.zcyh.mr.springboot.model.BatchSubmitRequest;
+import com.zcyh.mr.springboot.model.BatchSubmitResult;
+import com.zcyh.mr.springboot.model.EngineRunResult;
+import com.zcyh.mr.springboot.model.JobDetailResult;
+import com.zcyh.mr.springboot.model.JobSubmitRequest;
+import com.zcyh.mr.springboot.model.JobSubmitResult;
+import com.zcyh.mr.springboot.service.AlertService;
+import com.zcyh.mr.springboot.service.AsyncJobService;
+import com.zcyh.mr.springboot.service.AuditLogService;
+import com.zcyh.mr.springboot.service.BatchRunService;
+import com.zcyh.mr.springboot.service.BatchJobService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * 异步任务控制器。
+ */
+@RestController
+@RequestMapping("/api/v1/jobs")
+public class MrJobController {
+    private static final Logger log = LoggerFactory.getLogger(MrJobController.class);
+
+    private final AsyncJobService asyncJobService;
+    private final BatchJobService batchJobService;
+    private final BatchRunService batchRunService;
+    private final AuditLogService auditLogService;
+    private final AlertService alertService;
+
+    public MrJobController(
+            AsyncJobService asyncJobService,
+            BatchJobService batchJobService,
+            BatchRunService batchRunService,
+            AuditLogService auditLogService,
+            AlertService alertService
+    ) {
+        this.asyncJobService = asyncJobService;
+        this.batchJobService = batchJobService;
+        this.batchRunService = batchRunService;
+        this.auditLogService = auditLogService;
+        this.alertService = alertService;
+    }
+
+    @PostMapping("/submit")
+    public ApiResponse<JobSubmitResult> submit(@RequestBody JobSubmitRequest request) {
+        long start = System.currentTimeMillis();
+        RequestContextHolder.setEngineCode(request == null ? null : request.getEngineCode());
+        try {
+            JobSubmitResult result = asyncJobService.submit(request);
+            RequestContextHolder.setJobId(result.getJobId());
+            log.info("异步任务提交完成，jobId={}, engineCode={}, reused={}",
+                    result.getJobId(), result.getEngineCode(), result.isReused());
+            auditLogService.recordSuccess("JOB_SUBMIT", "JOB", result.getJobId(), result.getEngineCode(), "异步任务已提交", System.currentTimeMillis() - start);
+            return ApiResponse.ok(result);
+        } catch (RuntimeException ex) {
+            alertService.error("JOB_SUBMIT_FAILED", "异步任务提交失败", ex);
+            auditLogService.recordFailure("JOB_SUBMIT", "JOB", null, request == null ? null : request.getEngineCode(), "JOB_SUBMIT_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
+            throw ex;
+        }
+    }
+
+    @GetMapping("/{jobId}")
+    public ApiResponse<JobDetailResult> detail(@PathVariable("jobId") String jobId) {
+        long start = System.currentTimeMillis();
+        RequestContextHolder.setJobId(jobId);
+        try {
+            JobDetailResult result = asyncJobService.getDetail(jobId);
+            RequestContextHolder.setEngineCode(result.getEngineCode());
+            auditLogService.recordSuccess("JOB_DETAIL_QUERY", "JOB", jobId, result.getEngineCode(), "任务详情查询成功", System.currentTimeMillis() - start);
+            return ApiResponse.ok(result);
+        } catch (RuntimeException ex) {
+            auditLogService.recordFailure("JOB_DETAIL_QUERY", "JOB", jobId, null, "JOB_DETAIL_QUERY_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
+            throw ex;
+        }
+    }
+
+    @PostMapping("/{jobId}/cancel")
+    public ApiResponse<JobDetailResult> cancel(@PathVariable("jobId") String jobId) {
+        long start = System.currentTimeMillis();
+        RequestContextHolder.setJobId(jobId);
+        try {
+            JobDetailResult result = asyncJobService.cancel(jobId);
+            RequestContextHolder.setEngineCode(result.getEngineCode());
+            log.info("任务取消请求完成，jobId={}, status={}", jobId, result.getStatus());
+            auditLogService.recordSuccess("JOB_CANCEL", "JOB", jobId, result.getEngineCode(), "任务取消完成", System.currentTimeMillis() - start);
+            return ApiResponse.ok(result);
+        } catch (RuntimeException ex) {
+            alertService.error("JOB_CANCEL_FAILED", "任务取消失败，jobId=" + jobId, ex);
+            auditLogService.recordFailure("JOB_CANCEL", "JOB", jobId, null, "JOB_CANCEL_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
+            throw ex;
+        }
+    }
+
+    @GetMapping("/{jobId}/result")
+    public ApiResponse<EngineRunResult> result(@PathVariable("jobId") String jobId) {
+        long start = System.currentTimeMillis();
+        RequestContextHolder.setJobId(jobId);
+        try {
+            EngineRunResult result = asyncJobService.getResult(jobId);
+            RequestContextHolder.setEngineCode(result.getEngineCode());
+            auditLogService.recordSuccess("JOB_RESULT_QUERY", "JOB", jobId, result.getEngineCode(), "任务结果查询成功", System.currentTimeMillis() - start);
+            return ApiResponse.ok(result);
+        } catch (RuntimeException ex) {
+            auditLogService.recordFailure("JOB_RESULT_QUERY", "JOB", jobId, null, "JOB_RESULT_QUERY_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
+            throw ex;
+        }
+    }
+
+    @PostMapping("/batch/submit")
+    public ApiResponse<BatchSubmitResult> submitBatch(@RequestBody BatchSubmitRequest request) {
+        long start = System.currentTimeMillis();
+        RequestContextHolder.setEngineCode("MR_CALC");
+        try {
+            BatchSubmitResult result = batchJobService.submit(request);
+            RequestContextHolder.setBatchId(result.getBatchId());
+            auditLogService.recordSuccess("BATCH_SUBMIT", "BATCH", result.getBatchId(), result.getEngineCode(), "批量任务提交成功", System.currentTimeMillis() - start);
+            return ApiResponse.ok(result);
+        } catch (RuntimeException ex) {
+            alertService.error("BATCH_SUBMIT_FAILED", "批量任务提交失败", ex);
+            auditLogService.recordFailure("BATCH_SUBMIT", "BATCH", request == null ? null : request.getBatchId(), "MR_CALC", "BATCH_SUBMIT_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
+            throw ex;
+        }
+    }
+
+    @PostMapping("/batch/run")
+    public ApiResponse<BatchRunResult> runBatch(@RequestBody BatchRunRequest request) {
+        long start = System.currentTimeMillis();
+        RequestContextHolder.setBatchId(request == null ? null : request.getBatchId());
+        RequestContextHolder.setEngineCode("MR_CALC");
+        try {
+            BatchRunResult result = batchRunService.run(request);
+            RequestContextHolder.setBatchId(result.getBatchId());
+            auditLogService.recordSuccess("BATCH_RUN", "BATCH", result.getBatchId(), "MR_CALC", "批次总编排执行成功", System.currentTimeMillis() - start);
+            return ApiResponse.ok(result);
+        } catch (RuntimeException ex) {
+            alertService.error("BATCH_RUN_FAILED", "批次总编排执行失败", ex);
+            auditLogService.recordFailure("BATCH_RUN", "BATCH", request == null ? null : request.getBatchId(), "MR_CALC", "BATCH_RUN_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
+            throw ex;
+        }
+    }
+
+    @PostMapping("/batch/patch")
+    public ApiResponse<BatchSubmitResult> patchBatch(@RequestBody BatchPatchRequest request) {
+        long start = System.currentTimeMillis();
+        RequestContextHolder.setBatchId(request == null ? null : request.getBatchId());
+        RequestContextHolder.setEngineCode("MR_CALC");
+        try {
+            BatchSubmitResult result = batchJobService.submitPatch(request);
+            RequestContextHolder.setBatchId(result.getBatchId());
+            auditLogService.recordSuccess("BATCH_PATCH", "BATCH", result.getBatchId(), result.getEngineCode(), "批量补丁提交成功", System.currentTimeMillis() - start);
+            return ApiResponse.ok(result);
+        } catch (RuntimeException ex) {
+            alertService.error("BATCH_PATCH_FAILED", "批量补丁提交失败", ex);
+            auditLogService.recordFailure("BATCH_PATCH", "BATCH", request == null ? null : request.getBatchId(), "MR_CALC", "BATCH_PATCH_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
+            throw ex;
+        }
+    }
+
+    @GetMapping("/batch/{batchId}")
+    public ApiResponse<BatchDetailResult> batchDetail(@PathVariable("batchId") String batchId) {
+        long start = System.currentTimeMillis();
+        RequestContextHolder.setBatchId(batchId);
+        try {
+            BatchDetailResult result = batchJobService.getDetail(batchId);
+            auditLogService.recordSuccess("BATCH_DETAIL_QUERY", "BATCH", batchId, result.getEngineCode(), "批量详情查询成功", System.currentTimeMillis() - start);
+            return ApiResponse.ok(result);
+        } catch (RuntimeException ex) {
+            auditLogService.recordFailure("BATCH_DETAIL_QUERY", "BATCH", batchId, null, "BATCH_DETAIL_QUERY_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
+            throw ex;
+        }
+    }
+}
