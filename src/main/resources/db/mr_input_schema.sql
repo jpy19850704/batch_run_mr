@@ -7,6 +7,9 @@ CREATE TABLE IF NOT EXISTS mr_trade_input (
     content_format VARCHAR(16) NOT NULL DEFAULT 'JSON',
     version_no INT NOT NULL DEFAULT 1,
     source_system VARCHAR(128),
+    portfolio VARCHAR(128),
+    desk VARCHAR(64),
+    trader VARCHAR(64),
     created_at BIGINT NOT NULL,
     updated_at BIGINT NOT NULL,
     CONSTRAINT uk_mr_trade_input UNIQUE (data_date, trade_id, version_no)
@@ -40,3 +43,50 @@ CREATE INDEX IF NOT EXISTS idx_mr_market_curve_input_type
 
 CREATE INDEX IF NOT EXISTS idx_mr_market_curve_input_curve
     ON mr_market_curve_input (curve_id);
+
+CREATE TABLE IF NOT EXISTS mr_agg_rule (
+    rule_id VARCHAR(128) PRIMARY KEY,
+    rule_type VARCHAR(64) NOT NULL,
+    rule_name VARCHAR(256),
+    rule_json CLOB NOT NULL,
+    modifier VARCHAR(128),
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_mr_agg_rule_type
+    ON mr_agg_rule (rule_type);
+
+MERGE INTO mr_agg_rule t
+USING (
+    SELECT
+        'BATCH_FRTB_DEFAULT' AS rule_id,
+        'FRTB' AS rule_type,
+        '默认 FRTB 批次汇总规则' AS rule_name,
+        '{
+  "buildOrder": ["TRADER", "DESK", "PORTFOLIO", "TOTAL"],
+  "dimensions": {
+    "TRADER": "TRADER",
+    "DESK": "DESK",
+    "PORTFOLIO": "PORTFOLIO"
+  },
+  "groupByFields": ["PORTFOLIO", "DESK", "TRADER"],
+  "sumFields": ["SENSITIVITY_VAL_INST_CURR_CNY"],
+  "filters": []
+}' AS rule_json,
+        'system' AS modifier,
+        0 AS created_at,
+        0 AS updated_at
+) s
+ON (t.rule_id = s.rule_id)
+WHEN MATCHED THEN UPDATE SET
+    t.rule_type = s.rule_type,
+    t.rule_name = s.rule_name,
+    t.rule_json = s.rule_json,
+    t.modifier = s.modifier,
+    t.updated_at = s.updated_at
+WHEN NOT MATCHED THEN INSERT (
+    rule_id, rule_type, rule_name, rule_json, modifier, created_at, updated_at
+) VALUES (
+    s.rule_id, s.rule_type, s.rule_name, s.rule_json, s.modifier, s.created_at, s.updated_at
+);
