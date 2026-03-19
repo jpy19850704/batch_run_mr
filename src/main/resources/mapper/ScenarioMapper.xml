@@ -5,254 +5,373 @@
 <mapper namespace="com.zcyh.mr.scenario.util.ScenarioMapper">
 
     <select id="selectScenario" resultType="java.util.HashMap">
-        select SCENARIO_ID, SCENARIO_TYPE from TB_17_SCENARIO_MP
+        select distinct SCENARIO_ID, SCENARIO_TYPE
+        from MR_SCENARIO_RULE
         <where>
+            STATUS = 'ACTIVE'
             <if test="scenarioIdList!=null and scenarioIdList!=''">
                 <if test="scenarioIdList.length > 1">
-                    SCENARIO_ID in
+                    and SCENARIO_ID in
                     <foreach collection="scenarioIdList.split(',')" item="id" open="(" close=")" separator=",">
                         #{id}
                     </foreach>
                 </if>
                 <if test="scenarioIdList.length == 1">
-                    SCENARIO_ID = #{scenarioIdList}
+                    and SCENARIO_ID = #{scenarioIdList}
                 </if>
             </if>
         </where>
     </select>
 
     <select id="selectScenarioMpByScenarioIdList" resultType="java.util.HashMap">
-        select t1.SCENARIO_ID as SCENARIO_SET_CODE, t1.SCENARIO_ID as SCENARIO_CODE, t1.SCENARIO_NAME, SCENARIO_TYPE, t1.TERM_DAYS, t1.CHANGE_VALUE as SCENARIO_SHIFT_VALUE,
-        case when t1.CHANGE_TYPE='绝对变动' then'ABSOLUTE'
-        when t1.CHANGE_TYPE='相对变动' then 'RELATIVE' else null end as SCENARIO_SHIFT_RULE,
-        t2.RISKFACTOR_TYPE as CURVE_TYPE, t1.RISKGROUP_ID, t2.RISKFACTOR_ID as CURVE_CODE
-        <!--            case when t1.RISKGROUP_ID = 'IR_SPOT' then 'IR_SPOT'-->
-        <!--            when t1.RISKGROUP_ID = 'FX_SPOT' then 'FX_SPOT'-->
-        <!--            when t1.RISKGROUP_ID = 'FX_VOL' then 'FX_VOL'-->
-        <!--            when t1.RISKGROUP_ID = 'COMM_SPOT' then 'COMM_SPOT' else null end as CURVE_TYPE, t1.RISKGROUP_ID, t2.RISKFACTOR_ID as CURVE_CODE-->
-
-        from TB_17_SCENARIO_MP t1
-        left join
-        TB_17_RISKFACTOR_MP t2
-        on t1.RISKGROUP_ID = t2.RISKGROUP_ID
+        select
+            SCENARIO_ID as SCENARIO_SET_CODE,
+            SCENARIO_ID as SCENARIO_CODE,
+            SCENARIO_NAME,
+            SCENARIO_TYPE,
+            CURVE_TYPE,
+            CURVE_CODE,
+            TERM_CODE,
+            TERM_DAYS,
+            SCENARIO_SHIFT_VALUE,
+            SCENARIO_SHIFT_RULE
+        from MR_SCENARIO_RULE
         <where>
+            STATUS = 'ACTIVE'
             <if test="scenarioIdList!=null and scenarioIdList!=''">
                 <if test="scenarioIdList.length > 1">
-                    t1.SCENARIO_ID in
+                    and SCENARIO_ID in
                     <foreach collection="scenarioIdList.split(',')" item="id" open="(" close=")" separator=",">
                         #{id}
                     </foreach>
                 </if>
                 <if test="scenarioIdList.length == 1">
-                    t1.SCENARIO_ID = #{scenarioIdList}
+                    and SCENARIO_ID = #{scenarioIdList}
                 </if>
             </if>
         </where>
+        order by SCENARIO_ID, LINE_NO
     </select>
 
     <select id="selectMcScenarioMpByScenarioIdList" resultType="java.util.HashMap">
-        select t1.SCENARIO_ID as SCENARIO_SET_CODE, t1.SCENARIO_NAME, SCENARIO_TYPE, t1.START_DATE, t1.SAMPLES_NUMBER as SCENARIO_NO,t1.SCENARIO_NUMBER, t1.SCENARIO_DAYS as JUNP_DAY_NO,t1.INCREASE_DAYS,
-        t1.RISKGROUP_ID,
-        case when t1.CHANGE_TYPE='绝对变动' then'ABSOLUTE'
-        when t1.CHANGE_TYPE='相对变动' then 'RELATIVE' else null end as SCENARIO_SHIFT_RULE,
-        t2.RISKFACTOR_TYPE
-        from TB_17_SCENARIO_MP t1
-        left join
-        TB_17_RISKFACTOR_MP t2
-        on t1.RISKGROUP_ID = t2.RISKGROUP_ID
+        select
+            SCENARIO_ID as SCENARIO_SET_CODE,
+            SCENARIO_NAME,
+            SCENARIO_TYPE,
+            START_DATE,
+            SCENARIO_NO,
+            SCENARIO_NO as SCENARIO_NUMBER,
+            JUNP_DAY_NO,
+            INCREASE_DAYS,
+            SCENARIO_SHIFT_RULE,
+            CURVE_TYPE as RISKFACTOR_TYPE
+        from MR_SCENARIO_RULE
         <where>
+            STATUS = 'ACTIVE'
             <if test="scenarioIdList!=null and scenarioIdList!=''">
                 <if test="scenarioIdList.length > 1">
-                    t1.SCENARIO_ID in
+                    and SCENARIO_ID in
                     <foreach collection="scenarioIdList.split(',')" item="id" open="(" close=")" separator=",">
                         #{id}
                     </foreach>
                 </if>
                 <if test="scenarioIdList.length == 1">
-                    t1.SCENARIO_ID = #{scenarioIdList}
+                    and SCENARIO_ID = #{scenarioIdList}
                 </if>
             </if>
         </where>
+        order by SCENARIO_ID, LINE_NO
     </select>
 
     <select id="selectHistoryScenarioMpByScenarioIdList" resultType="java.util.HashMap">
-        select t1.SCENARIO_ID as SCENARIO_SET_CODE, t1.SCENARIO_NAME, SCENARIO_TYPE, t1.START_DATE, t1.SCENARIO_NUMBER as SCENARIO_NO, t1.SCENARIO_DAYS as JUNP_DAY_NO,t1.INCREASE_DAYS,
-        t1.RISKGROUP_ID,
-        case when t1.CHANGE_TYPE='绝对变动' then'ABSOLUTE'
-        when t1.CHANGE_TYPE='相对变动' then 'RELATIVE' else null end as SCENARIO_SHIFT_RULE,
-        t2.RISKFACTOR_TYPE
-        from TB_17_SCENARIO_MP t1
-        left join
-        TB_17_RISKFACTOR_MP t2
-        on t1.RISKGROUP_ID = t2.RISKGROUP_ID
+        select
+            SCENARIO_ID as SCENARIO_SET_CODE,
+            SCENARIO_NAME,
+            SCENARIO_TYPE,
+            START_DATE,
+            SCENARIO_NO,
+            JUNP_DAY_NO,
+            INCREASE_DAYS,
+            SHOCK_TYPE,
+            SCENARIO_SHIFT_RULE,
+            CURVE_TYPE as RISKFACTOR_TYPE
+        from MR_SCENARIO_RULE
         <where>
+            STATUS = 'ACTIVE'
             <if test="scenarioIdList!=null and scenarioIdList!=''">
                 <if test="scenarioIdList.length > 1">
-                    t1.SCENARIO_ID in
+                    and SCENARIO_ID in
                     <foreach collection="scenarioIdList.split(',')" item="id" open="(" close=")" separator=",">
                         #{id}
                     </foreach>
                 </if>
                 <if test="scenarioIdList.length == 1">
-                    t1.SCENARIO_ID = #{scenarioIdList}
+                    and SCENARIO_ID = #{scenarioIdList}
                 </if>
             </if>
         </where>
+        order by SCENARIO_ID, LINE_NO
     </select>
 
     <select id="selectIrData" resultType="java.util.HashMap">
-        select 'IR_SPOT' as CURVE_TYPE, CURVE_CODE, DATA_DATE, TERM_CODE, TERM_DAYS, RATE as YIELD_RATE from TB_19_IR_CURVE_BOOTSTRAP
+        select
+            'IR_SPOT' as CURVE_TYPE,
+            RISKFACTOR_ID as CURVE_CODE,
+            DATA_DATE,
+            coalesce(TERM_CODE, cast(TERM_DAYS as varchar)) as TERM_CODE,
+            coalesce(TERM_DAYS, 0) as TERM_DAYS,
+            "value" as YIELD_RATE
+        from MR_RISKFACTOR_DATA
         <where>
+            RISKFACTOR_TYPE = 'IR_SPOT'
             <choose>
                 <when test="startDate!= null and endDate!= null">
-                    AND DATA_DATE BETWEEN #{startDate} AND #{endDate}
+                    and DATA_DATE between #{startDate} and #{endDate}
                 </when>
                 <when test="startDate!= null">
-                    AND DATA_DATE = #{startDate}
+                    and DATA_DATE = #{startDate}
                 </when>
                 <when test="endDate!= null">
-                    AND DATA_DATE = #{endDate}
+                    and DATA_DATE = #{endDate}
                 </when>
             </choose>
-            and BINARY CURVE_CODE in (
-                select t2.RISKFACTOR_ID as CURVE_CODE
-                from TB_17_SCENARIO_MP t1
-                left join
-                TB_17_RISKFACTOR_MP t2
-                on t1.RISKGROUP_ID = t2.RISKGROUP_ID
-                where t1.SCENARIO_ID = #{scenarioId}
-                and t2.RISKFACTOR_TYPE = 'IR_SPOT'
+            and RISKFACTOR_ID in (
+                select distinct CURVE_CODE
+                from MR_SCENARIO_RULE
+                where STATUS = 'ACTIVE'
+                  and SCENARIO_ID = #{scenarioId}
+                  and CURVE_TYPE = 'IR_SPOT'
             )
         </where>
     </select>
 
     <select id="selectFxData" resultType="java.util.HashMap">
-        select 'FX_SPOT' as CURVE_TYPE, CURVE_CODE, DATA_DATE, null as TERM_CODE, null as TERM_DAYS, EXCHANGE_RATE as YIELD_RATE from V_MRM_SPOT_RATE
+        select
+            'FX_SPOT' as CURVE_TYPE,
+            RISKFACTOR_ID as CURVE_CODE,
+            DATA_DATE,
+            '0' as TERM_CODE,
+            0 as TERM_DAYS,
+            "value" as YIELD_RATE
+        from MR_RISKFACTOR_DATA
         <where>
+            RISKFACTOR_TYPE = 'FX_SPOT'
             <choose>
                 <when test="startDate!= null and endDate!= null">
-                    AND DATA_DATE BETWEEN #{startDate} AND #{endDate}
+                    and DATA_DATE between #{startDate} and #{endDate}
                 </when>
                 <when test="startDate!= null">
-                    AND DATA_DATE = #{startDate}
+                    and DATA_DATE = #{startDate}
                 </when>
                 <when test="endDate!= null">
-                    AND DATA_DATE = #{endDate}
+                    and DATA_DATE = #{endDate}
                 </when>
             </choose>
-            and BINARY CURVE_CODE in (
-            select t2.RISKFACTOR_ID as CURVE_CODE
-            from TB_17_SCENARIO_MP t1
-            left join
-            TB_17_RISKFACTOR_MP t2
-            on t1.RISKGROUP_ID = t2.RISKGROUP_ID
-            where t1.SCENARIO_ID = #{scenarioId}
-            and t2.RISKFACTOR_TYPE = 'FX_SPOT'
+            and RISKFACTOR_ID in (
+                select distinct CURVE_CODE
+                from MR_SCENARIO_RULE
+                where STATUS = 'ACTIVE'
+                  and SCENARIO_ID = #{scenarioId}
+                  and CURVE_TYPE = 'FX_SPOT'
             )
         </where>
     </select>
 
     <select id="selectCommData" resultType="java.util.HashMap">
-        select 'COMM_SPOT' as CURVE_TYPE, CURVE_CODE, DATA_DATE, TERM_CODE, TERM_DAYS, COMM_PRICE as YIELD_RATE from TB_19_COMM_CURVE
+        select
+            'COMM_SPOT' as CURVE_TYPE,
+            RISKFACTOR_ID as CURVE_CODE,
+            DATA_DATE,
+            coalesce(TERM_CODE, cast(TERM_DAYS as varchar)) as TERM_CODE,
+            coalesce(TERM_DAYS, 0) as TERM_DAYS,
+            "value" as YIELD_RATE
+        from MR_RISKFACTOR_DATA
         <where>
+            RISKFACTOR_TYPE = 'COMM_SPOT'
             <choose>
                 <when test="startDate!= null and endDate!= null">
-                    AND DATA_DATE BETWEEN #{startDate} AND #{endDate}
+                    and DATA_DATE between #{startDate} and #{endDate}
                 </when>
                 <when test="startDate!= null">
-                    AND DATA_DATE = #{startDate}
+                    and DATA_DATE = #{startDate}
                 </when>
                 <when test="endDate!= null">
-                    AND DATA_DATE = #{endDate}
+                    and DATA_DATE = #{endDate}
                 </when>
             </choose>
-            and BINARY CURVE_CODE in (
-            select t2.RISKFACTOR_ID as CURVE_CODE
-            from TB_17_SCENARIO_MP t1
-            left join
-            TB_17_RISKFACTOR_MP t2
-            on t1.RISKGROUP_ID = t2.RISKGROUP_ID
-            where t1.SCENARIO_ID = #{scenarioId}
-            and t2.RISKFACTOR_TYPE = 'COMM_SPOT'
+            and RISKFACTOR_ID in (
+                select distinct CURVE_CODE
+                from MR_SCENARIO_RULE
+                where STATUS = 'ACTIVE'
+                  and SCENARIO_ID = #{scenarioId}
+                  and CURVE_TYPE = 'COMM_SPOT'
+            )
+        </where>
+    </select>
+
+    <select id="selectEqData" resultType="java.util.HashMap">
+        select
+            'EQ_SPOT' as CURVE_TYPE,
+            RISKFACTOR_ID as CURVE_CODE,
+            DATA_DATE,
+            coalesce(TERM_CODE, cast(TERM_DAYS as varchar)) as TERM_CODE,
+            TERM_DAYS as TERM_DAYS,
+            "value" as YIELD_RATE
+        from MR_RISKFACTOR_DATA
+        <where>
+            RISKFACTOR_TYPE = 'EQ_SPOT'
+            <choose>
+                <when test="startDate!= null and endDate!= null">
+                    and DATA_DATE between #{startDate} and #{endDate}
+                </when>
+                <when test="startDate!= null">
+                    and DATA_DATE = #{startDate}
+                </when>
+                <when test="endDate!= null">
+                    and DATA_DATE = #{endDate}
+                </when>
+            </choose>
+            and RISKFACTOR_ID in (
+                select distinct CURVE_CODE
+                from MR_SCENARIO_RULE
+                where STATUS = 'ACTIVE'
+                  and SCENARIO_ID = #{scenarioId}
+                  and CURVE_TYPE = 'EQ_SPOT'
             )
         </where>
     </select>
 
     <select id="selectFxVolData" resultType="java.util.HashMap">
-        select 'FX_VOL' as CURVE_TYPE, CURVE_CODE, DATA_DATE, TERM_CODE, TERM_DAYS, DELTA, BFRR_TYPE, VOLATILITY_RATE as YIELD_RATE from TB_19_FX_VOL
+        select
+            'FX_VOL' as CURVE_TYPE,
+            RISKFACTOR_ID as CURVE_CODE,
+            DATA_DATE,
+            coalesce(TERM_CODE, cast(TERM_DAYS as varchar)) as TERM_CODE,
+            coalesce(TERM_DAYS, 0) as TERM_DAYS,
+            null as DELTA,
+            null as BFRR_TYPE,
+            "value" as YIELD_RATE
+        from MR_RISKFACTOR_DATA
         <where>
+            RISKFACTOR_TYPE = 'FX_VOL'
             <choose>
                 <when test="startDate!= null and endDate!= null">
-                    AND DATA_DATE BETWEEN #{startDate} AND #{endDate}
+                    and DATA_DATE between #{startDate} and #{endDate}
                 </when>
                 <when test="startDate!= null">
-                    AND DATA_DATE = #{startDate}
+                    and DATA_DATE = #{startDate}
                 </when>
                 <when test="endDate!= null">
-                    AND DATA_DATE = #{endDate}
+                    and DATA_DATE = #{endDate}
                 </when>
             </choose>
-            and BINARY CURVE_CODE in (
-            select t2.RISKFACTOR_ID as CURVE_CODE
-            from TB_17_SCENARIO_MP t1
-            left join
-            TB_17_RISKFACTOR_MP t2
-            on t1.RISKGROUP_ID = t2.RISKGROUP_ID
-            where t1.SCENARIO_ID = #{scenarioId}
-            and t2.RISKFACTOR_TYPE = 'FX_VOL'
+            and RISKFACTOR_ID in (
+                select distinct CURVE_CODE
+                from MR_SCENARIO_RULE
+                where STATUS = 'ACTIVE'
+                  and SCENARIO_ID = #{scenarioId}
+                  and CURVE_TYPE = 'FX_VOL'
             )
         </where>
     </select>
 
     <select id="selectIrVolData" resultType="java.util.HashMap">
-        select 'IR_VOL' as CURVE_TYPE, CURVE_CODE, DATA_DATE, TERM_CODE, TERM_DAYS, UND_TERM_CODE AS DELTA, VOLATILITY_RATE as YIELD_RATE from TB_19_IR_VOL
+        select
+            'IR_VOL' as CURVE_TYPE,
+            RISKFACTOR_ID as CURVE_CODE,
+            DATA_DATE,
+            coalesce(TERM_CODE, cast(TERM_DAYS as varchar)) as TERM_CODE,
+            coalesce(TERM_DAYS, 0) as TERM_DAYS,
+            null as DELTA,
+            "value" as YIELD_RATE
+        from MR_RISKFACTOR_DATA
         <where>
+            RISKFACTOR_TYPE = 'IR_VOL'
             <choose>
                 <when test="startDate!= null and endDate!= null">
-                    AND DATA_DATE BETWEEN #{startDate} AND #{endDate}
+                    and DATA_DATE between #{startDate} and #{endDate}
                 </when>
                 <when test="startDate!= null">
-                    AND DATA_DATE = #{startDate}
+                    and DATA_DATE = #{startDate}
                 </when>
                 <when test="endDate!= null">
-                    AND DATA_DATE = #{endDate}
+                    and DATA_DATE = #{endDate}
                 </when>
             </choose>
-            and BINARY CURVE_CODE in (
-            select t2.RISKFACTOR_ID as CURVE_CODE
-            from TB_17_SCENARIO_MP t1
-            left join
-            TB_17_RISKFACTOR_MP t2
-            on t1.RISKGROUP_ID = t2.RISKGROUP_ID
-            where t1.SCENARIO_ID = #{scenarioId}
-            and t2.RISKFACTOR_TYPE = 'IR_VOL'
+            and RISKFACTOR_ID in (
+                select distinct CURVE_CODE
+                from MR_SCENARIO_RULE
+                where STATUS = 'ACTIVE'
+                  and SCENARIO_ID = #{scenarioId}
+                  and CURVE_TYPE = 'IR_VOL'
             )
         </where>
     </select>
 
     <select id="selectCommVolData" resultType="java.util.HashMap">
-        <!--    这里写一个BFRR_TYPE 为了使用fx_vol的代码    -->
-        select 'COMM_VOL' as CURVE_TYPE, CURVE_CODE, DATA_DATE, TERM_CODE, TERM_DAYS, DELTA, 'BFRR_TYPE' AS BFRR_TYPE, VOLATILITY_RATE as YIELD_RATE from TB_19_COMM_VOL
+        select
+            'COMM_VOL' as CURVE_TYPE,
+            RISKFACTOR_ID as CURVE_CODE,
+            DATA_DATE,
+            coalesce(TERM_CODE, cast(TERM_DAYS as varchar)) as TERM_CODE,
+            coalesce(TERM_DAYS, 0) as TERM_DAYS,
+            null as DELTA,
+            'BFRR_TYPE' as BFRR_TYPE,
+            "value" as YIELD_RATE
+        from MR_RISKFACTOR_DATA
         <where>
+            RISKFACTOR_TYPE = 'COMM_VOL'
             <choose>
                 <when test="startDate!= null and endDate!= null">
-                    AND DATA_DATE BETWEEN #{startDate} AND #{endDate}
+                    and DATA_DATE between #{startDate} and #{endDate}
                 </when>
                 <when test="startDate!= null">
-                    AND DATA_DATE = #{startDate}
+                    and DATA_DATE = #{startDate}
                 </when>
                 <when test="endDate!= null">
-                    AND DATA_DATE = #{endDate}
+                    and DATA_DATE = #{endDate}
                 </when>
             </choose>
-            and BINARY CURVE_CODE in (
-            select t2.RISKFACTOR_ID as CURVE_CODE
-            from TB_17_SCENARIO_MP t1
-            left join
-            TB_17_RISKFACTOR_MP t2
-            on t1.RISKGROUP_ID = t2.RISKGROUP_ID
-            where t1.SCENARIO_ID = #{scenarioId}
-            and t2.RISKFACTOR_TYPE = 'COMM_VOL'
+            and RISKFACTOR_ID in (
+                select distinct CURVE_CODE
+                from MR_SCENARIO_RULE
+                where STATUS = 'ACTIVE'
+                  and SCENARIO_ID = #{scenarioId}
+                  and CURVE_TYPE = 'COMM_VOL'
+            )
+        </where>
+    </select>
+
+    <select id="selectEqVolData" resultType="java.util.HashMap">
+        select
+            'EQ_VOL' as CURVE_TYPE,
+            RISKFACTOR_ID as CURVE_CODE,
+            DATA_DATE,
+            coalesce(TERM_CODE, cast(TERM_DAYS as varchar)) as TERM_CODE,
+            coalesce(TERM_DAYS, 0) as TERM_DAYS,
+            null as DELTA,
+            null as BFRR_TYPE,
+            "value" as YIELD_RATE
+        from MR_RISKFACTOR_DATA
+        <where>
+            RISKFACTOR_TYPE = 'EQ_VOL'
+            <choose>
+                <when test="startDate!= null and endDate!= null">
+                    and DATA_DATE between #{startDate} and #{endDate}
+                </when>
+                <when test="startDate!= null">
+                    and DATA_DATE = #{startDate}
+                </when>
+                <when test="endDate!= null">
+                    and DATA_DATE = #{endDate}
+                </when>
+            </choose>
+            and RISKFACTOR_ID in (
+                select distinct CURVE_CODE
+                from MR_SCENARIO_RULE
+                where STATUS = 'ACTIVE'
+                  and SCENARIO_ID = #{scenarioId}
+                  and CURVE_TYPE = 'EQ_VOL'
             )
         </where>
     </select>
@@ -283,9 +402,9 @@
     </delete>
 
     <insert id="insertScenario" parameterType="java.util.List">
-        INSERT INTO TB_17_SCENARIO_RESULT_TMP (SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,RISKGROUP_ID,RISKFACTOR_TYPE,RISKFACTOR_ID,RISKFACTOR_VERTEX1,RISKFACTOR_VERTEX2,CHANGE_VALUE,DATA_DATE,RISKFACTOR_TERM,ORI_VALUE,SCENARIO_RESULT,UPDATE_TIME,MODIFIER) VALUES
+        INSERT INTO TB_17_SCENARIO_RESULT_TMP (SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,RISKFACTOR_TYPE,RISKFACTOR_ID,RISKFACTOR_VERTEX1,RISKFACTOR_VERTEX2,CHANGE_VALUE,DATA_DATE,RISKFACTOR_TERM,ORI_VALUE,SCENARIO_RESULT,UPDATE_TIME,MODIFIER) VALUES
         <foreach collection="list" item="item" index="index" separator=",">
-            (#{item.SCENARIO_ID},#{item.SUBSCENARIO_ID},#{item.SCENARIO_NAME},#{item.SCENARIO_TYPE},#{item.RISKGROUP_ID},#{item.CURVE_TYPE},#{item.CURVE_CODE},#{item.TERM_DAYS},#{item.DELTA},#{item.SCENARIO_SHIFT_VALUE},#{item.DATA_DATE},#{item.TERM_CODE},#{item.YIELD_RATE},#{item.CHANGED_RATE},#{item.UPDATE_TIME,jdbcType=DATE},#{item.MODIFIER})
+            (#{item.SCENARIO_ID},#{item.SUBSCENARIO_ID},#{item.SCENARIO_NAME},#{item.SCENARIO_TYPE},#{item.CURVE_TYPE},#{item.CURVE_CODE},#{item.TERM_DAYS},#{item.DELTA},#{item.SCENARIO_SHIFT_VALUE},#{item.DATA_DATE},#{item.TERM_CODE},#{item.YIELD_RATE},#{item.CHANGED_RATE},#{item.UPDATE_TIME,jdbcType=DATE},#{item.MODIFIER})
         </foreach>
 
     </insert>

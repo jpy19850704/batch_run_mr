@@ -44,6 +44,60 @@ CREATE INDEX IF NOT EXISTS idx_mr_market_curve_input_type
 CREATE INDEX IF NOT EXISTS idx_mr_market_curve_input_curve
     ON mr_market_curve_input (curve_id);
 
+CREATE TABLE IF NOT EXISTS mr_riskfactor_data (
+    data_date DATE NOT NULL,
+    riskfactor_type VARCHAR(64) NOT NULL,
+    riskfactor_id VARCHAR(128) NOT NULL,
+    term_code VARCHAR(64),
+    term_days INT,
+    obs_date DATE NOT NULL,
+    riskfactor_value DECIMAL(30, 12) NOT NULL,
+    currency VARCHAR(32),
+    source_system VARCHAR(128),
+    version_no INT NOT NULL DEFAULT 1,
+    modifier VARCHAR(128),
+    updated_at BIGINT NOT NULL,
+    CONSTRAINT pk_mr_riskfactor_data PRIMARY KEY (
+        data_date, riskfactor_type, riskfactor_id, obs_date, term_code
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_mr_riskfactor_data_main
+    ON mr_riskfactor_data (data_date, riskfactor_type, riskfactor_id);
+
+CREATE TABLE IF NOT EXISTS mr_scenario_rule (
+    scenario_id VARCHAR(128) NOT NULL,
+    line_no INT NOT NULL,
+    scenario_name VARCHAR(256) NOT NULL,
+    scenario_type VARCHAR(32) NOT NULL,
+    curve_type VARCHAR(64),
+    curve_code VARCHAR(128),
+    term_code VARCHAR(64),
+    term_days INT,
+    scenario_no INT,
+    increase_days INT,
+    junp_day_no INT,
+    shock_type VARCHAR(32),
+    cal_start_date DATE,
+    cal_end_date DATE,
+    start_date DATE,
+    holiday_calendar VARCHAR(64),
+    scenario_shift_value DECIMAL(30, 12),
+    scenario_shift_rule VARCHAR(32),
+    status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
+    remark VARCHAR(512),
+    modifier VARCHAR(128),
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL,
+    CONSTRAINT pk_mr_scenario_rule PRIMARY KEY (scenario_id, line_no)
+);
+
+CREATE INDEX IF NOT EXISTS idx_mr_scenario_rule_type
+    ON mr_scenario_rule (scenario_type, status);
+
+CREATE INDEX IF NOT EXISTS idx_mr_scenario_rule_curve
+    ON mr_scenario_rule (scenario_id, curve_type, curve_code);
+
 CREATE TABLE IF NOT EXISTS mr_agg_rule (
     rule_id VARCHAR(128) PRIMARY KEY,
     rule_type VARCHAR(64) NOT NULL,

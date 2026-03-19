@@ -14,6 +14,11 @@ CREATE TABLE IF NOT EXISTS mr_async_job (
     error_message VARCHAR(1024),
     result_json TEXT,
     idempotency_key VARCHAR(128),
+    trace_id VARCHAR(128),
+    client_id VARCHAR(128),
+    user_id VARCHAR(128),
+    user_name VARCHAR(128),
+    source_system VARCHAR(128),
     cancel_requested SMALLINT NOT NULL DEFAULT 0,
     owner_node VARCHAR(128),
     updated_at BIGINT NOT NULL
@@ -24,4 +29,3 @@ CREATE UNIQUE INDEX uk_mr_async_job_idem ON mr_async_job(idempotency_key);
 
 -- 状态索引（便于状态查询和历史清理）
 CREATE INDEX idx_mr_async_job_status ON mr_async_job(status);
-

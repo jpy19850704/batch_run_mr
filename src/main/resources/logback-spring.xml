@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>{"time":"%date{yyyy-MM-dd HH:mm:ss.SSS}","level":"%level","thread":"%thread","logger":"%logger{36}","traceId":"%X{traceId:-}","requestId":"%X{requestId:-}","clientId":"%X{clientId:-}","userId":"%X{userId:-}","jobId":"%X{jobId:-}","batchId":"%X{batchId:-}","engineCode":"%X{engineCode:-}","message":"%msg"}%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="com.zcyh.mr" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <root level="ERROR">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
