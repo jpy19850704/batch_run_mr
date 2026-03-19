@@ -56,10 +56,21 @@
             <artifactId>mysql-connector-java</artifactId>
             <version>${mysql-connector-java.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <sourceDirectory>${project.basedir}/../src/main/java</sourceDirectory>
+        <testSourceDirectory>${project.basedir}/../src/test/java</testSourceDirectory>
         <resources>
             <resource>
                 <directory>${project.basedir}/../src/main/resources</directory>
@@ -77,9 +88,26 @@
                         <exclude>com/zcyh/mr/frtbsa/sba/FrtbSaCaseTest.java</exclude>
                         <exclude>com/zcyh/mr/frtbsa/sba/FrtbSaCsvSmokeTest.java</exclude>
                     </excludes>
+                    <testIncludes>
+                        <!-- 先收敛稳定可执行测试集，保证 CI 可持续 -->
+                        <testInclude>com/zcyh/mr/basic/util/ConfigureTest.java</testInclude>
+                        <testInclude>com/zcyh/mr/core/BondFuncTest.java</testInclude>
+                        <testInclude>com/zcyh/mr/calc/CommFwdCalcHelperTest.java</testInclude>
+                        <testInclude>com/zcyh/mr/outer/engine/FrtbEngineAdapterInputContractTest.java</testInclude>
+                    </testIncludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <includes>
+                        <include>**/ConfigureTest.java</include>
+                        <include>**/BondFuncTest.java</include>
+                        <include>**/CommFwdCalcHelperTest.java</include>
+                        <include>**/FrtbEngineAdapterInputContractTest.java</include>
+                    </includes>
                 </configuration>
             </plugin>
         </plugins>
     </build>
 </project>
-
