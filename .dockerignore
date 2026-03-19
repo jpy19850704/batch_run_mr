@@ -1,5 +1,6 @@
 .git
 .gitignore
+.gitmodules
 .idea
 .vscode
 
@@ -13,12 +14,13 @@
 bin
 bin_mr_javac
 lib
-mc
-product
-engine
+data
+scripts
 
+docker-compose.yml
 tmp_*
 *.csv
 *.pdf
 *.bat
-
+*.py
+*.md

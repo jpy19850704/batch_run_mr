@@ -1,9 +1,9 @@
-# Git 提交流程规则
+﻿# Git 提交流程规则
 
 ## 1. 仓库结构
 
-- 主仓：d:\后端代码\engine
-- 子仓（submodule）：d:\后端代码\engine\src\main\java\com\zcyh\mr
+- 主仓：E:\zcyh_mr\engine
+- 子仓（submodule）：E:\zcyh_mr\engine\src\main\java\com\zcyh\mr
 
 ## 2. 提交流程
 
@@ -26,3 +26,4 @@
 
 - 每次提交必须保证可编译。
 - 涉及接口或任务流程改动时，必须包含对应测试或回归验证结果。
+
