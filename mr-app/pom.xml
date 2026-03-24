@@ -64,14 +64,13 @@
         <testOutputDirectory>${project.basedir}/target/test-classes</testOutputDirectory>
         <resources>
             <resource>
-                <directory>${project.basedir}/../src/main/resources</directory>
+                <directory>${project.basedir}/src/main/resources</directory>
                 <includes>
                     <include>application.properties</include>
                     <include>logback-spring.xml</include>
                     <include>db/**</include>
                     <include>static/**</include>
                     <include>mapper/**</include>
-                    <include>com/**</include>
                 </includes>
             </resource>
         </resources>

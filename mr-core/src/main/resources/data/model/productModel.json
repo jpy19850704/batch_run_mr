@@ -1,0 +1,212 @@
+{
+  "CAPFLOOR": {
+    "TRADE": {
+      "SPREAD": 0,
+      "INTEREST_RATE": 0,
+      "INTEREST_STUB": "LongEnd",
+      "INCLUDE_TODAY_CASHFLOW": true,
+      "COUPON_PRORATED": true,
+      "NOTIONAL_FLAG": "",
+      "ADJUST_FLAG": true,
+      "FLOATING_INDEX_FREQ": "smp",
+      "FLOATING_INDEX_DCB": "Actual/365",
+      "LAST_RESET_RATE": 0,
+      "SETTLE_RULE" : "Regular_Following",
+      "SETTLE_DAYOFF" : 0,
+      "FIXING_RULE" : "Regular_Preceding",
+      "FIXING_DAYOFF" : 0,
+      "DAY_COUNT_BASIS" : "Actual/365"
+    }
+  },
+  "BOND": {
+    "TRADE": {
+      "NOTIONAL_FLAG": "END",
+      "LAST_RESET_RATE": 0,
+      "NOTIONAL": 100,
+      "INTEREST_STUB": "LongStart",
+      "DAY_COUNT_BASIS": "Actual/365",
+      "SETTLE_RULE": "Regular_Following",
+      "SETTLE_DAYOFF": 0,
+      "INCLUDE_TODAY_CASHFLOW": true,
+      "SPREAD": 0,
+      "RESET_RULE": "Regular_Preceding",
+      "RESET_DAYOFF": 0,
+      "POSITION_TRADE": 1,
+      "ADJUST_FLAG": true,
+      "FLOATING_INDEX_FREQ": "smp",
+      "FLOATING_INDEX_DCB": "Actual/365",
+      "ABS_FLAG": false,
+      "COUPON_PRORATED": true,
+      "ISSUER_RATING": "Unrated",
+      "DRC_LGD": 0.75,
+      "INTEREST_TYPE" : "Fixed",
+      "INTEREST_RATE" : 0
+    }
+  },
+  "IRSCCS": {
+    "TRADE": {
+      "PAY_DAY_COUNT_BASIS": "Actual/365",
+      "PAY_SETTLE_RULE": "Regular_Following",
+      "PAY_SETTLE_DAYOFF": 0,
+      "PAY_LAST_FIXING_RATE": 0,
+      "PAY_SPREAD": 0,
+      "PAY_FIXING_RULE": "Regular_Preceding",
+      "PAY_FIXING_DAYOFF": 0,
+      "PAY_FLOATING_INDEX_FREQ": "smp",
+      "PAY_FLOATING_INDEX_DCB": "Actual/365",
+      "REC_DAY_COUNT_BASIS": "Actual/365",
+      "REC_SETTLE_RULE": "Regular_Following",
+      "REC_SETTLE_DAYOFF": 0,
+      "REC_LAST_FIXING_RATE": 0,
+      "REC_SPREAD": 0,
+      "REC_FIXING_RULE": "Regular_Preceding",
+      "REC_FIXING_DAYOFF": 0,
+      "REC_FLOATING_INDEX_FREQ": "smp",
+      "REC_FLOATING_INDEX_DCB": "Actual/365",
+      "PAY_INTEREST_TYPE" : "Fixed",
+      "REC_INTEREST_TYPE" : "Fixed",
+      "PAY_INTEREST" : 0,
+      "REC_INTEREST" : 0
+
+    }
+  },
+  "BOND_FUTURE": {
+    "TRADE": {
+      "UNDERLYING_POSITION": 1
+    },
+    "UNDERLYING_DATA": {
+      "NOTIONAL_FLAG": "END",
+      "LAST_RESET_RATE": 0,
+      "NOTIONAL": 100,
+      "INTEREST_STUB": "LongStart",
+      "DAY_COUNT_BASIS": "Actual/365",
+      "SETTLE_RULE": "Regular_Following",
+      "SETTLE_DAYOFF": 0,
+      "INCLUDE_TODAY_CASHFLOW": true,
+      "SPREAD": 0,
+      "RESET_RULE": "Regular_Preceding",
+      "RESET_DAYOFF": 0,
+      "POSITION_TRADE": 1,
+      "ADJUST_FLAG": true,
+      "FLOATING_INDEX_FREQ": "smp",
+      "FLOATING_INDEX_DCB": "Actual/365",
+      "ABS_FLAG": false,
+      "COUPON_PRORATED": true,
+      "ISSUER_RATING": "Unrated",
+      "DRC_LGD": 0.75,
+      "INTEREST_TYPE" : "Fixed",
+      "INTEREST_RATE" : 0
+    }
+  },
+  "CDS": {
+    "TRADE": {
+      "INTEREST_STUB": "LongEnd",
+      "RECOVERY_RATE": 0.4,
+      "DAY_COUNT_BASIS": "Actual/365",
+      "UNDERLYING_ISSUER_ID" : "null",
+      "FIXED_RATE" : 0
+
+    },
+    "UNDERLYING_DATA": {
+      "NOTIONAL_FLAG": "END",
+      "LAST_RESET_RATE": 0,
+      "NOTIONAL": 100,
+      "INTEREST_STUB": "LongStart",
+      "DAY_COUNT_BASIS": "Actual/365",
+      "SETTLE_RULE": "Regular_Following",
+      "SETTLE_DAYOFF": 0,
+      "INCLUDE_TODAY_CASHFLOW": true,
+      "SPREAD": 0,
+      "RESET_RULE": "Regular_Preceding",
+      "RESET_DAYOFF": 0,
+      "POSITION_TRADE": 1,
+      "ADJUST_FLAG": true,
+      "FLOATING_INDEX_FREQ": "smp",
+      "FLOATING_INDEX_DCB": "Actual/365",
+      "ABS_FLAG": false,
+      "COUPON_PRORATED": true,
+      "ISSUER_RATING": "Unrated",
+      "DRC_LGD": 0.75,
+      "INTEREST_TYPE" : "Fixed",
+      "INTEREST_RATE" : 0
+    }
+  },
+  "FXOPT_RA" : {
+    "TRADE": {
+      "CONTRACT_SIZE": 1,
+      "SETTLE_TYPE" : "CASH"
+    }
+  },
+  "COMMFWD" : {
+    "TRADE": {
+      "FRTB_COMM_ASSET": "null",
+      "FRTB_COMM_LOCATION" : "null",
+      "FRTB_COMM_BUCKET" : "Bucket 11"
+    }
+  },
+  "COMMSWAP" : {
+    "TRADE": {
+      "FRTB_COMM_ASSET": "null",
+      "FRTB_COMM_LOCATION" : "null",
+      "FRTB_COMM_BUCKET" : "Bucket 11"
+    }
+  },
+  "COMMOPT" : {
+    "TRADE": {
+      "FRTB_COMM_ASSET": "null",
+      "FRTB_COMM_LOCATION" : "null",
+      "FRTB_COMM_BUCKET" : "Bucket 11",
+      "SETTLE_TYPE": "PHYSICAL",
+      "OPTION_TYPE": "EUROPEAN"
+    }
+  },
+  "FX_SPREADOPT" : {
+    "TRADE": {
+      "CONTRACT_SIZE": 1,
+      "SETTLE_TYPE": "CASH",
+      "CALL_OR_PUT": "CALL"
+    }
+  },
+  "EQ_SPREADOPT" : {
+    "TRADE": {
+      "CONTRACT_SIZE": 1,
+      "SETTLE_TYPE": "CASH",
+      "CALL_OR_PUT": "CALL"
+    }
+  },
+  "COMM_SPREADOPT" : {
+    "TRADE": {
+      "CONTRACT_SIZE": 1,
+      "SETTLE_TYPE": "CASH",
+      "CALL_OR_PUT": "CALL"
+    }
+  },
+  "FX_SHARKFIN" : {
+    "TRADE": {
+      "CONTRACT_SIZE": 1,
+      "SETTLE_TYPE": "CASH",
+      "CALL_OPTION": "true"
+    }
+  },
+  "EQ_SHARKFIN" : {
+    "TRADE": {
+      "CONTRACT_SIZE": 1,
+      "SETTLE_TYPE": "CASH",
+      "CALL_OPTION": "true"
+    }
+  },
+  "COMM_SHARKFIN" : {
+    "TRADE": {
+      "CONTRACT_SIZE": 1,
+      "SETTLE_TYPE": "CASH",
+      "CALL_OPTION": "true"
+    }
+  },
+  "IR_SHARKFIN" : {
+    "TRADE": {
+      "CONTRACT_SIZE": 1,
+      "SETTLE_TYPE": "CASH",
+      "CALL_OPTION": "true"
+    }
+  }
+}

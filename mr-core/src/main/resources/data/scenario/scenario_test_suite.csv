@@ -1,0 +1,20 @@
+CASE_NAME,RISK_FACTOR_TYPE,SECTION,USER,CURVE_TYPE,CURVE_CODE,VERTEX2,TERM_CODE,TERM_DAYS,YIELD_RATE,SCENARIO_SHIFT_VALUE,SCENARIO_SHIFT_RULE,SCENARIO_CODE,SCENARIO_NAME,SCENARIO_TYPE,EXPECTED_CHANGED_RATE,CHECK_METADATA
+ir_spot_interpolation_absolute,IR_SPOT,DATA,scenario_tester,IR_SPOT,IR_CURVE_CNY,,3M,90,0.03000,,,,,,,,,
+ir_spot_interpolation_absolute,IR_SPOT,DATA,scenario_tester,IR_SPOT,IR_CURVE_CNY,,6M,180,0.03200,,,,,,,,,
+ir_spot_interpolation_absolute,IR_SPOT,DATA,scenario_tester,IR_SPOT,IR_CURVE_CNY,,1Y,365,0.04000,,,,,,,,,
+ir_spot_interpolation_absolute,IR_SPOT,CONTROL,scenario_tester,IR_SPOT,IR_CURVE_CNY,,,90,,0.00500,ABSOLUTE,SCN_IR_001,IR ABS SHOCK,CUSTOM,RG_IR,,
+ir_spot_interpolation_absolute,IR_SPOT,CONTROL,scenario_tester,IR_SPOT,IR_CURVE_CNY,,,365,,0.01500,ABSOLUTE,SCN_IR_001,IR ABS SHOCK,CUSTOM,RG_IR,,
+ir_spot_interpolation_absolute,IR_SPOT,EXPECTED,scenario_tester,,IR_CURVE_CNY,,3M,,,,,,,,,0.03500,true
+ir_spot_interpolation_absolute,IR_SPOT,EXPECTED,scenario_tester,,IR_CURVE_CNY,,6M,,,,,,,,,0.04027,true
+ir_spot_interpolation_absolute,IR_SPOT,EXPECTED,scenario_tester,,IR_CURVE_CNY,,1Y,,,,,,,,,0.05500,true
+fx_spot_single_shift_absolute,FX_SPOT,DATA,scenario_tester,FX_SPOT,USDCNY,,SPOT,0,7.20000,,,,,,,,,
+fx_spot_single_shift_absolute,FX_SPOT,DATA,scenario_tester,FX_SPOT,USDCNY,,1M,30,7.21000,,,,,,,,,
+fx_spot_single_shift_absolute,FX_SPOT,CONTROL,scenario_tester,FX_SPOT,USDCNY,,,0,,-0.20000,ABSOLUTE,SCN_FX_001,FX ABS SHOCK,CUSTOM,RG_FX,,
+fx_spot_single_shift_absolute,FX_SPOT,EXPECTED,scenario_tester,,USDCNY,,SPOT,,,,,,,,,7.00000,true
+fx_spot_single_shift_absolute,FX_SPOT,EXPECTED,scenario_tester,,USDCNY,,1M,,,,,,,,,7.01000,true
+fx_vol_relative_and_postprocess,FX_VOL,DATA,scenario_tester,FX_VOL,FXVOL_USDCNY,25D,1M,30,0.12000,,,,,,,,,
+fx_vol_relative_and_postprocess,FX_VOL,DATA,scenario_tester,FX_VOL,FXVOL_USDCNY,25D,3M,90,0.18000,,,,,,,,,
+fx_vol_relative_and_postprocess,FX_VOL,CONTROL,scenario_tester,FX_VOL,FXVOL_USDCNY,,,30,,0.10000,RELATIVE,SCN_FXV_001,FXVOL REL SHOCK,CUSTOM,RG_FXV,,
+fx_vol_relative_and_postprocess,FX_VOL,CONTROL,scenario_tester,FX_VOL,FXVOL_USDCNY,,,90,,0.20000,RELATIVE,SCN_FXV_001,FXVOL REL SHOCK,CUSTOM,RG_FXV,,
+fx_vol_relative_and_postprocess,FX_VOL,EXPECTED,scenario_tester,,FXVOL_USDCNY,25D,1M_25D,,,,,,,,,0.13200,true
+fx_vol_relative_and_postprocess,FX_VOL,EXPECTED,scenario_tester,,FXVOL_USDCNY,25D,3M_25D,,,,,,,,,0.21600,true

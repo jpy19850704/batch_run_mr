@@ -69,11 +69,11 @@
     </dependencies>
 
     <build>
-        <sourceDirectory>${project.basedir}/../src/main/java</sourceDirectory>
-        <testSourceDirectory>${project.basedir}/../src/test/java</testSourceDirectory>
+        <sourceDirectory>${project.basedir}/src/main/java</sourceDirectory>
+        <testSourceDirectory>${project.basedir}/src/test/java</testSourceDirectory>
         <resources>
             <resource>
-                <directory>${project.basedir}/../src/main/resources</directory>
+                <directory>${project.basedir}/src/main/resources</directory>
             </resource>
         </resources>
         <plugins>
@@ -81,8 +81,6 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <excludes>
-                        <!-- Spring Boot 外壳由 mr-app 模块编译 -->
-                        <exclude>com/zcyh/mr/springboot/**</exclude>
                         <!-- 历史未收敛代码先隔离，避免阻塞核心模块编译 -->
                         <exclude>com/zcyh/batch/**</exclude>
                         <exclude>com/zcyh/mr/frtbsa/sba/FrtbSaCaseTest.java</exclude>
