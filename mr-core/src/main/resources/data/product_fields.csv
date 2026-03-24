@@ -4,7 +4,7 @@ BOND,利率,ADJUST_FLAG,布尔,调整标志,,
 BOND,利率,AMORTIZATION_SCHEDULE,List<StructuredCashflow.AmortizationEntry>,摊销计划,,"JSON数组[{date,principal,rate}]"
 BOND,利率,AMOUNT,浮点数,,,
 BOND,利率,BOND_ID,字符串,债券ID,,
-BOND,利率,B_ANAL_DIRTY_CNBD,浮点数,,,
+BOND,利率,DIRTY_PRICE,浮点数,脏价,, 
 BOND,利率,CALLPUT_DATE,List<CallPutDate>,,,
 BOND,利率,CASHFLOW,浮点数,,,
 BOND,利率,CASHFLOW_TYPE,字符串,,,

@@ -4,7 +4,7 @@ BOND,利率,ADJUST_FLAG,adjustFlag,布尔,,,
 BOND,利率,AMORTIZATION_SCHEDULE,amortizationSchedule,List<StructuredCashflow.AmortizationEntry>,摊销计划,,"JSON数组[{date,principal,rate}]"
 BOND,利率,AMOUNT,amount,浮点数,,,
 BOND,利率,BOND_ID,bondId,字符串,,,
-BOND,利率,B_ANAL_DIRTY_CNBD,bAnalDirtyCnbd,浮点数,,,
+BOND,利率,DIRTY_PRICE,dirtyPrice,浮点数,脏价,,
 BOND,利率,CALLPUT_DATE,callPutDate,List<CallPutDate>,,,
 BOND,利率,COUPON_PRORATED,couponProrated,布尔,,,
 BOND,利率,CREDIT_SPREAD_CURVE,creditSpreadCurve,字符串,信用点差曲线,,
