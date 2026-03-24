@@ -162,13 +162,9 @@ public class FrtbSbaInputQueryService {
         }
 
         sql.append(" FROM TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL d ")
-                .append("LEFT JOIN MR_TRADE_INPUT t ")
-                .append("ON t.DATA_DATE = d.DATA_DATE ")
-                .append("AND t.TRADE_ID = d.INSTRUMENT_ID ")
-                .append("AND t.VERSION_NO = (")
-                .append("SELECT MAX(t2.VERSION_NO) FROM MR_TRADE_INPUT t2 ")
-                .append("WHERE t2.DATA_DATE = d.DATA_DATE AND t2.TRADE_ID = d.INSTRUMENT_ID")
-                .append(") ")
+                .append("INNER JOIN TB_OUT_TRADE_RESULT_DETAIL r ")
+                .append("ON r.BATCH_ID = d.BATCH_ID ")
+                .append("AND r.INSTRUMENT_ID = d.INSTRUMENT_ID ")
                 .append("WHERE d.BATCH_ID = ? AND d.DATA_DATE = ?");
         params.add(safeBatchId);
         params.add(safeDataDate);
@@ -320,19 +316,19 @@ public class FrtbSbaInputQueryService {
             return null;
         }
         if ("PORTFOLIO".equalsIgnoreCase(safeField)) {
-            return "t.PORTFOLIO";
+            return "r.PORTFOLIO";
         }
         if ("DESK".equalsIgnoreCase(safeField)) {
-            return "t.DESK";
+            return "r.DESK";
         }
         if ("TRADER".equalsIgnoreCase(safeField)) {
-            return "t.TRADER";
+            return "r.TRADER";
         }
         if ("PRODUCT_TYPE".equalsIgnoreCase(safeField)) {
-            return "t.PRODUCT_TYPE";
+            return "r.PRODUCT_CODE";
         }
         if ("TRADE_ID".equalsIgnoreCase(safeField)) {
-            return "t.TRADE_ID";
+            return "r.INSTRUMENT_ID";
         }
         if ("INSTRUMENT_ID".equalsIgnoreCase(safeField)) {
             return "d.INSTRUMENT_ID";

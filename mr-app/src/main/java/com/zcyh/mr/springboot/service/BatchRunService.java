@@ -4,6 +4,8 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
+import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
+import com.zcyh.mr.frtbsa.sba.pojo.FRTBClassResult;
 import com.zcyh.mr.outer.engine.ScenarioEngineAdapter;
 import com.zcyh.mr.springboot.context.RequestContextHolder;
 import com.zcyh.mr.springboot.model.BatchDetailResult;
@@ -14,6 +16,9 @@ import com.zcyh.mr.springboot.model.BatchSubmitResult;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * 批次总编排服务。
  */
@@ -21,10 +26,13 @@ import org.springframework.stereotype.Service;
 public class BatchRunService {
     private static final String DEFAULT_USER = "outer_service";
     private static final String DEFAULT_TREE_ID = "Batch";
+    private static final String DEFAULT_RULE_ID = "BATCH_FRTB_DEFAULT";
 
     private final ScenarioEngineAdapter scenarioEngineAdapter;
     private final BatchJobService batchJobService;
     private final FrtbSbaDbRunnerService frtbSbaDbRunnerService;
+    private final FrtbSbaResultPersistService frtbSbaResultPersistService;
+    private final FrtbAggregator frtbAggregator;
     private final long waitPollIntervalMs;
     private final long waitTimeoutMs;
     private final String scenarioSetRootDir;
@@ -33,12 +41,16 @@ public class BatchRunService {
             ScenarioEngineAdapter scenarioEngineAdapter,
             BatchJobService batchJobService,
             FrtbSbaDbRunnerService frtbSbaDbRunnerService,
+            FrtbSbaResultPersistService frtbSbaResultPersistService,
+            FrtbAggregator frtbAggregator,
             @Value("${mr.batch.run.wait-poll-interval-ms:1000}") long waitPollIntervalMs,
             @Value("${mr.batch.run.wait-timeout-ms:7200000}") long waitTimeoutMs,
             @Value("${mr.calc.scenario-set.root-dir:}") String scenarioSetRootDir) {
         this.scenarioEngineAdapter = scenarioEngineAdapter;
         this.batchJobService = batchJobService;
         this.frtbSbaDbRunnerService = frtbSbaDbRunnerService;
+        this.frtbSbaResultPersistService = frtbSbaResultPersistService;
+        this.frtbAggregator = frtbAggregator;
         this.waitPollIntervalMs = Math.max(200L, waitPollIntervalMs);
         this.waitTimeoutMs = Math.max(1000L, waitTimeoutMs);
         this.scenarioSetRootDir = scenarioSetRootDir == null ? "" : scenarioSetRootDir.trim();
@@ -72,7 +84,7 @@ public class BatchRunService {
             throw new IllegalStateException("批量任务执行失败，batchId=" + batchId + ", status=" + batchDetail.getStatus());
         }
 
-        Object frtbSummary = runFrtbSummary(dataDate);
+        Object frtbSummary = runFrtbSummary(batchId, dataDate);
 
         BatchRunResult result = new BatchRunResult();
         result.setBatchId(batchId);
@@ -130,20 +142,64 @@ public class BatchRunService {
         throw new IllegalStateException("批量任务等待超时，batchId=" + batchId + ", timeoutMs=" + waitTimeoutMs);
     }
 
-    private Object runFrtbSummary(String dataDate) {
-        JSONObject query = new JSONObject();
-        JSONArray treeIds = new JSONArray();
-        treeIds.add(DEFAULT_TREE_ID);
-        query.put("tree_id_list", treeIds);
-
+    @SuppressWarnings("unchecked")
+    private Object runFrtbSummary(String batchId, String dataDate) {
         JSONObject payload = new JSONObject();
-        payload.put("source_type", "db");
+        payload.put("batch_id", batchId);
         payload.put("data_date", dataDate);
+        payload.put("rule_id", DEFAULT_RULE_ID);
         payload.put("need_decompose", true);
-        payload.put("query", query);
 
-        String raw = frtbSbaDbRunnerService.calculate(payload.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
-        return JSON.parse(raw);
+        String raw = frtbSbaDbRunnerService.calculateByRule(payload.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
+        Object parsed = JSON.parse(raw);
+
+        // 将原始 Map 结果转为 POJO 并落库
+        try {
+            Map<String, Map<String, Object>> batchResult = JSON.parseObject(raw, Map.class);
+            if (batchResult != null && !batchResult.isEmpty()) {
+                // 清理旧数据
+                frtbSbaResultPersistService.deleteByBatch(batchId);
+                // 遍历每个维度组的结果并落库
+                for (Map.Entry<String, Map<String, Object>> entry : batchResult.entrySet()) {
+                    String groupKey = entry.getKey();
+                    // groupKey 格式: treeId|groupValue
+                    String[] parts = groupKey.split("\\|", 2);
+                    String treeId = parts.length > 0 ? parts[0] : null;
+                    String groupValue = parts.length > 1 ? parts[1] : null;
+                    // 从 buildOrder 推断 groupType
+                    String groupType = inferGroupType(groupValue);
+
+                    Map<String, Object> mapResult = entry.getValue();
+
+                    Map<String, List<?>> pojoResult = frtbAggregator.buildResults(
+                            mapResult, treeId, groupType, groupValue);
+                    List<?> classResults = pojoResult.get("classResults");
+                    if (classResults != null) {
+
+                        frtbSbaResultPersistService.persist(
+                                (List<FRTBClassResult>) classResults, batchId, dataDate, DEFAULT_RULE_ID);
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            // 落库失败不影响主流程返回
+            org.slf4j.LoggerFactory.getLogger(BatchRunService.class)
+                    .warn("FRTB SBA 结果落库异常，不影响批量返回: batchId={}, error={}", batchId, ex.getMessage());
+        }
+
+        return parsed;
+    }
+
+    /**
+     * 根据 groupValue 推断 groupType。
+     * TOTAL 值对应 TOTAL 类型，其余根据 buildOrder 默认为 PORTFOLIO。
+     */
+    private static String inferGroupType(String groupValue) {
+        if (groupValue == null || "TOTAL".equalsIgnoreCase(groupValue)
+                || "__EMPTY_GROUP__".equals(groupValue)) {
+            return "TOTAL";
+        }
+        return "PORTFOLIO";
     }
 
     private static void sleepQuietly(long waitMs) {
