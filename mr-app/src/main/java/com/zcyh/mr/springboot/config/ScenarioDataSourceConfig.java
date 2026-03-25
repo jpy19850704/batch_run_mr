@@ -2,7 +2,8 @@ package com.zcyh.mr.springboot.config;
 
 import com.zaxxer.hikari.HikariDataSource;
 import com.zcyh.mr.scenario.ScenarioService;
-import com.zcyh.mr.scenario.util.ScenarioMapper;
+import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
+import com.zcyh.mr.springboot.scenario.mapper.ScenarioMapper;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.SqlSessionTemplate;
@@ -72,6 +73,12 @@ public class ScenarioDataSourceConfig {
         return sqlSessionTemplate.getMapper(ScenarioMapper.class);
     }
 
+    @Bean
+    @ConditionalOnBean(ScenarioMapper.class)
+    public ScenarioRequestAssembler scenarioRequestAssembler(ScenarioMapper scenarioMapper) {
+        return new ScenarioRequestAssembler(scenarioMapper);
+    }
+
     @Bean(name = "scenarioExecutor", destroyMethod = "shutdown")
     @ConditionalOnProperty(prefix = "mr.scenario.service", name = "enabled", havingValue = "true")
     public ExecutorService scenarioExecutor(
@@ -92,11 +99,17 @@ public class ScenarioDataSourceConfig {
     }
 
     @Bean
-    @ConditionalOnBean({ScenarioMapper.class, ExecutorService.class})
+    @ConditionalOnBean({ScenarioRequestAssembler.class, ExecutorService.class})
     public ScenarioService scenarioService(
-            ScenarioMapper scenarioMapper,
+            ScenarioRequestAssembler scenarioRequestAssembler,
             @Qualifier("scenarioExecutor") ExecutorService scenarioExecutor) {
-        return new ScenarioService(scenarioMapper, scenarioExecutor);
+        return new ScenarioService(
+                (scenarioIdList, valuationDate, user) -> scenarioRequestAssembler.build(
+                        scenarioIdList,
+                        valuationDate,
+                        user,
+                        "mr-app"),
+                scenarioExecutor);
     }
 
     private Resource[] resolveScenarioMapperLocations() throws Exception {

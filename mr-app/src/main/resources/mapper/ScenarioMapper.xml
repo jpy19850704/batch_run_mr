@@ -2,7 +2,7 @@
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.zcyh.mr.scenario.util.ScenarioMapper">
+<mapper namespace="com.zcyh.mr.springboot.scenario.mapper.ScenarioMapper">
 
     <select id="selectScenario" resultType="java.util.HashMap">
         select distinct SCENARIO_ID, SCENARIO_TYPE
