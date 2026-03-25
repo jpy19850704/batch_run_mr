@@ -64,8 +64,12 @@ public class EngineRegistryConfig {
     @Bean
     public ScenarioEngineAdapter scenarioEngineAdapter(
             ObjectProvider<ScenarioService> scenarioServiceProvider,
+            ObjectProvider<ScenarioService.ScenarioRequestLoader> scenarioRequestLoaderProvider,
             @Value("${mr.calc.scenario-set.root-dir:}") String scenarioSetRootDir) {
-        return new ScenarioEngineAdapter(scenarioServiceProvider.getIfAvailable(), scenarioSetRootDir);
+        return new ScenarioEngineAdapter(
+                scenarioServiceProvider.getIfAvailable(),
+                scenarioRequestLoaderProvider.getIfAvailable(),
+                scenarioSetRootDir);
     }
 
     @Bean

@@ -79,6 +79,17 @@ public class ScenarioDataSourceConfig {
         return new ScenarioRequestAssembler(scenarioMapper);
     }
 
+    @Bean
+    @ConditionalOnBean(ScenarioRequestAssembler.class)
+    public ScenarioService.ScenarioRequestLoader scenarioRequestLoader(
+            ScenarioRequestAssembler scenarioRequestAssembler) {
+        return (scenarioIdList, valuationDate, user) -> scenarioRequestAssembler.build(
+                scenarioIdList,
+                valuationDate,
+                user,
+                "mr-app");
+    }
+
     @Bean(name = "scenarioExecutor", destroyMethod = "shutdown")
     @ConditionalOnProperty(prefix = "mr.scenario.service", name = "enabled", havingValue = "true")
     public ExecutorService scenarioExecutor(
@@ -99,17 +110,10 @@ public class ScenarioDataSourceConfig {
     }
 
     @Bean
-    @ConditionalOnBean({ScenarioRequestAssembler.class, ExecutorService.class})
+    @ConditionalOnBean({ScenarioService.ScenarioRequestLoader.class, ExecutorService.class})
     public ScenarioService scenarioService(
-            ScenarioRequestAssembler scenarioRequestAssembler,
             @Qualifier("scenarioExecutor") ExecutorService scenarioExecutor) {
-        return new ScenarioService(
-                (scenarioIdList, valuationDate, user) -> scenarioRequestAssembler.build(
-                        scenarioIdList,
-                        valuationDate,
-                        user,
-                        "mr-app"),
-                scenarioExecutor);
+        return new ScenarioService(scenarioExecutor);
     }
 
     private Resource[] resolveScenarioMapperLocations() throws Exception {
