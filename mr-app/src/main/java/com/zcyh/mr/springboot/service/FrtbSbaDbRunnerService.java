@@ -102,6 +102,68 @@ public class FrtbSbaDbRunnerService {
                 JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
 
+    /**
+     * 前端直接传入完整 rule 定义的 FRTB SBA 计量。
+     * 跳过 MR_AGG_RULE 表查询，由前端构造过滤条件和维度排序。
+     */
+    public String calculateByInlineRule(String payloadJson) {
+        JSONObject req = JSON.parseObject(payloadJson);
+        if (req == null) {
+            throw new IllegalArgumentException("payload must be a json object");
+        }
+        boolean needDecompose = parseNeedDecompose(req);
+        int threadCount = parseThreadCount(req);
+        String batchId = requireTopLevelString(req, "batch_id");
+        String dataDate = requireTopLevelString(req, "data_date");
+
+        JSONObject ruleJson = req.getJSONObject("rule");
+        if (ruleJson == null) {
+            throw new IllegalArgumentException("rule 不能为空，需要包含 buildOrder/dimensions/filters 等");
+        }
+        AggregationRule rule = ruleJson.toJavaObject(AggregationRule.class);
+        if (rule == null) {
+            throw new IllegalArgumentException("rule 解析失败");
+        }
+        // 设置内联规则的默认值
+        if (rule.getRuleId() == null || rule.getRuleId().isEmpty()) {
+            rule.setRuleId("INLINE_" + System.currentTimeMillis());
+        }
+        if (rule.getSumFields() == null || rule.getSumFields().isEmpty()) {
+            List<String> defaultSum = new ArrayList<>();
+            defaultSum.add("SENSITIVITY_VAL_INST_CURR_CNY");
+            rule.setSumFields(defaultSum);
+        }
+        if (rule.getGroupByFields() == null || rule.getGroupByFields().isEmpty()) {
+            List<String> defaultGroupBy = new ArrayList<>();
+            defaultGroupBy.add("RISK_FACTOR_ID");
+            defaultGroupBy.add("RISK_FACTOR_VERTEX_1");
+            defaultGroupBy.add("RISK_FACTOR_VERTEX_2");
+            defaultGroupBy.add("RISK_FACTOR_CLASS");
+            defaultGroupBy.add("RISK_FACTOR_BUCKET");
+            defaultGroupBy.add("RISK_FACTOR_TYPE");
+            defaultGroupBy.add("SENSITIVITY_TYPE");
+            rule.setGroupByFields(defaultGroupBy);
+        }
+
+        dimensionAggregationService.validateRule(rule);
+        List<Map<String, Object>> rows = inputQueryService.queryRuleDetailRows(batchId, dataDate, rule);
+        if (rows == null || rows.isEmpty()) {
+            throw new IllegalArgumentException("未查到可用于规则汇总的 FRTB 敏感性明细");
+        }
+
+        List<FrtbInput> inputList = buildRuleDrivenInputs(batchId, dataDate, rule, rows);
+        if (inputList.isEmpty()) {
+            throw new IllegalArgumentException("规则汇总后未生成有效的 frtb_sba 输入数据");
+        }
+        Map<String, List<FrtbInput>> tasks = inputQueryService.groupByTreeIdAndGroupValue(inputList);
+        if (tasks.isEmpty()) {
+            throw new IllegalArgumentException("规则汇总后未生成有效的 frtb_sba 组批任务");
+        }
+        return JSON.toJSONString(
+                aggregator.calculateBatch(tasks, needDecompose, threadCount),
+                JSONWriter.Feature.WriteBigDecimalAsPlain);
+    }
+
     private static boolean parseNeedDecompose(JSONObject req) {
         Boolean needDecompose = req.getBoolean("need_decompose");
         return needDecompose == null ? Boolean.TRUE : needDecompose;

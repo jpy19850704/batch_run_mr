@@ -56,8 +56,11 @@ public class EngineOrchestratorService {
 
         long start = System.currentTimeMillis();
         String raw;
-        if (shouldRunFrtbSbaDbMode(engineCode, payloadJson)) {
+        String sbaMode = detectFrtbSbaMode(engineCode, payloadJson);
+        if ("db".equals(sbaMode)) {
             raw = frtbSbaDbRunnerService.calculateByRule(payloadJson);
+        } else if ("db_inline".equals(sbaMode)) {
+            raw = frtbSbaDbRunnerService.calculateByInlineRule(payloadJson);
         } else {
             raw = adapter.calculate(payloadJson);
         }
@@ -83,19 +86,25 @@ public class EngineOrchestratorService {
         return items;
     }
 
-    private static boolean shouldRunFrtbSbaDbMode(String engineCode, String payloadJson) {
+    /**
+     * 检测 FRTB SBA 模式：db（规则 ID 查库）、db_inline（前端传入完整 rule）、null（非 SBA 或 JSON 直传）
+     */
+    private static String detectFrtbSbaMode(String engineCode, String payloadJson) {
         if (!FrtbSaEngineAdapter.CODE.equals(engineCode)) {
-            return false;
+            return null;
         }
         try {
             JSONObject payload = JSON.parseObject(payloadJson);
             if (payload == null) {
-                return false;
+                return null;
             }
             String sourceType = trimToNull(payload.getString("source_type"));
-            return "db".equalsIgnoreCase(sourceType);
+            if ("db".equalsIgnoreCase(sourceType) || "db_inline".equalsIgnoreCase(sourceType)) {
+                return sourceType.toLowerCase();
+            }
+            return null;
         } catch (Exception ex) {
-            return false;
+            return null;
         }
     }
 
