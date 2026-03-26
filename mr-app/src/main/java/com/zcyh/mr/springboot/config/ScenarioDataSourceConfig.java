@@ -1,7 +1,8 @@
 package com.zcyh.mr.springboot.config;
 
+import com.zcyh.mr.core.Calendar;
 import com.zaxxer.hikari.HikariDataSource;
-import com.zcyh.mr.scenario.ScenarioService;
+import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
 import com.zcyh.mr.springboot.scenario.mapper.ScenarioMapper;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -73,21 +74,17 @@ public class ScenarioDataSourceConfig {
         return sqlSessionTemplate.getMapper(ScenarioMapper.class);
     }
 
-    @Bean
-    @ConditionalOnBean(ScenarioMapper.class)
-    public ScenarioRequestAssembler scenarioRequestAssembler(ScenarioMapper scenarioMapper) {
-        return new ScenarioRequestAssembler(scenarioMapper);
+    @Bean(name = "mrHolidayCalendar")
+    public Calendar mrHolidayCalendar() {
+        return new Calendar();
     }
 
     @Bean
-    @ConditionalOnBean(ScenarioRequestAssembler.class)
-    public ScenarioService.ScenarioRequestLoader scenarioRequestLoader(
-            ScenarioRequestAssembler scenarioRequestAssembler) {
-        return (scenarioIdList, valuationDate, user) -> scenarioRequestAssembler.build(
-                scenarioIdList,
-                valuationDate,
-                user,
-                "mr-app");
+    @ConditionalOnBean({ScenarioMapper.class, Calendar.class})
+    public ScenarioRequestAssembler scenarioRequestAssembler(
+            ScenarioMapper scenarioMapper,
+            @Qualifier("mrHolidayCalendar") Calendar mrHolidayCalendar) {
+        return new ScenarioRequestAssembler(scenarioMapper, mrHolidayCalendar);
     }
 
     @Bean(name = "scenarioExecutor", destroyMethod = "shutdown")
@@ -110,10 +107,11 @@ public class ScenarioDataSourceConfig {
     }
 
     @Bean
-    @ConditionalOnBean({ScenarioService.ScenarioRequestLoader.class, ExecutorService.class})
-    public ScenarioService scenarioService(
-            @Qualifier("scenarioExecutor") ExecutorService scenarioExecutor) {
-        return new ScenarioService(scenarioExecutor);
+    @ConditionalOnBean({ScenarioRequestAssembler.class, ExecutorService.class, Calendar.class})
+    public ScenarioGenerationEngine scenarioGenerationEngine(
+            @Qualifier("scenarioExecutor") ExecutorService scenarioExecutor,
+            @Qualifier("mrHolidayCalendar") Calendar mrHolidayCalendar) {
+        return new ScenarioGenerationEngine(scenarioExecutor, mrHolidayCalendar);
     }
 
     private Resource[] resolveScenarioMapperLocations() throws Exception {

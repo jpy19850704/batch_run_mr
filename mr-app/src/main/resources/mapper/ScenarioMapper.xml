@@ -56,15 +56,22 @@
     <select id="selectMcScenarioMpByScenarioIdList" resultType="java.util.HashMap">
         select
             SCENARIO_ID as SCENARIO_SET_CODE,
+            SCENARIO_ID as SCENARIO_CODE,
             SCENARIO_NAME,
             SCENARIO_TYPE,
             START_DATE,
+            END_DATE,
             SCENARIO_NO,
             SCENARIO_NO as SCENARIO_NUMBER,
             JUNP_DAY_NO,
             INCREASE_DAYS,
             SCENARIO_SHIFT_RULE,
-            CURVE_TYPE as RISKFACTOR_TYPE
+            CURVE_TYPE as RISKFACTOR_TYPE,
+            CURVE_TYPE,
+            CURVE_CODE,
+            RISKGROUP_ID,
+            TERM_CODE,
+            TERM_DAYS
         from MR_SCENARIO_RULE
         <where>
             STATUS = 'ACTIVE'
@@ -86,15 +93,22 @@
     <select id="selectHistoryScenarioMpByScenarioIdList" resultType="java.util.HashMap">
         select
             SCENARIO_ID as SCENARIO_SET_CODE,
+            SCENARIO_ID as SCENARIO_CODE,
             SCENARIO_NAME,
             SCENARIO_TYPE,
             START_DATE,
+            END_DATE,
             SCENARIO_NO,
             JUNP_DAY_NO,
             INCREASE_DAYS,
             SHOCK_TYPE,
             SCENARIO_SHIFT_RULE,
-            CURVE_TYPE as RISKFACTOR_TYPE
+            CURVE_TYPE as RISKFACTOR_TYPE,
+            CURVE_TYPE,
+            CURVE_CODE,
+            RISKGROUP_ID,
+            TERM_CODE,
+            TERM_DAYS
         from MR_SCENARIO_RULE
         <where>
             STATUS = 'ACTIVE'
@@ -135,13 +149,20 @@
                     and DATA_DATE = #{endDate}
                 </when>
             </choose>
-            and RISKFACTOR_ID in (
-                select distinct CURVE_CODE
-                from MR_SCENARIO_RULE
-                where STATUS = 'ACTIVE'
-                  and SCENARIO_ID = #{scenarioId}
-                  and CURVE_TYPE = 'IR_SPOT'
-            )
+            <choose>
+                <when test="curveCode != null and curveCode != ''">
+                    and RISKFACTOR_ID = #{curveCode}
+                </when>
+                <otherwise>
+                    and RISKFACTOR_ID in (
+                        select distinct CURVE_CODE
+                        from MR_SCENARIO_RULE
+                        where STATUS = 'ACTIVE'
+                          and SCENARIO_ID = #{scenarioId}
+                          and CURVE_TYPE = 'IR_SPOT'
+                    )
+                </otherwise>
+            </choose>
         </where>
     </select>
 
@@ -167,13 +188,20 @@
                     and DATA_DATE = #{endDate}
                 </when>
             </choose>
-            and RISKFACTOR_ID in (
-                select distinct CURVE_CODE
-                from MR_SCENARIO_RULE
-                where STATUS = 'ACTIVE'
-                  and SCENARIO_ID = #{scenarioId}
-                  and CURVE_TYPE = 'FX_SPOT'
-            )
+            <choose>
+                <when test="curveCode != null and curveCode != ''">
+                    and RISKFACTOR_ID = #{curveCode}
+                </when>
+                <otherwise>
+                    and RISKFACTOR_ID in (
+                        select distinct CURVE_CODE
+                        from MR_SCENARIO_RULE
+                        where STATUS = 'ACTIVE'
+                          and SCENARIO_ID = #{scenarioId}
+                          and CURVE_TYPE = 'FX_SPOT'
+                    )
+                </otherwise>
+            </choose>
         </where>
     </select>
 
@@ -199,13 +227,20 @@
                     and DATA_DATE = #{endDate}
                 </when>
             </choose>
-            and RISKFACTOR_ID in (
-                select distinct CURVE_CODE
-                from MR_SCENARIO_RULE
-                where STATUS = 'ACTIVE'
-                  and SCENARIO_ID = #{scenarioId}
-                  and CURVE_TYPE = 'COMM_SPOT'
-            )
+            <choose>
+                <when test="curveCode != null and curveCode != ''">
+                    and RISKFACTOR_ID = #{curveCode}
+                </when>
+                <otherwise>
+                    and RISKFACTOR_ID in (
+                        select distinct CURVE_CODE
+                        from MR_SCENARIO_RULE
+                        where STATUS = 'ACTIVE'
+                          and SCENARIO_ID = #{scenarioId}
+                          and CURVE_TYPE = 'COMM_SPOT'
+                    )
+                </otherwise>
+            </choose>
         </where>
     </select>
 
@@ -231,13 +266,20 @@
                     and DATA_DATE = #{endDate}
                 </when>
             </choose>
-            and RISKFACTOR_ID in (
-                select distinct CURVE_CODE
-                from MR_SCENARIO_RULE
-                where STATUS = 'ACTIVE'
-                  and SCENARIO_ID = #{scenarioId}
-                  and CURVE_TYPE = 'EQ_SPOT'
-            )
+            <choose>
+                <when test="curveCode != null and curveCode != ''">
+                    and RISKFACTOR_ID = #{curveCode}
+                </when>
+                <otherwise>
+                    and RISKFACTOR_ID in (
+                        select distinct CURVE_CODE
+                        from MR_SCENARIO_RULE
+                        where STATUS = 'ACTIVE'
+                          and SCENARIO_ID = #{scenarioId}
+                          and CURVE_TYPE = 'EQ_SPOT'
+                    )
+                </otherwise>
+            </choose>
         </where>
     </select>
 
@@ -265,13 +307,20 @@
                     and DATA_DATE = #{endDate}
                 </when>
             </choose>
-            and RISKFACTOR_ID in (
-                select distinct CURVE_CODE
-                from MR_SCENARIO_RULE
-                where STATUS = 'ACTIVE'
-                  and SCENARIO_ID = #{scenarioId}
-                  and CURVE_TYPE = 'FX_VOL'
-            )
+            <choose>
+                <when test="curveCode != null and curveCode != ''">
+                    and RISKFACTOR_ID = #{curveCode}
+                </when>
+                <otherwise>
+                    and RISKFACTOR_ID in (
+                        select distinct CURVE_CODE
+                        from MR_SCENARIO_RULE
+                        where STATUS = 'ACTIVE'
+                          and SCENARIO_ID = #{scenarioId}
+                          and CURVE_TYPE = 'FX_VOL'
+                    )
+                </otherwise>
+            </choose>
         </where>
     </select>
 
@@ -298,13 +347,20 @@
                     and DATA_DATE = #{endDate}
                 </when>
             </choose>
-            and RISKFACTOR_ID in (
-                select distinct CURVE_CODE
-                from MR_SCENARIO_RULE
-                where STATUS = 'ACTIVE'
-                  and SCENARIO_ID = #{scenarioId}
-                  and CURVE_TYPE = 'IR_VOL'
-            )
+            <choose>
+                <when test="curveCode != null and curveCode != ''">
+                    and RISKFACTOR_ID = #{curveCode}
+                </when>
+                <otherwise>
+                    and RISKFACTOR_ID in (
+                        select distinct CURVE_CODE
+                        from MR_SCENARIO_RULE
+                        where STATUS = 'ACTIVE'
+                          and SCENARIO_ID = #{scenarioId}
+                          and CURVE_TYPE = 'IR_VOL'
+                    )
+                </otherwise>
+            </choose>
         </where>
     </select>
 
@@ -332,13 +388,20 @@
                     and DATA_DATE = #{endDate}
                 </when>
             </choose>
-            and RISKFACTOR_ID in (
-                select distinct CURVE_CODE
-                from MR_SCENARIO_RULE
-                where STATUS = 'ACTIVE'
-                  and SCENARIO_ID = #{scenarioId}
-                  and CURVE_TYPE = 'COMM_VOL'
-            )
+            <choose>
+                <when test="curveCode != null and curveCode != ''">
+                    and RISKFACTOR_ID = #{curveCode}
+                </when>
+                <otherwise>
+                    and RISKFACTOR_ID in (
+                        select distinct CURVE_CODE
+                        from MR_SCENARIO_RULE
+                        where STATUS = 'ACTIVE'
+                          and SCENARIO_ID = #{scenarioId}
+                          and CURVE_TYPE = 'COMM_VOL'
+                    )
+                </otherwise>
+            </choose>
         </where>
     </select>
 
@@ -366,13 +429,20 @@
                     and DATA_DATE = #{endDate}
                 </when>
             </choose>
-            and RISKFACTOR_ID in (
-                select distinct CURVE_CODE
-                from MR_SCENARIO_RULE
-                where STATUS = 'ACTIVE'
-                  and SCENARIO_ID = #{scenarioId}
-                  and CURVE_TYPE = 'EQ_VOL'
-            )
+            <choose>
+                <when test="curveCode != null and curveCode != ''">
+                    and RISKFACTOR_ID = #{curveCode}
+                </when>
+                <otherwise>
+                    and RISKFACTOR_ID in (
+                        select distinct CURVE_CODE
+                        from MR_SCENARIO_RULE
+                        where STATUS = 'ACTIVE'
+                          and SCENARIO_ID = #{scenarioId}
+                          and CURVE_TYPE = 'EQ_VOL'
+                    )
+                </otherwise>
+            </choose>
         </where>
     </select>
 

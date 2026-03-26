@@ -5,9 +5,10 @@ import com.zcyh.mr.outer.engine.EngineRegistry;
 import com.zcyh.mr.outer.engine.FrtbDrcEngineAdapter;
 import com.zcyh.mr.outer.engine.FrtbSaEngineAdapter;
 import com.zcyh.mr.outer.engine.MrCalcEngineAdapter;
-import com.zcyh.mr.outer.engine.ScenarioEngineAdapter;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
-import com.zcyh.mr.scenario.ScenarioService;
+import com.zcyh.mr.scenario.ScenarioGenerationEngine;
+import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
+import com.zcyh.mr.springboot.engine.ScenarioEngineAdapter;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -63,13 +64,11 @@ public class EngineRegistryConfig {
 
     @Bean
     public ScenarioEngineAdapter scenarioEngineAdapter(
-            ObjectProvider<ScenarioService> scenarioServiceProvider,
-            ObjectProvider<ScenarioService.ScenarioRequestLoader> scenarioRequestLoaderProvider,
-            @Value("${mr.calc.scenario-set.root-dir:}") String scenarioSetRootDir) {
+            ObjectProvider<ScenarioGenerationEngine> scenarioGenerationEngineProvider,
+            ObjectProvider<ScenarioRequestAssembler> scenarioRequestAssemblerProvider) {
         return new ScenarioEngineAdapter(
-                scenarioServiceProvider.getIfAvailable(),
-                scenarioRequestLoaderProvider.getIfAvailable(),
-                scenarioSetRootDir);
+                scenarioGenerationEngineProvider.getIfAvailable(),
+                scenarioRequestAssemblerProvider.getIfAvailable());
     }
 
     @Bean

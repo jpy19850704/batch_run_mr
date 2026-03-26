@@ -19,21 +19,21 @@ public interface ScenarioMapper {
 
     List<Map<String, Object>> selectHistoryScenarioMpByScenarioIdList(@Param("scenarioIdList") String scenarioIdList);
 
-    List<Map<String, Object>> selectIrData(@Param("scenarioId") String scenarioId, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
+    List<Map<String, Object>> selectIrData(@Param("scenarioId") String scenarioId, @Param("curveCode") String curveCode, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
 
-    List<Map<String, Object>> selectFxData(@Param("scenarioId") String scenarioId, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
+    List<Map<String, Object>> selectFxData(@Param("scenarioId") String scenarioId, @Param("curveCode") String curveCode, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
 
-    List<Map<String, Object>> selectCommData(@Param("scenarioId") String scenarioId, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
+    List<Map<String, Object>> selectCommData(@Param("scenarioId") String scenarioId, @Param("curveCode") String curveCode, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
 
-    List<Map<String, Object>> selectEqData(@Param("scenarioId") String scenarioId, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
+    List<Map<String, Object>> selectEqData(@Param("scenarioId") String scenarioId, @Param("curveCode") String curveCode, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
 
-    List<Map<String, Object>> selectFxVolData(@Param("scenarioId") String scenarioId, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
+    List<Map<String, Object>> selectFxVolData(@Param("scenarioId") String scenarioId, @Param("curveCode") String curveCode, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
 
-    List<Map<String, Object>> selectIrVolData(@Param("scenarioId") String scenarioId, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
+    List<Map<String, Object>> selectIrVolData(@Param("scenarioId") String scenarioId, @Param("curveCode") String curveCode, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
 
-    List<Map<String, Object>> selectCommVolData(@Param("scenarioId") String scenarioId, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
+    List<Map<String, Object>> selectCommVolData(@Param("scenarioId") String scenarioId, @Param("curveCode") String curveCode, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
 
-    List<Map<String, Object>> selectEqVolData(@Param("scenarioId") String scenarioId, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
+    List<Map<String, Object>> selectEqVolData(@Param("scenarioId") String scenarioId, @Param("curveCode") String curveCode, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
 
     List<Map<String, Object>> getHolidayDate(@Param("calPEK") String calPEK);
 

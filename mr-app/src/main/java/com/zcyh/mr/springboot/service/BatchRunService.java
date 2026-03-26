@@ -6,8 +6,8 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
 import com.zcyh.mr.frtbsa.sba.pojo.FRTBClassResult;
-import com.zcyh.mr.outer.engine.ScenarioEngineAdapter;
 import com.zcyh.mr.springboot.context.RequestContextHolder;
+import com.zcyh.mr.springboot.engine.ScenarioEngineAdapter;
 import com.zcyh.mr.springboot.model.BatchDetailResult;
 import com.zcyh.mr.springboot.model.BatchRunRequest;
 import com.zcyh.mr.springboot.model.BatchRunResult;
@@ -114,6 +114,27 @@ public class BatchRunService {
         if (data == null || data.isEmpty()) {
             throw new IllegalStateException("情景生成结果为空，batchId=" + batchId + ", scenario_id_list=" + scenarioIdList);
         }
+
+        // 将情景数据写入文件，命名格式与 MrCalcEngineAdapter.resolveScenarioPath 对齐
+        try {
+            java.nio.file.Path rootDir = java.nio.file.Paths.get(scenarioSetRootDir);
+            java.nio.file.Files.createDirectories(rootDir);
+
+            // 主场景文件
+            String mainFileName = scenarioIdList + "_" + dataDate + "_" + batchId + ".json";
+            java.nio.file.Path mainFilePath = rootDir.resolve(mainFileName);
+            java.nio.file.Files.writeString(mainFilePath, raw, java.nio.charset.StandardCharsets.UTF_8);
+            System.out.println("[BatchRunService] 主场景文件已写入: " + mainFilePath + ", 记录数=" + data.size());
+
+            // Risk Class Decomp 场景文件（内容与主场景相同，Calc 引擎内部按 IR/FX/EQ/COMM/ALL 动态切片）
+            String decompFileName = "DECOMP_" + scenarioIdList + "_" + dataDate + "_" + batchId + ".json";
+            java.nio.file.Path decompFilePath = rootDir.resolve(decompFileName);
+            java.nio.file.Files.writeString(decompFilePath, raw, java.nio.charset.StandardCharsets.UTF_8);
+            System.out.println("[BatchRunService] Decomp 场景文件已写入: " + decompFilePath);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("写入情景文件失败: " + e.getMessage(), e);
+        }
+
         return data.size();
     }
 
