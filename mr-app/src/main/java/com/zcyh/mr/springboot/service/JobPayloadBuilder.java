@@ -1,0 +1,213 @@
+package com.zcyh.mr.springboot.service;
+
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.JSONWriter;
+import com.zcyh.mr.core.Constants;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Job Payload 构建器。
+ * 负责将交易数据、市场数据、场景配置组装为引擎可执行的 JSON payload。
+ */
+@Component
+public class JobPayloadBuilder {
+
+    /**
+     * 构建单个 Job 的引擎 payload。
+     *
+     * @param opCode            操作码（PRICING/SCENARIO/FRTB）
+     * @param dataDate          数据日期
+     * @param chunkTrades       本 chunk 的交易列表
+     * @param curves            切片后的市场曲线
+     * @param tradeMarketDataKeys 交易引用的市场数据标识映射
+     * @param batchId           批次 ID
+     * @param seqNo             分片序号
+     * @param scenarioIdList    情景集 ID（仅 SCENARIO 模式）
+     * @return 组装好的 payload JSON
+     */
+    public JSONObject buildPayload(
+            String opCode,
+            LocalDate dataDate,
+            List<BatchTradeDataLoader.TradeRow> chunkTrades,
+            List<MrMarketDataSliceService.CurveSliceSource> curves,
+            Map<String, Set<String>> tradeMarketDataKeys,
+            String batchId,
+            int seqNo,
+            String scenarioIdList
+    ) {
+        // 组装 trade_data
+        JSONArray tradeData = new JSONArray();
+        for (BatchTradeDataLoader.TradeRow trade : chunkTrades) {
+            Object parsed = parseJsonSafely(trade.tradeContentText);
+            if (parsed instanceof JSONArray) {
+                JSONArray arr = (JSONArray) parsed;
+                for (int i = 0; i < arr.size(); i++) {
+                    injectMarketDataKeys(arr.get(i), trade.tradeId, tradeMarketDataKeys);
+                    tradeData.add(arr.get(i));
+                }
+            } else if (parsed != null) {
+                injectMarketDataKeys(parsed, trade.tradeId, tradeMarketDataKeys);
+                tradeData.add(parsed);
+            }
+        }
+
+        // 组装 market_data
+        JSONArray marketData = new JSONArray();
+        for (MrMarketDataSliceService.CurveSliceSource curve : curves) {
+            Object parsed = parseJsonSafely(curve.getCurveContentText());
+            if (parsed instanceof JSONArray) {
+                JSONArray arr = (JSONArray) parsed;
+                for (int i = 0; i < arr.size(); i++) {
+                    marketData.add(arr.get(i));
+                }
+            } else if (parsed != null) {
+                marketData.add(parsed);
+            }
+        }
+
+        JSONObject payload = new JSONObject();
+        payload.put("oper_code", opCode);
+        payload.put("data_date", dataDate.format(DateTimeFormatter.BASIC_ISO_DATE));
+        payload.put("trade_data", tradeData);
+        payload.put("market_data", marketData);
+
+        // batch_meta
+        JSONObject batchMeta = new JSONObject();
+        batchMeta.put("batch_id", batchId);
+        batchMeta.put("seq_no", seqNo);
+        batchMeta.put("trade_count", chunkTrades.size());
+        payload.put("batch_meta", batchMeta);
+
+        // 情景引用（仅 SCENARIO 模式）
+        if (Constants.OPER_CODE.SCENARIO.equalsIgnoreCase(opCode)) {
+            String safeScenarioIdList = trimToNull(scenarioIdList);
+            if (safeScenarioIdList != null) {
+                JSONObject scenarioRef = new JSONObject();
+                scenarioRef.put("scenario_set_id", safeScenarioIdList);
+                scenarioRef.put("data_date", dataDate.format(DateTimeFormatter.BASIC_ISO_DATE));
+                scenarioRef.put("batch_id", batchId);
+                // Risk Class Decomp：使用 DECOMP_ 前缀的场景文件，Calc 内部按风险组切片重估
+                scenarioRef.put("risk_class_decomp_scenario_set_id", "DECOMP_" + safeScenarioIdList);
+                payload.put("scenario_ref", scenarioRef);
+            }
+        }
+
+        // 维度映射表（PORTFOLIO, DESK, TRADER）
+        JSONObject tradeDimension = new JSONObject();
+        for (BatchTradeDataLoader.TradeRow trade : chunkTrades) {
+            String dimTradeId = trimToNull(trade.tradeId);
+            if (dimTradeId == null) {
+                continue;
+            }
+            JSONObject dim = new JSONObject();
+            if (trimToNull(trade.portfolio) != null) {
+                dim.put("PORTFOLIO", trade.portfolio.trim());
+            }
+            if (trimToNull(trade.desk) != null) {
+                dim.put("DESK", trade.desk.trim());
+            }
+            if (trimToNull(trade.trader) != null) {
+                dim.put("TRADER", trade.trader.trim());
+            }
+            if (!dim.isEmpty()) {
+                tradeDimension.put(dimTradeId, dim);
+            }
+        }
+        if (!tradeDimension.isEmpty()) {
+            payload.put("trade_dimension", tradeDimension);
+        }
+        return payload;
+    }
+
+    /**
+     * 构建产品组成 JSON（用于 batch_item 记录）。
+     */
+    public static String buildProductMixJson(List<BatchTradeDataLoader.TradeRow> chunkTrades) {
+        Map<String, Integer> count = new LinkedHashMap<>();
+        for (BatchTradeDataLoader.TradeRow trade : chunkTrades) {
+            String productType = trimToNull(trade.productType);
+            if (productType == null) {
+                productType = "UNKNOWN";
+            }
+            count.merge(productType, 1, Integer::sum);
+        }
+        return JSON.toJSONString(count, JSONWriter.Feature.WriteBigDecimalAsPlain);
+    }
+
+    /**
+     * 将交易行转为市场数据切片源。
+     */
+    public static List<MrMarketDataSliceService.TradeSliceSource> toTradeSliceSources(
+            List<BatchTradeDataLoader.TradeRow> chunkTrades) {
+        List<MrMarketDataSliceService.TradeSliceSource> trades = new ArrayList<>();
+        for (BatchTradeDataLoader.TradeRow trade : chunkTrades) {
+            trades.add(new MrMarketDataSliceService.TradeSliceSource(trade.tradeId, trade.tradeContentText));
+        }
+        return trades;
+    }
+
+    /**
+     * 将曲线行转为市场数据切片源。
+     */
+    public static List<MrMarketDataSliceService.CurveSliceSource> toCurveSliceSources(
+            List<BatchTradeDataLoader.CurveRow> curves) {
+        List<MrMarketDataSliceService.CurveSliceSource> curveSources = new ArrayList<>();
+        for (BatchTradeDataLoader.CurveRow curve : curves) {
+            curveSources.add(new MrMarketDataSliceService.CurveSliceSource(
+                    curve.marketDataType,
+                    curve.curveId,
+                    curve.curveContentText));
+        }
+        return curveSources;
+    }
+
+    // ==================== 内部工具 ====================
+
+    /**
+     * 将交易引用的市场数据标识注入到交易 JSON 的 _MARKET_DATA_KEYS 字段。
+     */
+    private static void injectMarketDataKeys(Object tradeJson, String tradeId,
+                                             Map<String, Set<String>> tradeMarketDataKeys) {
+        if (!(tradeJson instanceof JSONObject) || tradeMarketDataKeys == null) {
+            return;
+        }
+        String safeId = trimToNull(tradeId);
+        if (safeId == null) {
+            return;
+        }
+        Set<String> keys = tradeMarketDataKeys.get(safeId);
+        if (keys != null && !keys.isEmpty()) {
+            ((JSONObject) tradeJson).put("_MARKET_DATA_KEYS", new JSONArray(new ArrayList<String>(keys)));
+        }
+    }
+
+    static Object parseJsonSafely(String text) {
+        String safe = trimToNull(text);
+        if (safe == null) {
+            return null;
+        }
+        try {
+            return JSON.parse(safe);
+        } catch (Exception ignore) {
+            return safe;
+        }
+    }
+
+    static String trimToNull(String txt) {
+        if (txt == null) {
+            return null;
+        }
+        String value = txt.trim();
+        return value.isEmpty() ? null : value;
+    }
+}
