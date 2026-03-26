@@ -49,6 +49,11 @@ build/
 data/*.mv.db
 data/*.lock.db
 
+# 本地场景与缓存数据
+mr-app/data/
+scenario_sets/
+mr-core/src/main/resources/data/*.csv
+
 # Temporary analysis files
 Tmp*.java
 tmp_*
