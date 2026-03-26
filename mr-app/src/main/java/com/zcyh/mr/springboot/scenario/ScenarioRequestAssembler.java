@@ -26,16 +26,22 @@ import java.util.Set;
 public class ScenarioRequestAssembler {
 
     private final ScenarioMapper scenarioMapper;
-    private final com.zcyh.mr.core.Calendar holidayCalendar;
     private final ScenarioHistoricalMarketLoader historicalMarketLoader;
+    private final String defaultHolidayCalendarCode;
 
-    public ScenarioRequestAssembler(ScenarioMapper scenarioMapper, com.zcyh.mr.core.Calendar holidayCalendar) {
+    public ScenarioRequestAssembler(
+            ScenarioMapper scenarioMapper,
+            com.zcyh.mr.core.Calendar holidayCalendar,
+            String defaultHolidayCalendarCode) {
         if (scenarioMapper == null) {
             throw new IllegalArgumentException("scenarioMapper 不能为空");
         }
         this.scenarioMapper = scenarioMapper;
-        this.holidayCalendar = holidayCalendar == null ? new com.zcyh.mr.core.Calendar() : holidayCalendar;
-        this.historicalMarketLoader = new ScenarioHistoricalMarketLoader(scenarioMapper, this.holidayCalendar);
+        com.zcyh.mr.core.Calendar sharedCalendar = holidayCalendar == null
+                ? new com.zcyh.mr.core.Calendar()
+                : holidayCalendar;
+        this.historicalMarketLoader = new ScenarioHistoricalMarketLoader(scenarioMapper, sharedCalendar);
+        this.defaultHolidayCalendarCode = normalize(defaultHolidayCalendarCode);
     }
 
     /**
@@ -73,7 +79,6 @@ public class ScenarioRequestAssembler {
             task.setScenarioType(scenarioType);
             task.setValuationDate(valuationDate);
             task.setDefinitions(definitions);
-            warmHolidayCalendar(definitions);
             task.setCurrentMarketData(loadCurrentMarketData(scenarioId, valuationDate, definitions));
             task.setHistoricalMarketData(historicalMarketLoader.load(scenarioId, valuationDate, definitions));
             tasks.add(task);
@@ -122,9 +127,7 @@ public class ScenarioRequestAssembler {
             definition.setHoldingPeriod(toInteger(row.get("HOLDING_PERIOD")));
             definition.setJumpDayNo(toInteger(firstNonBlank(row.get("JUNP_DAY_NO"), row.get("JUMP_DAY_NO"))));
             definition.setIncreaseDays(toInteger(row.get("INCREASE_DAYS")));
-            definition.setHolidayCalendarCode(firstNonBlank(
-                    row.get("HOLIDAY_CALENDAR"),
-                    firstNonBlank(row.get("CALENDAR_CODE"), firstNonBlank(row.get("CALENDAR"), row.get("CAL_PEK")))));
+            definition.setHolidayCalendarCode(defaultHolidayCalendarCode);
             definition.setStartDate(toLocalDate(firstNonBlank(row.get("START_DATE"), row.get("CAL_START_DATE"))));
             definition.setEndDate(toLocalDate(firstNonBlank(row.get("END_DATE"), row.get("CAL_END_DATE"))));
             result.add(definition);
@@ -142,31 +145,6 @@ public class ScenarioRequestAssembler {
             result.put(curveType, convertSeries(rows));
         }
         return result;
-    }
-
-    private void warmHolidayCalendar(List<ScenarioDefinition> definitions) {
-        Set<String> calendarCodes = new LinkedHashSet<String>();
-        for (ScenarioDefinition definition : definitions) {
-            String code = toStringValue(definition.getHolidayCalendarCode());
-            if (code != null && !code.isEmpty()) {
-                calendarCodes.add(code);
-            }
-        }
-
-        for (String calendarCode : calendarCodes) {
-            List<Map<String, Object>> rows = emptyIfNull(scenarioMapper.getHolidayDate(calendarCode));
-            Set<LocalDate> holidays = new LinkedHashSet<LocalDate>();
-            for (Map<String, Object> row : rows) {
-                LocalDate holidayDate = toLocalDate(firstNonBlank(row.get("DATA_DATE"), row.get("HOLIDAY")));
-                if (holidayDate != null) {
-                    holidays.add(holidayDate);
-                }
-            }
-            holidayCalendar.clear(calendarCode);
-            if (!holidays.isEmpty()) {
-                holidayCalendar.addHolidays(calendarCode, holidays);
-            }
-        }
     }
 
     private List<Map<String, Object>> queryMarketData(String scenarioId, String curveType, Date startDate, Date endDate) {
@@ -304,5 +282,13 @@ public class ScenarioRequestAssembler {
         } catch (Exception ex) {
             return null;
         }
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+        String text = value.trim();
+        return text.isEmpty() ? null : text;
     }
 }

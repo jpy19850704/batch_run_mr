@@ -21,6 +21,7 @@ import java.util.Set;
  * 以便后续继续演进为多段区间策略。
  */
 public class ScenarioMarketQueryPlanner {
+    private static final int RANGE_MERGE_GAP_DAYS = 10;
 
     private final ScenarioRangeResolver rangeResolver;
 
@@ -144,10 +145,71 @@ public class ScenarioMarketQueryPlanner {
                 ranges.add(range);
                 return;
             }
-            DateRange current = ranges.get(0);
-            Date startDate = current.getStartDate().before(range.getStartDate()) ? current.getStartDate() : range.getStartDate();
-            Date endDate = current.getEndDate().after(range.getEndDate()) ? current.getEndDate() : range.getEndDate();
-            ranges.set(0, new DateRange(startDate, endDate));
+            List<DateRange> mergedRanges = new ArrayList<DateRange>();
+            DateRange candidate = range;
+            boolean inserted = false;
+            for (DateRange current : ranges) {
+                if (shouldMerge(current, candidate)) {
+                    candidate = merge(current, candidate);
+                    continue;
+                }
+                if (!inserted && comesBefore(candidate, current)) {
+                    mergedRanges.add(candidate);
+                    inserted = true;
+                }
+                mergedRanges.add(current);
+            }
+            if (!inserted) {
+                mergedRanges.add(candidate);
+            }
+            ranges.clear();
+            ranges.addAll(mergeAdjacentRanges(mergedRanges));
+        }
+
+        private List<DateRange> mergeAdjacentRanges(List<DateRange> input) {
+            List<DateRange> result = new ArrayList<DateRange>();
+            for (DateRange current : input) {
+                if (result.isEmpty()) {
+                    result.add(current);
+                    continue;
+                }
+                DateRange last = result.get(result.size() - 1);
+                if (shouldMerge(last, current)) {
+                    result.set(result.size() - 1, merge(last, current));
+                } else {
+                    result.add(current);
+                }
+            }
+            return result;
+        }
+
+        private boolean shouldMerge(DateRange left, DateRange right) {
+            if (left == null || right == null || left.getStartDate() == null || left.getEndDate() == null
+                    || right.getStartDate() == null || right.getEndDate() == null) {
+                return false;
+            }
+            LocalDate leftStart = left.getStartDate().toLocalDate();
+            LocalDate leftEnd = left.getEndDate().toLocalDate();
+            LocalDate rightStart = right.getStartDate().toLocalDate();
+            LocalDate rightEnd = right.getEndDate().toLocalDate();
+            return !rightStart.isAfter(leftEnd.plusDays(RANGE_MERGE_GAP_DAYS))
+                    && !rightEnd.isBefore(leftStart.minusDays(RANGE_MERGE_GAP_DAYS));
+        }
+
+        private boolean comesBefore(DateRange left, DateRange right) {
+            if (left == null || left.getStartDate() == null) {
+                return false;
+            }
+            if (right == null || right.getStartDate() == null) {
+                return true;
+            }
+            return left.getStartDate().before(right.getStartDate());
+        }
+
+        private DateRange merge(DateRange left, DateRange right) {
+            Date startDate = left.getStartDate().before(right.getStartDate()) ? left.getStartDate() : right.getStartDate();
+            Date endDate = left.getEndDate().after(right.getEndDate()) ? left.getEndDate() : right.getEndDate();
+            return new DateRange(startDate, endDate);
         }
     }
 

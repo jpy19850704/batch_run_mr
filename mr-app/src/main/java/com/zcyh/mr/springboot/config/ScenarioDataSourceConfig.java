@@ -75,16 +75,20 @@ public class ScenarioDataSourceConfig {
     }
 
     @Bean(name = "mrHolidayCalendar")
-    public Calendar mrHolidayCalendar() {
-        return new Calendar();
+    public Calendar mrHolidayCalendar(
+            @Value("${mr.calendar.store.path:}") String calendarStorePath) {
+        Calendar calendar = new Calendar();
+        calendar.loadFromPath(calendarStorePath);
+        return calendar;
     }
 
     @Bean
     @ConditionalOnBean({ScenarioMapper.class, Calendar.class})
     public ScenarioRequestAssembler scenarioRequestAssembler(
             ScenarioMapper scenarioMapper,
-            @Qualifier("mrHolidayCalendar") Calendar mrHolidayCalendar) {
-        return new ScenarioRequestAssembler(scenarioMapper, mrHolidayCalendar);
+            @Qualifier("mrHolidayCalendar") Calendar mrHolidayCalendar,
+            @Value("${mr.calendar.default-code:}") String defaultHolidayCalendarCode) {
+        return new ScenarioRequestAssembler(scenarioMapper, mrHolidayCalendar, defaultHolidayCalendarCode);
     }
 
     @Bean(name = "scenarioExecutor", destroyMethod = "shutdown")
