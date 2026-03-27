@@ -9,7 +9,7 @@ BOND,CURRENCY_CODE,产品计价币种,String,,
 BOND,DATA_DATE,数据日期,LocalDate,,日期格式 yyyyMMdd
 BOND,DAY_COUNT_BASIS,计息日计数规则,String,ACT/360、ACT/365、30/360 等,
 BOND,DISCOUNT_CURVE,贴现曲线,String,,市场数据键
-BOND,DRC_JTD0,DRC_JTD0,String,,
+BOND,DRC_FLAG,DRC_FLAG,String,,
 BOND,DRC_LGD,DRC_LGD,Double,,
 BOND,FIXING_CURVE,定盘曲线,String,,市场数据键
 BOND,FIXING_FREQ,定盘频率,String,1D/1W/1M/3M/6M/1Y...,

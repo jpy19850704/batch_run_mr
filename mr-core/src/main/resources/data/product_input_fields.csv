@@ -13,7 +13,7 @@ BOND,利率,DATA_DATE,dataDate,日期,,,
 BOND,利率,DATE,date,日期,,,
 BOND,利率,DAY_COUNT_BASIS,dayCountBasis,字符串,日计数基准,"actual/365,actual/360,30/360",
 BOND,利率,DISCOUNT_CURVE,discountCurve,字符串,折现曲线,,引用市场数据折现曲线key
-BOND,利率,DRC_JTD0,jtd0,字符串,,,
+BOND,利率,DRC_FLAG,drcFlag,字符串,,,
 BOND,利率,DRC_LGD,lgd,浮点数,,,
 BOND,利率,FIXING_CURVE,fixingCurve,字符串,定盘曲线,,引用市场数据定盘曲线key
 BOND,利率,FIXING_FREQ,fixingFreq,字符串,定盘频率,,
