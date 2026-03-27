@@ -424,8 +424,8 @@ public class PricingResultPersistService {
                 + "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
                 + "INSTRUMENT_ID, PRODUCT_CODE, PORTFOLIO_CODE, SECURITY_ID, SECURITY_TYPE, LEGAL_ENTITY, "
                 + "DRC_BUCKET, JTD_TYPE, SENIORITY, TERM_TO_MATURITY, MODIFIED_REMAIN_TERM, "
-                + "RISK_WEIGHT, JTD, INSTRUMENT_VALUE, FRTB_LGD, NOTIONAL, DETAIL_JSON, CREATED_AT, UPDATED_AT) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                + "RISK_WEIGHT, JTD, JTD_CNY, INSTRUMENT_VALUE, FRTB_LGD, NOTIONAL, DETAIL_JSON, CREATED_AT, UPDATED_AT) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         for (int i = 0; i < trades.size(); i++) {
             JSONObject trade = trades.getJSONObject(i);
@@ -457,6 +457,7 @@ public class PricingResultPersistService {
                     toBigDecimal(drc.get("MODIFIED_REMAIN_TERM")),
                     toBigDecimal(drc.get("RISK_WEIGHT")),
                     toBigDecimal(drc.get("JTD")),
+                    toBigDecimal(drc.get("JTD_CNY")),
                     toBigDecimal(drc.get("INSTRUMENT_VALUE")),
                     toBigDecimal(drc.get("FRTB_LGD")),
                     toBigDecimal(drc.get("NOTIONAL")),
