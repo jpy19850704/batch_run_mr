@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -114,12 +115,13 @@ public class ScenarioRequestAssembler {
             definition.setScenarioId(scenarioId);
             definition.setScenarioCode(firstNonBlank(row.get("SCENARIO_CODE"), scenarioId));
             definition.setScenarioName(toStringValue(row.get("SCENARIO_NAME")));
-            definition.setScenarioType(firstNonBlank(row.get("SCENARIO_TYPE"), scenarioType));
+            String resolvedScenarioType = firstNonBlank(row.get("SCENARIO_TYPE"), scenarioType);
+            definition.setScenarioType(resolvedScenarioType);
             definition.setCurveType(firstNonBlank(row.get("CURVE_TYPE"), row.get("RISKFACTOR_TYPE")));
             definition.setCurveCode(toStringValue(row.get("CURVE_CODE")));
             definition.setRiskGroupId(firstNonBlank(row.get("RISKGROUP_ID"), row.get("RISK_GROUP_ID")));
-            definition.setTermCode(toStringValue(row.get("TERM_CODE")));
             definition.setTermDays(toInteger(row.get("TERM_DAYS")));
+            definition.setTermCode(resolveDefinitionTermCode(resolvedScenarioType, row));
             definition.setShockValue(toBigDecimal(row.get("SCENARIO_SHIFT_VALUE")));
             definition.setShockType(toStringValue(row.get("SHOCK_TYPE")));
             definition.setShockRule(toStringValue(row.get("SCENARIO_SHIFT_RULE")));
@@ -140,47 +142,54 @@ public class ScenarioRequestAssembler {
             LocalDate valuationDate,
             List<ScenarioDefinition> definitions) {
         Map<String, List<ScenarioMarketSeries>> result = new LinkedHashMap<String, List<ScenarioMarketSeries>>();
-        for (String curveType : collectCurveTypes(definitions)) {
-            List<Map<String, Object>> rows = queryMarketData(scenarioId, curveType, Date.valueOf(valuationDate), null);
-            result.put(curveType, convertSeries(rows));
+        Date currentDate = Date.valueOf(valuationDate);
+        for (MarketQueryKey key : collectCurrentMarketKeys(definitions)) {
+            List<Map<String, Object>> rows = queryMarketData(scenarioId, key.getCurveType(), key.getCurveCode(), currentDate, null);
+            if (rows.isEmpty()) {
+                continue;
+            }
+            result.computeIfAbsent(key.getCurveType(), ignore -> new ArrayList<ScenarioMarketSeries>())
+                    .addAll(convertSeries(rows));
         }
         return result;
     }
 
-    private List<Map<String, Object>> queryMarketData(String scenarioId, String curveType, Date startDate, Date endDate) {
+    private List<Map<String, Object>> queryMarketData(String scenarioId, String curveType, String curveCode, Date startDate, Date endDate) {
         if (curveType == null || curveType.trim().isEmpty()) {
             return Collections.emptyList();
         }
         switch (curveType.trim()) {
             case "IR_SPOT":
-                return emptyIfNull(scenarioMapper.selectIrData(scenarioId, null, startDate, endDate));
+                return emptyIfNull(scenarioMapper.selectIrData(scenarioId, curveCode, startDate, endDate));
             case "FX_SPOT":
-                return emptyIfNull(scenarioMapper.selectFxData(scenarioId, null, startDate, endDate));
+                return emptyIfNull(scenarioMapper.selectFxData(scenarioId, curveCode, startDate, endDate));
             case "COMM_SPOT":
-                return emptyIfNull(scenarioMapper.selectCommData(scenarioId, null, startDate, endDate));
+                return emptyIfNull(scenarioMapper.selectCommData(scenarioId, curveCode, startDate, endDate));
             case "EQ_SPOT":
-                return emptyIfNull(scenarioMapper.selectEqData(scenarioId, null, startDate, endDate));
+                return emptyIfNull(scenarioMapper.selectEqData(scenarioId, curveCode, startDate, endDate));
             case "FX_VOL":
-                return emptyIfNull(scenarioMapper.selectFxVolData(scenarioId, null, startDate, endDate));
+                return emptyIfNull(scenarioMapper.selectFxVolData(scenarioId, curveCode, startDate, endDate));
             case "IR_VOL":
-                return emptyIfNull(scenarioMapper.selectIrVolData(scenarioId, null, startDate, endDate));
+                return emptyIfNull(scenarioMapper.selectIrVolData(scenarioId, curveCode, startDate, endDate));
             case "COMM_VOL":
-                return emptyIfNull(scenarioMapper.selectCommVolData(scenarioId, null, startDate, endDate));
+                return emptyIfNull(scenarioMapper.selectCommVolData(scenarioId, curveCode, startDate, endDate));
             case "EQ_VOL":
-                return emptyIfNull(scenarioMapper.selectEqVolData(scenarioId, null, startDate, endDate));
+                return emptyIfNull(scenarioMapper.selectEqVolData(scenarioId, curveCode, startDate, endDate));
             default:
                 return Collections.emptyList();
         }
     }
 
-    private Set<String> collectCurveTypes(List<ScenarioDefinition> definitions) {
-        Set<String> curveTypes = new LinkedHashSet<String>();
+    private Set<MarketQueryKey> collectCurrentMarketKeys(List<ScenarioDefinition> definitions) {
+        Set<MarketQueryKey> keys = new LinkedHashSet<MarketQueryKey>();
         for (ScenarioDefinition definition : definitions) {
-            if (definition.getCurveType() != null && !definition.getCurveType().trim().isEmpty()) {
-                curveTypes.add(definition.getCurveType().trim());
+            String curveType = normalize(definition.getCurveType());
+            String curveCode = normalize(definition.getCurveCode());
+            if (curveType != null && curveCode != null) {
+                keys.add(new MarketQueryKey(curveType, curveCode));
             }
         }
-        return curveTypes;
+        return keys;
     }
 
     private List<ScenarioMarketSeries> convertSeries(List<Map<String, Object>> rows) {
@@ -290,5 +299,55 @@ public class ScenarioRequestAssembler {
         }
         String text = value.trim();
         return text.isEmpty() ? null : text;
+    }
+
+    private String resolveDefinitionTermCode(String scenarioType, Map<String, Object> row) {
+        if (isCustomLikeScenarioType(scenarioType)) {
+            return null;
+        }
+        return toStringValue(row.get("TERM_CODE"));
+    }
+
+    private boolean isCustomLikeScenarioType(String scenarioType) {
+        return "CUSTOM".equals(scenarioType) || "KEY_RATE".equals(scenarioType);
+    }
+
+    /**
+     * 当前市场查询键。
+     */
+    private static class MarketQueryKey {
+        private final String curveType;
+        private final String curveCode;
+
+        private MarketQueryKey(String curveType, String curveCode) {
+            this.curveType = curveType;
+            this.curveCode = curveCode;
+        }
+
+        public String getCurveType() {
+            return curveType;
+        }
+
+        public String getCurveCode() {
+            return curveCode;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof MarketQueryKey)) {
+                return false;
+            }
+            MarketQueryKey other = (MarketQueryKey) obj;
+            return Objects.equals(curveType, other.curveType)
+                    && Objects.equals(curveCode, other.curveCode);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(curveType, curveCode);
+        }
     }
 }
