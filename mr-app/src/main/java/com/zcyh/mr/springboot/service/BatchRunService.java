@@ -32,6 +32,7 @@ public class BatchRunService {
     private static final String DEFAULT_RULE_ID = "BATCH_FRTB_DEFAULT";
 
     private final ScenarioEngineAdapter scenarioEngineAdapter;
+    private final CalendarFileBootstrapService calendarFileBootstrapService;
     private final BatchJobService batchJobService;
     private final FrtbSbaDbRunnerService frtbSbaDbRunnerService;
     private final FrtbSbaResultPersistService frtbSbaResultPersistService;
@@ -42,6 +43,7 @@ public class BatchRunService {
 
     public BatchRunService(
             ScenarioEngineAdapter scenarioEngineAdapter,
+            CalendarFileBootstrapService calendarFileBootstrapService,
             BatchJobService batchJobService,
             FrtbSbaDbRunnerService frtbSbaDbRunnerService,
             FrtbSbaResultPersistService frtbSbaResultPersistService,
@@ -50,6 +52,7 @@ public class BatchRunService {
             @Value("${mr.batch.run.wait-timeout-ms:7200000}") long waitTimeoutMs,
             @Value("${mr.calc.scenario-set.root-dir:}") String scenarioSetRootDir) {
         this.scenarioEngineAdapter = scenarioEngineAdapter;
+        this.calendarFileBootstrapService = calendarFileBootstrapService;
         this.batchJobService = batchJobService;
         this.frtbSbaDbRunnerService = frtbSbaDbRunnerService;
         this.frtbSbaResultPersistService = frtbSbaResultPersistService;
@@ -75,6 +78,8 @@ public class BatchRunService {
 
         RequestContextHolder.setBatchId(batchId);
         RequestContextHolder.setEngineCode("MR_CALC");
+
+        calendarFileBootstrapService.refreshForBatch(batchId);
 
         int scenarioCount = 0;
         if (scenarioMode) {

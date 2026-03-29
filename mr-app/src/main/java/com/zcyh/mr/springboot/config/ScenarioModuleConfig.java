@@ -1,25 +1,15 @@
 package com.zcyh.mr.springboot.config;
 
 import com.zcyh.mr.core.Calendar;
-import com.zaxxer.hikari.HikariDataSource;
 import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
 import com.zcyh.mr.springboot.scenario.mapper.ScenarioMapper;
-import org.apache.ibatis.session.SqlSessionFactory;
-import org.mybatis.spring.SqlSessionFactoryBean;
-import org.mybatis.spring.SqlSessionTemplate;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
-
-import javax.sql.DataSource;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -28,58 +18,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Scenario 业务数据源配置。
+ * Scenario 业务组件配置。
  */
 @Configuration
-public class ScenarioDataSourceConfig {
-
-    @Bean(name = "engineDbDataSourceProperties")
-    @ConfigurationProperties(prefix = "enginedb.datasource")
-    public DataSourceProperties engineDbDataSourceProperties() {
-        return new DataSourceProperties();
-    }
-
-    @Bean(name = "engineDbDataSource")
-    @ConditionalOnBean(name = "engineDbDataSourceProperties")
-    @ConfigurationProperties(prefix = "enginedb.datasource.hikari")
-    public DataSource engineDbDataSource(
-            @Qualifier("engineDbDataSourceProperties") DataSourceProperties properties) {
-        return properties.initializeDataSourceBuilder()
-                .type(HikariDataSource.class)
-                .build();
-    }
-
-    @Bean(name = "scenarioSqlSessionFactory")
-    @ConditionalOnBean(name = "engineDbDataSource")
-    public SqlSessionFactory scenarioSqlSessionFactory(
-            @Qualifier("engineDbDataSource") DataSource dataSource) throws Exception {
-        SqlSessionFactoryBean factoryBean = new SqlSessionFactoryBean();
-        factoryBean.setDataSource(dataSource);
-        factoryBean.setMapperLocations(resolveScenarioMapperLocations());
-        return factoryBean.getObject();
-    }
-
-    @Bean(name = "scenarioSqlSessionTemplate")
-    @ConditionalOnBean(name = "scenarioSqlSessionFactory")
-    public SqlSessionTemplate scenarioSqlSessionTemplate(
-            @Qualifier("scenarioSqlSessionFactory") SqlSessionFactory sqlSessionFactory) {
-        return new SqlSessionTemplate(sqlSessionFactory);
-    }
-
-    @Bean
-    @ConditionalOnBean(name = "scenarioSqlSessionTemplate")
-    public ScenarioMapper scenarioMapper(
-            @Qualifier("scenarioSqlSessionTemplate") SqlSessionTemplate sqlSessionTemplate) {
-        return sqlSessionTemplate.getMapper(ScenarioMapper.class);
-    }
-
-    @Bean(name = "mrHolidayCalendar")
-    public Calendar mrHolidayCalendar(
-            @Value("${mr.calendar.store.path:}") String calendarStorePath) {
-        Calendar calendar = new Calendar();
-        calendar.loadFromPath(calendarStorePath);
-        return calendar;
-    }
+public class ScenarioModuleConfig {
 
     @Bean
     @ConditionalOnBean({ScenarioMapper.class, Calendar.class})
@@ -115,11 +57,6 @@ public class ScenarioDataSourceConfig {
             @Qualifier("scenarioExecutor") ExecutorService scenarioExecutor,
             @Qualifier("mrHolidayCalendar") Calendar mrHolidayCalendar) {
         return new ScenarioGenerationEngine(scenarioExecutor, mrHolidayCalendar);
-    }
-
-    private Resource[] resolveScenarioMapperLocations() throws Exception {
-        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
-        return resolver.getResources("classpath*:mapper/ScenarioMapper.xml");
     }
 
     private ThreadFactory namedThreadFactory(String prefix) {
