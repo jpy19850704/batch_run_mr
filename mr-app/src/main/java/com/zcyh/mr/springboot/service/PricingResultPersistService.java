@@ -7,16 +7,11 @@ import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.outer.engine.MrCalcEngineAdapter;
 import com.zcyh.mr.springboot.model.EngineRunResult;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -24,7 +19,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -37,13 +31,6 @@ public class PricingResultPersistService {
     private static final DateTimeFormatter DATE_8_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter DATE_10_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final int DEFAULT_BATCH_SIZE = 500;
-    private static final String[] REQUIRED_TABLES = new String[]{
-            "TB_OUT_TRADE_RESULT_DETAIL",
-            "TB_OUT_TRADE_SCENARIO_RESULT_DETAIL",
-            "TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL",
-            "TB_OUT_TRADE_DRC_DETAIL",
-            "TB_OUT_MARKET_DATA_DETAIL"
-    };
     private static final String DECOMP_TABLE = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
 
     private final JdbcTemplate jdbcTemplate;
@@ -66,7 +53,7 @@ public class PricingResultPersistService {
         if (!MrCalcEngineAdapter.CODE.equalsIgnoreCase(trimToNull(runResult.getEngineCode()))) {
             return;
         }
-        ensureRequiredTablesExist();
+        ensureRequiredOutputSchema();
         boolean decompTableExists = true;
 
         JSONObject root = toJsonObject(runResult.getData());
@@ -98,72 +85,45 @@ public class PricingResultPersistService {
     }
 
     /**
-     * 检查所有输出表是否存在。
+     * 严格校验输出表列契约，缺列/改名时在写入前快速失败。
      */
-    private void ensureRequiredTablesExist() {
-        List<String> missingTables = new ArrayList<String>();
-        for (String tableName : REQUIRED_TABLES) {
-            if (!tableExists(tableName)) {
-                missingTables.add(tableName);
-            }
-        }
-        if (!tableExists(DECOMP_TABLE)) {
-            missingTables.add(DECOMP_TABLE);
-        }
-        if (!missingTables.isEmpty()) {
-            throw new IllegalStateException("输出结果表缺失: " + String.join(", ", missingTables));
-        }
+    private void ensureRequiredOutputSchema() {
+        verifyTableColumns("TB_OUT_TRADE_RESULT_DETAIL",
+                "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+                        + "INSTRUMENT_ID, PRODUCT_CODE, PORTFOLIO, DESK, TRADER, "
+                        + "POSITION, VALUATION_UNIT, VALUATION, VALUATION_CCY, VALUATION_CNY, "
+                        + "PV01, DELTA, GAMMA, VEGA, THETA, RHO, STATUS, ERROR, DETAIL, ERRORS_JSON, CASHFLOW_JSON, RESULT_JSON, "
+                        + "TRADE_INPUT_JSON, MARKET_DATA_KEYS_JSON, CREATED_AT, UPDATED_AT");
+        verifyTableColumns("TB_OUT_TRADE_SCENARIO_RESULT_DETAIL",
+                "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+                        + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, INSTRUMENT_ID, PRODUCT_CODE, "
+                        + "BASE_VALUATION_CNY, SCENARIO_VALUATION_CNY, PNL, ERROR, DETAIL, RESULT_JSON, CREATED_AT, UPDATED_AT");
+        verifyTableColumns(DECOMP_TABLE,
+                "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+                        + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, INSTRUMENT_ID, PRODUCT_CODE, "
+                        + "BASE_VALUATION_CNY, IR_VALUATION, IR_PNL, FX_VALUATION, FX_PNL, EQ_VALUATION, EQ_PNL, COMM_VALUATION, COMM_PNL, "
+                        + "ALL_VALUATION, ALL_PNL, RESULT_JSON, CREATED_AT, UPDATED_AT");
+        verifyTableColumns("TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL",
+                "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+                        + "INSTRUMENT_ID, PRODUCT_CODE, RISK_FACTOR_ID, RISK_FACTOR_VERTEX_1, RISK_FACTOR_VERTEX_2, "
+                        + "RISK_FACTOR_CLASS, RISK_FACTOR_BUCKET, RISK_FACTOR_TYPE, SENSITIVITY_TYPE, "
+                        + "SENSITIVITY_VAL_INST_CURR, INSTRUMENT_CURRENCY, SENSITIVITY_VAL_INST_CURR_CNY, DETAIL_JSON, CREATED_AT, UPDATED_AT");
+        verifyTableColumns("TB_OUT_TRADE_DRC_DETAIL",
+                "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+                        + "INSTRUMENT_ID, PRODUCT_CODE, PORTFOLIO_CODE, SECURITY_ID, SECURITY_TYPE, LEGAL_ENTITY, "
+                        + "DRC_BUCKET, JTD_TYPE, SENIORITY, TERM_TO_MATURITY, MODIFIED_REMAIN_TERM, "
+                        + "RISK_WEIGHT, JTD, JTD_CNY, INSTRUMENT_VALUE, FRTB_LGD, NOTIONAL, DETAIL_JSON, CREATED_AT, UPDATED_AT");
+        verifyTableColumns("TB_OUT_MARKET_DATA_DETAIL",
+                "BATCH_ID, DATA_DATE, OP_CODE, CURVE_TYPE, CURVE_ID, CURVE_DATA_JSON, CREATED_AT, UPDATED_AT");
     }
 
-    private boolean tableExists(String tableName) {
+    private void verifyTableColumns(String tableName, String columns) {
+        String sql = "SELECT " + columns + " FROM " + tableName + " WHERE 1=0";
         try {
-            Boolean exists = jdbcTemplate.execute((ConnectionCallback<Boolean>) connection -> {
-                DatabaseMetaData metaData = connection.getMetaData();
-                String catalog = trimToNull(connection.getCatalog());
-                String schema = trimToNull(connection.getSchema());
-                String upper = tableName.toUpperCase(Locale.ROOT);
-                String lower = tableName.toLowerCase(Locale.ROOT);
-                String[] schemaCandidates = new String[]{schema, "%", null};
-
-                for (String schemaCandidate : schemaCandidates) {
-                    if (tableExists(metaData, catalog, schemaCandidate, tableName, tableName)) {
-                        return true;
-                    }
-                    if (tableExists(metaData, catalog, schemaCandidate, upper, tableName)) {
-                        return true;
-                    }
-                    if (tableExists(metaData, catalog, schemaCandidate, lower, tableName)) {
-                        return true;
-                    }
-                    if (tableExists(metaData, null, schemaCandidate, tableName, tableName)) {
-                        return true;
-                    }
-                    if (tableExists(metaData, null, schemaCandidate, upper, tableName)) {
-                        return true;
-                    }
-                    if (tableExists(metaData, null, schemaCandidate, lower, tableName)) {
-                        return true;
-                    }
-                }
-                return false;
-            });
-            return exists != null && exists;
-        } catch (DataAccessException ex) {
-            throw new IllegalStateException("检查输出结果表是否存在失败: " + tableName + "，原因=" + ex.getMessage(), ex);
+            jdbcTemplate.queryForList(sql);
+        } catch (Exception ex) {
+            throw new IllegalStateException("输出结果表结构校验失败: " + tableName + "，原因=" + ex.getMessage(), ex);
         }
-    }
-
-    private boolean tableExists(DatabaseMetaData metaData, String catalog, String schemaPattern,
-                                String tablePattern, String expectedTableName) throws SQLException {
-        try (ResultSet rs = metaData.getTables(catalog, schemaPattern, tablePattern, new String[]{"TABLE"})) {
-            while (rs.next()) {
-                String actualName = trimToNull(rs.getString("TABLE_NAME"));
-                if (actualName != null && expectedTableName.equalsIgnoreCase(actualName)) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     private PersistContext buildContext(String requestId, String jobId, String payloadJson) {

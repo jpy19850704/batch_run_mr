@@ -3,8 +3,6 @@ package com.zcyh.mr.springboot.service;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONWriter;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -12,15 +10,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -30,18 +23,6 @@ import java.util.Map;
 @Service
 public class BatchResultFileService {
     private static final DateTimeFormatter FILE_TS_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
-    private static final String[] REQUIRED_SCENARIO_TABLES = new String[]{
-            "MR_ASYNC_BATCH_JOB",
-            "MR_ASYNC_BATCH_ITEM",
-            "MR_ASYNC_JOB"
-    };
-    private static final String[] REQUIRED_OUTPUT_TABLES = new String[]{
-            "TB_OUT_TRADE_RESULT_DETAIL",
-            "TB_OUT_TRADE_SCENARIO_RESULT_DETAIL",
-            "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL",
-            "TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL",
-            "TB_OUT_TRADE_DRC_DETAIL"
-    };
 
     private final JdbcTemplate engineDbJdbcTemplate;
     private final JdbcTemplate engineResultDbJdbcTemplate;
@@ -61,8 +42,7 @@ public class BatchResultFileService {
         if (safeJobId == null) {
             return;
         }
-        ensureRequiredTablesExist(engineDbJdbcTemplate, REQUIRED_SCENARIO_TABLES, "engine_db");
-        ensureRequiredTablesExist(engineResultDbJdbcTemplate, REQUIRED_OUTPUT_TABLES, "engine_result_db");
+        ensureRequiredSchema();
         String batchId = findBatchIdByJobId(safeJobId);
         if (batchId == null) {
             return;
@@ -170,67 +150,35 @@ public class BatchResultFileService {
         return jdbcTemplate.queryForList(sql, batchId);
     }
 
-    private void ensureRequiredTablesExist(JdbcTemplate jdbcTemplate, String[] requiredTables, String dataSourceName) {
-        List<String> missingTables = new ArrayList<String>();
-        for (String tableName : requiredTables) {
-            if (!tableExists(jdbcTemplate, tableName)) {
-                missingTables.add(tableName);
-            }
-        }
-        if (!missingTables.isEmpty()) {
-            throw new IllegalStateException("数据源[" + dataSourceName + "]缺少必需表: " + String.join(", ", missingTables));
-        }
+    /**
+     * 严格校验批次快照依赖的表列契约，避免运行时才暴露结构问题。
+     */
+    private void ensureRequiredSchema() {
+        verifyQuery(engineDbJdbcTemplate, "engine_db", "MR_ASYNC_BATCH_JOB",
+                "SELECT batch_id FROM MR_ASYNC_BATCH_JOB WHERE 1=0");
+        verifyQuery(engineDbJdbcTemplate, "engine_db", "MR_ASYNC_BATCH_ITEM",
+                "SELECT batch_id, seq_no, job_id FROM MR_ASYNC_BATCH_ITEM WHERE 1=0");
+        verifyQuery(engineDbJdbcTemplate, "engine_db", "MR_ASYNC_JOB",
+                "SELECT job_id, status FROM MR_ASYNC_JOB WHERE 1=0");
+
+        verifyQuery(engineResultDbJdbcTemplate, "engine_result_db", "TB_OUT_TRADE_RESULT_DETAIL",
+                "SELECT batch_id, seq_no, id FROM TB_OUT_TRADE_RESULT_DETAIL WHERE 1=0");
+        verifyQuery(engineResultDbJdbcTemplate, "engine_result_db", "TB_OUT_TRADE_SCENARIO_RESULT_DETAIL",
+                "SELECT batch_id, seq_no, id FROM TB_OUT_TRADE_SCENARIO_RESULT_DETAIL WHERE 1=0");
+        verifyQuery(engineResultDbJdbcTemplate, "engine_result_db", "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL",
+                "SELECT batch_id, seq_no, id FROM TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL WHERE 1=0");
+        verifyQuery(engineResultDbJdbcTemplate, "engine_result_db", "TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL",
+                "SELECT batch_id, seq_no, id FROM TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL WHERE 1=0");
+        verifyQuery(engineResultDbJdbcTemplate, "engine_result_db", "TB_OUT_TRADE_DRC_DETAIL",
+                "SELECT batch_id, seq_no, id FROM TB_OUT_TRADE_DRC_DETAIL WHERE 1=0");
     }
 
-    private boolean tableExists(JdbcTemplate jdbcTemplate, String tableName) {
+    private void verifyQuery(JdbcTemplate jdbcTemplate, String dataSourceName, String tableName, String sql) {
         try {
-            Boolean exists = jdbcTemplate.execute((ConnectionCallback<Boolean>) connection -> {
-                DatabaseMetaData metaData = connection.getMetaData();
-                String catalog = trimToNull(connection.getCatalog());
-                String schema = trimToNull(connection.getSchema());
-                String upper = tableName.toUpperCase(Locale.ROOT);
-                String lower = tableName.toLowerCase(Locale.ROOT);
-                String[] schemaCandidates = new String[]{schema, "%", null};
-
-                for (String schemaCandidate : schemaCandidates) {
-                    if (tableExists(metaData, catalog, schemaCandidate, tableName, tableName)) {
-                        return true;
-                    }
-                    if (tableExists(metaData, catalog, schemaCandidate, upper, tableName)) {
-                        return true;
-                    }
-                    if (tableExists(metaData, catalog, schemaCandidate, lower, tableName)) {
-                        return true;
-                    }
-                    if (tableExists(metaData, null, schemaCandidate, tableName, tableName)) {
-                        return true;
-                    }
-                    if (tableExists(metaData, null, schemaCandidate, upper, tableName)) {
-                        return true;
-                    }
-                    if (tableExists(metaData, null, schemaCandidate, lower, tableName)) {
-                        return true;
-                    }
-                }
-                return false;
-            });
-            return exists != null && exists;
-        } catch (DataAccessException ex) {
-            throw new IllegalStateException("检查表是否存在失败: " + tableName + "，原因=" + ex.getMessage(), ex);
+            jdbcTemplate.queryForList(sql);
+        } catch (Exception ex) {
+            throw new IllegalStateException("数据源[" + dataSourceName + "]表结构校验失败: " + tableName + "，原因=" + ex.getMessage(), ex);
         }
-    }
-
-    private boolean tableExists(DatabaseMetaData metaData, String catalog, String schemaPattern,
-                                String tablePattern, String expectedTableName) throws SQLException {
-        try (ResultSet rs = metaData.getTables(catalog, schemaPattern, tablePattern, new String[]{"TABLE"})) {
-            while (rs.next()) {
-                String actualName = trimToNull(rs.getString("TABLE_NAME"));
-                if (actualName != null && expectedTableName.equalsIgnoreCase(actualName)) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     private static String trimToNull(String text) {
