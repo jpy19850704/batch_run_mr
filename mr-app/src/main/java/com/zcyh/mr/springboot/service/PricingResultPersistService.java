@@ -6,12 +6,17 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.outer.engine.MrCalcEngineAdapter;
 import com.zcyh.mr.springboot.model.EngineRunResult;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -19,6 +24,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,13 +41,14 @@ public class PricingResultPersistService {
             "TB_OUT_TRADE_RESULT_DETAIL",
             "TB_OUT_TRADE_SCENARIO_RESULT_DETAIL",
             "TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL",
-            "TB_OUT_TRADE_DRC_DETAIL"
+            "TB_OUT_TRADE_DRC_DETAIL",
+            "TB_OUT_MARKET_DATA_DETAIL"
     };
-    private static final String DECOMP_TABLE = "TB_OUT_TRADE_SCENARIO_DECOMP_DETAIL";
+    private static final String DECOMP_TABLE = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
 
     private final JdbcTemplate jdbcTemplate;
 
-    public PricingResultPersistService(JdbcTemplate jdbcTemplate) {
+    public PricingResultPersistService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
@@ -51,7 +58,7 @@ public class PricingResultPersistService {
      * 但不支持跨表事务。切换后建议移除 @Transactional 注解，改为单表独立写入。
      * 写入失败不影响任务状态，仅记录日志。
      */
-    @Transactional
+    @Transactional(transactionManager = "engineResultDbTransactionManager")
     public void persistJobResult(String requestId, String jobId, String payloadJson, EngineRunResult runResult) {
         if (runResult == null || !runResult.isSuccess()) {
             return;
@@ -59,10 +66,8 @@ public class PricingResultPersistService {
         if (!MrCalcEngineAdapter.CODE.equalsIgnoreCase(trimToNull(runResult.getEngineCode()))) {
             return;
         }
-        if (!allRequiredTablesExist()) {
-            return;
-        }
-        boolean decompTableExists = tableExists(DECOMP_TABLE);
+        ensureRequiredTablesExist();
+        boolean decompTableExists = true;
 
         JSONObject root = toJsonObject(runResult.getData());
         if (root == null) {
@@ -80,40 +85,85 @@ public class PricingResultPersistService {
         Set<String> instrumentIds = collectInstrumentIds(baseTrades, scenarioResults);
         deleteExistingResultRows(context, jobId, instrumentIds, decompTableExists);
 
-        insertTradeResults(context, baseTrades);
+        // 从输入侧 payload 提取原始交易数据和市场数据（沿用已有的非计量指标写入模式）
+        JSONObject payload = parseObjectSafely(payloadJson);
+        Map<String, JSONObject> inputTradeIndex = buildInputTradeIndex(payload);
+        JSONArray inputMarketData = payload == null ? null : payload.getJSONArray("market_data");
+
+        insertTradeResults(context, baseTrades, inputTradeIndex);
         insertDrcDetails(context, baseTrades);
         insertFrtbSensitivityDetails(context, baseTrades);
         insertScenarioResults(context, scenarioResults, baseTradeIndex, decompTableExists);
+        insertMarketDataDetails(context, inputMarketData);
     }
 
     /**
      * 检查所有输出表是否存在。
-     * 当前实现使用 H2 的 INFORMATION_SCHEMA，切换 Doris 时需替换为下方注释的实现。
      */
-    private boolean allRequiredTablesExist() {
-        try {
-            for (String tableName : REQUIRED_TABLES) {
-                if (!tableExists(tableName)) {
-                    return false;
-                }
+    private void ensureRequiredTablesExist() {
+        List<String> missingTables = new ArrayList<String>();
+        for (String tableName : REQUIRED_TABLES) {
+            if (!tableExists(tableName)) {
+                missingTables.add(tableName);
             }
-            return true;
-        } catch (DataAccessException ex) {
-            return false;
+        }
+        if (!tableExists(DECOMP_TABLE)) {
+            missingTables.add(DECOMP_TABLE);
+        }
+        if (!missingTables.isEmpty()) {
+            throw new IllegalStateException("输出结果表缺失: " + String.join(", ", missingTables));
         }
     }
 
     private boolean tableExists(String tableName) {
         try {
-            Integer count = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(1) FROM INFORMATION_SCHEMA.TABLES WHERE UPPER(TABLE_NAME)=?",
-                    Integer.class,
-                    tableName
-            );
-            return count != null && count > 0;
+            Boolean exists = jdbcTemplate.execute((ConnectionCallback<Boolean>) connection -> {
+                DatabaseMetaData metaData = connection.getMetaData();
+                String catalog = trimToNull(connection.getCatalog());
+                String schema = trimToNull(connection.getSchema());
+                String upper = tableName.toUpperCase(Locale.ROOT);
+                String lower = tableName.toLowerCase(Locale.ROOT);
+                String[] schemaCandidates = new String[]{schema, "%", null};
+
+                for (String schemaCandidate : schemaCandidates) {
+                    if (tableExists(metaData, catalog, schemaCandidate, tableName, tableName)) {
+                        return true;
+                    }
+                    if (tableExists(metaData, catalog, schemaCandidate, upper, tableName)) {
+                        return true;
+                    }
+                    if (tableExists(metaData, catalog, schemaCandidate, lower, tableName)) {
+                        return true;
+                    }
+                    if (tableExists(metaData, null, schemaCandidate, tableName, tableName)) {
+                        return true;
+                    }
+                    if (tableExists(metaData, null, schemaCandidate, upper, tableName)) {
+                        return true;
+                    }
+                    if (tableExists(metaData, null, schemaCandidate, lower, tableName)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            return exists != null && exists;
         } catch (DataAccessException ex) {
-            return false;
+            throw new IllegalStateException("检查输出结果表是否存在失败: " + tableName + "，原因=" + ex.getMessage(), ex);
         }
+    }
+
+    private boolean tableExists(DatabaseMetaData metaData, String catalog, String schemaPattern,
+                                String tablePattern, String expectedTableName) throws SQLException {
+        try (ResultSet rs = metaData.getTables(catalog, schemaPattern, tablePattern, new String[]{"TABLE"})) {
+            while (rs.next()) {
+                String actualName = trimToNull(rs.getString("TABLE_NAME"));
+                if (actualName != null && expectedTableName.equalsIgnoreCase(actualName)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private PersistContext buildContext(String requestId, String jobId, String payloadJson) {
@@ -149,6 +199,7 @@ public class PricingResultPersistService {
         if (decompTableExists) {
             jdbcTemplate.update("DELETE FROM " + DECOMP_TABLE + " WHERE JOB_ID=?", jobId);
         }
+        // 市场数据表无 JOB_ID 字段，在 deleteExistingResultRows 中按 BATCH_ID 统一清理
     }
 
     private void deleteExistingResultRows(PersistContext context, String jobId, Set<String> instrumentIds, boolean decompTableExists) {
@@ -183,7 +234,15 @@ public class PricingResultPersistService {
         jdbcTemplate.update(sql.toString(), params.toArray());
     }
 
-    private void insertTradeResults(PersistContext context, JSONArray trades) {
+    /**
+     * 写入基准估值结果。
+     * 计量指标来自引擎输出，非计量指标（原始交易、市场数据依赖）来自输入侧 payload。
+     *
+     * @param context         落库上下文
+     * @param trades          引擎输出的交易结果数据
+     * @param inputTradeIndex 输入侧原始交易索引（INSTRUMENT_ID → 原始交易 JSON）
+     */
+    private void insertTradeResults(PersistContext context, JSONArray trades, Map<String, JSONObject> inputTradeIndex) {
         if (trades == null || trades.isEmpty()) {
             return;
         }
@@ -192,14 +251,19 @@ public class PricingResultPersistService {
                 + "INSTRUMENT_ID, PRODUCT_CODE, PORTFOLIO, DESK, TRADER, "
                 + "POSITION, VALUATION_UNIT, VALUATION, VALUATION_CCY, VALUATION_CNY, "
                 + "PV01, DELTA, GAMMA, VEGA, THETA, RHO, STATUS, ERROR, DETAIL, ERRORS_JSON, CASHFLOW_JSON, RESULT_JSON, "
+                + "TRADE_INPUT_JSON, MARKET_DATA_KEYS_JSON, "
                 + "CREATED_AT, UPDATED_AT) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         for (int i = 0; i < trades.size(); i++) {
             JSONObject trade = trades.getJSONObject(i);
             if (trade == null) {
                 continue;
             }
+            String instrumentId = trimToNull(trade.getString("INSTRUMENT_ID"));
+            // 从输入侧 payload 提取原始交易和市场数据依赖（沿用 tradeDimension 的设计模式）
+            JSONObject inputTrade = (instrumentId == null || inputTradeIndex == null)
+                    ? null : inputTradeIndex.get(instrumentId);
             jdbcTemplate.update(
                     sql,
                     context.requestId,
@@ -208,11 +272,11 @@ public class PricingResultPersistService {
                     context.seqNo,
                     normalizeDataDate(firstNonBlank(trade.getString("DATA_DATE"), context.dataDate)),
                     context.opCode,
-                    trimToNull(trade.getString("INSTRUMENT_ID")),
+                    instrumentId,
                     trimToNull(trade.getString("PRODUCT_CODE")),
-                    resolveDimensionField(context.tradeDimension, trimToNull(trade.getString("INSTRUMENT_ID")), "PORTFOLIO", trade, "PORTFOLIO", "PORTFOLIO_CODE"),
-                    resolveDimensionField(context.tradeDimension, trimToNull(trade.getString("INSTRUMENT_ID")), "DESK", trade, "DESK", "DESK_CODE"),
-                    resolveDimensionField(context.tradeDimension, trimToNull(trade.getString("INSTRUMENT_ID")), "TRADER", trade, "TRADER", "TRADER_CODE"),
+                    resolveDimensionField(context.tradeDimension, instrumentId, "PORTFOLIO", trade, "PORTFOLIO", "PORTFOLIO_CODE"),
+                    resolveDimensionField(context.tradeDimension, instrumentId, "DESK", trade, "DESK", "DESK_CODE"),
+                    resolveDimensionField(context.tradeDimension, instrumentId, "TRADER", trade, "TRADER", "TRADER_CODE"),
                     toBigDecimal(trade.get("POSITION")),
                     toBigDecimal(trade.get("VALUATION_UNIT")),
                     toBigDecimal(trade.get("VALUATION")),
@@ -230,6 +294,8 @@ public class PricingResultPersistService {
                     toJsonString(trade.get("ERRORS")),
                     toJsonString(trade.get("CASH_FLOW")),
                     toJsonString(trade),
+                    toJsonString(inputTrade),
+                    inputTrade == null ? null : toJsonString(inputTrade.get("_MARKET_DATA_KEYS")),
                     context.createdAt,
                     context.updatedAt
             );
@@ -484,6 +550,79 @@ public class PricingResultPersistService {
             }
         }
         return index;
+    }
+
+    /**
+     * 从输入侧 payload 构建原始交易索引。
+     * 用于将原始交易 JSON 和市场数据依赖写入结果表。
+     */
+    private Map<String, JSONObject> buildInputTradeIndex(JSONObject payload) {
+        Map<String, JSONObject> index = new LinkedHashMap<String, JSONObject>();
+        if (payload == null) {
+            return index;
+        }
+        JSONArray inputTrades = payload.getJSONArray("trade_data");
+        if (inputTrades == null) {
+            return index;
+        }
+        for (int i = 0; i < inputTrades.size(); i++) {
+            JSONObject trade = inputTrades.getJSONObject(i);
+            if (trade == null) {
+                continue;
+            }
+            String instrumentId = trimToNull(trade.getString("INSTRUMENT_ID"));
+            if (instrumentId != null) {
+                index.put(instrumentId, trade);
+            }
+        }
+        return index;
+    }
+
+    /**
+     * 写入市场数据结果表。
+     * 将输入侧 payload 中的市场曲线逐条写入 TB_OUT_MARKET_DATA_DETAIL。
+     * 每条曲线存完整 JSON（含 CURVE_DATA 等全部结构），由前端解析。
+     * 同一 BATCH_ID 下多个 payload 的重复曲线通过 Doris Unique Key 天然去重。
+     */
+    private void insertMarketDataDetails(PersistContext context, JSONArray marketData) {
+        if (marketData == null || marketData.isEmpty()) {
+            return;
+        }
+        String sql = "INSERT INTO TB_OUT_MARKET_DATA_DETAIL ("
+                + "BATCH_ID, DATA_DATE, OP_CODE, CURVE_TYPE, CURVE_ID, CURVE_DATA_JSON, "
+                + "CREATED_AT, UPDATED_AT) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+        List<Object[]> batchArgs = new ArrayList<Object[]>();
+        for (int i = 0; i < marketData.size(); i++) {
+            JSONObject curve = marketData.getJSONObject(i);
+            if (curve == null) {
+                continue;
+            }
+            String curveType = trimToNull(curve.getString("CURVE_TYPE"));
+            // CURVE_ID 或 FIXING_ID 作为曲线标识
+            String curveId = trimToNull(curve.getString("CURVE_ID"));
+            if (curveId == null) {
+                curveId = trimToNull(curve.getString("FIXING_ID"));
+            }
+            batchArgs.add(new Object[]{
+                    context.batchId,
+                    normalizeDataDate(context.dataDate),
+                    context.opCode,
+                    curveType,
+                    curveId,
+                    toJsonString(curve),
+                    context.createdAt,
+                    context.updatedAt
+            });
+            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
+                jdbcTemplate.batchUpdate(sql, batchArgs);
+                batchArgs.clear();
+            }
+        }
+        if (!batchArgs.isEmpty()) {
+            jdbcTemplate.batchUpdate(sql, batchArgs);
+        }
     }
 
     private Set<String> collectInstrumentIds(JSONArray baseTrades, JSONArray scenarioResults) {

@@ -79,21 +79,6 @@
         <plugins>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <!-- 历史未收敛代码先隔离，避免阻塞核心模块编译 -->
-                        <exclude>com/zcyh/batch/**</exclude>
-                        <exclude>com/zcyh/mr/frtbsa/sba/FrtbSaCaseTest.java</exclude>
-                        <exclude>com/zcyh/mr/frtbsa/sba/FrtbSaCsvSmokeTest.java</exclude>
-                    </excludes>
-                    <testIncludes>
-                        <!-- 先收敛稳定可执行测试集，保证 CI 可持续 -->
-                        <testInclude>com/zcyh/mr/basic/util/ConfigureTest.java</testInclude>
-                        <testInclude>com/zcyh/mr/core/BondFuncTest.java</testInclude>
-                        <testInclude>com/zcyh/mr/calc/CommFwdCalcHelperTest.java</testInclude>
-                        <testInclude>com/zcyh/mr/outer/engine/FrtbEngineAdapterInputContractTest.java</testInclude>
-                    </testIncludes>
-                </configuration>
             </plugin>
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>

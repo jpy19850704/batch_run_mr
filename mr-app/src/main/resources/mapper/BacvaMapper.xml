@@ -16,10 +16,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         FROM TB_36_SACCR_EAD_DETAIL T
     </select>
 
-    <select id="selectHolDate" resultType="java.util.HashMap">
-        SELECT * FROM TB_17_CALENDAR
-    </select>
-
     <select id="selectBacvaRiskWeights" resultType="java.util.HashMap">
         SELECT * FROM TB_17_BACVA_RISK_WEIGHTS
     </select>

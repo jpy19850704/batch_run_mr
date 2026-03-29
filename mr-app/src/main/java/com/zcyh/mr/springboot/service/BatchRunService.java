@@ -13,6 +13,8 @@ import com.zcyh.mr.springboot.model.BatchRunRequest;
 import com.zcyh.mr.springboot.model.BatchRunResult;
 import com.zcyh.mr.springboot.model.BatchSubmitRequest;
 import com.zcyh.mr.springboot.model.BatchSubmitResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +26,7 @@ import java.util.Map;
  */
 @Service
 public class BatchRunService {
+    private static final Logger log = LoggerFactory.getLogger(BatchRunService.class);
     private static final String DEFAULT_USER = "outer_service";
     private static final String DEFAULT_TREE_ID = "Batch";
     private static final String DEFAULT_RULE_ID = "BATCH_FRTB_DEFAULT";
@@ -124,13 +127,13 @@ public class BatchRunService {
             String mainFileName = scenarioIdList + "_" + dataDate + "_" + batchId + ".json";
             java.nio.file.Path mainFilePath = rootDir.resolve(mainFileName);
             java.nio.file.Files.writeString(mainFilePath, raw, java.nio.charset.StandardCharsets.UTF_8);
-            System.out.println("[BatchRunService] 主场景文件已写入: " + mainFilePath + ", 记录数=" + data.size());
+            log.info("主场景文件已写入: {}, 记录数={}", mainFilePath, data.size());
 
             // Risk Class Decomp 场景文件（内容与主场景相同，Calc 引擎内部按 IR/FX/EQ/COMM/ALL 动态切片）
             String decompFileName = "DECOMP_" + scenarioIdList + "_" + dataDate + "_" + batchId + ".json";
             java.nio.file.Path decompFilePath = rootDir.resolve(decompFileName);
             java.nio.file.Files.writeString(decompFilePath, raw, java.nio.charset.StandardCharsets.UTF_8);
-            System.out.println("[BatchRunService] Decomp 场景文件已写入: " + decompFilePath);
+            log.info("Decomp 场景文件已写入: {}", decompFilePath);
         } catch (java.io.IOException e) {
             throw new IllegalStateException("写入情景文件失败: " + e.getMessage(), e);
         }
@@ -204,8 +207,7 @@ public class BatchRunService {
             }
         } catch (Exception ex) {
             // 落库失败不影响主流程返回
-            org.slf4j.LoggerFactory.getLogger(BatchRunService.class)
-                    .warn("FRTB SBA 结果落库异常，不影响批量返回: batchId={}, error={}", batchId, ex.getMessage());
+            log.warn("FRTB SBA 结果落库异常，不影响批量返回: batchId={}, error={}", batchId, ex.getMessage());
         }
 
         return parsed;

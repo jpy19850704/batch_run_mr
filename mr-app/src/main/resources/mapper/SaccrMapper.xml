@@ -224,10 +224,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         SELECT * FROM TB_17_SACCR_SUPERVISORY_FACTOR
     </select>
 
-    <select id="selectHolDate"  resultType="java.util.Date">
-        SELECT T.HOL_DATE FROM TB_17_CALENDAR T where T.CALENDAR = 'CalPEK'
-    </select>
-
     <delete id="deleteDealDetail">
         delete from TB_36_SACCR_DEAL_DETAIL where DATA_DATE = #{dataDate,jdbcType=DATE}
     </delete>

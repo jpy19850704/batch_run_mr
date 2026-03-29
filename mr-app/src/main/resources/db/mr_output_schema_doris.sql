@@ -4,6 +4,38 @@
 -- 切换步骤：在 Doris FE 执行本文件后，修改环境变量指向 Doris 即可。
 -- =====================================================================
 
+-- 情景文件结果表
+CREATE TABLE IF NOT EXISTS TB_OUT_SCENARIO_FILE_DETAIL (
+    ID                  BIGINT          NOT NULL AUTO_INCREMENT,
+    REQUEST_ID          VARCHAR(128),
+    JOB_ID              VARCHAR(64),
+    BATCH_ID            VARCHAR(64),
+    SEQ_NO              BIGINT,
+    DATA_DATE           VARCHAR(16),
+    OP_CODE             VARCHAR(64),
+    SCENARIO_ID         VARCHAR(128),
+    SUBSCENARIO_ID      VARCHAR(128),
+    SCENARIO_NAME       VARCHAR(256),
+    SCENARIO_TYPE       VARCHAR(64),
+    RISKFACTOR_TYPE     VARCHAR(64),
+    RISKFACTOR_ID       VARCHAR(256),
+    RISKFACTOR_VERTEX1  VARCHAR(128),
+    RISKFACTOR_VERTEX2  VARCHAR(128),
+    CHANGE_VALUE        DECIMAL(38, 10),
+    RISKFACTOR_TERM     VARCHAR(64),
+    ORI_VALUE           DECIMAL(38, 10),
+    SCENARIO_RESULT     DECIMAL(38, 10),
+    MODIFIER            VARCHAR(128),
+    CREATED_AT          BIGINT,
+    UPDATED_AT          BIGINT
+)
+UNIQUE KEY(ID)
+DISTRIBUTED BY HASH(ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
 -- 基准估值结果表
 CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_RESULT_DETAIL (
     ID              BIGINT          NOT NULL AUTO_INCREMENT,
@@ -18,28 +50,30 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_RESULT_DETAIL (
     PORTFOLIO       VARCHAR(128),
     DESK            VARCHAR(64),
     TRADER          VARCHAR(64),
-    POSITION        DECIMAL(20, 8),
-    VALUATION_UNIT  DECIMAL(20, 8),
-    VALUATION       DECIMAL(20, 8),
+    POSITION        DECIMAL(38, 10),
+    VALUATION_UNIT  DECIMAL(38, 10),
+    VALUATION       DECIMAL(38, 10),
     VALUATION_CCY   VARCHAR(8),
-    VALUATION_CNY   DECIMAL(20, 8),
-    PV01            DECIMAL(20, 8),
-    DELTA           DECIMAL(20, 8),
-    GAMMA           DECIMAL(20, 8),
-    VEGA            DECIMAL(20, 8),
-    THETA           DECIMAL(20, 8),
-    RHO             DECIMAL(20, 8),
+    VALUATION_CNY   DECIMAL(38, 10),
+    PV01            DECIMAL(38, 10),
+    DELTA           DECIMAL(38, 10),
+    GAMMA           DECIMAL(38, 10),
+    VEGA            DECIMAL(38, 10),
+    THETA           DECIMAL(38, 10),
+    RHO             DECIMAL(38, 10),
     STATUS          VARCHAR(16),
     ERROR           TEXT,
     DETAIL          TEXT,
     ERRORS_JSON     TEXT,
     CASHFLOW_JSON   TEXT,
-    RESULT_JSON     TEXT,
-    CREATED_AT      BIGINT,
-    UPDATED_AT      BIGINT
+    RESULT_JSON             TEXT,
+    TRADE_INPUT_JSON        TEXT            COMMENT '原始交易输入 JSON',
+    MARKET_DATA_KEYS_JSON   TEXT            COMMENT '交易引用的市场数据标识 JSON 数组',
+    CREATED_AT              BIGINT,
+    UPDATED_AT              BIGINT
 )
 UNIQUE KEY(ID)
-DISTRIBUTED BY HASH(INSTRUMENT_ID) BUCKETS 8
+DISTRIBUTED BY HASH(ID) BUCKETS 8
 PROPERTIES (
     "replication_allocation" = "tag.location.default: 1",
     "enable_unique_key_merge_on_write" = "true"
@@ -59,9 +93,9 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_RESULT_DETAIL (
     SCENARIO_NAME           VARCHAR(256),
     INSTRUMENT_ID           VARCHAR(128),
     PRODUCT_CODE            VARCHAR(64),
-    BASE_VALUATION_CNY      DECIMAL(20, 8),
-    SCENARIO_VALUATION_CNY  DECIMAL(20, 8),
-    PNL                     DECIMAL(20, 8),
+    BASE_VALUATION_CNY      DECIMAL(38, 10),
+    SCENARIO_VALUATION_CNY  DECIMAL(38, 10),
+    PNL                     DECIMAL(38, 10),
     ERROR                   TEXT,
     DETAIL                  TEXT,
     RESULT_JSON             TEXT,
@@ -69,14 +103,14 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_RESULT_DETAIL (
     UPDATED_AT              BIGINT
 )
 UNIQUE KEY(ID)
-DISTRIBUTED BY HASH(INSTRUMENT_ID) BUCKETS 8
+DISTRIBUTED BY HASH(ID) BUCKETS 8
 PROPERTIES (
     "replication_allocation" = "tag.location.default: 1",
     "enable_unique_key_merge_on_write" = "true"
 );
 
--- 情景 PnL 分解结果表
-CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_DECOMP_DETAIL (
+-- 情景 PnL VAR 结果表
+CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL (
     ID                  BIGINT          NOT NULL AUTO_INCREMENT,
     REQUEST_ID          VARCHAR(128),
     JOB_ID              VARCHAR(64),
@@ -89,23 +123,23 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_DECOMP_DETAIL (
     SCENARIO_NAME       VARCHAR(256),
     INSTRUMENT_ID       VARCHAR(128),
     PRODUCT_CODE        VARCHAR(64),
-    BASE_VALUATION_CNY  DECIMAL(20, 8),
-    IR_VALUATION        DECIMAL(20, 8),
-    IR_PNL              DECIMAL(20, 8),
-    FX_VALUATION        DECIMAL(20, 8),
-    FX_PNL              DECIMAL(20, 8),
-    EQ_VALUATION        DECIMAL(20, 8),
-    EQ_PNL              DECIMAL(20, 8),
-    COMM_VALUATION      DECIMAL(20, 8),
-    COMM_PNL            DECIMAL(20, 8),
-    ALL_VALUATION       DECIMAL(20, 8),
-    ALL_PNL             DECIMAL(20, 8),
+    BASE_VALUATION_CNY  DECIMAL(38, 10),
+    IR_VALUATION        DECIMAL(38, 10),
+    IR_PNL              DECIMAL(38, 10),
+    FX_VALUATION        DECIMAL(38, 10),
+    FX_PNL              DECIMAL(38, 10),
+    EQ_VALUATION        DECIMAL(38, 10),
+    EQ_PNL              DECIMAL(38, 10),
+    COMM_VALUATION      DECIMAL(38, 10),
+    COMM_PNL            DECIMAL(38, 10),
+    ALL_VALUATION       DECIMAL(38, 10),
+    ALL_PNL             DECIMAL(38, 10),
     RESULT_JSON         TEXT,
     CREATED_AT          BIGINT,
     UPDATED_AT          BIGINT
 )
 UNIQUE KEY(ID)
-DISTRIBUTED BY HASH(INSTRUMENT_ID) BUCKETS 8
+DISTRIBUTED BY HASH(ID) BUCKETS 8
 PROPERTIES (
     "replication_allocation" = "tag.location.default: 1",
     "enable_unique_key_merge_on_write" = "true"
@@ -129,15 +163,15 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL (
     RISK_FACTOR_BUCKET              VARCHAR(64),
     RISK_FACTOR_TYPE                VARCHAR(64),
     SENSITIVITY_TYPE                VARCHAR(64),
-    SENSITIVITY_VAL_INST_CURR       DECIMAL(20, 8),
+    SENSITIVITY_VAL_INST_CURR       DECIMAL(38, 10),
     INSTRUMENT_CURRENCY             VARCHAR(8),
-    SENSITIVITY_VAL_INST_CURR_CNY   DECIMAL(20, 8),
+    SENSITIVITY_VAL_INST_CURR_CNY   DECIMAL(38, 10),
     DETAIL_JSON                     TEXT,
     CREATED_AT                      BIGINT,
     UPDATED_AT                      BIGINT
 )
 UNIQUE KEY(ID)
-DISTRIBUTED BY HASH(INSTRUMENT_ID) BUCKETS 8
+DISTRIBUTED BY HASH(ID) BUCKETS 8
 PROPERTIES (
     "replication_allocation" = "tag.location.default: 1",
     "enable_unique_key_merge_on_write" = "true"
@@ -161,20 +195,41 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_DRC_DETAIL (
     DRC_BUCKET          VARCHAR(64),
     JTD_TYPE            VARCHAR(64),
     SENIORITY           INT,
-    TERM_TO_MATURITY    DECIMAL(20, 8),
-    MODIFIED_REMAIN_TERM DECIMAL(20, 8),
-    RISK_WEIGHT         DECIMAL(20, 8),
-    JTD                 DECIMAL(20, 8),
-    INSTRUMENT_VALUE    DECIMAL(20, 8),
-    FRTB_LGD            DECIMAL(20, 8),
-    NOTIONAL            DECIMAL(20, 8),
+    TERM_TO_MATURITY    DECIMAL(38, 10),
+    MODIFIED_REMAIN_TERM DECIMAL(38, 10),
+    RISK_WEIGHT         DECIMAL(38, 10),
+    JTD                 DECIMAL(38, 10),
+    JTD_CNY             DECIMAL(38, 10),
+    INSTRUMENT_VALUE    DECIMAL(38, 10),
+    FRTB_LGD            DECIMAL(38, 10),
+    NOTIONAL            DECIMAL(38, 10),
     DETAIL_JSON         TEXT,
     CREATED_AT          BIGINT,
     UPDATED_AT          BIGINT
 )
 UNIQUE KEY(ID)
-DISTRIBUTED BY HASH(INSTRUMENT_ID) BUCKETS 8
+DISTRIBUTED BY HASH(ID) BUCKETS 8
 PROPERTIES (
     "replication_allocation" = "tag.location.default: 1",
     "enable_unique_key_merge_on_write" = "true"
 );
+
+-- 市场数据结果表（每条曲线一行，完整曲线 JSON 由前端解析）
+CREATE TABLE IF NOT EXISTS TB_OUT_MARKET_DATA_DETAIL (
+    ID              BIGINT          NOT NULL AUTO_INCREMENT,
+    BATCH_ID        VARCHAR(64),
+    DATA_DATE       VARCHAR(16),
+    OP_CODE         VARCHAR(64),
+    CURVE_TYPE      VARCHAR(64)     COMMENT '曲线类型: IR_SPOT/FX_SPOT/EQ_SPOT/COMM_SPOT/IR_VOL/FX_VOL/EQ_VOL/COMM_VOL/FIXING',
+    CURVE_ID        VARCHAR(256)    COMMENT '曲线ID / FIXING_ID',
+    CURVE_DATA_JSON TEXT            COMMENT '完整曲线 JSON（含 CURVE_DATA 等全部结构，前端解析）',
+    CREATED_AT      BIGINT,
+    UPDATED_AT      BIGINT
+)
+UNIQUE KEY(ID)
+DISTRIBUTED BY HASH(ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+

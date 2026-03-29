@@ -52,6 +52,7 @@ data/*.lock.db
 # 本地场景与缓存数据
 mr-app/data/
 scenario_sets/
+calendar_data/
 mr-core/src/main/resources/data/*.csv
 
 # Temporary analysis files
@@ -67,3 +68,10 @@ lib/
 
 # Release-only: do not track tests in super repo
 src/test/
+# mr-core 的测试迁移到标准目录后，需要允许纳入版本管理
+!mr-core/src/test/
+!mr-core/src/test/java/
+!mr-core/src/test/java/com/
+!mr-core/src/test/java/com/zcyh/
+!mr-core/src/test/java/com/zcyh/mr/
+!mr-core/src/test/java/com/zcyh/mr/**

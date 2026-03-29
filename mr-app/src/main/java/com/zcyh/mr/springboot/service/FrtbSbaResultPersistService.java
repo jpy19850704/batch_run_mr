@@ -3,6 +3,7 @@ package com.zcyh.mr.springboot.service;
 import com.zcyh.mr.frtbsa.sba.pojo.FRTBClassResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -11,7 +12,7 @@ import java.util.List;
 
 /**
  * FRTB SBA Class 级资本汇总结果落库服务。
- * 将 FRTBClassResult 按 NONADDITIVE / ADDITIVE 两种 CAPITAL_TYPE 写入 H2 表。
+ * 将 FRTBClassResult 按 NONADDITIVE / ADDITIVE 两种 CAPITAL_TYPE 写入 engine_result_db 结果表。
  */
 @Service
 public class FrtbSbaResultPersistService {
@@ -30,7 +31,7 @@ public class FrtbSbaResultPersistService {
 
     private final JdbcTemplate jdbcTemplate;
 
-    public FrtbSbaResultPersistService(JdbcTemplate jdbcTemplate) {
+    public FrtbSbaResultPersistService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 

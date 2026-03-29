@@ -1,5 +1,5 @@
 -- 异步任务表（支持多实例共享任务状态）
-CREATE TABLE IF NOT EXISTS mr_async_job (
+CREATE TABLE IF NOT EXISTS MR_ASYNC_JOB (
     job_id VARCHAR(64) PRIMARY KEY,
     request_id VARCHAR(128) NOT NULL,
     engine_code VARCHAR(64) NOT NULL,
@@ -25,7 +25,9 @@ CREATE TABLE IF NOT EXISTS mr_async_job (
 );
 
 -- 幂等索引（同一个幂等键只允许一个任务）
-CREATE UNIQUE INDEX uk_mr_async_job_idem ON mr_async_job(idempotency_key);
+CREATE UNIQUE INDEX uk_MR_ASYNC_JOB_idem ON MR_ASYNC_JOB(idempotency_key);
 
 -- 状态索引（便于状态查询和历史清理）
-CREATE INDEX idx_mr_async_job_status ON mr_async_job(status);
+CREATE INDEX idx_MR_ASYNC_JOB_status ON MR_ASYNC_JOB(status);
+
+

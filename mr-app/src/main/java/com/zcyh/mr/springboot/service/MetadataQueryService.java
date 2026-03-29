@@ -1,5 +1,6 @@
 package com.zcyh.mr.springboot.service;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -10,7 +11,7 @@ import java.util.Map;
 
 /**
  * 通用元数据查询服务。
- * 从 H2 output/input 表中查询下拉选项、维度域值等前端所需的元数据。
+ * 从 engine_result_db 结果表中查询下拉选项、维度域值等前端所需的元数据。
  * 按 scope 分发：batches / dimDomains / scenarios / tradeIds
  */
 @Service
@@ -18,7 +19,7 @@ public class MetadataQueryService {
 
     private final JdbcTemplate jdbcTemplate;
 
-    public MetadataQueryService(JdbcTemplate jdbcTemplate) {
+    public MetadataQueryService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 

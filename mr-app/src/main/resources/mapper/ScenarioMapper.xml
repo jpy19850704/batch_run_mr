@@ -446,37 +446,4 @@
         </where>
     </select>
 
-    <select id="getHolidayDate" resultType="java.util.HashMap">
-        select CALENDAR as CALENDAR_CODE, HOL_DATE as DATA_DATE
-        from TB_17_CALENDAR
-        where CALENDAR = #{calPEK}
-    </select>
-
-    <delete id="deleteScenario">
-        delete from TB_17_SCENARIO_RESULT_TMP
-        <where>
-            <if test="scenarioIdList!=null and scenarioIdList!=''">
-                AND SCENARIO_ID in
-                <foreach collection="scenarioIdList.split(',')" item="id" open="(" close=")" separator=",">
-                    #{id}
-                </foreach>
-            </if>
-            <if test="user!=null and user!=''">
-                AND MODIFIER = #{user}
-            </if>
-            <if test="dataDate!=null">
-                AND DATA_DATE =  #{dataDate,jdbcType=DATE}
-            </if>
-        </where>
-
-    </delete>
-
-    <insert id="insertScenario" parameterType="java.util.List">
-        INSERT INTO TB_17_SCENARIO_RESULT_TMP (SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,RISKFACTOR_TYPE,RISKFACTOR_ID,RISKFACTOR_VERTEX1,RISKFACTOR_VERTEX2,CHANGE_VALUE,DATA_DATE,RISKFACTOR_TERM,ORI_VALUE,SCENARIO_RESULT,UPDATE_TIME,MODIFIER) VALUES
-        <foreach collection="list" item="item" index="index" separator=",">
-            (#{item.SCENARIO_ID},#{item.SUBSCENARIO_ID},#{item.SCENARIO_NAME},#{item.SCENARIO_TYPE},#{item.CURVE_TYPE},#{item.CURVE_CODE},#{item.TERM_DAYS},#{item.DELTA},#{item.SCENARIO_SHIFT_VALUE},#{item.DATA_DATE},#{item.TERM_CODE},#{item.YIELD_RATE},#{item.CHANGED_RATE},#{item.UPDATE_TIME,jdbcType=DATE},#{item.MODIFIER})
-        </foreach>
-
-    </insert>
-
 </mapper>

@@ -34,10 +34,4 @@ public interface ScenarioMapper {
     List<Map<String, Object>> selectCommVolData(@Param("scenarioId") String scenarioId, @Param("curveCode") String curveCode, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
 
     List<Map<String, Object>> selectEqVolData(@Param("scenarioId") String scenarioId, @Param("curveCode") String curveCode, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
-
-    List<Map<String, Object>> getHolidayDate(@Param("calPEK") String calPEK);
-
-    int deleteScenario(@Param("scenarioIdList") String scenarioIdList, @Param("user") String user, @Param("dataDate") Date dataDate);
-
-    int insertScenario(@Param("list") List<Map<String, Object>> list);
 }

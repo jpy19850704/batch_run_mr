@@ -33,27 +33,26 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Configuration
 public class ScenarioDataSourceConfig {
 
-    @Bean(name = "scenarioDataSourceProperties")
-    @ConfigurationProperties(prefix = "mr.scenario.datasource")
-    @ConditionalOnProperty(prefix = "mr.scenario.service", name = "enabled", havingValue = "true")
-    public DataSourceProperties scenarioDataSourceProperties() {
+    @Bean(name = "engineDbDataSourceProperties")
+    @ConfigurationProperties(prefix = "enginedb.datasource")
+    public DataSourceProperties engineDbDataSourceProperties() {
         return new DataSourceProperties();
     }
 
-    @Bean(name = "scenarioDataSource")
-    @ConditionalOnBean(name = "scenarioDataSourceProperties")
-    @ConfigurationProperties(prefix = "mr.scenario.datasource.hikari")
-    public DataSource scenarioDataSource(
-            @Qualifier("scenarioDataSourceProperties") DataSourceProperties properties) {
+    @Bean(name = "engineDbDataSource")
+    @ConditionalOnBean(name = "engineDbDataSourceProperties")
+    @ConfigurationProperties(prefix = "enginedb.datasource.hikari")
+    public DataSource engineDbDataSource(
+            @Qualifier("engineDbDataSourceProperties") DataSourceProperties properties) {
         return properties.initializeDataSourceBuilder()
                 .type(HikariDataSource.class)
                 .build();
     }
 
     @Bean(name = "scenarioSqlSessionFactory")
-    @ConditionalOnBean(name = "scenarioDataSource")
+    @ConditionalOnBean(name = "engineDbDataSource")
     public SqlSessionFactory scenarioSqlSessionFactory(
-            @Qualifier("scenarioDataSource") DataSource dataSource) throws Exception {
+            @Qualifier("engineDbDataSource") DataSource dataSource) throws Exception {
         SqlSessionFactoryBean factoryBean = new SqlSessionFactoryBean();
         factoryBean.setDataSource(dataSource);
         factoryBean.setMapperLocations(resolveScenarioMapperLocations());

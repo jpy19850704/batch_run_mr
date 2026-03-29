@@ -1,5 +1,6 @@
 package com.zcyh.mr.springboot.service;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
@@ -15,14 +16,14 @@ import java.util.List;
 
 /**
  * 批量任务交易数据加载器。
- * 从 H2 数据库加载交易输入和市场曲线数据。
+ * 从 engine_db（输入/任务库）加载交易输入和市场曲线数据。
  */
 @Component
 public class BatchTradeDataLoader {
 
     private final JdbcTemplate jdbcTemplate;
 
-    public BatchTradeDataLoader(JdbcTemplate jdbcTemplate) {
+    public BatchTradeDataLoader(@Qualifier("engineDbJdbcTemplate") JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
@@ -62,7 +63,7 @@ public class BatchTradeDataLoader {
     public List<TradeRow> loadTradeRows(LocalDate dataDate, String portfolio, String desk) {
         StringBuilder sql = new StringBuilder();
         List<Object> params = new ArrayList<Object>();
-        sql.append("SELECT id, trade_id, product_type, trade_content_text, portfolio, desk, trader FROM mr_trade_input WHERE data_date=?");
+        sql.append("SELECT id, trade_id, product_type, trade_content_text, portfolio, desk, trader FROM MR_TRADE_INPUT WHERE data_date=?");
         params.add(Date.valueOf(dataDate));
         if (portfolio != null) {
             sql.append(" AND portfolio=?");
@@ -85,7 +86,7 @@ public class BatchTradeDataLoader {
         }
         StringBuilder sql = new StringBuilder();
         List<Object> params = new ArrayList<Object>();
-        sql.append("SELECT id, trade_id, product_type, trade_content_text FROM mr_trade_input WHERE data_date=?");
+        sql.append("SELECT id, trade_id, product_type, trade_content_text FROM MR_TRADE_INPUT WHERE data_date=?");
         params.add(Date.valueOf(dataDate));
         sql.append(" AND trade_id IN (");
         for (int i = 0; i < tradeIds.size(); i++) {
@@ -103,7 +104,7 @@ public class BatchTradeDataLoader {
      * 按数据日期加载市场曲线行。
      */
     public List<CurveRow> loadCurveRows(LocalDate dataDate) {
-        String sql = "SELECT market_data_type, curve_id, curve_content_text FROM mr_market_curve_input WHERE data_date=? ORDER BY market_data_type, curve_id";
+        String sql = "SELECT market_data_type, curve_id, curve_content_text FROM MR_MARKET_CURVE_INPUT WHERE data_date=? ORDER BY market_data_type, curve_id";
         return jdbcTemplate.query(sql, CURVE_ROW_MAPPER, Date.valueOf(dataDate));
     }
 
@@ -181,3 +182,5 @@ public class BatchTradeDataLoader {
         return value.isEmpty() ? null : value;
     }
 }
+
+
