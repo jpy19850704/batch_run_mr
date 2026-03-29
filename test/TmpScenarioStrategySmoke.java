@@ -346,8 +346,7 @@ public class TmpScenarioStrategySmoke {
         definition.setTermCode(termCode);
         definition.setTermDays(termDays);
         definition.setShockValue(new BigDecimal(shockValue));
-        definition.setShockType(shockType);
-        definition.setShockRule(shockRule);
+        definition.setScenarioShiftRule(shockRule);
         return definition;
     }
 

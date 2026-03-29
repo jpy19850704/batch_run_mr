@@ -105,7 +105,7 @@ public class ScenarioHistoricalMarketLoader {
         series.setTermCode(toStringValue(row.get("TERM_CODE")));
         series.setTermDays(toInteger(row.get("TERM_DAYS")));
         series.setDimension2(firstNonBlank(row.get("VERTEX2"), row.get("UNDERLYING_TERM"), row.get("VOLATILITY_TERM")));
-        series.setValue(toBigDecimal(row.get("YIELD_RATE")));
+        series.setValue(toBigDecimal(row.get("RISKFACTOR_VALUE")));
         return series;
     }
 

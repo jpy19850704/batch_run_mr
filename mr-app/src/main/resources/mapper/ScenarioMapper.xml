@@ -6,9 +6,8 @@
 
     <select id="selectScenario" resultType="java.util.HashMap">
         select distinct SCENARIO_ID, SCENARIO_TYPE
-        from MR_SCENARIO_RULE
+        from V_SCENARIO_RULE
         <where>
-            STATUS = 'ACTIVE'
             <if test="scenarioIdList!=null and scenarioIdList!=''">
                 <if test="scenarioIdList.length > 1">
                     and SCENARIO_ID in
@@ -35,9 +34,8 @@
             TERM_DAYS,
             SCENARIO_SHIFT_VALUE,
             SCENARIO_SHIFT_RULE
-        from MR_SCENARIO_RULE
+        from V_SCENARIO_RULE
         <where>
-            STATUS = 'ACTIVE'
             <if test="scenarioIdList!=null and scenarioIdList!=''">
                 <if test="scenarioIdList.length > 1">
                     and SCENARIO_ID in
@@ -50,7 +48,7 @@
                 </if>
             </if>
         </where>
-        order by SCENARIO_ID, LINE_NO
+        order by SCENARIO_ID, CURVE_TYPE, CURVE_CODE, coalesce(TERM_DAYS, 0), TERM_CODE
     </select>
 
     <select id="selectMcScenarioMpByScenarioIdList" resultType="java.util.HashMap">
@@ -72,9 +70,8 @@
             RISKGROUP_ID,
             TERM_CODE,
             TERM_DAYS
-        from MR_SCENARIO_RULE
+        from V_SCENARIO_RULE
         <where>
-            STATUS = 'ACTIVE'
             <if test="scenarioIdList!=null and scenarioIdList!=''">
                 <if test="scenarioIdList.length > 1">
                     and SCENARIO_ID in
@@ -87,7 +84,7 @@
                 </if>
             </if>
         </where>
-        order by SCENARIO_ID, LINE_NO
+        order by SCENARIO_ID, CURVE_TYPE, CURVE_CODE, coalesce(TERM_DAYS, 0), TERM_CODE
     </select>
 
     <select id="selectHistoryScenarioMpByScenarioIdList" resultType="java.util.HashMap">
@@ -101,7 +98,6 @@
             SCENARIO_NO,
             JUNP_DAY_NO,
             INCREASE_DAYS,
-            SHOCK_TYPE,
             SCENARIO_SHIFT_RULE,
             CURVE_TYPE as RISKFACTOR_TYPE,
             CURVE_TYPE,
@@ -109,9 +105,8 @@
             RISKGROUP_ID,
             TERM_CODE,
             TERM_DAYS
-        from MR_SCENARIO_RULE
+        from V_SCENARIO_RULE
         <where>
-            STATUS = 'ACTIVE'
             <if test="scenarioIdList!=null and scenarioIdList!=''">
                 <if test="scenarioIdList.length > 1">
                     and SCENARIO_ID in
@@ -124,20 +119,19 @@
                 </if>
             </if>
         </where>
-        order by SCENARIO_ID, LINE_NO
+        order by SCENARIO_ID, CURVE_TYPE, CURVE_CODE, coalesce(TERM_DAYS, 0), TERM_CODE
     </select>
 
     <select id="selectIrData" resultType="java.util.HashMap">
         select
-            'IR_SPOT' as CURVE_TYPE,
-            RISKFACTOR_ID as CURVE_CODE,
+            CURVE_TYPE,
+            CURVE_CODE,
             DATA_DATE,
-            coalesce(TERM_CODE, cast(TERM_DAYS as varchar)) as TERM_CODE,
-            coalesce(TERM_DAYS, 0) as TERM_DAYS,
-            "value" as YIELD_RATE
-        from MR_RISKFACTOR_DATA
+            TERM_CODE,
+            TERM_DAYS,
+            RISKFACTOR_VALUE
+        from V_SCN_MKT_IR_SPOT
         <where>
-            RISKFACTOR_TYPE = 'IR_SPOT'
             <choose>
                 <when test="startDate!= null and endDate!= null">
                     and DATA_DATE between #{startDate} and #{endDate}
@@ -151,14 +145,13 @@
             </choose>
             <choose>
                 <when test="curveCode != null and curveCode != ''">
-                    and RISKFACTOR_ID = #{curveCode}
+                    and CURVE_CODE = #{curveCode}
                 </when>
                 <otherwise>
-                    and RISKFACTOR_ID in (
+                    and CURVE_CODE in (
                         select distinct CURVE_CODE
-                        from MR_SCENARIO_RULE
-                        where STATUS = 'ACTIVE'
-                          and SCENARIO_ID = #{scenarioId}
+                        from V_SCENARIO_RULE
+                        where SCENARIO_ID = #{scenarioId}
                           and CURVE_TYPE = 'IR_SPOT'
                     )
                 </otherwise>
@@ -168,15 +161,14 @@
 
     <select id="selectFxData" resultType="java.util.HashMap">
         select
-            'FX_SPOT' as CURVE_TYPE,
-            RISKFACTOR_ID as CURVE_CODE,
+            CURVE_TYPE,
+            CURVE_CODE,
             DATA_DATE,
-            '0' as TERM_CODE,
-            0 as TERM_DAYS,
-            "value" as YIELD_RATE
-        from MR_RISKFACTOR_DATA
+            TERM_CODE,
+            TERM_DAYS,
+            RISKFACTOR_VALUE
+        from V_SCN_MKT_FX_SPOT
         <where>
-            RISKFACTOR_TYPE = 'FX_SPOT'
             <choose>
                 <when test="startDate!= null and endDate!= null">
                     and DATA_DATE between #{startDate} and #{endDate}
@@ -190,14 +182,13 @@
             </choose>
             <choose>
                 <when test="curveCode != null and curveCode != ''">
-                    and RISKFACTOR_ID = #{curveCode}
+                    and CURVE_CODE = #{curveCode}
                 </when>
                 <otherwise>
-                    and RISKFACTOR_ID in (
+                    and CURVE_CODE in (
                         select distinct CURVE_CODE
-                        from MR_SCENARIO_RULE
-                        where STATUS = 'ACTIVE'
-                          and SCENARIO_ID = #{scenarioId}
+                        from V_SCENARIO_RULE
+                        where SCENARIO_ID = #{scenarioId}
                           and CURVE_TYPE = 'FX_SPOT'
                     )
                 </otherwise>
@@ -207,15 +198,14 @@
 
     <select id="selectCommData" resultType="java.util.HashMap">
         select
-            'COMM_SPOT' as CURVE_TYPE,
-            RISKFACTOR_ID as CURVE_CODE,
+            CURVE_TYPE,
+            CURVE_CODE,
             DATA_DATE,
-            coalesce(TERM_CODE, cast(TERM_DAYS as varchar)) as TERM_CODE,
-            coalesce(TERM_DAYS, 0) as TERM_DAYS,
-            "value" as YIELD_RATE
-        from MR_RISKFACTOR_DATA
+            TERM_CODE,
+            TERM_DAYS,
+            RISKFACTOR_VALUE
+        from V_SCN_MKT_COMM_SPOT
         <where>
-            RISKFACTOR_TYPE = 'COMM_SPOT'
             <choose>
                 <when test="startDate!= null and endDate!= null">
                     and DATA_DATE between #{startDate} and #{endDate}
@@ -229,14 +219,13 @@
             </choose>
             <choose>
                 <when test="curveCode != null and curveCode != ''">
-                    and RISKFACTOR_ID = #{curveCode}
+                    and CURVE_CODE = #{curveCode}
                 </when>
                 <otherwise>
-                    and RISKFACTOR_ID in (
+                    and CURVE_CODE in (
                         select distinct CURVE_CODE
-                        from MR_SCENARIO_RULE
-                        where STATUS = 'ACTIVE'
-                          and SCENARIO_ID = #{scenarioId}
+                        from V_SCENARIO_RULE
+                        where SCENARIO_ID = #{scenarioId}
                           and CURVE_TYPE = 'COMM_SPOT'
                     )
                 </otherwise>
@@ -246,15 +235,14 @@
 
     <select id="selectEqData" resultType="java.util.HashMap">
         select
-            'EQ_SPOT' as CURVE_TYPE,
-            RISKFACTOR_ID as CURVE_CODE,
+            CURVE_TYPE,
+            CURVE_CODE,
             DATA_DATE,
-            coalesce(TERM_CODE, cast(TERM_DAYS as varchar)) as TERM_CODE,
-            TERM_DAYS as TERM_DAYS,
-            "value" as YIELD_RATE
-        from MR_RISKFACTOR_DATA
+            TERM_CODE,
+            TERM_DAYS,
+            RISKFACTOR_VALUE
+        from V_SCN_MKT_EQ_SPOT
         <where>
-            RISKFACTOR_TYPE = 'EQ_SPOT'
             <choose>
                 <when test="startDate!= null and endDate!= null">
                     and DATA_DATE between #{startDate} and #{endDate}
@@ -268,14 +256,13 @@
             </choose>
             <choose>
                 <when test="curveCode != null and curveCode != ''">
-                    and RISKFACTOR_ID = #{curveCode}
+                    and CURVE_CODE = #{curveCode}
                 </when>
                 <otherwise>
-                    and RISKFACTOR_ID in (
+                    and CURVE_CODE in (
                         select distinct CURVE_CODE
-                        from MR_SCENARIO_RULE
-                        where STATUS = 'ACTIVE'
-                          and SCENARIO_ID = #{scenarioId}
+                        from V_SCENARIO_RULE
+                        where SCENARIO_ID = #{scenarioId}
                           and CURVE_TYPE = 'EQ_SPOT'
                     )
                 </otherwise>
@@ -285,17 +272,15 @@
 
     <select id="selectFxVolData" resultType="java.util.HashMap">
         select
-            'FX_VOL' as CURVE_TYPE,
-            RISKFACTOR_ID as CURVE_CODE,
+            CURVE_TYPE,
+            CURVE_CODE,
             DATA_DATE,
-            coalesce(TERM_CODE, cast(TERM_DAYS as varchar)) as TERM_CODE,
-            coalesce(TERM_DAYS, 0) as TERM_DAYS,
-            null as DELTA,
-            null as BFRR_TYPE,
-            "value" as YIELD_RATE
-        from MR_RISKFACTOR_DATA
+            TERM_CODE,
+            TERM_DAYS,
+            VERTEX2,
+            RISKFACTOR_VALUE
+        from V_SCN_MKT_FX_VOL
         <where>
-            RISKFACTOR_TYPE = 'FX_VOL'
             <choose>
                 <when test="startDate!= null and endDate!= null">
                     and DATA_DATE between #{startDate} and #{endDate}
@@ -309,14 +294,13 @@
             </choose>
             <choose>
                 <when test="curveCode != null and curveCode != ''">
-                    and RISKFACTOR_ID = #{curveCode}
+                    and CURVE_CODE = #{curveCode}
                 </when>
                 <otherwise>
-                    and RISKFACTOR_ID in (
+                    and CURVE_CODE in (
                         select distinct CURVE_CODE
-                        from MR_SCENARIO_RULE
-                        where STATUS = 'ACTIVE'
-                          and SCENARIO_ID = #{scenarioId}
+                        from V_SCENARIO_RULE
+                        where SCENARIO_ID = #{scenarioId}
                           and CURVE_TYPE = 'FX_VOL'
                     )
                 </otherwise>
@@ -326,16 +310,15 @@
 
     <select id="selectIrVolData" resultType="java.util.HashMap">
         select
-            'IR_VOL' as CURVE_TYPE,
-            RISKFACTOR_ID as CURVE_CODE,
+            CURVE_TYPE,
+            CURVE_CODE,
             DATA_DATE,
-            coalesce(TERM_CODE, cast(TERM_DAYS as varchar)) as TERM_CODE,
-            coalesce(TERM_DAYS, 0) as TERM_DAYS,
-            null as DELTA,
-            "value" as YIELD_RATE
-        from MR_RISKFACTOR_DATA
+            TERM_CODE,
+            TERM_DAYS,
+            VERTEX2,
+            RISKFACTOR_VALUE
+        from V_SCN_MKT_IR_VOL
         <where>
-            RISKFACTOR_TYPE = 'IR_VOL'
             <choose>
                 <when test="startDate!= null and endDate!= null">
                     and DATA_DATE between #{startDate} and #{endDate}
@@ -349,14 +332,13 @@
             </choose>
             <choose>
                 <when test="curveCode != null and curveCode != ''">
-                    and RISKFACTOR_ID = #{curveCode}
+                    and CURVE_CODE = #{curveCode}
                 </when>
                 <otherwise>
-                    and RISKFACTOR_ID in (
+                    and CURVE_CODE in (
                         select distinct CURVE_CODE
-                        from MR_SCENARIO_RULE
-                        where STATUS = 'ACTIVE'
-                          and SCENARIO_ID = #{scenarioId}
+                        from V_SCENARIO_RULE
+                        where SCENARIO_ID = #{scenarioId}
                           and CURVE_TYPE = 'IR_VOL'
                     )
                 </otherwise>
@@ -366,17 +348,15 @@
 
     <select id="selectCommVolData" resultType="java.util.HashMap">
         select
-            'COMM_VOL' as CURVE_TYPE,
-            RISKFACTOR_ID as CURVE_CODE,
+            CURVE_TYPE,
+            CURVE_CODE,
             DATA_DATE,
-            coalesce(TERM_CODE, cast(TERM_DAYS as varchar)) as TERM_CODE,
-            coalesce(TERM_DAYS, 0) as TERM_DAYS,
-            null as DELTA,
-            'BFRR_TYPE' as BFRR_TYPE,
-            "value" as YIELD_RATE
-        from MR_RISKFACTOR_DATA
+            TERM_CODE,
+            TERM_DAYS,
+            VERTEX2,
+            RISKFACTOR_VALUE
+        from V_SCN_MKT_COMM_VOL
         <where>
-            RISKFACTOR_TYPE = 'COMM_VOL'
             <choose>
                 <when test="startDate!= null and endDate!= null">
                     and DATA_DATE between #{startDate} and #{endDate}
@@ -390,14 +370,13 @@
             </choose>
             <choose>
                 <when test="curveCode != null and curveCode != ''">
-                    and RISKFACTOR_ID = #{curveCode}
+                    and CURVE_CODE = #{curveCode}
                 </when>
                 <otherwise>
-                    and RISKFACTOR_ID in (
+                    and CURVE_CODE in (
                         select distinct CURVE_CODE
-                        from MR_SCENARIO_RULE
-                        where STATUS = 'ACTIVE'
-                          and SCENARIO_ID = #{scenarioId}
+                        from V_SCENARIO_RULE
+                        where SCENARIO_ID = #{scenarioId}
                           and CURVE_TYPE = 'COMM_VOL'
                     )
                 </otherwise>
@@ -407,17 +386,15 @@
 
     <select id="selectEqVolData" resultType="java.util.HashMap">
         select
-            'EQ_VOL' as CURVE_TYPE,
-            RISKFACTOR_ID as CURVE_CODE,
+            CURVE_TYPE,
+            CURVE_CODE,
             DATA_DATE,
-            coalesce(TERM_CODE, cast(TERM_DAYS as varchar)) as TERM_CODE,
-            coalesce(TERM_DAYS, 0) as TERM_DAYS,
-            null as DELTA,
-            null as BFRR_TYPE,
-            "value" as YIELD_RATE
-        from MR_RISKFACTOR_DATA
+            TERM_CODE,
+            TERM_DAYS,
+            VERTEX2,
+            RISKFACTOR_VALUE
+        from V_SCN_MKT_EQ_VOL
         <where>
-            RISKFACTOR_TYPE = 'EQ_VOL'
             <choose>
                 <when test="startDate!= null and endDate!= null">
                     and DATA_DATE between #{startDate} and #{endDate}
@@ -431,14 +408,13 @@
             </choose>
             <choose>
                 <when test="curveCode != null and curveCode != ''">
-                    and RISKFACTOR_ID = #{curveCode}
+                    and CURVE_CODE = #{curveCode}
                 </when>
                 <otherwise>
-                    and RISKFACTOR_ID in (
+                    and CURVE_CODE in (
                         select distinct CURVE_CODE
-                        from MR_SCENARIO_RULE
-                        where STATUS = 'ACTIVE'
-                          and SCENARIO_ID = #{scenarioId}
+                        from V_SCENARIO_RULE
+                        where SCENARIO_ID = #{scenarioId}
                           and CURVE_TYPE = 'EQ_VOL'
                     )
                 </otherwise>

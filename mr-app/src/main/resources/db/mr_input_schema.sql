@@ -77,7 +77,6 @@ CREATE TABLE IF NOT EXISTS MR_SCENARIO_RULE (
     scenario_no INT,
     increase_days INT,
     junp_day_no INT,
-    shock_type VARCHAR(32),
     cal_start_date DATE,
     cal_end_date DATE,
     start_date DATE,
@@ -97,6 +96,128 @@ CREATE INDEX IF NOT EXISTS idx_MR_SCENARIO_RULE_type
 
 CREATE INDEX IF NOT EXISTS idx_MR_SCENARIO_RULE_curve
     ON MR_SCENARIO_RULE (scenario_id, curve_type, curve_code);
+
+DROP VIEW IF EXISTS V_SCENARIO_RULE;
+CREATE VIEW V_SCENARIO_RULE AS
+SELECT
+    scenario_id,
+    scenario_name,
+    scenario_type,
+    curve_type,
+    curve_code,
+    term_code,
+    term_days,
+    scenario_no,
+    increase_days,
+    junp_day_no,
+    scenario_shift_value,
+    scenario_shift_rule,
+    start_date,
+    cal_end_date AS end_date,
+    holiday_calendar,
+    CAST(NULL AS VARCHAR(128)) AS riskgroup_id
+FROM MR_SCENARIO_RULE
+WHERE status = 'ACTIVE';
+
+DROP VIEW IF EXISTS V_SCN_MKT_IR_SPOT;
+CREATE VIEW V_SCN_MKT_IR_SPOT AS
+SELECT
+    'IR_SPOT' AS curve_type,
+    riskfactor_id AS curve_code,
+    data_date,
+    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS term_code,
+    COALESCE(term_days, 0) AS term_days,
+    riskfactor_value
+FROM MR_RISKFACTOR_DATA
+WHERE riskfactor_type = 'IR_SPOT';
+
+DROP VIEW IF EXISTS V_SCN_MKT_FX_SPOT;
+CREATE VIEW V_SCN_MKT_FX_SPOT AS
+SELECT
+    'FX_SPOT' AS curve_type,
+    riskfactor_id AS curve_code,
+    data_date,
+    '0' AS term_code,
+    0 AS term_days,
+    riskfactor_value
+FROM MR_RISKFACTOR_DATA
+WHERE riskfactor_type = 'FX_SPOT';
+
+DROP VIEW IF EXISTS V_SCN_MKT_COMM_SPOT;
+CREATE VIEW V_SCN_MKT_COMM_SPOT AS
+SELECT
+    'COMM_SPOT' AS curve_type,
+    riskfactor_id AS curve_code,
+    data_date,
+    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS term_code,
+    COALESCE(term_days, 0) AS term_days,
+    riskfactor_value
+FROM MR_RISKFACTOR_DATA
+WHERE riskfactor_type = 'COMM_SPOT';
+
+DROP VIEW IF EXISTS V_SCN_MKT_EQ_SPOT;
+CREATE VIEW V_SCN_MKT_EQ_SPOT AS
+SELECT
+    'EQ_SPOT' AS curve_type,
+    riskfactor_id AS curve_code,
+    data_date,
+    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS term_code,
+    COALESCE(term_days, 0) AS term_days,
+    riskfactor_value
+FROM MR_RISKFACTOR_DATA
+WHERE riskfactor_type = 'EQ_SPOT';
+
+DROP VIEW IF EXISTS V_SCN_MKT_FX_VOL;
+CREATE VIEW V_SCN_MKT_FX_VOL AS
+SELECT
+    'FX_VOL' AS curve_type,
+    riskfactor_id AS curve_code,
+    data_date,
+    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS term_code,
+    COALESCE(term_days, 0) AS term_days,
+    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS vertex2,
+    riskfactor_value
+FROM MR_RISKFACTOR_DATA
+WHERE riskfactor_type = 'FX_VOL';
+
+DROP VIEW IF EXISTS V_SCN_MKT_IR_VOL;
+CREATE VIEW V_SCN_MKT_IR_VOL AS
+SELECT
+    'IR_VOL' AS curve_type,
+    riskfactor_id AS curve_code,
+    data_date,
+    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS term_code,
+    COALESCE(term_days, 0) AS term_days,
+    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS vertex2,
+    riskfactor_value
+FROM MR_RISKFACTOR_DATA
+WHERE riskfactor_type = 'IR_VOL';
+
+DROP VIEW IF EXISTS V_SCN_MKT_COMM_VOL;
+CREATE VIEW V_SCN_MKT_COMM_VOL AS
+SELECT
+    'COMM_VOL' AS curve_type,
+    riskfactor_id AS curve_code,
+    data_date,
+    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS term_code,
+    COALESCE(term_days, 0) AS term_days,
+    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS vertex2,
+    riskfactor_value
+FROM MR_RISKFACTOR_DATA
+WHERE riskfactor_type = 'COMM_VOL';
+
+DROP VIEW IF EXISTS V_SCN_MKT_EQ_VOL;
+CREATE VIEW V_SCN_MKT_EQ_VOL AS
+SELECT
+    'EQ_VOL' AS curve_type,
+    riskfactor_id AS curve_code,
+    data_date,
+    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS term_code,
+    COALESCE(term_days, 0) AS term_days,
+    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS vertex2,
+    riskfactor_value
+FROM MR_RISKFACTOR_DATA
+WHERE riskfactor_type = 'EQ_VOL';
 
 CREATE TABLE IF NOT EXISTS MR_AGG_RULE (
     rule_id VARCHAR(128) PRIMARY KEY,

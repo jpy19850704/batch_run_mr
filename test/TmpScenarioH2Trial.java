@@ -159,10 +159,10 @@ public class TmpScenarioH2Trial {
             LocalDate endDate) throws Exception {
         String sql = "insert into MR_SCENARIO_RULE ("
                 + "SCENARIO_ID, LINE_NO, SCENARIO_NAME, SCENARIO_TYPE, CURVE_TYPE, CURVE_CODE, "
-                + "TERM_CODE, TERM_DAYS, SCENARIO_NO, INCREASE_DAYS, JUNP_DAY_NO, SHOCK_TYPE, "
+                + "TERM_CODE, TERM_DAYS, SCENARIO_NO, INCREASE_DAYS, JUNP_DAY_NO, "
                 + "CAL_START_DATE, CAL_END_DATE, START_DATE, HOLIDAY_CALENDAR, SCENARIO_SHIFT_VALUE, "
                 + "SCENARIO_SHIFT_RULE, STATUS, REMARK, MODIFIER, CREATED_AT, UPDATED_AT"
-                + ") values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+                + ") values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         long now = System.currentTimeMillis();
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             int lineNo = 1;
@@ -178,18 +178,17 @@ public class TmpScenarioH2Trial {
                 ps.setObject(9, scenarioNo);
                 ps.setObject(10, increaseDays);
                 ps.setObject(11, jumpDayNo);
-                ps.setString(12, "RELATIVE");
-                ps.setObject(13, startDate);
-                ps.setObject(14, endDate);
-                ps.setObject(15, startDate);
-                ps.setString(16, CALENDAR_CODE);
-                ps.setObject(17, null);
-                ps.setString(18, "RELATIVE");
-                ps.setString(19, "ACTIVE");
-                ps.setString(20, "CODEx H2 trial");
-                ps.setString(21, USER);
+                ps.setObject(12, startDate);
+                ps.setObject(13, endDate);
+                ps.setObject(14, startDate);
+                ps.setString(15, CALENDAR_CODE);
+                ps.setObject(16, null);
+                ps.setString(17, "RELATIVE");
+                ps.setString(18, "ACTIVE");
+                ps.setString(19, "CODEx H2 trial");
+                ps.setString(20, USER);
+                ps.setLong(21, now);
                 ps.setLong(22, now);
-                ps.setLong(23, now);
                 ps.addBatch();
             }
             int[] counts = ps.executeBatch();
@@ -200,10 +199,10 @@ public class TmpScenarioH2Trial {
     private static void insertCustomScenario(Connection connection, List<ActiveCurve> activeCurves) throws Exception {
         String sql = "insert into MR_SCENARIO_RULE ("
                 + "SCENARIO_ID, LINE_NO, SCENARIO_NAME, SCENARIO_TYPE, CURVE_TYPE, CURVE_CODE, "
-                + "TERM_CODE, TERM_DAYS, SCENARIO_NO, INCREASE_DAYS, JUNP_DAY_NO, SHOCK_TYPE, "
+                + "TERM_CODE, TERM_DAYS, SCENARIO_NO, INCREASE_DAYS, JUNP_DAY_NO, "
                 + "CAL_START_DATE, CAL_END_DATE, START_DATE, HOLIDAY_CALENDAR, SCENARIO_SHIFT_VALUE, "
                 + "SCENARIO_SHIFT_RULE, STATUS, REMARK, MODIFIER, CREATED_AT, UPDATED_AT"
-                + ") values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+                + ") values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         long now = System.currentTimeMillis();
         List<Integer> termDaysList = Arrays.asList(60, 180);
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -221,18 +220,17 @@ public class TmpScenarioH2Trial {
                     ps.setObject(9, null);
                     ps.setObject(10, null);
                     ps.setObject(11, null);
-                    ps.setString(12, "RELATIVE");
+                    ps.setObject(12, null);
                     ps.setObject(13, null);
                     ps.setObject(14, null);
-                    ps.setObject(15, null);
-                    ps.setString(16, null);
-                    ps.setBigDecimal(17, new BigDecimal("0.1"));
-                    ps.setString(18, "RELATIVE");
-                    ps.setString(19, "ACTIVE");
-                    ps.setString(20, "CODEx H2 trial");
-                    ps.setString(21, USER);
+                    ps.setString(15, null);
+                    ps.setBigDecimal(16, new BigDecimal("0.1"));
+                    ps.setString(17, "RELATIVE");
+                    ps.setString(18, "ACTIVE");
+                    ps.setString(19, "CODEx H2 trial");
+                    ps.setString(20, USER);
+                    ps.setLong(21, now);
                     ps.setLong(22, now);
-                    ps.setLong(23, now);
                     ps.addBatch();
                 }
             }
@@ -245,7 +243,7 @@ public class TmpScenarioH2Trial {
         Map<String, List<ScenarioDefinition>> result = new LinkedHashMap<String, List<ScenarioDefinition>>();
         try (Connection connection = DriverManager.getConnection(H2_URL, H2_USER, H2_PASSWORD)) {
             String sql = "select SCENARIO_ID, SCENARIO_NAME, SCENARIO_TYPE, CURVE_TYPE, CURVE_CODE, TERM_CODE, TERM_DAYS, "
-                    + "SCENARIO_NO, INCREASE_DAYS, JUNP_DAY_NO, SHOCK_TYPE, CAL_START_DATE, CAL_END_DATE, START_DATE, "
+                    + "SCENARIO_NO, INCREASE_DAYS, JUNP_DAY_NO, CAL_START_DATE, CAL_END_DATE, START_DATE, "
                     + "HOLIDAY_CALENDAR, SCENARIO_SHIFT_VALUE, SCENARIO_SHIFT_RULE "
                     + "from MR_SCENARIO_RULE where SCENARIO_ID like 'T_%' and STATUS = 'ACTIVE' "
                     + "order by SCENARIO_ID, LINE_NO";
@@ -264,12 +262,11 @@ public class TmpScenarioH2Trial {
                     definition.setScenarioNo(toInteger(rs.getObject("SCENARIO_NO")));
                     definition.setIncreaseDays(toInteger(rs.getObject("INCREASE_DAYS")));
                     definition.setJumpDayNo(toInteger(rs.getObject("JUNP_DAY_NO")));
-                    definition.setShockType(rs.getString("SHOCK_TYPE"));
-                    definition.setStartDate(toLocalDate(firstNonNull(rs.getObject("START_DATE"), rs.getObject("CAL_START_DATE"))));
+                definition.setStartDate(toLocalDate(firstNonNull(rs.getObject("START_DATE"), rs.getObject("CAL_START_DATE"))));
                     definition.setEndDate(toLocalDate(rs.getObject("CAL_END_DATE")));
                     definition.setHolidayCalendarCode(rs.getString("HOLIDAY_CALENDAR"));
                     definition.setShockValue(rs.getBigDecimal("SCENARIO_SHIFT_VALUE"));
-                    definition.setShockRule(rs.getString("SCENARIO_SHIFT_RULE"));
+                definition.setScenarioShiftRule(rs.getString("SCENARIO_SHIFT_RULE"));
                     result.computeIfAbsent(definition.getScenarioId(), key -> new ArrayList<ScenarioDefinition>()).add(definition);
                 }
             }

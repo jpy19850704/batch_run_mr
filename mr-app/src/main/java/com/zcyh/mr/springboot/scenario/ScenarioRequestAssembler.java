@@ -123,15 +123,14 @@ public class ScenarioRequestAssembler {
             definition.setTermDays(toInteger(row.get("TERM_DAYS")));
             definition.setTermCode(resolveDefinitionTermCode(resolvedScenarioType, row));
             definition.setShockValue(toBigDecimal(row.get("SCENARIO_SHIFT_VALUE")));
-            definition.setShockType(toStringValue(row.get("SHOCK_TYPE")));
-            definition.setShockRule(toStringValue(row.get("SCENARIO_SHIFT_RULE")));
+            definition.setScenarioShiftRule(resolveScenarioShiftRule(resolvedScenarioType, row));
             definition.setScenarioNo(toInteger(row.get("SCENARIO_NO")));
             definition.setHoldingPeriod(toInteger(row.get("HOLDING_PERIOD")));
             definition.setJumpDayNo(toInteger(firstNonBlank(row.get("JUNP_DAY_NO"), row.get("JUMP_DAY_NO"))));
             definition.setIncreaseDays(toInteger(row.get("INCREASE_DAYS")));
             definition.setHolidayCalendarCode(defaultHolidayCalendarCode);
-            definition.setStartDate(toLocalDate(firstNonBlank(row.get("START_DATE"), row.get("CAL_START_DATE"))));
-            definition.setEndDate(toLocalDate(firstNonBlank(row.get("END_DATE"), row.get("CAL_END_DATE"))));
+            definition.setStartDate(toLocalDate(row.get("START_DATE")));
+            definition.setEndDate(toLocalDate(row.get("END_DATE")));
             result.add(definition);
         }
         return result;
@@ -208,7 +207,7 @@ public class ScenarioRequestAssembler {
         series.setTermCode(toStringValue(row.get("TERM_CODE")));
         series.setTermDays(toInteger(row.get("TERM_DAYS")));
         series.setDimension2(firstNonBlank(row.get("VERTEX2"), row.get("UNDERLYING_TERM"), row.get("VOLATILITY_TERM")));
-        series.setValue(toBigDecimal(row.get("YIELD_RATE")));
+        series.setValue(toBigDecimal(row.get("RISKFACTOR_VALUE")));
         return series;
     }
 
@@ -310,6 +309,31 @@ public class ScenarioRequestAssembler {
 
     private boolean isCustomLikeScenarioType(String scenarioType) {
         return "CUSTOM".equals(scenarioType) || "KEY_RATE".equals(scenarioType);
+    }
+
+    private String resolveDefaultScenarioShiftRule(String scenarioType) {
+        String normalized = normalize(scenarioType);
+        if ("MC".equals(normalized)) {
+            return "ABSOLUTE";
+        }
+        if ("HISTORY".equals(normalized)
+                || "VAR".equals(normalized)
+                || "SVAR".equals(normalized)
+                || "BACKTEST".equals(normalized)) {
+            return "RELATIVE";
+        }
+        return "ABSOLUTE";
+    }
+
+    private String resolveScenarioShiftRule(String scenarioType, Map<String, Object> row) {
+        String explicitRule = normalize(toStringValue(row.get("SCENARIO_SHIFT_RULE")));
+        if ("RELATIVE".equalsIgnoreCase(explicitRule)) {
+            return "RELATIVE";
+        }
+        if ("ABSOLUTE".equalsIgnoreCase(explicitRule)) {
+            return "ABSOLUTE";
+        }
+        return resolveDefaultScenarioShiftRule(scenarioType);
     }
 
     /**

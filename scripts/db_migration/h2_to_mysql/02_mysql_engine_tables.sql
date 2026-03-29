@@ -85,7 +85,6 @@ CREATE TABLE IF NOT EXISTS MR_SCENARIO_RULE (
     scenario_no INT,
     increase_days INT,
     junp_day_no INT,
-    shock_type VARCHAR(32),
     cal_start_date DATE,
     cal_end_date DATE,
     start_date DATE,
