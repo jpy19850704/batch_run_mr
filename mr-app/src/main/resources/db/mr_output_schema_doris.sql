@@ -214,6 +214,27 @@ PROPERTIES (
     "enable_unique_key_merge_on_write" = "true"
 );
 
+-- DRC 汇总结果表（单表）
+CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_DRC_RESULT (
+    REQUEST_ID          VARCHAR(128),
+    JOB_ID              VARCHAR(64),
+    BATCH_ID            VARCHAR(64),
+    DATA_DATE           VARCHAR(16),
+    DECOMP_FLAG         VARCHAR(32),
+    AGG_LEVEL           VARCHAR(32),
+    DRC_TYPE            VARCHAR(64),
+    DRC_BUCKET          VARCHAR(64),
+    LEGAL_ENTITY        VARCHAR(128),
+    DRC_VALUE           DECIMAL(38, 10),
+    CREATED_AT          BIGINT
+)
+UNIQUE KEY(BATCH_ID, DATA_DATE, DECOMP_FLAG, AGG_LEVEL, DRC_TYPE, DRC_BUCKET, LEGAL_ENTITY)
+DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
 -- 市场数据结果表（每条曲线一行，完整曲线 JSON 由前端解析）
 CREATE TABLE IF NOT EXISTS TB_OUT_MARKET_DATA_DETAIL (
     ID              BIGINT          NOT NULL AUTO_INCREMENT,

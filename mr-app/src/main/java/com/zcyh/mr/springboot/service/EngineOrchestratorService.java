@@ -5,6 +5,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.outer.engine.EngineAdapter;
 import com.zcyh.mr.outer.engine.EngineRegistry;
+import com.zcyh.mr.outer.engine.FrtbDrcEngineAdapter;
 import com.zcyh.mr.outer.engine.FrtbSaEngineAdapter;
 import com.zcyh.mr.outer.engine.MrCalcEngineAdapter;
 import com.zcyh.mr.springboot.model.EngineRunRequest;
@@ -18,11 +19,14 @@ import org.springframework.stereotype.Service;
 public class EngineOrchestratorService {
     private final EngineRegistry registry;
     private final FrtbSbaDbRunnerService frtbSbaDbRunnerService;
+    private final FrtbDrcDbRunnerService frtbDrcDbRunnerService;
 
     public EngineOrchestratorService(EngineRegistry registry,
-                                     FrtbSbaDbRunnerService frtbSbaDbRunnerService) {
+                                     FrtbSbaDbRunnerService frtbSbaDbRunnerService,
+                                     FrtbDrcDbRunnerService frtbDrcDbRunnerService) {
         this.registry = registry;
         this.frtbSbaDbRunnerService = frtbSbaDbRunnerService;
+        this.frtbDrcDbRunnerService = frtbDrcDbRunnerService;
     }
 
     public EngineRunResult run(EngineRunRequest request) {
@@ -57,10 +61,13 @@ public class EngineOrchestratorService {
         long start = System.currentTimeMillis();
         String raw;
         String sbaMode = detectFrtbSbaMode(engineCode, payloadJson);
+        String drcMode = detectFrtbDrcMode(engineCode, payloadJson);
         if ("db".equals(sbaMode)) {
             raw = frtbSbaDbRunnerService.calculateByRule(payloadJson);
         } else if ("db_inline".equals(sbaMode)) {
             raw = frtbSbaDbRunnerService.calculateByInlineRule(payloadJson);
+        } else if ("db".equals(drcMode)) {
+            raw = frtbDrcDbRunnerService.calculateByBatch(payloadJson);
         } else {
             raw = adapter.calculate(payloadJson);
         }
@@ -101,6 +108,28 @@ public class EngineOrchestratorService {
             String sourceType = trimToNull(payload.getString("source_type"));
             if ("db".equalsIgnoreCase(sourceType) || "db_inline".equalsIgnoreCase(sourceType)) {
                 return sourceType.toLowerCase();
+            }
+            return null;
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    /**
+     * 检测 FRTB DRC 模式：db（按 batch_id + data_date 查库）、null（JSON 直传）。
+     */
+    private static String detectFrtbDrcMode(String engineCode, String payloadJson) {
+        if (!FrtbDrcEngineAdapter.CODE.equals(engineCode)) {
+            return null;
+        }
+        try {
+            JSONObject payload = JSON.parseObject(payloadJson);
+            if (payload == null) {
+                return null;
+            }
+            String sourceType = trimToNull(payload.getString("source_type"));
+            if ("db".equalsIgnoreCase(sourceType)) {
+                return "db";
             }
             return null;
         } catch (Exception ex) {

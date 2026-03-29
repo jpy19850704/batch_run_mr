@@ -419,6 +419,7 @@ public class BatchJobService {
         engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_SCENARIO_RESULT_DETAIL WHERE BATCH_ID=?", batchId);
         engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL WHERE BATCH_ID=?", batchId);
         engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_DRC_DETAIL WHERE BATCH_ID=?", batchId);
+        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_DRC_RESULT WHERE BATCH_ID=?", batchId);
         engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_MARKET_DATA_DETAIL WHERE BATCH_ID=?", batchId);
 
         jdbcTemplate.update("DELETE FROM MR_ASYNC_BATCH_ITEM WHERE batch_id=?", batchId);

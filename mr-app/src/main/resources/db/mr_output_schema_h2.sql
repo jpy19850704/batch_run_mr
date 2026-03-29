@@ -233,6 +233,32 @@ CREATE INDEX IF NOT EXISTS idx_drc_batch
     ON TB_OUT_TRADE_DRC_DETAIL (BATCH_ID);
 
 -- =====================================================================
+-- DRC 汇总结果表（单表）
+-- DECOMP_FLAG: DRC_VALUE / DECOMP_LEGALENTITY
+-- AGG_LEVEL: LEGAL_ENTITY / BUCKET / DRC_TYPE
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_DRC_RESULT (
+    REQUEST_ID          VARCHAR(128),
+    JOB_ID              VARCHAR(64),
+    BATCH_ID            VARCHAR(64),
+    DATA_DATE           VARCHAR(16),
+    DECOMP_FLAG         VARCHAR(32),
+    AGG_LEVEL           VARCHAR(32),
+    DRC_TYPE            VARCHAR(64),
+    DRC_BUCKET          VARCHAR(64),
+    LEGAL_ENTITY        VARCHAR(128),
+    DRC_VALUE           DECIMAL(20, 8),
+    CREATED_AT          BIGINT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_drc_result_key
+    ON TB_OUT_TRADE_DRC_RESULT (BATCH_ID, DATA_DATE, DECOMP_FLAG, AGG_LEVEL, DRC_TYPE, DRC_BUCKET, LEGAL_ENTITY);
+
+CREATE INDEX IF NOT EXISTS idx_drc_result_batch_date
+    ON TB_OUT_TRADE_DRC_RESULT (BATCH_ID, DATA_DATE);
+
+-- =====================================================================
 -- 市场数据结果表（每条曲线一行，完整曲线 JSON 由前端解析）
 -- =====================================================================
 

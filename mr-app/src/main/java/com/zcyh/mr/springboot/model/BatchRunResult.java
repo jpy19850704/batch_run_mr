@@ -12,6 +12,7 @@ public class BatchRunResult {
     private int scenarioCount;
     private BatchDetailResult batchDetail;
     private Object frtbSummary;
+    private Object drcSummary;
 
     public String getBatchId() {
         return batchId;
@@ -75,5 +76,13 @@ public class BatchRunResult {
 
     public void setFrtbSummary(Object frtbSummary) {
         this.frtbSummary = frtbSummary;
+    }
+
+    public Object getDrcSummary() {
+        return drcSummary;
+    }
+
+    public void setDrcSummary(Object drcSummary) {
+        this.drcSummary = drcSummary;
     }
 }

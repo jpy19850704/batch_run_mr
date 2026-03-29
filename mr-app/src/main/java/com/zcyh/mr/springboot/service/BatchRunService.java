@@ -36,6 +36,8 @@ public class BatchRunService {
     private final BatchJobService batchJobService;
     private final FrtbSbaDbRunnerService frtbSbaDbRunnerService;
     private final FrtbSbaResultPersistService frtbSbaResultPersistService;
+    private final FrtbDrcDbRunnerService frtbDrcDbRunnerService;
+    private final FrtbDrcResultPersistService frtbDrcResultPersistService;
     private final FrtbAggregator frtbAggregator;
     private final long waitPollIntervalMs;
     private final long waitTimeoutMs;
@@ -47,6 +49,8 @@ public class BatchRunService {
             BatchJobService batchJobService,
             FrtbSbaDbRunnerService frtbSbaDbRunnerService,
             FrtbSbaResultPersistService frtbSbaResultPersistService,
+            FrtbDrcDbRunnerService frtbDrcDbRunnerService,
+            FrtbDrcResultPersistService frtbDrcResultPersistService,
             FrtbAggregator frtbAggregator,
             @Value("${mr.batch.run.wait-poll-interval-ms:1000}") long waitPollIntervalMs,
             @Value("${mr.batch.run.wait-timeout-ms:7200000}") long waitTimeoutMs,
@@ -56,6 +60,8 @@ public class BatchRunService {
         this.batchJobService = batchJobService;
         this.frtbSbaDbRunnerService = frtbSbaDbRunnerService;
         this.frtbSbaResultPersistService = frtbSbaResultPersistService;
+        this.frtbDrcDbRunnerService = frtbDrcDbRunnerService;
+        this.frtbDrcResultPersistService = frtbDrcResultPersistService;
         this.frtbAggregator = frtbAggregator;
         this.waitPollIntervalMs = Math.max(200L, waitPollIntervalMs);
         this.waitTimeoutMs = Math.max(1000L, waitTimeoutMs);
@@ -93,6 +99,7 @@ public class BatchRunService {
         }
 
         Object frtbSummary = runFrtbSummary(batchId, dataDate);
+        Object drcSummary = runDrcSummary(batchId, dataDate);
 
         BatchRunResult result = new BatchRunResult();
         result.setBatchId(batchId);
@@ -103,6 +110,7 @@ public class BatchRunService {
         result.setScenarioCount(scenarioCount);
         result.setBatchDetail(batchDetail);
         result.setFrtbSummary(frtbSummary);
+        result.setDrcSummary(drcSummary);
         return result;
     }
 
@@ -213,6 +221,31 @@ public class BatchRunService {
         } catch (Exception ex) {
             // 落库失败不影响主流程返回
             log.warn("FRTB SBA 结果落库异常，不影响批量返回: batchId={}, error={}", batchId, ex.getMessage());
+        }
+
+        return parsed;
+    }
+
+    private Object runDrcSummary(String batchId, String dataDate) {
+        JSONObject payload = new JSONObject();
+        payload.put("batch_id", batchId);
+        payload.put("data_date", dataDate);
+
+        String raw = frtbDrcDbRunnerService.calculateByBatch(
+                payload.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
+        Object parsed = JSON.parse(raw);
+
+        try {
+            JSONObject resultJson = JSON.parseObject(raw);
+            frtbDrcResultPersistService.persist(
+                    batchId,
+                    null,
+                    batchId,
+                    dataDate,
+                    resultJson);
+        } catch (Exception ex) {
+            // 落库失败不影响主流程返回
+            log.warn("DRC 结果落库异常，不影响批量返回: batchId={}, error={}", batchId, ex.getMessage());
         }
 
         return parsed;
