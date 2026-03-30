@@ -2,7 +2,7 @@ package com.zcyh.mr.springboot.service;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONWriter;
-import com.zcyh.mr.outer.engine.MrCalcEngineAdapter;
+import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
 import com.zcyh.mr.springboot.context.RequestContext;
 import com.zcyh.mr.springboot.context.RequestContextHolder;
 import org.slf4j.Logger;
@@ -508,11 +508,11 @@ public class AsyncJobService {
         String sql = "SELECT job_id FROM MR_ASYNC_JOB "
                 + "WHERE status=? AND cancel_requested=0 "
                 + "AND (owner_node=? OR owner_node IS NULL OR owner_node='' OR updated_at<=?) "
-                + "ORDER BY created_at LIMIT ?";
+                + "ORDER BY created_at FETCH FIRST " + claimLimit + " ROWS ONLY";
         List<String> jobIds = withRetry(new Callable<List<String>>() {
             @Override
             public List<String> call() {
-                return jdbcTemplate.queryForList(sql, String.class, PENDING, nodeId, staleCutoff, claimLimit);
+                return jdbcTemplate.queryForList(sql, String.class, PENDING, nodeId, staleCutoff);
             }
         }, "拉取待分发任务");
         if (jobIds == null || jobIds.isEmpty()) {
