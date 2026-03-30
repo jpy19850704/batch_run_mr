@@ -130,7 +130,6 @@ public class ScenarioRequestAssembler {
             definition.setIncreaseDays(toInteger(row.get("INCREASE_DAYS")));
             definition.setHolidayCalendarCode(defaultHolidayCalendarCode);
             definition.setStartDate(toLocalDate(row.get("START_DATE")));
-            definition.setEndDate(toLocalDate(row.get("END_DATE")));
             result.add(definition);
         }
         return result;

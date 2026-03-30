@@ -126,7 +126,6 @@ SELECT
     scenario_shift_value,
     scenario_shift_rule,
     start_date,
-    cal_end_date AS end_date,
     holiday_calendar,
     CAST(NULL AS VARCHAR(128)) AS riskgroup_id
 FROM MR_SCENARIO_RULE
