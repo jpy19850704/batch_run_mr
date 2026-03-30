@@ -76,12 +76,13 @@ public class PricingResultPersistService {
         JSONObject payload = parseObjectSafely(payloadJson);
         Map<String, JSONObject> inputTradeIndex = buildInputTradeIndex(payload);
         JSONArray inputMarketData = payload == null ? null : payload.getJSONArray("market_data");
+        JSONArray generatedMarketData = data.getJSONArray("generated_market_data");
 
         insertTradeResults(context, baseTrades, inputTradeIndex);
         insertDrcDetails(context, baseTrades);
         insertFrtbSensitivityDetails(context, baseTrades);
         insertScenarioResults(context, scenarioResults, baseTradeIndex, decompTableExists);
-        insertMarketDataDetails(context, inputMarketData);
+        insertMarketDataDetails(context, inputMarketData, generatedMarketData);
     }
 
     /**
@@ -540,12 +541,16 @@ public class PricingResultPersistService {
 
     /**
      * 写入市场数据结果表。
-     * 将输入侧 payload 中的市场曲线逐条写入 TB_OUT_MARKET_DATA_DETAIL。
-     * 每条曲线存完整 JSON（含 CURVE_DATA 等全部结构），由前端解析。
-     * 同一 BATCH_ID 下多个 payload 的重复曲线通过 Doris Unique Key 天然去重。
+     * 按“外部优先”合并输入曲线与生成曲线后写入 TB_OUT_MARKET_DATA_DETAIL：
+     * 1) 先写入输入侧 payload.market_data；
+     * 2) 再补入 data.generated_market_data 中外部缺失的曲线；
+     * 3) 冲突键（CURVE_TYPE + CURVE_ID）始终保留外部曲线。
      */
-    private void insertMarketDataDetails(PersistContext context, JSONArray marketData) {
-        if (marketData == null || marketData.isEmpty()) {
+    private void insertMarketDataDetails(PersistContext context, JSONArray inputMarketData, JSONArray generatedMarketData) {
+        LinkedHashMap<String, JSONObject> merged = new LinkedHashMap<String, JSONObject>();
+        appendMarketDataByPriority(merged, inputMarketData, true, "INPUT");
+        appendMarketDataByPriority(merged, generatedMarketData, false, "GENERATED");
+        if (merged.isEmpty()) {
             return;
         }
         String sql = "INSERT INTO TB_OUT_MARKET_DATA_DETAIL ("
@@ -554,23 +559,16 @@ public class PricingResultPersistService {
                 + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         List<Object[]> batchArgs = new ArrayList<Object[]>();
-        for (int i = 0; i < marketData.size(); i++) {
-            JSONObject curve = marketData.getJSONObject(i);
+        for (JSONObject curve : merged.values()) {
             if (curve == null) {
                 continue;
-            }
-            String curveType = trimToNull(curve.getString("CURVE_TYPE"));
-            // CURVE_ID 或 FIXING_ID 作为曲线标识
-            String curveId = trimToNull(curve.getString("CURVE_ID"));
-            if (curveId == null) {
-                curveId = trimToNull(curve.getString("FIXING_ID"));
             }
             batchArgs.add(new Object[]{
                     context.batchId,
                     normalizeDataDate(context.dataDate),
                     context.opCode,
-                    curveType,
-                    curveId,
+                    resolveCurveType(curve),
+                    resolveCurveId(curve),
                     toJsonString(curve),
                     context.createdAt,
                     context.updatedAt
@@ -583,6 +581,69 @@ public class PricingResultPersistService {
         if (!batchArgs.isEmpty()) {
             jdbcTemplate.batchUpdate(sql, batchArgs);
         }
+    }
+
+    /**
+     * 将市场数据按优先级合并到索引中。
+     *
+     * @param merged            合并结果（保持插入顺序）
+     * @param marketData        待合并的曲线数组
+     * @param overrideOnConflict 是否允许覆盖同键
+     * @param sourceTag         来源标记（仅用于缺少业务键时生成稳定兜底键）
+     */
+    private void appendMarketDataByPriority(LinkedHashMap<String, JSONObject> merged, JSONArray marketData,
+                                            boolean overrideOnConflict, String sourceTag) {
+        if (merged == null || marketData == null || marketData.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < marketData.size(); i++) {
+            JSONObject curve = marketData.getJSONObject(i);
+            if (curve == null) {
+                continue;
+            }
+            String key = buildCurveMergeKey(curve, sourceTag, i);
+            if (overrideOnConflict || !merged.containsKey(key)) {
+                merged.put(key, curve);
+            }
+        }
+    }
+
+    /**
+     * 构建曲线合并键：
+     * 优先使用 CURVE_TYPE + CURVE_ID（或 FIXING_ID）；
+     * 若业务键缺失，则退化为来源+序号，避免不同来源无键数据互相覆盖。
+     */
+    private String buildCurveMergeKey(JSONObject curve, String sourceTag, int index) {
+        if (curve == null) {
+            return sourceTag + "#" + index;
+        }
+        String curveType = resolveCurveType(curve);
+        String curveId = resolveCurveId(curve);
+        if (curveType == null && curveId == null) {
+            return sourceTag + "#" + index;
+        }
+        return firstNonBlank(curveType, "") + "|" + firstNonBlank(curveId, "");
+    }
+
+    private static String resolveCurveType(JSONObject curve) {
+        if (curve == null) {
+            return null;
+        }
+        return trimToNull(curve.getString("CURVE_TYPE"));
+    }
+
+    /**
+     * CURVE_ID 或 FIXING_ID 作为曲线标识。
+     */
+    private static String resolveCurveId(JSONObject curve) {
+        if (curve == null) {
+            return null;
+        }
+        String curveId = trimToNull(curve.getString("CURVE_ID"));
+        if (curveId == null) {
+            curveId = trimToNull(curve.getString("FIXING_ID"));
+        }
+        return curveId;
     }
 
     private Set<String> collectInstrumentIds(JSONArray baseTrades, JSONArray scenarioResults) {
