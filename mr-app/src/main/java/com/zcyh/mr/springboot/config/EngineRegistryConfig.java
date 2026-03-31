@@ -5,6 +5,7 @@ import com.zcyh.mr.springboot.engine.EngineRegistry;
 import com.zcyh.mr.springboot.engine.FrtbDrcEngineAdapter;
 import com.zcyh.mr.springboot.engine.FrtbSaEngineAdapter;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
+import com.zcyh.mr.springboot.engine.VarEngineAdapter;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
 import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
@@ -60,6 +61,11 @@ public class EngineRegistryConfig {
     @Bean
     public FrtbDrcEngineAdapter frtbDrcEngineAdapter() {
         return new FrtbDrcEngineAdapter();
+    }
+
+    @Bean
+    public VarEngineAdapter varEngineAdapter() {
+        return new VarEngineAdapter();
     }
 
     @Bean

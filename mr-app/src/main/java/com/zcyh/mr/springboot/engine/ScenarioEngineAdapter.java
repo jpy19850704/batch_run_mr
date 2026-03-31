@@ -45,10 +45,6 @@ public class ScenarioEngineAdapter implements EngineAdapter {
             throw new IllegalArgumentException("payload must be a json object");
         }
 
-        if (req.containsKey("batch_tasks")) {
-            throw new IllegalArgumentException("scenario 不再支持 batch_tasks，请拆分为多次独立调用");
-        }
-
         return runService(req);
     }
 

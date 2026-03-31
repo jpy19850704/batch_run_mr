@@ -1,6 +1,6 @@
 -- =====================================================================
 -- Doris 输出表 DDL（Unique Key 模型）
--- 对应 H2 中的 TB_OUT_* 表，结构与 PricingResultPersistService 对齐。
+-- 对应 Engine 结果表结构，定义与 PricingResultPersistService 对齐。
 -- 切换步骤：在 Doris FE 执行本文件后，修改环境变量指向 Doris 即可。
 -- =====================================================================
 
@@ -216,8 +216,6 @@ PROPERTIES (
 
 -- DRC 汇总结果表（单表）
 CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_DRC_RESULT (
-    REQUEST_ID          VARCHAR(128),
-    JOB_ID              VARCHAR(64),
     BATCH_ID            VARCHAR(64),
     DATA_DATE           VARCHAR(16),
     DECOMP_FLAG         VARCHAR(32),
@@ -225,6 +223,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_DRC_RESULT (
     DRC_TYPE            VARCHAR(64),
     DRC_BUCKET          VARCHAR(64),
     LEGAL_ENTITY        VARCHAR(128),
+    REQUEST_ID          VARCHAR(128),
+    JOB_ID              VARCHAR(64),
     DRC_VALUE           DECIMAL(38, 10),
     CREATED_AT          BIGINT
 )
@@ -249,6 +249,24 @@ CREATE TABLE IF NOT EXISTS TB_OUT_MARKET_DATA_DETAIL (
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
+-- 投组层级快照结果表
+CREATE TABLE IF NOT EXISTS TB_OUT_PORTFOLIO_HIERARCHY (
+    BATCH_ID                VARCHAR(64),
+    DATA_DATE               VARCHAR(16),
+    PORTFOLIO_CODE          VARCHAR(128),
+    PORTFOLIO_NAME          VARCHAR(256),
+    UPPER_LEVEL_PORTFOLIO   VARCHAR(128),
+    LEVEL_CODE              VARCHAR(16),
+    CREATED_AT              BIGINT,
+    UPDATED_AT              BIGINT
+)
+UNIQUE KEY(BATCH_ID, DATA_DATE, PORTFOLIO_CODE, PORTFOLIO_NAME, UPPER_LEVEL_PORTFOLIO, LEVEL_CODE)
+DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
 PROPERTIES (
     "replication_allocation" = "tag.location.default: 1",
     "enable_unique_key_merge_on_write" = "true"

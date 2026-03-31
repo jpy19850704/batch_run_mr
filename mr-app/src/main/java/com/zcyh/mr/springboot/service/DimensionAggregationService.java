@@ -25,6 +25,12 @@ public class DimensionAggregationService {
     private static final String OP_GE = ">=";
     private static final String OP_LT = "<";
     private static final String OP_LE = "<=";
+    private static final String OP_EQ_ALIAS = "eq";
+    private static final String OP_NE_ALIAS = "ne";
+    private static final String OP_GT_ALIAS = "gt";
+    private static final String OP_GE_ALIAS = "ge";
+    private static final String OP_LT_ALIAS = "lt";
+    private static final String OP_LE_ALIAS = "le";
     private static final String OP_IN = "in";
     private static final String OP_NOT_IN = "not_in";
     private static final String OP_CONTAINS = "contains";
@@ -135,6 +141,25 @@ public class DimensionAggregationService {
         String safe = trimToNull(operator);
         if (safe == null) {
             return null;
+        }
+        String lower = safe.toLowerCase();
+        if (OP_EQ_ALIAS.equals(lower)) {
+            return OP_EQ;
+        }
+        if (OP_NE_ALIAS.equals(lower)) {
+            return OP_NE;
+        }
+        if (OP_GT_ALIAS.equals(lower)) {
+            return OP_GT;
+        }
+        if (OP_GE_ALIAS.equals(lower)) {
+            return OP_GE;
+        }
+        if (OP_LT_ALIAS.equals(lower)) {
+            return OP_LT;
+        }
+        if (OP_LE_ALIAS.equals(lower)) {
+            return OP_LE;
         }
         if (OP_EQ.equals(safe)
                 || OP_NE.equals(safe)

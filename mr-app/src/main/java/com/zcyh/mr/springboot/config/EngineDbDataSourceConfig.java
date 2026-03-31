@@ -11,11 +11,10 @@ import org.springframework.context.annotation.Configuration;
 import javax.sql.DataSource;
 
 /**
- * Engine 输入库统一配置。
- * 仅维护输入库数据源，查询层统一走 JdbcTemplate 仓储。
+ * Engine 输入/任务库数据源配置。
  */
 @Configuration
-public class EngineInputDataSourceConfig {
+public class EngineDbDataSourceConfig {
 
     @Bean(name = "engineDbDataSourceProperties")
     @ConfigurationProperties(prefix = "enginedb.datasource")

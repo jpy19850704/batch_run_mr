@@ -40,10 +40,6 @@ public class FrtbSaEngineAdapter implements EngineAdapter {
             throw new IllegalArgumentException("payload must be a json object");
         }
 
-        if (req.containsKey("batch_tasks")) {
-            throw new IllegalArgumentException("batch_tasks 已废弃，请改用 source_type=db 由系统内部组批");
-        }
-
         boolean needDecompose = parseNeedDecompose(req);
         JSONArray inputListJson = req.getJSONArray("frtb_input_list");
         if (inputListJson == null || inputListJson.isEmpty()) {

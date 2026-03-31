@@ -8,6 +8,7 @@ import com.zcyh.mr.springboot.engine.EngineRegistry;
 import com.zcyh.mr.springboot.engine.FrtbDrcEngineAdapter;
 import com.zcyh.mr.springboot.engine.FrtbSaEngineAdapter;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
+import com.zcyh.mr.springboot.engine.VarEngineAdapter;
 import com.zcyh.mr.springboot.model.EngineRunRequest;
 import com.zcyh.mr.springboot.model.EngineRunResult;
 import org.springframework.stereotype.Service;
@@ -20,13 +21,16 @@ public class EngineOrchestratorService {
     private final EngineRegistry registry;
     private final FrtbSbaDbRunnerService frtbSbaDbRunnerService;
     private final FrtbDrcDbRunnerService frtbDrcDbRunnerService;
+    private final VarDbRunnerService varDbRunnerService;
 
     public EngineOrchestratorService(EngineRegistry registry,
                                      FrtbSbaDbRunnerService frtbSbaDbRunnerService,
-                                     FrtbDrcDbRunnerService frtbDrcDbRunnerService) {
+                                     FrtbDrcDbRunnerService frtbDrcDbRunnerService,
+                                     VarDbRunnerService varDbRunnerService) {
         this.registry = registry;
         this.frtbSbaDbRunnerService = frtbSbaDbRunnerService;
         this.frtbDrcDbRunnerService = frtbDrcDbRunnerService;
+        this.varDbRunnerService = varDbRunnerService;
     }
 
     public EngineRunResult run(EngineRunRequest request) {
@@ -62,12 +66,15 @@ public class EngineOrchestratorService {
         String raw;
         String sbaMode = detectFrtbSbaMode(engineCode, payloadJson);
         String drcMode = detectFrtbDrcMode(engineCode, payloadJson);
+        String varMode = detectVarMode(engineCode, payloadJson);
         if ("db".equals(sbaMode)) {
             raw = frtbSbaDbRunnerService.calculateByRule(payloadJson);
         } else if ("db_inline".equals(sbaMode)) {
             raw = frtbSbaDbRunnerService.calculateByInlineRule(payloadJson);
         } else if ("db".equals(drcMode)) {
             raw = frtbDrcDbRunnerService.calculateByBatch(payloadJson);
+        } else if ("db_inline".equals(varMode)) {
+            raw = varDbRunnerService.calculateByInline(payloadJson);
         } else {
             raw = adapter.calculate(payloadJson);
         }
@@ -130,6 +137,28 @@ public class EngineOrchestratorService {
             String sourceType = trimToNull(payload.getString("source_type"));
             if ("db".equalsIgnoreCase(sourceType)) {
                 return "db";
+            }
+            return null;
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    /**
+     * 检测 VaR 模式：db_inline（按 batch_id + data_date 查库）、null（其它模式）。
+     */
+    private static String detectVarMode(String engineCode, String payloadJson) {
+        if (!VarEngineAdapter.CODE.equals(engineCode)) {
+            return null;
+        }
+        try {
+            JSONObject payload = JSON.parseObject(payloadJson);
+            if (payload == null) {
+                return null;
+            }
+            String sourceType = trimToNull(payload.getString("source_type"));
+            if ("db_inline".equalsIgnoreCase(sourceType)) {
+                return "db_inline";
             }
             return null;
         } catch (Exception ex) {

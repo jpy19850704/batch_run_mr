@@ -253,38 +253,22 @@ CREATE TABLE IF NOT EXISTS MR_AGG_RULE (
 CREATE INDEX IF NOT EXISTS idx_MR_AGG_RULE_type
     ON MR_AGG_RULE (rule_type);
 
-MERGE INTO MR_AGG_RULE t
-USING (
-    SELECT
-        'BATCH_FRTB_DEFAULT' AS rule_id,
-        'FRTB' AS rule_type,
-        '默认 FRTB 批次汇总规则' AS rule_name,
-        '{
-  "buildOrder": ["TRADER", "DESK", "PORTFOLIO", "TOTAL"],
-  "dimensions": {
-    "TRADER": "TRADER",
-    "DESK": "DESK",
-    "PORTFOLIO": "PORTFOLIO"
-  },
-  "groupByFields": ["PORTFOLIO", "DESK", "TRADER"],
-  "sumFields": ["SENSITIVITY_VAL_INST_CURR_CNY"],
-  "filters": []
-}' AS rule_json,
-        'system' AS modifier,
-        0 AS created_at,
-        0 AS updated_at
-) s
-ON (t.rule_id = s.rule_id)
-WHEN MATCHED THEN UPDATE SET
-    t.rule_type = s.rule_type,
-    t.rule_name = s.rule_name,
-    t.rule_json = s.rule_json,
-    t.modifier = s.modifier,
-    t.updated_at = s.updated_at
-WHEN NOT MATCHED THEN INSERT (
+INSERT INTO MR_AGG_RULE (
     rule_id, rule_type, rule_name, rule_json, modifier, created_at, updated_at
 ) VALUES (
-    s.rule_id, s.rule_type, s.rule_name, s.rule_json, s.modifier, s.created_at, s.updated_at
-);
+    'BATCH_FRTB_DEFAULT',
+    'FRTB',
+    '默认 FRTB 批次汇总规则',
+    '{"buildOrder":["TRADER","DESK","PORTFOLIO","TOTAL"],"dimensions":{"TRADER":"TRADER","DESK":"DESK","PORTFOLIO":"PORTFOLIO"},"groupByFields":["PORTFOLIO","DESK","TRADER"],"sumFields":["SENSITIVITY_VAL_INST_CURR_CNY"],"filters":[]}',
+    'system',
+    0,
+    0
+)
+ON DUPLICATE KEY UPDATE
+    rule_type = VALUES(rule_type),
+    rule_name = VALUES(rule_name),
+    rule_json = VALUES(rule_json),
+    modifier = VALUES(modifier),
+    updated_at = VALUES(updated_at);
 
 
