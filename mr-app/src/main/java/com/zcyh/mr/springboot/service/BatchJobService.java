@@ -30,6 +30,8 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -202,6 +204,7 @@ public class BatchJobService {
         int submittedJobs = 0;
         List<String> submittedJobIds = new ArrayList<String>();
         try {
+            syncPortfolioHierarchySnapshot(batchId, dataDate);
             for (int i = 0; i < chunks.size(); i++) {
                 int seqNo = i + 1;
                 List<BatchTradeDataLoader.TradeRow> chunkTrades = chunks.get(i);
@@ -296,6 +299,7 @@ public class BatchJobService {
         int nextSeqNo = nextSeqNo(batchId);
 
         try {
+            syncPortfolioHierarchySnapshot(batchId, dataDate);
             for (int i = 0; i < chunks.size(); i++) {
                 int seqNo = nextSeqNo + i;
                 List<BatchTradeDataLoader.TradeRow> chunkTrades = chunks.get(i);
@@ -421,6 +425,7 @@ public class BatchJobService {
         engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_DRC_DETAIL WHERE BATCH_ID=?", batchId);
         engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_DRC_RESULT WHERE BATCH_ID=?", batchId);
         engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_MARKET_DATA_DETAIL WHERE BATCH_ID=?", batchId);
+        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_PORTFOLIO_HIERARCHY WHERE BATCH_ID=?", batchId);
 
         jdbcTemplate.update("DELETE FROM MR_ASYNC_BATCH_ITEM WHERE batch_id=?", batchId);
         jdbcTemplate.update("DELETE FROM MR_ASYNC_BATCH_JOB WHERE batch_id=?", batchId);
@@ -433,6 +438,61 @@ public class BatchJobService {
             }
         }
         jdbcTemplate.update("DELETE FROM MR_ASYNC_JOB WHERE job_id IN (SELECT job_id FROM MR_ASYNC_BATCH_ITEM WHERE batch_id=?)", batchId);
+    }
+
+    private void syncPortfolioHierarchySnapshot(String batchId, LocalDate dataDate) {
+        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_PORTFOLIO_HIERARCHY WHERE BATCH_ID=?", batchId);
+        List<Map<String, Object>> hierarchyRows = jdbcTemplate.queryForList(
+                "SELECT PORTFOLIO_CODE, PORTFOLIO_NAME, UPPER_LEVEL_PORTFOLIO, LEVEL_CODE FROM V_PORTFOLIO_HIERARCHY");
+        if (hierarchyRows.isEmpty()) {
+            return;
+        }
+
+        String insertSql = "INSERT INTO TB_OUT_PORTFOLIO_HIERARCHY ("
+                + "BATCH_ID, DATA_DATE, PORTFOLIO_CODE, PORTFOLIO_NAME, UPPER_LEVEL_PORTFOLIO, LEVEL_CODE, CREATED_AT, UPDATED_AT"
+                + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String normalizedDataDate = dataDate == null ? null : dataDate.format(DateTimeFormatter.BASIC_ISO_DATE);
+        long now = System.currentTimeMillis();
+        Set<String> uniqueKeys = new java.util.LinkedHashSet<String>();
+        List<Object[]> batchArgs = new ArrayList<Object[]>();
+
+        for (Map<String, Object> row : hierarchyRows) {
+            String portfolioCode = trimToNull(stringValue(row.get("PORTFOLIO_CODE")));
+            String levelCode = trimToNull(stringValue(row.get("LEVEL_CODE")));
+            String upperLevelPortfolio = trimToNull(stringValue(row.get("UPPER_LEVEL_PORTFOLIO")));
+            String uniqueKey = String.join("|",
+                    valueOrEmpty(portfolioCode),
+                    valueOrEmpty(levelCode),
+                    valueOrEmpty(upperLevelPortfolio));
+            if (!uniqueKeys.add(uniqueKey)) {
+                continue;
+            }
+            batchArgs.add(new Object[]{
+                    batchId,
+                    normalizedDataDate,
+                    portfolioCode,
+                    trimToNull(stringValue(row.get("PORTFOLIO_NAME"))),
+                    upperLevelPortfolio,
+                    levelCode,
+                    now,
+                    now
+            });
+            if (batchArgs.size() >= 500) {
+                engineResultDbJdbcTemplate.batchUpdate(insertSql, batchArgs);
+                batchArgs.clear();
+            }
+        }
+        if (!batchArgs.isEmpty()) {
+            engineResultDbJdbcTemplate.batchUpdate(insertSql, batchArgs);
+        }
+    }
+
+    private static String stringValue(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private static String valueOrEmpty(String value) {
+        return value == null ? "" : value;
     }
 
     private void insertBatchJob(

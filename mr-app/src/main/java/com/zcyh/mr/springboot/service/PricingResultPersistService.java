@@ -6,6 +6,8 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
 import com.zcyh.mr.springboot.model.EngineRunResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -28,9 +30,11 @@ import java.util.Set;
  */
 @Service
 public class PricingResultPersistService {
+    private static final Logger log = LoggerFactory.getLogger(PricingResultPersistService.class);
     private static final DateTimeFormatter DATE_8_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter DATE_10_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final int DEFAULT_BATCH_SIZE = 500;
+    private static final int MAX_INVALID_DRC_LOG = 10;
     private static final String DECOMP_TABLE = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
 
     private final JdbcTemplate jdbcTemplate;
@@ -454,6 +458,8 @@ public class PricingResultPersistService {
                 + "RISK_WEIGHT, JTD, JTD_CNY, INSTRUMENT_VALUE, FRTB_LGD, NOTIONAL, DETAIL_JSON, CREATED_AT, UPDATED_AT) "
                 + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
+        int skippedNullJtdCny = 0;
+        int logged = 0;
         for (int i = 0; i < trades.size(); i++) {
             JSONObject trade = trades.getJSONObject(i);
             if (trade == null) {
@@ -461,6 +467,23 @@ public class PricingResultPersistService {
             }
             JSONObject drc = trade.getJSONObject("DRC");
             if (drc == null || drc.isEmpty()) {
+                continue;
+            }
+            String instrumentId = trimToNull(trade.getString("INSTRUMENT_ID"));
+            String productCode = trimToNull(trade.getString("PRODUCT_CODE"));
+            BigDecimal jtd = toBigDecimal(drc.get("JTD"));
+            BigDecimal jtdCny = toBigDecimal(drc.get("JTD_CNY"));
+            // DRC计量口径已切换为JTD_CNY主导，缺失时直接跳过落库并记录问题。
+            if (jtdCny == null) {
+                skippedNullJtdCny++;
+                if (logged < MAX_INVALID_DRC_LOG) {
+                    log.warn("DRC明细缺少JTD_CNY，已跳过落库: batchId={}, instrumentId={}, productCode={}, drcSecurityType={}",
+                            context.batchId,
+                            instrumentId,
+                            productCode,
+                            trimToNull(drc.getString("SECURITY_TYPE")));
+                    logged++;
+                }
                 continue;
             }
             jdbcTemplate.update(
@@ -471,8 +494,8 @@ public class PricingResultPersistService {
                     context.seqNo,
                     normalizeDataDate(context.dataDate),
                     context.opCode,
-                    trimToNull(trade.getString("INSTRUMENT_ID")),
-                    trimToNull(trade.getString("PRODUCT_CODE")),
+                    instrumentId,
+                    productCode,
                     trimToNull(drc.getString("PORTFOLIO_CODE")),
                     trimToNull(drc.getString("SECURITY_ID")),
                     trimToNull(drc.getString("SECURITY_TYPE")),
@@ -483,8 +506,8 @@ public class PricingResultPersistService {
                     toBigDecimal(drc.get("TERM_TO_MATURITY")),
                     toBigDecimal(drc.get("MODIFIED_REMAIN_TERM")),
                     toBigDecimal(drc.get("RISK_WEIGHT")),
-                    toBigDecimal(drc.get("JTD")),
-                    toBigDecimal(drc.get("JTD_CNY")),
+                    jtd,
+                    jtdCny,
                     toBigDecimal(drc.get("INSTRUMENT_VALUE")),
                     toBigDecimal(drc.get("FRTB_LGD")),
                     toBigDecimal(drc.get("NOTIONAL")),
@@ -492,6 +515,10 @@ public class PricingResultPersistService {
                     context.createdAt,
                     context.updatedAt
             );
+        }
+        if (skippedNullJtdCny > 0) {
+            log.warn("DRC明细落库跳过记录: batchId={}, skippedNullJtdCny={}, loggedRows={}",
+                    context.batchId, skippedNullJtdCny, Math.min(skippedNullJtdCny, MAX_INVALID_DRC_LOG));
         }
     }
 

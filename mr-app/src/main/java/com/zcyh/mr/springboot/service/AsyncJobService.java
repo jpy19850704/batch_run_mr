@@ -27,6 +27,8 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.annotation.PreDestroy;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
@@ -117,6 +119,8 @@ public class AsyncJobService {
     private final String jobApiBasePath;
     private final int pendingJobAlertThreshold;
     private final int executorQueueAlertThreshold;
+    /** 是否使用 Oracle 方言分页。MySQL 走 LIMIT。 */
+    private final boolean oracleDialect;
 
     public AsyncJobService(
             EngineOrchestratorService orchestratorService,
@@ -171,6 +175,7 @@ public class AsyncJobService {
         this.jobApiBasePath = normalizeApiBasePath(jobApiBasePath);
         this.pendingJobAlertThreshold = Math.max(1, pendingJobAlertThreshold);
         this.executorQueueAlertThreshold = Math.max(1, executorQueueAlertThreshold);
+        this.oracleDialect = detectOracleDialect();
 
         int safeCore = Math.max(1, coreSize);
         int safeMax = Math.max(safeCore, maxSize);
@@ -380,10 +385,6 @@ public class AsyncJobService {
                 return;
             }
 
-            // 【架构备注】当前从 DB 读取完整 payload_json（大 TEXT 列），后续改为：
-            // String payloadJson = redisTemplate.opsForValue().get("job:payload:" + jobId)
-            // 拿到的就是 buildPayload() 组装好的完整 JSON，直传 Calc 无需拼接。
-            // Worker 执行完成后主动 DEL key 释放 Redis 内存。
             DbJob running = requireJob(jobId);
             bindJobContext(running);
             RequestContextHolder.setJobId(jobId);
@@ -505,10 +506,7 @@ public class AsyncJobService {
         }
         long now = System.currentTimeMillis();
         long staleCutoff = now - stalePendingMs;
-        String sql = "SELECT job_id FROM MR_ASYNC_JOB "
-                + "WHERE status=? AND cancel_requested=0 "
-                + "AND (owner_node=? OR owner_node IS NULL OR owner_node='' OR updated_at<=?) "
-                + "ORDER BY created_at FETCH FIRST " + claimLimit + " ROWS ONLY";
+        String sql = buildPendingJobsQuerySql(claimLimit);
         List<String> jobIds = withRetry(new Callable<List<String>>() {
             @Override
             public List<String> call() {
@@ -719,10 +717,6 @@ public class AsyncJobService {
         }, "校验任务表结构");
     }
 
-    // 【架构备注】payload_json 当前直接写入关系型 DB，大批量时成为 I/O 瓶颈。
-    // 后续改造：buildPayload() 组装好的完整 payload 直接存 Redis，
-    // redisTemplate.opsForValue().set("job:payload:" + jobId, payloadJson, 2, TimeUnit.HOURS)
-    // 此处 INSERT 去掉 payload_json 列，只写元数据。
     private void insertJob(DbJob create) {
         String sql = "INSERT INTO MR_ASYNC_JOB (job_id, request_id, engine_code, payload_json, status, created_at, updated_at, idempotency_key, trace_id, client_id, user_id, user_name, source_system, cancel_requested, owner_node) "
                 + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)";
@@ -1067,6 +1061,42 @@ public class AsyncJobService {
         return lower.contains("duplicate")
                 || lower.contains("unique")
                 || lower.contains("already exists");
+    }
+
+    /**
+     * 待分发任务分页 SQL。
+     * MySQL 使用 LIMIT，Oracle 使用 FETCH FIRST。
+     */
+    private String buildPendingJobsQuerySql(int claimLimit) {
+        String base = "SELECT job_id FROM MR_ASYNC_JOB "
+                + "WHERE status=? AND cancel_requested=0 "
+                + "AND (owner_node=? OR owner_node IS NULL OR owner_node='' OR updated_at<=?) "
+                + "ORDER BY created_at ";
+        if (oracleDialect) {
+            return base + "FETCH FIRST " + claimLimit + " ROWS ONLY";
+        }
+        return base + "LIMIT " + claimLimit;
+    }
+
+    /**
+     * 检测底层数据库是否 Oracle。
+     * 检测失败时默认按 MySQL 方言执行（LIMIT）。
+     */
+    private boolean detectOracleDialect() {
+        if (jdbcTemplate.getDataSource() == null) {
+            return false;
+        }
+        try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            if (metaData == null) {
+                return false;
+            }
+            String dbName = metaData.getDatabaseProductName();
+            return dbName != null && dbName.toLowerCase().contains("oracle");
+        } catch (Exception ex) {
+            log.warn("检测数据库方言失败，默认使用 MySQL LIMIT 语法", ex);
+            return false;
+        }
     }
 
     private static Long getNullableLong(ResultSet rs, String column) throws SQLException {
