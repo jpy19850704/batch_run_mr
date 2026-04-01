@@ -235,6 +235,30 @@ PROPERTIES (
     "enable_unique_key_merge_on_write" = "true"
 );
 
+-- VaR 汇总结果表（批次总编排输出）
+CREATE TABLE IF NOT EXISTS TB_OUT_VAR_RESULT (
+    BATCH_ID            VARCHAR(64),
+    DATA_DATE           VARCHAR(16),
+    QUANTILE            VARCHAR(32),
+    RULE_ID             VARCHAR(128),
+    RULE_NAME           VARCHAR(256),
+    MODE                VARCHAR(64),
+    SCENARIO_ID         VARCHAR(128),
+    GROUP_TYPE          VARCHAR(64),
+    GROUP_VALUE         VARCHAR(512),
+    RISK_CLASS          VARCHAR(64),
+    VAR                 DECIMAL(38, 10),
+    ES                  DECIMAL(38, 10),
+    SELECTED_METHOD     VARCHAR(32),
+    CREATED_AT          BIGINT
+)
+UNIQUE KEY(BATCH_ID, DATA_DATE, QUANTILE, RULE_ID, MODE, SCENARIO_ID, GROUP_TYPE, GROUP_VALUE, RISK_CLASS)
+DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
 -- 市场数据结果表（每条曲线一行，完整曲线 JSON 由前端解析）
 CREATE TABLE IF NOT EXISTS TB_OUT_MARKET_DATA_DETAIL (
     ID              BIGINT          NOT NULL AUTO_INCREMENT,

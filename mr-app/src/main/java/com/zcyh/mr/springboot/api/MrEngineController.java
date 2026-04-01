@@ -1,5 +1,6 @@
 package com.zcyh.mr.springboot.api;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.context.RequestContextHolder;
 import com.zcyh.mr.springboot.model.ApiResponse;
 import com.zcyh.mr.springboot.model.EngineRunRequest;
@@ -8,6 +9,8 @@ import com.zcyh.mr.springboot.service.AlertService;
 import com.zcyh.mr.springboot.service.AsyncJobService;
 import com.zcyh.mr.springboot.service.AuditLogService;
 import com.zcyh.mr.springboot.service.EngineOrchestratorService;
+import com.zcyh.mr.springboot.service.VarDetailCacheService;
+import org.springframework.beans.factory.ObjectProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +34,7 @@ public class MrEngineController {
     private final AsyncJobService asyncJobService;
     private final AuditLogService auditLogService;
     private final AlertService alertService;
+    private final VarDetailCacheService varDetailCacheService;
 
     @Value("${spring.application.name:mr-springboot-app}")
     private String appName;
@@ -39,12 +43,14 @@ public class MrEngineController {
             EngineOrchestratorService orchestratorService,
             AsyncJobService asyncJobService,
             AuditLogService auditLogService,
-            AlertService alertService
+            AlertService alertService,
+            ObjectProvider<VarDetailCacheService> varDetailCacheServiceProvider
     ) {
         this.orchestratorService = orchestratorService;
         this.asyncJobService = asyncJobService;
         this.auditLogService = auditLogService;
         this.alertService = alertService;
+        this.varDetailCacheService = varDetailCacheServiceProvider.getIfAvailable();
     }
 
     @GetMapping("/healthz")
@@ -92,5 +98,63 @@ public class MrEngineController {
             auditLogService.recordFailure("ENGINE_RUN", "ENGINE", engineCode, engineCode, "ENGINE_RUN_FAILED", ex.getMessage(), elapsed);
             throw ex;
         }
+    }
+
+    /**
+     * 按维度读取 VaR 明细缓存。
+     */
+    @PostMapping("/api/v1/engine/var/detail")
+    public ApiResponse<Object> varDetail(@RequestBody JSONObject request) {
+        if (varDetailCacheService == null) {
+            return ApiResponse.fail("CACHE_DISABLED", "VaR 维度缓存服务未启用");
+        }
+        String requestId = readRequiredField(request, "request_id", "requestId");
+        String quantile = readRequiredField(request, "quantile");
+        String ruleId = readRequiredField(request, "rule_id", "ruleId");
+        String scenarioId = readRequiredField(request, "scenario_id", "scenarioId");
+        String groupType = readRequiredField(request, "group_type", "groupType");
+        String groupValue = readRequiredField(request, "group_value", "groupValue");
+
+        JSONObject detail;
+        try {
+            detail = varDetailCacheService.getDimensionDetail(
+                    requestId,
+                    quantile,
+                    ruleId,
+                    scenarioId,
+                    groupType,
+                    groupValue);
+        } catch (Exception ex) {
+            log.warn("读取 VaR 维度缓存失败: {}", ex.getMessage());
+            return ApiResponse.fail("CACHE_UNAVAILABLE", "VaR 维度缓存暂不可用，请稍后重试");
+        }
+        if (detail == null) {
+            return ApiResponse.fail("NOT_FOUND", "未找到对应维度明细缓存，可能已过期，请重新执行 VaR 计算");
+        }
+        return ApiResponse.ok(detail);
+    }
+
+    private static String readRequiredField(JSONObject obj, String... keys) {
+        if (obj == null || keys == null || keys.length == 0) {
+            throw new IllegalArgumentException("请求参数不能为空");
+        }
+        for (String key : keys) {
+            if (key == null) {
+                continue;
+            }
+            String value = trimToNull(obj.getString(key));
+            if (value != null) {
+                return value;
+            }
+        }
+        throw new IllegalArgumentException("参数缺失: " + keys[0]);
+    }
+
+    private static String trimToNull(String text) {
+        if (text == null) {
+            return null;
+        }
+        String value = text.trim();
+        return value.isEmpty() ? null : value;
     }
 }

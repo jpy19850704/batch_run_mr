@@ -124,9 +124,7 @@ public class FrtbSbaDbRunnerService {
             throw new IllegalArgumentException("规则汇总后未生成有效的 frtb_sba 组批任务");
         }
         Object output = aggregator.calculateBatch(tasks, needDecompose, threadCount);
-        JSONObject resultJson = (JSONObject) JSON.toJSON(output);
-        resultJson.put("__raw_details", rows);
-        return JSON.toJSONString(resultJson, JSONWriter.Feature.WriteBigDecimalAsPlain);
+        return JSON.toJSONString(output, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
 
     private static boolean parseNeedDecompose(JSONObject req) {

@@ -127,7 +127,7 @@ SELECT
     scenario_shift_rule,
     start_date,
     holiday_calendar,
-    CAST(NULL AS VARCHAR(128)) AS riskgroup_id
+    CAST(NULL AS CHAR(128)) AS riskgroup_id
 FROM MR_SCENARIO_RULE
 WHERE status = 'ACTIVE';
 
@@ -146,7 +146,7 @@ SELECT
     'IR_SPOT' AS curve_type,
     riskfactor_id AS curve_code,
     data_date,
-    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS term_code,
+    COALESCE(term_code, CAST(term_days AS CHAR)) AS term_code,
     COALESCE(term_days, 0) AS term_days,
     riskfactor_value
 FROM MR_RISKFACTOR_DATA
@@ -170,7 +170,7 @@ SELECT
     'COMM_SPOT' AS curve_type,
     riskfactor_id AS curve_code,
     data_date,
-    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS term_code,
+    COALESCE(term_code, CAST(term_days AS CHAR)) AS term_code,
     COALESCE(term_days, 0) AS term_days,
     riskfactor_value
 FROM MR_RISKFACTOR_DATA
@@ -182,7 +182,7 @@ SELECT
     'EQ_SPOT' AS curve_type,
     riskfactor_id AS curve_code,
     data_date,
-    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS term_code,
+    COALESCE(term_code, CAST(term_days AS CHAR)) AS term_code,
     COALESCE(term_days, 0) AS term_days,
     riskfactor_value
 FROM MR_RISKFACTOR_DATA
@@ -194,9 +194,9 @@ SELECT
     'FX_VOL' AS curve_type,
     riskfactor_id AS curve_code,
     data_date,
-    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS term_code,
+    COALESCE(term_code, CAST(term_days AS CHAR)) AS term_code,
     COALESCE(term_days, 0) AS term_days,
-    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS vertex2,
+    COALESCE(term_code, CAST(term_days AS CHAR)) AS vertex2,
     riskfactor_value
 FROM MR_RISKFACTOR_DATA
 WHERE riskfactor_type = 'FX_VOL';
@@ -207,9 +207,9 @@ SELECT
     'IR_VOL' AS curve_type,
     riskfactor_id AS curve_code,
     data_date,
-    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS term_code,
+    COALESCE(term_code, CAST(term_days AS CHAR)) AS term_code,
     COALESCE(term_days, 0) AS term_days,
-    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS vertex2,
+    COALESCE(term_code, CAST(term_days AS CHAR)) AS vertex2,
     riskfactor_value
 FROM MR_RISKFACTOR_DATA
 WHERE riskfactor_type = 'IR_VOL';
@@ -220,9 +220,9 @@ SELECT
     'COMM_VOL' AS curve_type,
     riskfactor_id AS curve_code,
     data_date,
-    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS term_code,
+    COALESCE(term_code, CAST(term_days AS CHAR)) AS term_code,
     COALESCE(term_days, 0) AS term_days,
-    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS vertex2,
+    COALESCE(term_code, CAST(term_days AS CHAR)) AS vertex2,
     riskfactor_value
 FROM MR_RISKFACTOR_DATA
 WHERE riskfactor_type = 'COMM_VOL';
@@ -233,9 +233,9 @@ SELECT
     'EQ_VOL' AS curve_type,
     riskfactor_id AS curve_code,
     data_date,
-    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS term_code,
+    COALESCE(term_code, CAST(term_days AS CHAR)) AS term_code,
     COALESCE(term_days, 0) AS term_days,
-    COALESCE(term_code, CAST(term_days AS VARCHAR)) AS vertex2,
+    COALESCE(term_code, CAST(term_days AS CHAR)) AS vertex2,
     riskfactor_value
 FROM MR_RISKFACTOR_DATA
 WHERE riskfactor_type = 'EQ_VOL';

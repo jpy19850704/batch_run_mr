@@ -52,7 +52,14 @@ public class CalendarFileBootstrapService {
             throw new IllegalStateException("未配置日历文件目录 mr.calendar.store.path");
         }
 
-        List<Map<String, Object>> rows = calendarMapper.selectCalendar();
+        List<Map<String, Object>> rows;
+        try {
+            rows = calendarMapper.selectCalendar();
+        } catch (Exception ex) {
+            // 日历查询失败时降级继续：不生成文件、不刷新缓存，避免阻断批次流程。
+            log.warn("批次启动日历刷新降级，查询 V_CALENDAR 失败，跳过本次刷新: batchId={}, error={}", batchId, ex.getMessage());
+            return;
+        }
         if (rows == null || rows.isEmpty()) {
             log.warn("批次启动日历刷新跳过，V_CALENDAR 无数据: batchId={}", batchId);
             return;
@@ -74,7 +81,10 @@ public class CalendarFileBootstrapService {
         }
 
         if (grouped.isEmpty()) {
-            throw new IllegalStateException("V_CALENDAR 无有效记录，无法生成日历文件");
+            // 日历记录全部无效时降级继续：不生成文件、不刷新缓存，避免阻断批次流程。
+            log.warn("批次启动日历刷新降级，V_CALENDAR 无有效记录，跳过本次刷新: batchId={}, rowCount={}, invalidRowCount={}",
+                    batchId, rows.size(), invalidRowCount);
+            return;
         }
 
         Path rootPath = Paths.get(storePath);

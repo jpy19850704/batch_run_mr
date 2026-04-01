@@ -9,6 +9,9 @@ import com.zcyh.mr.var.VarCalculator;
 import com.zcyh.mr.var.VarPickMethod;
 import com.zcyh.mr.var.VarQuantileResult;
 import com.zcyh.mr.var.VarScenarioPnl;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -22,27 +25,36 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * VaR 数据库输入执行服务。
  */
 @Service
 public class VarDbRunnerService {
+    private static final Logger log = LoggerFactory.getLogger(VarDbRunnerService.class);
     private static final String VAR_PICK_IN = "in";
     private static final String VAR_PICK_OUT = "out";
     private static final String VAR_PICK_AVERAGE = "average";
     private static final BigDecimal TWO = BigDecimal.valueOf(2L);
     private static final int DEFAULT_SCALE = 10;
     private static final String TOTAL = "TOTAL";
+    private static final String VAR_DETAIL_FETCH_API = "/api/v1/engine/var/detail";
 
     private final VarInputQueryService inputQueryService;
     private final DimensionAggregationService dimensionAggregationService;
     private final VarCalculator varCalculator = new VarCalculator();
+    private VarDetailCacheService varDetailCacheService;
 
     public VarDbRunnerService(VarInputQueryService inputQueryService,
                               DimensionAggregationService dimensionAggregationService) {
         this.inputQueryService = inputQueryService;
         this.dimensionAggregationService = dimensionAggregationService;
+    }
+
+    @Autowired(required = false)
+    public void setVarDetailCacheService(VarDetailCacheService varDetailCacheService) {
+        this.varDetailCacheService = varDetailCacheService;
     }
 
     public String calculateByInline(String payloadJson) {
@@ -55,9 +67,21 @@ public class VarDbRunnerService {
         String dataDate = requireTopLevelString(req, "data_date");
         List<BigDecimal> quantiles = parseQuantiles(req.get("quantiles"));
         List<VarRuleConfig> rules = parseRules(req);
+        boolean includeDetailRequested = readBoolean(req, "include_detail", "includeDetail");
+        boolean includeDetail = includeDetailRequested;
+        String requestId = readString(req, "request_id", "requestId");
+        if (requestId == null) {
+            requestId = UUID.randomUUID().toString().replace("-", "");
+        }
         if (rules.isEmpty()) {
             throw new IllegalArgumentException("rules is required");
         }
+        if (includeDetail && varDetailCacheService == null) {
+            includeDetail = false;
+            log.warn("include_detail=true 但 Redis 缓存服务未启用，自动降级为 include_detail=false");
+        }
+
+        int[] detailCacheCount = new int[]{0};
 
         List<JSONObject> quantileGroups = initQuantileGroups(quantiles);
         for (VarRuleConfig ruleConfig : rules) {
@@ -76,18 +100,44 @@ public class VarDbRunnerService {
                 BigDecimal quantile = quantiles.get(qIndex);
                 JSONObject quantileGroup = quantileGroups.get(qIndex);
                 JSONArray ruleResults = quantileGroup.getJSONArray("rule_results");
-                List<JSONObject> ruleResultItems = buildRuleResultsForQuantile(ruleConfig, scenarioDimensionGroups, quantile);
+                List<JSONObject> ruleResultItems = buildRuleResultsForQuantile(
+                        ruleConfig,
+                        scenarioDimensionGroups,
+                        quantile,
+                        includeDetail,
+                        requestId,
+                        detailCacheCount);
                 for (JSONObject item : ruleResultItems) {
                     ruleResults.add(item);
                 }
             }
         }
 
+        JSONObject summaryFile = new JSONObject();
+        summaryFile.put("batch_id", batchId);
+        summaryFile.put("data_date", dataDate);
+        summaryFile.put("quantiles", toQuantileArray(quantiles));
+        summaryFile.put("quantile_groups", toJsonArray(quantileGroups));
+
+        JSONObject detailFile = new JSONObject();
+        detailFile.put("enabled", includeDetail);
+        detailFile.put("requested", includeDetailRequested);
+        detailFile.put("request_id", requestId);
+        detailFile.put("fetch_api", VAR_DETAIL_FETCH_API);
+        detailFile.put("cache_entries", detailCacheCount[0]);
+        if (varDetailCacheService != null) {
+            detailFile.put("ttl_seconds", varDetailCacheService.getTtlSeconds());
+        }
+
         JSONObject result = new JSONObject();
+        // 兼容保留：顶层继续保留原始汇总字段，避免已有调用方受影响
         result.put("batch_id", batchId);
         result.put("data_date", dataDate);
         result.put("quantiles", toQuantileArray(quantiles));
         result.put("quantile_groups", toJsonArray(quantileGroups));
+        result.put("request_id", requestId);
+        result.put("summary_file", summaryFile);
+        result.put("detail_file", detailFile);
         return JSON.toJSONString(result, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
 
@@ -104,7 +154,10 @@ public class VarDbRunnerService {
 
     private List<JSONObject> buildRuleResultsForQuantile(VarRuleConfig ruleConfig,
                                                          Map<String, List<DimensionGroupData>> scenarioDimensionGroups,
-                                                         BigDecimal quantile) {
+                                                         BigDecimal quantile,
+                                                         boolean includeDetail,
+                                                         String requestId,
+                                                         int[] detailCacheCount) {
         List<JSONObject> ruleResults = new ArrayList<JSONObject>();
         for (Map.Entry<String, List<DimensionGroupData>> entry : scenarioDimensionGroups.entrySet()) {
             String scenarioId = entry.getKey();
@@ -126,6 +179,17 @@ public class VarDbRunnerService {
                 JSONObject dimensionResult = new JSONObject();
                 dimensionResult.put("group_type", dimensionGroup.groupType);
                 dimensionResult.put("group_value", dimensionGroup.groupValue);
+                if (includeDetail) {
+                    boolean cached = cacheDimensionDetail(
+                            requestId,
+                            quantile,
+                            ruleConfig.rule.getRuleId(),
+                            scenarioId,
+                            dimensionGroup);
+                    if (cached) {
+                        detailCacheCount[0] = detailCacheCount[0] + 1;
+                    }
+                }
 
                 JSONArray riskClassResults = new JSONArray();
                 if (ruleConfig.decompMode) {
@@ -147,7 +211,8 @@ public class VarDbRunnerService {
                         riskClassResults.add(buildIndependentRiskClassResult(
                                 quantileResult,
                                 riskClass,
-                                es));
+                                es,
+                                pnlColumn));
                     }
                 }
                 dimensionResult.put("risk_class_results", riskClassResults);
@@ -212,6 +277,7 @@ public class VarDbRunnerService {
         item.put("subscenario_id_out", subOut);
         item.put("pnl_out", pnlOut);
         item.put("var_out", varOut);
+        item.put("sort_pnl_field", "ALL_PNL");
         if (!allQuantile.isSingleSample() && pickMethod != VarPickMethod.AVERAGE) {
             item.put("selected_scenario_id", selectedScenarioId);
         }
@@ -222,11 +288,113 @@ public class VarDbRunnerService {
 
     private JSONObject buildIndependentRiskClassResult(VarQuantileResult quantileResult,
                                                        String riskClass,
-                                                       BigDecimal es) {
+                                                       BigDecimal es,
+                                                       String sortPnlField) {
         JSONObject item = toQuantileDetail(quantileResult);
         item.put("risk_class", normalizeRiskClassToken(riskClass));
         item.put("es", es);
+        item.put("sort_pnl_field", sortPnlField);
         return item;
+    }
+
+    private boolean cacheDimensionDetail(String requestId,
+                                         BigDecimal quantile,
+                                         String ruleId,
+                                         String scenarioId,
+                                         DimensionGroupData dimensionGroup) {
+        if (varDetailCacheService == null) {
+            return false;
+        }
+        JSONObject detail = buildDimensionDetailFile(
+                requestId,
+                quantile,
+                ruleId,
+                scenarioId,
+                dimensionGroup);
+        return varDetailCacheService.putDimensionDetail(
+                requestId,
+                quantile.stripTrailingZeros().toPlainString(),
+                ruleId,
+                scenarioId,
+                dimensionGroup.groupType,
+                dimensionGroup.groupValue,
+                detail);
+    }
+
+    private JSONObject buildDimensionDetailFile(String requestId,
+                                                BigDecimal quantile,
+                                                String ruleId,
+                                                String scenarioId,
+                                                DimensionGroupData dimensionGroup) {
+        if (dimensionGroup == null || dimensionGroup.scenarioPnls == null) {
+            throw new IllegalArgumentException("维度明细为空，无法构建 detail_file");
+        }
+        int totalRows = dimensionGroup.scenarioPnls.size();
+
+        List<ScenarioDetailRow> detailRows = toScenarioDetailRows(dimensionGroup.scenarioPnls);
+        Map<ScenarioKey, Integer> rankAll = rankByPnlColumn(detailRows, "ALL_PNL");
+        Map<ScenarioKey, Integer> rankIr = rankByPnlColumn(detailRows, "IR_PNL");
+        Map<ScenarioKey, Integer> rankFx = rankByPnlColumn(detailRows, "FX_PNL");
+        Map<ScenarioKey, Integer> rankEq = rankByPnlColumn(detailRows, "EQ_PNL");
+        Map<ScenarioKey, Integer> rankComm = rankByPnlColumn(detailRows, "COMM_PNL");
+
+        detailRows.sort(Comparator
+                .comparing((ScenarioDetailRow row) -> safePnl(row.aggregate.readByColumn("ALL_PNL")))
+                .thenComparing(row -> nullSafe(row.scenarioKey.scenarioId))
+                .thenComparing(row -> nullSafe(row.scenarioKey.subScenarioId))
+                .thenComparing(row -> nullSafe(row.scenarioKey.scenarioName)));
+
+        JSONArray rows = new JSONArray();
+        for (ScenarioDetailRow row : detailRows) {
+            JSONObject item = new JSONObject();
+            item.put("scenario_id", row.scenarioKey.scenarioId);
+            item.put("subscenario_id", row.scenarioKey.subScenarioId);
+            item.put("scenario_name", row.scenarioKey.scenarioName);
+            item.put("all_pnl", row.aggregate.readByColumn("ALL_PNL"));
+            item.put("ir_pnl", row.aggregate.readByColumn("IR_PNL"));
+            item.put("fx_pnl", row.aggregate.readByColumn("FX_PNL"));
+            item.put("eq_pnl", row.aggregate.readByColumn("EQ_PNL"));
+            item.put("comm_pnl", row.aggregate.readByColumn("COMM_PNL"));
+            item.put("rank_all", rankAll.get(row.scenarioKey));
+            item.put("rank_ir", rankIr.get(row.scenarioKey));
+            item.put("rank_fx", rankFx.get(row.scenarioKey));
+            item.put("rank_eq", rankEq.get(row.scenarioKey));
+            item.put("rank_comm", rankComm.get(row.scenarioKey));
+            rows.add(item);
+        }
+
+        JSONObject detail = new JSONObject();
+        detail.put("request_id", requestId);
+        detail.put("quantile", quantile.stripTrailingZeros().toPlainString());
+        detail.put("rule_id", ruleId);
+        detail.put("scenario_id", scenarioId);
+        detail.put("group_type", dimensionGroup.groupType);
+        detail.put("group_value", dimensionGroup.groupValue);
+        detail.put("total_rows", totalRows);
+        detail.put("rows", rows);
+        return detail;
+    }
+
+    private List<ScenarioDetailRow> toScenarioDetailRows(Map<ScenarioKey, ScenarioPnlAggregate> scenarioPnls) {
+        List<ScenarioDetailRow> rows = new ArrayList<ScenarioDetailRow>();
+        for (Map.Entry<ScenarioKey, ScenarioPnlAggregate> entry : scenarioPnls.entrySet()) {
+            rows.add(new ScenarioDetailRow(entry.getKey(), entry.getValue()));
+        }
+        return rows;
+    }
+
+    private Map<ScenarioKey, Integer> rankByPnlColumn(List<ScenarioDetailRow> rows, String pnlColumn) {
+        List<ScenarioDetailRow> sorted = new ArrayList<ScenarioDetailRow>(rows);
+        sorted.sort(Comparator
+                .comparing((ScenarioDetailRow row) -> safePnl(row.aggregate.readByColumn(pnlColumn)))
+                .thenComparing(row -> nullSafe(row.scenarioKey.scenarioId))
+                .thenComparing(row -> nullSafe(row.scenarioKey.subScenarioId))
+                .thenComparing(row -> nullSafe(row.scenarioKey.scenarioName)));
+        Map<ScenarioKey, Integer> rank = new LinkedHashMap<ScenarioKey, Integer>();
+        for (int i = 0; i < sorted.size(); i++) {
+            rank.put(sorted.get(i).scenarioKey, i + 1);
+        }
+        return rank;
     }
 
     private static BigDecimal readAggregatePnl(ScenarioPnlAggregate aggregate, String pnlColumn) {
@@ -702,6 +870,22 @@ public class VarDbRunnerService {
         return value == null ? defaultValue : value;
     }
 
+    private static boolean readBoolean(JSONObject obj, String... keys) {
+        if (obj == null || keys == null) {
+            return false;
+        }
+        for (String key : keys) {
+            if (key == null) {
+                continue;
+            }
+            Boolean value = obj.getBoolean(key);
+            if (value != null) {
+                return value;
+            }
+        }
+        return false;
+    }
+
     private static Integer readInteger(JSONObject obj, String... keys) {
         if (obj == null || keys == null) {
             return null;
@@ -818,6 +1002,16 @@ public class VarDbRunnerService {
                 return commPnl;
             }
             return BigDecimal.ZERO;
+        }
+    }
+
+    private static class ScenarioDetailRow {
+        private final ScenarioKey scenarioKey;
+        private final ScenarioPnlAggregate aggregate;
+
+        private ScenarioDetailRow(ScenarioKey scenarioKey, ScenarioPnlAggregate aggregate) {
+            this.scenarioKey = scenarioKey;
+            this.aggregate = aggregate;
         }
     }
 

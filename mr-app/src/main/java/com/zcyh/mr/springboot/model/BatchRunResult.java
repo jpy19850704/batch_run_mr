@@ -13,6 +13,7 @@ public class BatchRunResult {
     private BatchDetailResult batchDetail;
     private Object frtbSummary;
     private Object drcSummary;
+    private Object varSummary;
 
     public String getBatchId() {
         return batchId;
@@ -84,5 +85,13 @@ public class BatchRunResult {
 
     public void setDrcSummary(Object drcSummary) {
         this.drcSummary = drcSummary;
+    }
+
+    public Object getVarSummary() {
+        return varSummary;
+    }
+
+    public void setVarSummary(Object varSummary) {
+        this.varSummary = varSummary;
     }
 }
