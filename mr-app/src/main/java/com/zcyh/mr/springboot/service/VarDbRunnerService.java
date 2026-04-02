@@ -130,11 +130,6 @@ public class VarDbRunnerService {
         }
 
         JSONObject result = new JSONObject();
-        // 兼容保留：顶层继续保留原始汇总字段，避免已有调用方受影响
-        result.put("batch_id", batchId);
-        result.put("data_date", dataDate);
-        result.put("quantiles", toQuantileArray(quantiles));
-        result.put("quantile_groups", toJsonArray(quantileGroups));
         result.put("request_id", requestId);
         result.put("summary_file", summaryFile);
         result.put("detail_file", detailFile);

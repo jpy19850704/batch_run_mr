@@ -78,13 +78,6 @@ public class MrMarketDataSliceService {
     }
 
     /**
-     * 兼容旧接口：只返回裁剪后的曲线列表。
-     */
-    public List<CurveSliceSource> sliceCurves(List<TradeSliceSource> trades, List<CurveSliceSource> curves) {
-        return sliceCurvesWithTradeKeys(trades, curves).getCurves();
-    }
-
-    /**
      * 构建 curveId → 曲线列表 索引
      */
     private Map<String, List<CurveSliceSource>> buildCurveIndex(List<CurveSliceSource> curves) {

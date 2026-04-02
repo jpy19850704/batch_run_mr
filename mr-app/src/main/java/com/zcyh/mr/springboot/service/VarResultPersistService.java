@@ -64,7 +64,11 @@ public class VarResultPersistService {
         deleteByBatchAndDataDate(safeBatchId, safeDataDate);
 
         List<ResultRow> rows = new ArrayList<ResultRow>();
-        JSONArray quantileGroups = varResult.getJSONArray("quantile_groups");
+        JSONObject summaryFile = varResult.getJSONObject("summary_file");
+        if (summaryFile == null) {
+            throw new IllegalArgumentException("varResult.summary_file 不能为空");
+        }
+        JSONArray quantileGroups = summaryFile.getJSONArray("quantile_groups");
         if (quantileGroups != null) {
             for (int i = 0; i < quantileGroups.size(); i++) {
                 JSONObject quantileGroup = quantileGroups.getJSONObject(i);
