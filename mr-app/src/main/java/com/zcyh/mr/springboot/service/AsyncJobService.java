@@ -47,7 +47,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 基于 DataSource/JdbcTemplate 的异步任务服务，支持多实例共享任务状态。
+ * 基于数据源的异步任务服务，支持多实例共享任务状态。
  */
 @Service
 public class AsyncJobService {
@@ -99,6 +99,7 @@ public class AsyncJobService {
             PricingResultPersistService pricingResultPersistService,
             BatchResultFileService batchResultFileService,
             AlertService alertService,
+            AsyncJobStateRepository jobStateRepository,
             @Qualifier("engineDbJdbcTemplate") JdbcTemplate jdbcTemplate,
             @Qualifier("engineDbTransactionManager") PlatformTransactionManager transactionManager,
             @Value("${mr.job.executor.core-size:4}") int coreSize,
@@ -127,7 +128,7 @@ public class AsyncJobService {
         this.batchResultFileService = batchResultFileService;
         this.alertService = alertService;
         this.jdbcTemplate = jdbcTemplate;
-        this.jobStateRepository = new AsyncJobStateRepository(jdbcTemplate);
+        this.jobStateRepository = jobStateRepository;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
 

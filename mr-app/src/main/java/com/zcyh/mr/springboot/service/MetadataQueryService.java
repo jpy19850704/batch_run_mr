@@ -1,7 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.jdbc.core.JdbcTemplate;
+import com.zcyh.mr.springboot.metadata.MetadataDomainRegistry;
+import com.zcyh.mr.springboot.mybatis.engineresultdb.MetadataQueryMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -17,10 +17,10 @@ import java.util.Map;
 @Service
 public class MetadataQueryService {
 
-    private final JdbcTemplate jdbcTemplate;
+    private final MetadataQueryMapper metadataQueryMapper;
 
-    public MetadataQueryService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public MetadataQueryService(MetadataQueryMapper metadataQueryMapper) {
+        this.metadataQueryMapper = metadataQueryMapper;
     }
 
     /**
@@ -28,11 +28,7 @@ public class MetadataQueryService {
      * 返回：[{batch_id, data_date, count}]
      */
     public List<Map<String, Object>> listBatches() {
-        String sql = "SELECT BATCH_ID, DATA_DATE, COUNT(*) AS ROW_COUNT "
-                + "FROM TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL "
-                + "GROUP BY BATCH_ID, DATA_DATE "
-                + "ORDER BY BATCH_ID DESC";
-        return jdbcTemplate.queryForList(sql);
+        return metadataQueryMapper.listBatches();
     }
 
     /**
@@ -42,28 +38,15 @@ public class MetadataQueryService {
      */
     public List<Map<String, Object>> listDimDomains(String batchId) {
         List<Map<String, Object>> result = new ArrayList<>();
-        // 维度定义：字段名 → 显示名 → 来源表别名
-        String[][] dims = {
-                {"PORTFOLIO", "组合", "r"},
-                {"DESK", "交易台", "r"},
-                {"PRODUCT_CODE", "产品类型", "d"},
-                {"RISK_FACTOR_CLASS", "风险类别", "d"},
-                {"RISK_FACTOR_TYPE", "风险因子类型", "d"},
-                {"SENSITIVITY_TYPE", "敏感性类型", "d"},
-        };
-        for (String[] dim : dims) {
-            String field = dim[0];
-            String label = dim[1];
-            String alias = dim[2];
-            String table = "r".equals(alias)
-                    ? "TB_OUT_TRADE_RESULT_DETAIL"
-                    : "TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL";
-            String sql = "SELECT DISTINCT " + field + " FROM " + table
-                    + " WHERE BATCH_ID = ? AND " + field + " IS NOT NULL ORDER BY " + field;
-            List<String> domains = jdbcTemplate.queryForList(sql, String.class, batchId);
+        for (MetadataDomainRegistry.MetadataDomainDef def : MetadataDomainRegistry.listDomainDefs()) {
+            List<String> domains = metadataQueryMapper.listDomains(
+                    def.getTableName(),
+                    def.getColumnName(),
+                    batchId
+            );
             Map<String, Object> entry = new LinkedHashMap<>();
-            entry.put("col", field);
-            entry.put("label", label);
+            entry.put("col", def.getColumnName());
+            entry.put("label", def.getLabel());
             entry.put("domains", domains);
             result.add(entry);
         }
@@ -75,12 +58,7 @@ public class MetadataQueryService {
      * 返回：[{scenario_id, scenario_name, count}]
      */
     public List<Map<String, Object>> listScenarios(String batchId) {
-        String sql = "SELECT SCENARIO_ID, SCENARIO_NAME, COUNT(*) AS ROW_COUNT "
-                + "FROM TB_OUT_TRADE_SCENARIO_RESULT_DETAIL "
-                + "WHERE BATCH_ID = ? "
-                + "GROUP BY SCENARIO_ID, SCENARIO_NAME "
-                + "ORDER BY SCENARIO_ID";
-        return jdbcTemplate.queryForList(sql, batchId);
+        return metadataQueryMapper.listScenarios(batchId);
     }
 
     /**
@@ -88,11 +66,7 @@ public class MetadataQueryService {
      * 返回：[{instrument_id, product_code}]
      */
     public List<Map<String, Object>> listTradeIds(String batchId) {
-        String sql = "SELECT DISTINCT INSTRUMENT_ID, PRODUCT_CODE "
-                + "FROM TB_OUT_TRADE_RESULT_DETAIL "
-                + "WHERE BATCH_ID = ? "
-                + "ORDER BY INSTRUMENT_ID";
-        return jdbcTemplate.queryForList(sql, batchId);
+        return metadataQueryMapper.listTradeIds(batchId);
     }
 
     /**

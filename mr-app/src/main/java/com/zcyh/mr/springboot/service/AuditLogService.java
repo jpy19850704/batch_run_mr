@@ -2,11 +2,10 @@ package com.zcyh.mr.springboot.service;
 
 import com.zcyh.mr.springboot.context.RequestContext;
 import com.zcyh.mr.springboot.context.RequestContextHolder;
+import com.zcyh.mr.springboot.mybatis.enginedb.AuditLogMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -16,14 +15,14 @@ import org.springframework.stereotype.Service;
 public class AuditLogService {
     private static final Logger log = LoggerFactory.getLogger(AuditLogService.class);
 
-    private final JdbcTemplate jdbcTemplate;
+    private final AuditLogMapper auditLogMapper;
     private final boolean enabled;
 
     public AuditLogService(
-            @Qualifier("engineDbJdbcTemplate") JdbcTemplate jdbcTemplate,
+            AuditLogMapper auditLogMapper,
             @Value("${mr.audit.enabled:true}") boolean enabled
     ) {
-        this.jdbcTemplate = jdbcTemplate;
+        this.auditLogMapper = auditLogMapper;
         this.enabled = enabled;
         if (this.enabled) {
             verifyAuditSchema();
@@ -45,9 +44,7 @@ public class AuditLogService {
         RequestContext context = RequestContextHolder.snapshot();
         long now = System.currentTimeMillis();
         try {
-            jdbcTemplate.update(
-                    "INSERT INTO MR_AUDIT_LOG (trace_id, request_id, client_id, user_id, user_name, source_system, action, resource_type, resource_id, engine_code, success_flag, error_code, message, remote_ip, request_uri, http_method, elapsed_ms, created_at) "
-                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            auditLogMapper.insertAuditLog(
                     safe(context == null ? null : context.getTraceId()),
                     safe(context == null ? null : context.getRequestId()),
                     safe(context == null ? null : context.getClientId()),
@@ -73,9 +70,7 @@ public class AuditLogService {
     }
 
     private void verifyAuditSchema() {
-        jdbcTemplate.queryForList(
-                "SELECT id,trace_id,request_id,client_id,user_id,user_name,source_system,action,resource_type,resource_id,engine_code,success_flag,error_code,message,remote_ip,request_uri,http_method,elapsed_ms,created_at "
-                        + "FROM MR_AUDIT_LOG WHERE 1=0");
+        auditLogMapper.verifyAuditSchema();
     }
 
     private static String safe(String txt) {
