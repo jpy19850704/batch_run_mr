@@ -18,7 +18,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -29,7 +28,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import javax.annotation.PreDestroy;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -59,42 +57,16 @@ public class AsyncJobService {
     private static final String FAILED = "FAILED";
     private static final String CANCELLED = "CANCELLED";
     private static final String RESULT_PERSIST_FAILED = "RESULT_PERSIST_FAILED";
+    /** MR_ASYNC_JOB.error_message 列长度保护阈值（留少量余量避免方言差异）。 */
+    private static final int ERROR_MESSAGE_MAX_LEN = 1000;
     private static final Logger log = LoggerFactory.getLogger(AsyncJobService.class);
-
-    private static final RowMapper<DbJob> DB_JOB_ROW_MAPPER = new RowMapper<DbJob>() {
-        @Override
-        public DbJob mapRow(ResultSet rs, int rowNum) throws SQLException {
-            DbJob job = new DbJob();
-            job.jobId = rs.getString("job_id");
-            job.requestId = rs.getString("request_id");
-            job.engineCode = rs.getString("engine_code");
-            job.payloadJson = rs.getString("payload_json");
-            job.status = rs.getString("status");
-            job.createdAt = rs.getLong("created_at");
-            job.startedAt = getNullableLong(rs, "started_at");
-            job.finishedAt = getNullableLong(rs, "finished_at");
-            job.elapsedMs = getNullableLong(rs, "elapsed_ms");
-            job.successFlag = getNullableInt(rs, "success_flag");
-            job.errorCode = rs.getString("error_code");
-            job.errorMessage = rs.getString("error_message");
-            job.idempotencyKey = rs.getString("idempotency_key");
-            job.traceId = rs.getString("trace_id");
-            job.clientId = rs.getString("client_id");
-            job.userId = rs.getString("user_id");
-            job.userName = rs.getString("user_name");
-            job.sourceSystem = rs.getString("source_system");
-            job.cancelRequested = rs.getInt("cancel_requested") == 1;
-            job.ownerNode = rs.getString("owner_node");
-            job.updatedAt = rs.getLong("updated_at");
-            return job;
-        }
-    };
 
     private final EngineOrchestratorService orchestratorService;
     private final PricingResultPersistService pricingResultPersistService;
     private final BatchResultFileService batchResultFileService;
     private final AlertService alertService;
     private final JdbcTemplate jdbcTemplate;
+    private final AsyncJobStateRepository jobStateRepository;
     private final TransactionTemplate transactionTemplate;
     private final ThreadPoolExecutor executor;
     private final ScheduledExecutorService dispatcherExecutor;
@@ -155,6 +127,7 @@ public class AsyncJobService {
         this.batchResultFileService = batchResultFileService;
         this.alertService = alertService;
         this.jdbcTemplate = jdbcTemplate;
+        this.jobStateRepository = new AsyncJobStateRepository(jdbcTemplate);
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
 
@@ -209,7 +182,7 @@ public class AsyncJobService {
 
         String idempotencyKey = trimToNull(request.getIdempotencyKey());
         if (idempotencyKey != null) {
-            DbJob existed = findByIdempotencyKey(idempotencyKey);
+            AsyncJobEntity existed = findByIdempotencyKey(idempotencyKey);
             if (existed != null) {
                 return toSubmitResult(existed, true, "幂等键命中，返回已存在任务");
             }
@@ -224,7 +197,7 @@ public class AsyncJobService {
             requestId = jobId;
         }
 
-        final DbJob create = new DbJob();
+        final AsyncJobEntity create = new AsyncJobEntity();
         RequestContext requestContext = RequestContextHolder.snapshot();
         create.jobId = jobId;
         create.requestId = requestId;
@@ -252,7 +225,7 @@ public class AsyncJobService {
             }, "任务入库");
         } catch (DataAccessException ex) {
             if (create.idempotencyKey != null && isDuplicateKey(ex)) {
-                DbJob existed = findByIdempotencyKey(create.idempotencyKey);
+                AsyncJobEntity existed = findByIdempotencyKey(create.idempotencyKey);
                 if (existed != null) {
                     return toSubmitResult(existed, true, "幂等键命中，返回已存在任务");
                 }
@@ -276,12 +249,12 @@ public class AsyncJobService {
     }
 
     public JobDetailResult getDetail(String jobId) {
-        DbJob job = requireJob(jobId);
+        AsyncJobEntity job = requireJob(jobId);
         return toDetail(job);
     }
 
     public EngineRunResult getResult(String jobId) {
-        DbJob job = requireJob(jobId);
+        AsyncJobEntity job = requireJob(jobId);
         if (PENDING.equals(job.status) || RUNNING.equals(job.status)) {
             throw new IllegalStateException("任务尚未完成");
         }
@@ -295,9 +268,9 @@ public class AsyncJobService {
         }
         final long now = System.currentTimeMillis();
 
-        DbJob job = runInTransaction(new Callable<DbJob>() {
+        AsyncJobEntity job = runInTransaction(new Callable<AsyncJobEntity>() {
             @Override
-            public DbJob call() {
+            public AsyncJobEntity call() {
                 return markCancelRequestedIfNeeded(safeJobId, now);
             }
         }, "取消任务");
@@ -377,7 +350,7 @@ public class AsyncJobService {
         try {
             long start = System.currentTimeMillis();
             if (!markRunning(jobId, start)) {
-                DbJob current = findByJobId(jobId);
+                AsyncJobEntity current = findByJobId(jobId);
                 if (current != null && PENDING.equals(current.status) && current.cancelRequested) {
                     markCancelled(jobId, start, PENDING);
                     handleTerminalSideEffects(jobId, current.requestId, current.payloadJson, current.engineCode, null);
@@ -385,7 +358,7 @@ public class AsyncJobService {
                 return;
             }
 
-            DbJob running = requireJob(jobId);
+            AsyncJobEntity running = requireJob(jobId);
             bindJobContext(running);
             RequestContextHolder.setJobId(jobId);
             RequestContextHolder.setEngineCode(running.engineCode);
@@ -450,13 +423,13 @@ public class AsyncJobService {
         log.error("任务结果明细落库失败，jobId={}", jobId, cause);
         alertService.error("JOB_RESULT_PERSIST_FAILED", "任务结果明细落库失败，jobId=" + jobId, cause);
         try {
-            long now = System.currentTimeMillis();
-            String sql = "UPDATE MR_ASYNC_JOB SET status=?, success_flag=0, error_code=?, error_message=?, updated_at=? "
-                    + "WHERE job_id=? AND status=?";
-            withRetry(new Callable<Integer>() {
+            final long now = System.currentTimeMillis();
+            final String safeMessage = truncateForErrorMessage(message);
+            withRetry(new Callable<Void>() {
                 @Override
-                public Integer call() {
-                    return jdbcTemplate.update(sql, FAILED, RESULT_PERSIST_FAILED, message, now, jobId, SUCCESS);
+                public Void call() {
+                    jobStateRepository.markResultPersistFailed(jobId, SUCCESS, FAILED, RESULT_PERSIST_FAILED, safeMessage, now);
+                    return null;
                 }
             }, "回写结果落库失败状态");
         } catch (Exception markEx) {
@@ -506,11 +479,10 @@ public class AsyncJobService {
         }
         long now = System.currentTimeMillis();
         long staleCutoff = now - stalePendingMs;
-        String sql = buildPendingJobsQuerySql(claimLimit);
         List<String> jobIds = withRetry(new Callable<List<String>>() {
             @Override
             public List<String> call() {
-                return jdbcTemplate.queryForList(sql, String.class, PENDING, nodeId, staleCutoff);
+                return jobStateRepository.listPendingJobs(PENDING, nodeId, staleCutoff, claimLimit, oracleDialect);
             }
         }, "拉取待分发任务");
         if (jobIds == null || jobIds.isEmpty()) {
@@ -540,16 +512,12 @@ public class AsyncJobService {
      * 抢占任务归属权，避免多实例重复执行。
      */
     private boolean claimPendingJob(String jobId, long staleCutoff, long now) {
-        String sql = "UPDATE MR_ASYNC_JOB SET owner_node=?, updated_at=? "
-                + "WHERE job_id=? AND status=? AND cancel_requested=0 "
-                + "AND (owner_node=? OR owner_node IS NULL OR owner_node='' OR updated_at<=?)";
-        Integer updated = withRetry(new Callable<Integer>() {
+        return withRetry(new Callable<Boolean>() {
             @Override
-            public Integer call() {
-                return jdbcTemplate.update(sql, nodeId, now, jobId, PENDING, nodeId, staleCutoff);
+            public Boolean call() {
+                return jobStateRepository.claimPendingJob(jobId, staleCutoff, now, nodeId, PENDING);
             }
         }, "抢占待执行任务");
-        return updated != null && updated > 0;
     }
 
     /**
@@ -561,13 +529,10 @@ public class AsyncJobService {
         }
         long now = System.currentTimeMillis();
         long cutoff = now - staleRunningMs;
-        String sql = "UPDATE MR_ASYNC_JOB SET status=?, finished_at=?, elapsed_ms=CASE WHEN started_at IS NULL THEN 0 ELSE ? - started_at END, "
-                + "success_flag=0, error_code='OWNER_TIMEOUT', error_message='任务执行超时未完成，系统自动回收', updated_at=? "
-                + "WHERE status=? AND updated_at<=? AND (owner_node IS NULL OR owner_node<>?)";
         Integer recovered = withRetry(new Callable<Integer>() {
             @Override
             public Integer call() {
-                return jdbcTemplate.update(sql, FAILED, now, now, now, RUNNING, cutoff, nodeId);
+                return jobStateRepository.recoverStaleRunningJobs(now, cutoff, nodeId, RUNNING, FAILED);
             }
         }, "回收超时运行任务");
         if (recovered != null && recovered.intValue() > 0) {
@@ -623,11 +588,11 @@ public class AsyncJobService {
      */
     private void touchRunningHeartbeat(String jobId) {
         long now = System.currentTimeMillis();
-        String sql = "UPDATE MR_ASYNC_JOB SET updated_at=?, owner_node=? WHERE job_id=? AND status=?";
-        withRetry(new Callable<Integer>() {
+        withRetry(new Callable<Void>() {
             @Override
-            public Integer call() {
-                return jdbcTemplate.update(sql, now, nodeId, jobId, RUNNING);
+            public Void call() {
+                jobStateRepository.touchRunningHeartbeat(jobId, now, nodeId, RUNNING);
+                return null;
             }
         }, "更新任务运行心跳");
     }
@@ -674,13 +639,12 @@ public class AsyncJobService {
     }
 
     private int countPendingJobs() {
-        Integer count = withRetry(new Callable<Integer>() {
+        return withRetry(new Callable<Integer>() {
             @Override
             public Integer call() {
-                return jdbcTemplate.queryForObject("SELECT COUNT(1) FROM MR_ASYNC_JOB WHERE status=?", Integer.class, PENDING);
+                return jobStateRepository.countPendingJobs(PENDING);
             }
         }, "统计待处理任务");
-        return count == null ? 0 : count.intValue();
     }
 
     private void checkAlertThresholds(int pendingJobs, int queueSize) {
@@ -692,7 +656,7 @@ public class AsyncJobService {
         }
     }
 
-    private void bindJobContext(DbJob job) {
+    private void bindJobContext(AsyncJobEntity job) {
         RequestContext context = new RequestContext();
         context.setTraceId(trimToNull(job.traceId));
         context.setRequestId(trimToNull(job.requestId));
@@ -709,199 +673,142 @@ public class AsyncJobService {
         withRetry(new Callable<Void>() {
             @Override
             public Void call() {
-                jdbcTemplate.queryForList(
-                        "SELECT job_id,request_id,engine_code,payload_json,status,created_at,started_at,finished_at,elapsed_ms,success_flag,error_code,error_message,idempotency_key,trace_id,client_id,user_id,user_name,source_system,cancel_requested,owner_node,updated_at "
-                                + "FROM MR_ASYNC_JOB WHERE 1=0");
+                jobStateRepository.verifyJobSchema();
                 return null;
             }
         }, "校验任务表结构");
     }
 
-    private void insertJob(DbJob create) {
-        String sql = "INSERT INTO MR_ASYNC_JOB (job_id, request_id, engine_code, payload_json, status, created_at, updated_at, idempotency_key, trace_id, client_id, user_id, user_name, source_system, cancel_requested, owner_node) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)";
-        jdbcTemplate.update(
-                sql,
-                create.jobId,
-                create.requestId,
-                create.engineCode,
-                create.payloadJson,
-                create.status,
-                create.createdAt,
-                create.updatedAt,
-                create.idempotencyKey,
-                create.traceId,
-                create.clientId,
-                create.userId,
-                create.userName,
-                create.sourceSystem,
-                nodeId
-        );
+    private void insertJob(AsyncJobEntity create) {
+        jobStateRepository.insertJob(create, nodeId);
     }
 
     private boolean markRunning(String jobId, long start) {
-        String sql = "UPDATE MR_ASYNC_JOB SET status=?, started_at=?, updated_at=?, owner_node=? "
-                + "WHERE job_id=? AND status=? AND cancel_requested=0";
-        Integer updated = withRetry(new Callable<Integer>() {
+        return withRetry(new Callable<Boolean>() {
             @Override
-            public Integer call() {
-                return jdbcTemplate.update(sql, RUNNING, start, start, nodeId, jobId, PENDING);
+            public Boolean call() {
+                return jobStateRepository.markRunning(jobId, start, nodeId, RUNNING, PENDING);
             }
         }, "更新运行状态");
-        return updated != null && updated > 0;
     }
 
     private void persistRunResult(String jobId, EngineRunResult runResult, long finish) {
-        DbJob running = requireJob(jobId);
+        AsyncJobEntity running = requireJob(jobId);
         long elapsed = calcElapsed(running.startedAt, finish, runResult.getElapsedMs());
         runResult.setElapsedMs(elapsed);
-        String finalStatus = runResult.isSuccess() ? SUCCESS : FAILED;
-        String sql = "UPDATE MR_ASYNC_JOB SET status=?, finished_at=?, elapsed_ms=?, success_flag=?, error_code=?, error_message=?, updated_at=? "
-                + "WHERE job_id=? AND status=?";
-
-        withRetry(new Callable<Integer>() {
+        final String finalStatus = runResult.isSuccess() ? SUCCESS : FAILED;
+        final String safeErrorMessage = truncateForErrorMessage(runResult.getErrorMessage());
+        withRetry(new Callable<Void>() {
             @Override
-            public Integer call() {
-                return jdbcTemplate.update(
-                        sql,
-                        finalStatus,
-                        finish,
-                        elapsed,
-                        runResult.isSuccess() ? 1 : 0,
-                        runResult.getErrorCode(),
-                        runResult.getErrorMessage(),
-                        finish,
-                        jobId,
-                        RUNNING
-                );
+            public Void call() {
+                jobStateRepository.persistRunResult(
+                        jobId, RUNNING, finalStatus, finish, elapsed,
+                        runResult.isSuccess(), runResult.getErrorCode(), safeErrorMessage);
+                return null;
             }
         }, "持久化任务结果");
     }
 
     private void persistRunFailure(String jobId, String requestId, String engineCode, String message, long finish) {
-        DbJob running = requireJob(jobId);
+        AsyncJobEntity running = requireJob(jobId);
         long elapsed = calcElapsed(running.startedAt, finish, 0L);
-
-        String sql = "UPDATE MR_ASYNC_JOB SET status=?, finished_at=?, elapsed_ms=?, success_flag=0, error_code=?, error_message=?, updated_at=? "
-                + "WHERE job_id=? AND status=?";
-        withRetry(new Callable<Integer>() {
+        final String safeMessage = truncateForErrorMessage(message);
+        withRetry(new Callable<Void>() {
             @Override
-            public Integer call() {
-                return jdbcTemplate.update(
-                        sql,
-                        FAILED,
-                        finish,
-                        elapsed,
-                        "ENGINE_EXECUTION_ERROR",
-                        message,
-                        finish,
-                        jobId,
-                        RUNNING
-                );
+            public Void call() {
+                jobStateRepository.persistRunFailure(
+                        jobId, RUNNING, FAILED, finish, elapsed, "ENGINE_EXECUTION_ERROR", safeMessage);
+                return null;
             }
         }, "持久化失败结果");
     }
 
     private void markRejected(String jobId, String reason) {
-        long now = System.currentTimeMillis();
-
-        String sql = "UPDATE MR_ASYNC_JOB SET status=?, finished_at=?, elapsed_ms=0, success_flag=0, error_code=?, error_message=?, updated_at=? "
-                + "WHERE job_id=? AND status=?";
-        withRetry(new Callable<Integer>() {
+        final long now = System.currentTimeMillis();
+        final String safeReason = truncateForErrorMessage(reason);
+        withRetry(new Callable<Void>() {
             @Override
-            public Integer call() {
-                return jdbcTemplate.update(sql, FAILED, now, "QUEUE_REJECTED", reason, now, jobId, PENDING);
+            public Void call() {
+                jobStateRepository.markRejected(jobId, PENDING, FAILED, now, safeReason);
+                return null;
             }
         }, "更新队列拒绝状态");
     }
 
-    private DbJob markCancelRequestedIfNeeded(String jobId, long now) {
-        DbJob current = requireJob(jobId);
+    private AsyncJobEntity markCancelRequestedIfNeeded(String jobId, long now) {
+        AsyncJobEntity current = requireJob(jobId);
         if (!PENDING.equals(current.status) && !RUNNING.equals(current.status)) {
             return current;
         }
-        String sql = "UPDATE MR_ASYNC_JOB SET cancel_requested=1, updated_at=? WHERE job_id=? AND status IN (?, ?)";
-        withRetry(new Callable<Integer>() {
+        withRetry(new Callable<Void>() {
             @Override
-            public Integer call() {
-                return jdbcTemplate.update(sql, now, jobId, PENDING, RUNNING);
+            public Void call() {
+                jobStateRepository.markCancelRequested(jobId, now, PENDING, RUNNING);
+                return null;
             }
         }, "更新取消标记");
         return requireJob(jobId);
     }
 
     private void markCancelled(String jobId, long now, String expectedStatus) {
-        DbJob job = requireJob(jobId);
+        AsyncJobEntity job = requireJob(jobId);
         long elapsed = calcElapsed(job.startedAt, now, 0L);
 
-        String sql = "UPDATE MR_ASYNC_JOB SET status=?, finished_at=?, elapsed_ms=?, success_flag=0, error_code='CANCELLED', error_message='任务已取消', updated_at=? "
-                + "WHERE job_id=? AND status=?";
-        withRetry(new Callable<Integer>() {
+        withRetry(new Callable<Void>() {
             @Override
-            public Integer call() {
-                return jdbcTemplate.update(sql, CANCELLED, now, elapsed, now, jobId, expectedStatus);
+            public Void call() {
+                jobStateRepository.markCancelled(jobId, expectedStatus, CANCELLED, now, elapsed);
+                return null;
             }
         }, "更新取消状态");
     }
 
     private boolean isCancelRequested(String jobId) {
-        DbJob job = findByJobId(jobId);
+        AsyncJobEntity job = findByJobId(jobId);
         return job != null && job.cancelRequested;
     }
 
     private void deleteOldTerminalJobs(long cutoff) {
-        String sql = "DELETE FROM MR_ASYNC_JOB WHERE status IN ('SUCCESS','FAILED','CANCELLED') AND finished_at IS NOT NULL AND finished_at < ?";
-        withRetry(new Callable<Integer>() {
+        withRetry(new Callable<Void>() {
             @Override
-            public Integer call() {
-                return jdbcTemplate.update(sql, cutoff);
+            public Void call() {
+                jobStateRepository.deleteOldTerminalJobs(cutoff);
+                return null;
             }
         }, "清理历史任务");
     }
 
-    private DbJob requireJob(String rawJobId) {
+    private AsyncJobEntity requireJob(String rawJobId) {
         String jobId = trimToNull(rawJobId);
         if (jobId == null) {
             throw new IllegalArgumentException("jobId 不能为空");
         }
-        DbJob job = findByJobId(jobId);
+        AsyncJobEntity job = findByJobId(jobId);
         if (job == null) {
             throw new IllegalArgumentException("任务不存在: " + jobId);
         }
         return job;
     }
 
-    private DbJob findByJobId(String jobId) {
-        String sql = "SELECT job_id,request_id,engine_code,payload_json,status,created_at,started_at,finished_at,elapsed_ms,success_flag,error_code,error_message,idempotency_key,trace_id,client_id,user_id,user_name,source_system,cancel_requested,owner_node,updated_at "
-                + "FROM MR_ASYNC_JOB WHERE job_id=?";
-        List<DbJob> rows = withRetry(new Callable<List<DbJob>>() {
+    private AsyncJobEntity findByJobId(String jobId) {
+        return withRetry(new Callable<AsyncJobEntity>() {
             @Override
-            public List<DbJob> call() {
-                return jdbcTemplate.query(sql, DB_JOB_ROW_MAPPER, jobId);
+            public AsyncJobEntity call() {
+                return jobStateRepository.findByJobId(jobId);
             }
         }, "查询任务");
-        if (rows == null || rows.isEmpty()) {
-            return null;
-        }
-        return rows.get(0);
     }
 
-    private DbJob findByIdempotencyKey(String idempotencyKey) {
-        String sql = "SELECT job_id,request_id,engine_code,payload_json,status,created_at,started_at,finished_at,elapsed_ms,success_flag,error_code,error_message,idempotency_key,trace_id,client_id,user_id,user_name,source_system,cancel_requested,owner_node,updated_at "
-                + "FROM MR_ASYNC_JOB WHERE idempotency_key=?";
-        List<DbJob> rows = withRetry(new Callable<List<DbJob>>() {
+    private AsyncJobEntity findByIdempotencyKey(String idempotencyKey) {
+        return withRetry(new Callable<AsyncJobEntity>() {
             @Override
-            public List<DbJob> call() {
-                return jdbcTemplate.query(sql, DB_JOB_ROW_MAPPER, idempotencyKey);
+            public AsyncJobEntity call() {
+                return jobStateRepository.findByIdempotencyKey(idempotencyKey);
             }
         }, "查询幂等任务");
-        if (rows == null || rows.isEmpty()) {
-            return null;
-        }
-        return rows.get(0);
     }
 
-    private JobSubmitResult toSubmitResult(DbJob job, boolean reused, String message) {
+    private JobSubmitResult toSubmitResult(AsyncJobEntity job, boolean reused, String message) {
         JobSubmitResult result = new JobSubmitResult();
         result.setJobId(job.jobId);
         result.setRequestId(job.requestId);
@@ -917,7 +824,7 @@ public class AsyncJobService {
         return result;
     }
 
-    private JobDetailResult toDetail(DbJob job) {
+    private JobDetailResult toDetail(AsyncJobEntity job) {
         JobDetailResult detail = new JobDetailResult();
         detail.setJobId(job.jobId);
         detail.setRequestId(job.requestId);
@@ -940,7 +847,7 @@ public class AsyncJobService {
         return detail;
     }
 
-    private EngineRunResult buildResult(DbJob job) {
+    private EngineRunResult buildResult(AsyncJobEntity job) {
         EngineRunResult result = new EngineRunResult();
         result.setRequestId(job.requestId);
         result.setEngineCode(defaultEngineCode(job.engineCode));
@@ -951,7 +858,7 @@ public class AsyncJobService {
         return result;
     }
 
-    private Long resolveElapsed(DbJob job) {
+    private Long resolveElapsed(AsyncJobEntity job) {
         if (job.elapsedMs != null) {
             return job.elapsedMs;
         }
@@ -1064,21 +971,6 @@ public class AsyncJobService {
     }
 
     /**
-     * 待分发任务分页 SQL。
-     * MySQL 使用 LIMIT，Oracle 使用 FETCH FIRST。
-     */
-    private String buildPendingJobsQuerySql(int claimLimit) {
-        String base = "SELECT job_id FROM MR_ASYNC_JOB "
-                + "WHERE status=? AND cancel_requested=0 "
-                + "AND (owner_node=? OR owner_node IS NULL OR owner_node='' OR updated_at<=?) "
-                + "ORDER BY created_at ";
-        if (oracleDialect) {
-            return base + "FETCH FIRST " + claimLimit + " ROWS ONLY";
-        }
-        return base + "LIMIT " + claimLimit;
-    }
-
-    /**
      * 检测底层数据库是否 Oracle。
      * 检测失败时默认按 MySQL 方言执行（LIMIT）。
      */
@@ -1097,16 +989,6 @@ public class AsyncJobService {
             log.warn("检测数据库方言失败，默认使用 MySQL LIMIT 语法", ex);
             return false;
         }
-    }
-
-    private static Long getNullableLong(ResultSet rs, String column) throws SQLException {
-        long value = rs.getLong(column);
-        return rs.wasNull() ? null : value;
-    }
-
-    private static Integer getNullableInt(ResultSet rs, String column) throws SQLException {
-        int value = rs.getInt(column);
-        return rs.wasNull() ? null : value;
     }
 
     private static long calcElapsed(Long startedAt, long finishAt, long fallback) {
@@ -1178,9 +1060,23 @@ public class AsyncJobService {
         }
         String message = ex.getMessage();
         if (trimToNull(message) != null) {
-            return message;
+            return truncateForErrorMessage(message);
         }
-        return ex.getClass().getSimpleName();
+        return truncateForErrorMessage(ex.getClass().getSimpleName());
+    }
+
+    /**
+     * 截断任务错误信息，避免写入 MR_ASYNC_JOB.error_message 时出现超长异常。
+     */
+    private static String truncateForErrorMessage(String message) {
+        String value = trimToNull(message);
+        if (value == null) {
+            return null;
+        }
+        if (value.length() <= ERROR_MESSAGE_MAX_LEN) {
+            return value;
+        }
+        return value.substring(0, ERROR_MESSAGE_MAX_LEN);
     }
 
     private static JobStatus toJobStatus(String status) {
@@ -1196,33 +1092,6 @@ public class AsyncJobService {
 
     private static boolean isTerminal(String status) {
         return SUCCESS.equals(status) || FAILED.equals(status) || CANCELLED.equals(status);
-    }
-
-    /**
-     * 数据库任务行映射对象。
-     */
-    private static class DbJob {
-        private String jobId;
-        private String requestId;
-        private String engineCode;
-        private String payloadJson;
-        private String status;
-        private long createdAt;
-        private Long startedAt;
-        private Long finishedAt;
-        private Long elapsedMs;
-        private Integer successFlag;
-        private String errorCode;
-        private String errorMessage;
-        private String idempotencyKey;
-        private String traceId;
-        private String clientId;
-        private String userId;
-        private String userName;
-        private String sourceSystem;
-        private boolean cancelRequested;
-        private String ownerNode;
-        private long updatedAt;
     }
 
     /**

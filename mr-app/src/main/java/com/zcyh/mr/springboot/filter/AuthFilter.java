@@ -36,11 +36,11 @@ public class AuthFilter extends OncePerRequestFilter {
     private final AuditLogService auditLogService;
 
     public AuthFilter(
-            @Value("${mr.security.enabled:false}") boolean securityEnabled,
+            @Value("${mr.security.enabled:true}") boolean securityEnabled,
             @Value("${mr.security.exclude-paths:/healthz,/readyz,/error}") String excludePaths,
             @Value("${mr.security.tokens:}") String tokenConfig,
             @Value("${mr.security.require-user-header:false}") boolean requireUserHeader,
-            @Value("${mr.security.trust-source-headers:true}") boolean trustSourceHeaders,
+            @Value("${mr.security.trust-source-headers:false}") boolean trustSourceHeaders,
             AlertService alertService,
             AuditLogService auditLogService
     ) {
@@ -137,7 +137,7 @@ public class AuthFilter extends OncePerRequestFilter {
             if (safePair == null) {
                 continue;
             }
-            int idx = safePair.indexOf(':');
+            int idx = safePair.lastIndexOf(':');
             if (idx <= 0 || idx >= safePair.length() - 1) {
                 continue;
             }

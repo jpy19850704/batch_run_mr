@@ -17,7 +17,7 @@ import java.nio.file.Paths;
  * MR 计量引擎适配器。
  */
 public class MrCalcEngineAdapter implements EngineAdapter {
-    public static final String CODE = "mr";
+    public static final String CODE = "MR_CALC";
     private final String scenarioSetRootDir;
 
     public MrCalcEngineAdapter(String scenarioSetRootDir) {
@@ -156,4 +156,3 @@ public class MrCalcEngineAdapter implements EngineAdapter {
                 + csvCandidate1 + " or " + jsonCandidate1);
     }
 }
-

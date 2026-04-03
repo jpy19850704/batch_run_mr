@@ -9,9 +9,9 @@ import com.zcyh.mr.var.VarCalculator;
 import com.zcyh.mr.var.VarPickMethod;
 import com.zcyh.mr.var.VarQuantileResult;
 import com.zcyh.mr.var.VarScenarioPnl;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -43,18 +43,15 @@ public class VarDbRunnerService {
 
     private final VarInputQueryService inputQueryService;
     private final DimensionAggregationService dimensionAggregationService;
+    private final VarDetailCacheService varDetailCacheService;
     private final VarCalculator varCalculator = new VarCalculator();
-    private VarDetailCacheService varDetailCacheService;
 
     public VarDbRunnerService(VarInputQueryService inputQueryService,
-                              DimensionAggregationService dimensionAggregationService) {
+                              DimensionAggregationService dimensionAggregationService,
+                              ObjectProvider<VarDetailCacheService> varDetailCacheServiceProvider) {
         this.inputQueryService = inputQueryService;
         this.dimensionAggregationService = dimensionAggregationService;
-    }
-
-    @Autowired(required = false)
-    public void setVarDetailCacheService(VarDetailCacheService varDetailCacheService) {
-        this.varDetailCacheService = varDetailCacheService;
+        this.varDetailCacheService = varDetailCacheServiceProvider.getIfAvailable();
     }
 
     public String calculateByInline(String payloadJson) {

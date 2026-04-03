@@ -55,7 +55,10 @@ public class EngineRegistry {
         if (value.isEmpty()) {
             return null;
         }
-        return value.toLowerCase(Locale.ROOT);
+        String normalized = value.toLowerCase(Locale.ROOT);
+        if ("mr".equals(normalized)) {
+            return MrCalcEngineAdapter.CODE.toLowerCase(Locale.ROOT);
+        }
+        return normalized;
     }
 }
-

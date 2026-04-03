@@ -41,6 +41,6 @@ public class GlobalExceptionHandler {
         log.error("请求处理异常", ex);
         alertService.error("INTERNAL_ERROR", "请求处理异常", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.fail("INTERNAL_ERROR", ex.getMessage()));
+                .body(ApiResponse.fail("INTERNAL_ERROR", "服务内部错误，请联系管理员"));
     }
 }

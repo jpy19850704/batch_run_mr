@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -38,6 +37,8 @@ public class PricingResultPersistService {
     private static final String DECOMP_TABLE = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
 
     private final JdbcTemplate jdbcTemplate;
+    private final Object schemaVerifyLock = new Object();
+    private volatile boolean requiredSchemaVerified = false;
 
     public PricingResultPersistService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -45,11 +46,8 @@ public class PricingResultPersistService {
 
     /**
      * 按任务覆盖写入结果明细。
-     * 【Doris 备注】Doris 2.0+ 支持单表事务（enable_unique_key_merge_on_write=true），
-     * 但不支持跨表事务。切换后建议移除 @Transactional 注解，改为单表独立写入。
      * 写入失败不影响任务状态，仅记录日志。
      */
-    @Transactional(transactionManager = "engineResultDbTransactionManager")
     public void persistJobResult(String requestId, String jobId, String payloadJson, EngineRunResult runResult) {
         if (runResult == null || !runResult.isSuccess()) {
             return;
@@ -83,43 +81,53 @@ public class PricingResultPersistService {
         JSONArray generatedMarketData = data.getJSONArray("generated_market_data");
 
         insertTradeResults(context, baseTrades, inputTradeIndex);
+        // 市场数据优先落库，避免后续敏感性/DRC异常导致 market_data 被一并跳过。
+        insertMarketDataDetails(context, inputMarketData, generatedMarketData);
         insertDrcDetails(context, baseTrades);
         insertFrtbSensitivityDetails(context, baseTrades);
         insertScenarioResults(context, scenarioResults, baseTradeIndex, decompTableExists);
-        insertMarketDataDetails(context, inputMarketData, generatedMarketData);
     }
 
     /**
      * 严格校验输出表列契约，缺列/改名时在写入前快速失败。
      */
     private void ensureRequiredOutputSchema() {
-        verifyTableColumns("TB_OUT_TRADE_RESULT_DETAIL",
-                "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
-                        + "INSTRUMENT_ID, PRODUCT_CODE, PORTFOLIO, DESK, TRADER, "
-                        + "POSITION, VALUATION_UNIT, VALUATION, VALUATION_CCY, VALUATION_CNY, "
-                        + "PV01, DELTA, GAMMA, VEGA, THETA, RHO, STATUS, ERROR, DETAIL, ERRORS_JSON, CASHFLOW_JSON, RESULT_JSON, "
-                        + "TRADE_INPUT_JSON, MARKET_DATA_KEYS_JSON, CREATED_AT, UPDATED_AT");
-        verifyTableColumns("TB_OUT_TRADE_SCENARIO_RESULT_DETAIL",
-                "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
-                        + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, INSTRUMENT_ID, PRODUCT_CODE, "
-                        + "BASE_VALUATION_CNY, SCENARIO_VALUATION_CNY, PNL, ERROR, DETAIL, RESULT_JSON, CREATED_AT, UPDATED_AT");
-        verifyTableColumns(DECOMP_TABLE,
-                "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
-                        + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, INSTRUMENT_ID, PRODUCT_CODE, "
-                        + "BASE_VALUATION_CNY, IR_VALUATION, IR_PNL, FX_VALUATION, FX_PNL, EQ_VALUATION, EQ_PNL, COMM_VALUATION, COMM_PNL, "
-                        + "ALL_VALUATION, ALL_PNL, RESULT_JSON, CREATED_AT, UPDATED_AT");
-        verifyTableColumns("TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL",
-                "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
-                        + "INSTRUMENT_ID, PRODUCT_CODE, RISK_FACTOR_ID, RISK_FACTOR_VERTEX_1, RISK_FACTOR_VERTEX_2, "
-                        + "RISK_FACTOR_CLASS, RISK_FACTOR_BUCKET, RISK_FACTOR_TYPE, SENSITIVITY_TYPE, "
-                        + "SENSITIVITY_VAL_INST_CURR, INSTRUMENT_CURRENCY, SENSITIVITY_VAL_INST_CURR_CNY, DETAIL_JSON, CREATED_AT, UPDATED_AT");
-        verifyTableColumns("TB_OUT_TRADE_DRC_DETAIL",
-                "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
-                        + "INSTRUMENT_ID, PRODUCT_CODE, PORTFOLIO_CODE, SECURITY_ID, SECURITY_TYPE, LEGAL_ENTITY, "
-                        + "DRC_BUCKET, JTD_TYPE, SENIORITY, TERM_TO_MATURITY, MODIFIED_REMAIN_TERM, "
-                        + "RISK_WEIGHT, JTD, JTD_CNY, INSTRUMENT_VALUE, FRTB_LGD, NOTIONAL, DETAIL_JSON, CREATED_AT, UPDATED_AT");
-        verifyTableColumns("TB_OUT_MARKET_DATA_DETAIL",
-                "BATCH_ID, DATA_DATE, OP_CODE, CURVE_TYPE, CURVE_ID, CURVE_DATA_JSON, CREATED_AT, UPDATED_AT");
+        if (requiredSchemaVerified) {
+            return;
+        }
+        synchronized (schemaVerifyLock) {
+            if (requiredSchemaVerified) {
+                return;
+            }
+            verifyTableColumns("TB_OUT_TRADE_RESULT_DETAIL",
+                    "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+                            + "INSTRUMENT_ID, PRODUCT_CODE, PORTFOLIO, DESK, TRADER, "
+                            + "POSITION, VALUATION_UNIT, VALUATION, VALUATION_CCY, VALUATION_CNY, "
+                            + "PV01, DELTA, GAMMA, VEGA, THETA, RHO, STATUS, ERROR, DETAIL, ERRORS_JSON, CASHFLOW_JSON, RESULT_JSON, "
+                            + "TRADE_INPUT_JSON, MARKET_DATA_KEYS_JSON, CREATED_AT, UPDATED_AT");
+            verifyTableColumns("TB_OUT_TRADE_SCENARIO_RESULT_DETAIL",
+                    "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+                            + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, INSTRUMENT_ID, PRODUCT_CODE, "
+                            + "BASE_VALUATION_CNY, SCENARIO_VALUATION_CNY, PNL, ERROR, DETAIL, RESULT_JSON, CREATED_AT, UPDATED_AT");
+            verifyTableColumns(DECOMP_TABLE,
+                    "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+                            + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, INSTRUMENT_ID, PRODUCT_CODE, "
+                            + "BASE_VALUATION_CNY, IR_VALUATION, IR_PNL, FX_VALUATION, FX_PNL, EQ_VALUATION, EQ_PNL, COMM_VALUATION, COMM_PNL, "
+                            + "ALL_VALUATION, ALL_PNL, RESULT_JSON, CREATED_AT, UPDATED_AT");
+            verifyTableColumns("TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL",
+                    "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+                            + "INSTRUMENT_ID, PRODUCT_CODE, RISK_FACTOR_ID, RISK_FACTOR_VERTEX_1, RISK_FACTOR_VERTEX_2, "
+                            + "RISK_FACTOR_CLASS, RISK_FACTOR_BUCKET, RISK_FACTOR_TYPE, SENSITIVITY_TYPE, "
+                            + "SENSITIVITY_VAL_INST_CURR, INSTRUMENT_CURRENCY, SENSITIVITY_VAL_INST_CURR_CNY, DETAIL_JSON, CREATED_AT, UPDATED_AT");
+            verifyTableColumns("TB_OUT_TRADE_DRC_DETAIL",
+                    "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+                            + "INSTRUMENT_ID, PRODUCT_CODE, PORTFOLIO_CODE, SECURITY_ID, SECURITY_TYPE, LEGAL_ENTITY, "
+                            + "DRC_BUCKET, JTD_TYPE, SENIORITY, TERM_TO_MATURITY, MODIFIED_REMAIN_TERM, "
+                            + "RISK_WEIGHT, JTD, JTD_CNY, INSTRUMENT_VALUE, FRTB_LGD, NOTIONAL, DETAIL_JSON, CREATED_AT, UPDATED_AT");
+            verifyTableColumns("TB_OUT_MARKET_DATA_DETAIL",
+                    "BATCH_ID, DATA_DATE, OP_CODE, CURVE_TYPE, CURVE_ID, CURVE_DATA_JSON, CREATED_AT, UPDATED_AT");
+            requiredSchemaVerified = true;
+        }
     }
 
     private void verifyTableColumns(String tableName, String columns) {
@@ -220,6 +228,7 @@ public class PricingResultPersistService {
                 + "CREATED_AT, UPDATED_AT) "
                 + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
+        List<Object[]> batchArgs = new ArrayList<Object[]>();
         for (int i = 0; i < trades.size(); i++) {
             JSONObject trade = trades.getJSONObject(i);
             if (trade == null) {
@@ -229,8 +238,7 @@ public class PricingResultPersistService {
             // 从输入侧 payload 提取原始交易和市场数据依赖（沿用 tradeDimension 的设计模式）
             JSONObject inputTrade = (instrumentId == null || inputTradeIndex == null)
                     ? null : inputTradeIndex.get(instrumentId);
-            jdbcTemplate.update(
-                    sql,
+            batchArgs.add(new Object[]{
                     context.requestId,
                     context.jobId,
                     context.batchId,
@@ -263,7 +271,14 @@ public class PricingResultPersistService {
                     inputTrade == null ? null : toJsonString(inputTrade.get("_MARKET_DATA_KEYS")),
                     context.createdAt,
                     context.updatedAt
-            );
+            });
+            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
+                jdbcTemplate.batchUpdate(sql, batchArgs);
+                batchArgs.clear();
+            }
+        }
+        if (!batchArgs.isEmpty()) {
+            jdbcTemplate.batchUpdate(sql, batchArgs);
         }
     }
 
@@ -403,6 +418,7 @@ public class PricingResultPersistService {
                 + "SENSITIVITY_VAL_INST_CURR, INSTRUMENT_CURRENCY, SENSITIVITY_VAL_INST_CURR_CNY, DETAIL_JSON, CREATED_AT, UPDATED_AT) "
                 + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
+        List<Object[]> batchArgs = new ArrayList<Object[]>();
         for (int i = 0; i < trades.size(); i++) {
             JSONObject trade = trades.getJSONObject(i);
             if (trade == null) {
@@ -419,8 +435,7 @@ public class PricingResultPersistService {
                 if (sensitivity == null) {
                     continue;
                 }
-                jdbcTemplate.update(
-                        sql,
+                batchArgs.add(new Object[]{
                         context.requestId,
                         context.jobId,
                         context.batchId,
@@ -442,8 +457,15 @@ public class PricingResultPersistService {
                         toJsonString(sensitivity),
                         context.createdAt,
                         context.updatedAt
-                );
+                });
+                if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
+                    jdbcTemplate.batchUpdate(sql, batchArgs);
+                    batchArgs.clear();
+                }
             }
+        }
+        if (!batchArgs.isEmpty()) {
+            jdbcTemplate.batchUpdate(sql, batchArgs);
         }
     }
 
