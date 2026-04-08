@@ -1,16 +1,170 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+    <!-- 统一日志目录：默认 E:/zcyh_mr/engine/logs，可通过 MR_LOG_DIR 覆盖 -->
+    <springProperty scope="context" name="LOG_DIR" source="mr.log.dir" defaultValue="E:/zcyh_mr/engine/logs"/>
+
+    <property name="JSON_PATTERN" value="{&quot;time&quot;:&quot;%date{yyyy-MM-dd HH:mm:ss.SSS}&quot;,&quot;level&quot;:&quot;%level&quot;,&quot;thread&quot;:&quot;%thread&quot;,&quot;logger&quot;:&quot;%logger{36}&quot;,&quot;traceId&quot;:&quot;%X{traceId:-}&quot;,&quot;requestId&quot;:&quot;%X{requestId:-}&quot;,&quot;clientId&quot;:&quot;%X{clientId:-}&quot;,&quot;userId&quot;:&quot;%X{userId:-}&quot;,&quot;jobId&quot;:&quot;%X{jobId:-}&quot;,&quot;batchId&quot;:&quot;%X{batchId:-}&quot;,&quot;engineCode&quot;:&quot;%X{engineCode:-}&quot;,&quot;message&quot;:&quot;%msg&quot;}%n"/>
+
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <pattern>{"time":"%date{yyyy-MM-dd HH:mm:ss.SSS}","level":"%level","thread":"%thread","logger":"%logger{36}","traceId":"%X{traceId:-}","requestId":"%X{requestId:-}","clientId":"%X{clientId:-}","userId":"%X{userId:-}","jobId":"%X{jobId:-}","batchId":"%X{batchId:-}","engineCode":"%X{engineCode:-}","message":"%msg"}%n</pattern>
+            <pattern>${JSON_PATTERN}</pattern>
         </encoder>
     </appender>
 
+    <!-- 全量日志：按天+大小滚动，保留 30 天 -->
+    <appender name="APP_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/app.log</file>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${JSON_PATTERN}</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/app.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- 错误日志：仅 ERROR 级，按天+大小滚动，保留 60 天 -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/app-error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${JSON_PATTERN}</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/app-error.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>60</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- 定价日志：按天+大小滚动，保留 30 天 -->
+    <appender name="PRICING_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/pricing.log</file>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${JSON_PATTERN}</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/pricing.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- FRTB SA 日志：按天+大小滚动，保留 30 天 -->
+    <appender name="FRTBSA_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/frtbsa.log</file>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${JSON_PATTERN}</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/frtbsa.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- VaR 日志：按天+大小滚动，保留 30 天 -->
+    <appender name="VAR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/var.log</file>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${JSON_PATTERN}</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/var.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Pricing 分类：核心定价与产品模型 -->
+    <logger name="com.zcyh.mr.calc" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="PRICING_FILE"/>
+    </logger>
+    <logger name="com.zcyh.mr.product" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="PRICING_FILE"/>
+    </logger>
+
+    <!-- FRTB SA 分类：适配器 + 查询/计算/落库 -->
+    <logger name="com.zcyh.mr.springboot.engine.FrtbSaEngineAdapter" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="FRTBSA_FILE"/>
+    </logger>
+    <logger name="com.zcyh.mr.springboot.service.FrtbSbaDbRunnerService" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="FRTBSA_FILE"/>
+    </logger>
+    <logger name="com.zcyh.mr.springboot.service.FrtbSbaInputQueryService" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="FRTBSA_FILE"/>
+    </logger>
+    <logger name="com.zcyh.mr.springboot.service.FrtbSbaResultPersistService" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="FRTBSA_FILE"/>
+    </logger>
+
+    <!-- VaR 分类：适配器 + 查询/计算/缓存/落库 -->
+    <logger name="com.zcyh.mr.springboot.engine.VarEngineAdapter" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="VAR_FILE"/>
+    </logger>
+    <logger name="com.zcyh.mr.springboot.service.VarDbRunnerService" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="VAR_FILE"/>
+    </logger>
+    <logger name="com.zcyh.mr.springboot.service.VarInputQueryService" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="VAR_FILE"/>
+    </logger>
+    <logger name="com.zcyh.mr.springboot.service.VarResultPersistService" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="VAR_FILE"/>
+    </logger>
+    <logger name="com.zcyh.mr.springboot.service.VarDetailCacheService" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="VAR_FILE"/>
+    </logger>
+
     <logger name="com.zcyh.mr" level="INFO" additivity="false">
         <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
     </logger>
 
     <root level="ERROR">
         <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
     </root>
 </configuration>
