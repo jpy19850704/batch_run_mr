@@ -15,7 +15,7 @@ BOND,利率,DAY_COUNT_BASIS,dayCountBasis,字符串,日计数基准,"actual/365,
 BOND,利率,DISCOUNT_CURVE,discountCurve,字符串,折现曲线,,引用市场数据折现曲线key
 BOND,利率,DRC_FLAG,drcFlag,字符串,,,
 BOND,利率,DRC_LGD,lgd,浮点数,,,
-BOND,利率,FIXING_CURVE,fixingCurve,字符串,定盘曲线,,引用市场数据定盘曲线key
+BOND,利率,REFERENCE_CURVE,referenceCurve,字符串,定盘曲线,,引用市场数据定盘曲线key
 BOND,利率,FIXING_FREQ,fixingFreq,字符串,定盘频率,,
 BOND,利率,FIXING_ID,fixingId,字符串,定盘ID,,
 BOND,利率,FLOATING_INDEX_FREQ,floatingIndexFreq,字符串,,,
@@ -68,7 +68,7 @@ CAPFLOOR,利率,DATA_DATE,dataDate,日期,,,
 CAPFLOOR,利率,DAY_COUNT_BASIS,dayCountBasis,字符串,日计数基准,"actual/365,actual/360,30/360",
 CAPFLOOR,利率,DISCOUNT_CURVE,discountCurve,字符串,折现曲线,,引用市场数据折现曲线key
 CAPFLOOR,利率,FIXING_CALENDAR,fixingCalendar,字符串,,,
-CAPFLOOR,利率,FIXING_CURVE,fixingCurve,字符串,定盘曲线,,引用市场数据定盘曲线key
+CAPFLOOR,利率,REFERENCE_CURVE,referenceCurve,字符串,定盘曲线,,引用市场数据定盘曲线key
 CAPFLOOR,利率,FIXING_DAYOFF,fixingDayoff,整数,,,
 CAPFLOOR,利率,FIXING_FREQ,fixingFreq,字符串,定盘频率,,
 CAPFLOOR,利率,FIXING_ID,fixingId,字符串,定盘ID,,
@@ -122,7 +122,7 @@ COMMFWD,商品,FRTB_COMM_BUCKET,frtbCommBucket,字符串,,,
 COMMFWD,商品,FRTB_COMM_LOCATION,frtbCommLocation,字符串,,,
 COMMFWD,商品,INSTRUMENT_ID,instrumentId,字符串,交易编号,,
 COMMFWD,商品,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
-COMMFWD,商品,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+COMMFWD,商品,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 COMMFWD,商品,PRODUCT_CODE,productCode,字符串,产品代码,,
 COMMFWD,商品,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
 COMMFWD,商品,STRIKE_CURRENCY_CODE,strikeCurrencyCode,字符串,行权货币,,
@@ -140,7 +140,7 @@ COMMOPT,商品,FRTB_COMM_LOCATION,frtbCommLocation,字符串,,,
 COMMOPT,商品,INSTRUMENT_ID,instrumentId,字符串,交易编号,,
 COMMOPT,商品,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 COMMOPT,商品,OPTION_TYPE,optionType,字符串,期权类型,,
-COMMOPT,商品,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+COMMOPT,商品,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 COMMOPT,商品,PRODUCT_CODE,productCode,字符串,产品代码,,
 COMMOPT,商品,SETTLE_CURRENCY_CODE,settleCurrencyCode,字符串,结算货币,,
 COMMOPT,商品,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
@@ -160,7 +160,7 @@ COMMSWAP,商品,FRTB_COMM_LOCATION,frtbCommLocation,字符串,,,
 COMMSWAP,商品,FWD_SETTLE_DATE,fwdSettleDate,日期,,,
 COMMSWAP,商品,FWD_STRIKE,fwdStrike,浮点数,,,
 COMMSWAP,商品,INSTRUMENT_ID,instrumentId,字符串,交易编号,,
-COMMSWAP,商品,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+COMMSWAP,商品,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 COMMSWAP,商品,PRODUCT_CODE,productCode,字符串,产品代码,,
 COMMSWAP,商品,SPOT_SETTLE_DATE,spotSettleDate,日期,,,
 COMMSWAP,商品,SPOT_STRIKE,spotStrike,浮点数,,,
@@ -180,7 +180,7 @@ COMM_AUTO_CALL,商品,PATH_FLAG,pathFlag,布尔,,,
 COMM_AUTO_CALL,商品,PATH_NB,pathNb,整数,模拟路径数,,
 COMM_AUTO_CALL,商品,PAYOFF_RATE,payoffRate,浮点数,赔付率,,
 COMM_AUTO_CALL,商品,PREMIUM_RATE,premiumRate,浮点数,溢价率,,
-COMM_AUTO_CALL,商品,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+COMM_AUTO_CALL,商品,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 COMM_AUTO_CALL,商品,PRODUCT_CODE,productCode,字符串,产品代码,,
 COMM_AUTO_CALL,商品,SETTLE_CALENDAR,settleCalendar,字符串,结算日历,,
 COMM_AUTO_CALL,商品,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
@@ -199,7 +199,7 @@ COMM_BARRIER,商品,KNOCK_OUT_FLAG,knockOutFlag,字符串,敲出标志,,
 COMM_BARRIER,商品,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 COMM_BARRIER,商品,OPTION_TYPE,optionType,字符串,期权类型,,
 COMM_BARRIER,商品,PAYOFF_LOWER,payoffLower,浮点数,下行赔付,,
-COMM_BARRIER,商品,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+COMM_BARRIER,商品,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 COMM_BARRIER,商品,PRODUCT_CODE,productCode,字符串,产品代码,,
 COMM_BARRIER,商品,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
 COMM_BARRIER,商品,TOUCH_BEFORE_FLAG,touchBeforeFlag,字符串,,,
@@ -216,7 +216,7 @@ COMM_DIGITAL,商品,DISCOUNT_CURVE,settleDiscountCurve,字符串,折现曲线,,�
 COMM_DIGITAL,商品,INSTRUMENT_ID,instrumentId,字符串,交易编号,,
 COMM_DIGITAL,商品,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 COMM_DIGITAL,商品,PAYOFF_LOWER,payoffLower,浮点数,下行赔付,,
-COMM_DIGITAL,商品,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+COMM_DIGITAL,商品,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 COMM_DIGITAL,商品,PRODUCT_CODE,productCode,字符串,产品代码,,
 COMM_DIGITAL,商品,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
 COMM_DIGITAL,商品,STRIKE_PRICE,strikePrice,浮点数,行权价,,正数
@@ -237,7 +237,7 @@ COMM_RANGE_ACCURE,商品,LOWER_BARRIER,lowerBarrier,浮点数,下障碍,,
 COMM_RANGE_ACCURE,商品,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 COMM_RANGE_ACCURE,商品,NOTIONAL,notional,浮点数,名义金额,,非负有限数
 COMM_RANGE_ACCURE,商品,OBS_DATE,obsDate,字符串,,,
-COMM_RANGE_ACCURE,商品,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+COMM_RANGE_ACCURE,商品,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 COMM_RANGE_ACCURE,商品,PRODUCT_CODE,productCode,字符串,产品代码,,
 COMM_RANGE_ACCURE,商品,RANGE_ACCURE_RATE,rangeAccureRate,浮点数,,,
 COMM_RANGE_ACCURE,商品,RANGE_DIRECTION,rangeDirection,字符串,区间方向,,
@@ -261,7 +261,7 @@ COMM_SHARKFIN,商品,INSTRUMENT_ID,instrumentId,字符串,交易编号,,
 COMM_SHARKFIN,商品,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 COMM_SHARKFIN,商品,NOTIONAL,notional,浮点数,名义金额,,非负有限数
 COMM_SHARKFIN,商品,OPTION_TYPE,optionType,字符串,期权类型,,
-COMM_SHARKFIN,商品,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+COMM_SHARKFIN,商品,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 COMM_SHARKFIN,商品,PRODUCT_CODE,productCode,字符串,产品代码,,
 COMM_SHARKFIN,商品,SETTLE_CURRENCY_CODE,settleCcyCode,字符串,结算货币,,
 COMM_SHARKFIN,商品,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
@@ -290,7 +290,7 @@ COMM_SPREADOPT,商品,INSTRUMENT_ID,instrumentId,字符串,交易编号,,
 COMM_SPREADOPT,商品,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 COMM_SPREADOPT,商品,NOTIONAL,notional,浮点数,名义金额,,非负有限数
 COMM_SPREADOPT,商品,OPTION_TYPE,optionType,字符串,期权类型,,
-COMM_SPREADOPT,商品,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+COMM_SPREADOPT,商品,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 COMM_SPREADOPT,商品,PRODUCT_CODE,productCode,字符串,产品代码,,
 COMM_SPREADOPT,商品,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
 COMM_SPREADOPT,商品,SETTLE_TYPE,settleType,字符串,结算方式,Cash/Physical,
@@ -320,7 +320,7 @@ COMM_STEP_UP,商品,LOW_RATE,lowRate,浮点数,低收益率,,
 COMM_STEP_UP,商品,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 COMM_STEP_UP,商品,MID_RATE,midRate,浮点数,中间收益率,,
 COMM_STEP_UP,商品,NOTIONAL,notional,浮点数,名义金额,,非负有限数
-COMM_STEP_UP,商品,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+COMM_STEP_UP,商品,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 COMM_STEP_UP,商品,PRODUCT_CODE,productCode,字符串,产品代码,,
 COMM_STEP_UP,商品,SETTLE_CURRENCY_CODE,settleCcyCode,字符串,结算货币,,
 COMM_STEP_UP,商品,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
@@ -350,7 +350,7 @@ COMM_WEDDING_CAKE,商品,NOTIONAL,notional,浮点数,名义金额,,非负有限�
 COMM_WEDDING_CAKE,商品,OUTER_LOWER_BARRIER,outerLowerBarrier,浮点数,外层下障碍,,
 COMM_WEDDING_CAKE,商品,OUTER_UPPER_BARRIER,outerUpperBarrier,浮点数,外层上障碍,,
 COMM_WEDDING_CAKE,商品,OUT_RATE,outRate,浮点数,外层收益率,,
-COMM_WEDDING_CAKE,商品,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+COMM_WEDDING_CAKE,商品,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 COMM_WEDDING_CAKE,商品,PRODUCT_CODE,productCode,字符串,产品代码,,
 COMM_WEDDING_CAKE,商品,SETTLE_CURRENCY_CODE,settleCcyCode,字符串,结算货币,,
 COMM_WEDDING_CAKE,商品,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
@@ -371,7 +371,7 @@ EQ_AUTO_CALL,权益,PATH_FLAG,pathFlag,布尔,,,
 EQ_AUTO_CALL,权益,PATH_NB,pathNb,整数,模拟路径数,,
 EQ_AUTO_CALL,权益,PAYOFF_RATE,payoffRate,浮点数,赔付率,,
 EQ_AUTO_CALL,权益,PREMIUM_RATE,premiumRate,浮点数,溢价率,,
-EQ_AUTO_CALL,权益,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+EQ_AUTO_CALL,权益,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 EQ_AUTO_CALL,权益,PRODUCT_CODE,productCode,字符串,产品代码,,
 EQ_AUTO_CALL,权益,SETTLE_CALENDAR,settleCalendar,字符串,结算日历,,
 EQ_AUTO_CALL,权益,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
@@ -390,7 +390,7 @@ EQ_BARRIER,权益,KNOCK_OUT_FLAG,knockOutFlag,字符串,敲出标志,,
 EQ_BARRIER,权益,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 EQ_BARRIER,权益,OPTION_TYPE,optionType,字符串,期权类型,,
 EQ_BARRIER,权益,PAYOFF_LOWER,payoffLower,浮点数,下行赔付,,
-EQ_BARRIER,权益,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+EQ_BARRIER,权益,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 EQ_BARRIER,权益,PRODUCT_CODE,productCode,字符串,产品代码,,
 EQ_BARRIER,权益,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
 EQ_BARRIER,权益,TOUCH_BEFORE_FLAG,touchBeforeFlag,字符串,,,
@@ -407,7 +407,7 @@ EQ_DIGITAL,权益,DISCOUNT_CURVE,settleDiscountCurve,字符串,折现曲线,,引
 EQ_DIGITAL,权益,INSTRUMENT_ID,instrumentId,字符串,交易编号,,
 EQ_DIGITAL,权益,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 EQ_DIGITAL,权益,PAYOFF_LOWER,payoffLower,浮点数,下行赔付,,
-EQ_DIGITAL,权益,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+EQ_DIGITAL,权益,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 EQ_DIGITAL,权益,PRODUCT_CODE,productCode,字符串,产品代码,,
 EQ_DIGITAL,权益,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
 EQ_DIGITAL,权益,STRIKE_PRICE,strikePrice,浮点数,行权价,,正数
@@ -425,7 +425,7 @@ EQ_RANGE_ACCURE,权益,LOWER_BARRIER,lowerBarrier,浮点数,下障碍,,
 EQ_RANGE_ACCURE,权益,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 EQ_RANGE_ACCURE,权益,NOTIONAL,notional,浮点数,名义金额,,非负有限数
 EQ_RANGE_ACCURE,权益,OBS_DATE,obsDate,字符串,,,
-EQ_RANGE_ACCURE,权益,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+EQ_RANGE_ACCURE,权益,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 EQ_RANGE_ACCURE,权益,PRODUCT_CODE,productCode,字符串,产品代码,,
 EQ_RANGE_ACCURE,权益,RANGE_ACCURE_RATE,rangeAccureRate,浮点数,,,
 EQ_RANGE_ACCURE,权益,RANGE_DIRECTION,rangeDirection,字符串,区间方向,,
@@ -447,7 +447,7 @@ EQ_SHARKFIN,权益,INSTRUMENT_ID,instrumentId,字符串,交易编号,,
 EQ_SHARKFIN,权益,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 EQ_SHARKFIN,权益,NOTIONAL,notional,浮点数,名义金额,,非负有限数
 EQ_SHARKFIN,权益,OPTION_TYPE,optionType,字符串,期权类型,,
-EQ_SHARKFIN,权益,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+EQ_SHARKFIN,权益,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 EQ_SHARKFIN,权益,PRODUCT_CODE,productCode,字符串,产品代码,,
 EQ_SHARKFIN,权益,SETTLE_CURRENCY_CODE,settleCcyCode,字符串,结算货币,,
 EQ_SHARKFIN,权益,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
@@ -476,7 +476,7 @@ EQ_SPREADOPT,权益,INSTRUMENT_ID,instrumentId,字符串,交易编号,,
 EQ_SPREADOPT,权益,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 EQ_SPREADOPT,权益,NOTIONAL,notional,浮点数,名义金额,,非负有限数
 EQ_SPREADOPT,权益,OPTION_TYPE,optionType,字符串,期权类型,,
-EQ_SPREADOPT,权益,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+EQ_SPREADOPT,权益,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 EQ_SPREADOPT,权益,PRODUCT_CODE,productCode,字符串,产品代码,,
 EQ_SPREADOPT,权益,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
 EQ_SPREADOPT,权益,SETTLE_TYPE,settleType,字符串,结算方式,Cash/Physical,
@@ -503,7 +503,7 @@ EQ_STEP_UP,权益,LOW_RATE,lowRate,浮点数,低收益率,,
 EQ_STEP_UP,权益,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 EQ_STEP_UP,权益,MID_RATE,midRate,浮点数,中间收益率,,
 EQ_STEP_UP,权益,NOTIONAL,notional,浮点数,名义金额,,非负有限数
-EQ_STEP_UP,权益,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+EQ_STEP_UP,权益,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 EQ_STEP_UP,权益,PRODUCT_CODE,productCode,字符串,产品代码,,
 EQ_STEP_UP,权益,SETTLE_CURRENCY_CODE,settleCcyCode,字符串,结算货币,,
 EQ_STEP_UP,权益,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
@@ -531,7 +531,7 @@ EQ_WEDDING_CAKE,权益,NOTIONAL,notional,浮点数,名义金额,,非负有限数
 EQ_WEDDING_CAKE,权益,OUTER_LOWER_BARRIER,outerLowerBarrier,浮点数,外层下障碍,,
 EQ_WEDDING_CAKE,权益,OUTER_UPPER_BARRIER,outerUpperBarrier,浮点数,外层上障碍,,
 EQ_WEDDING_CAKE,权益,OUT_RATE,outRate,浮点数,外层收益率,,
-EQ_WEDDING_CAKE,权益,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+EQ_WEDDING_CAKE,权益,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 EQ_WEDDING_CAKE,权益,PRODUCT_CODE,productCode,字符串,产品代码,,
 EQ_WEDDING_CAKE,权益,SETTLE_CURRENCY_CODE,settleCcyCode,字符串,结算货币,,
 EQ_WEDDING_CAKE,权益,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
@@ -697,7 +697,7 @@ FX_RANGE_ACCURE,外汇,LOWER_BARRIER,lowerBarrier,浮点数,下障碍,,
 FX_RANGE_ACCURE,外汇,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 FX_RANGE_ACCURE,外汇,NOTIONAL,notional,浮点数,名义金额,,非负有限数
 FX_RANGE_ACCURE,外汇,OBS_DATE,obsDate,字符串,,,
-FX_RANGE_ACCURE,外汇,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+FX_RANGE_ACCURE,外汇,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 FX_RANGE_ACCURE,外汇,PRODUCT_CODE,productCode,字符串,产品代码,,
 FX_RANGE_ACCURE,外汇,RANGE_ACCURE_RATE,rangeAccureRate,浮点数,,,
 FX_RANGE_ACCURE,外汇,RANGE_DIRECTION,rangeDirection,字符串,区间方向,,
@@ -829,7 +829,7 @@ IRSCCS,利率,PAY_CURRENCY_CODE,payCurrencyCode,字符串,支付货币,,
 IRSCCS,利率,PAY_DAY_COUNT_BASIS,payDayCountBasis,字符串,支付日计数,,
 IRSCCS,利率,PAY_DISCOUNT_CURVE,payDiscountCurve,字符串,支付折现曲线,,
 IRSCCS,利率,PAY_FIXING_CALENDAR,payFixingCalendar,字符串,,,
-IRSCCS,利率,PAY_FIXING_CURVE,payFixingCurve,字符串,支付定盘曲线,,
+IRSCCS,利率,PAY_REFERENCE_CURVE,payReferenceCurve,字符串,支付定盘曲线,,
 IRSCCS,利率,PAY_FIXING_DAYOFF,payFixingDayoff,整数,,,
 IRSCCS,利率,PAY_FIXING_FREQ,payFixingFreq,字符串,,,
 IRSCCS,利率,PAY_FIXING_ID,payFixingId,字符串,支付定盘ID,,
@@ -852,7 +852,7 @@ IRSCCS,利率,REC_CURRENCY_CODE,recCurrencyCode,字符串,收取货币,,
 IRSCCS,利率,REC_DAY_COUNT_BASIS,recDayCountBasis,字符串,收取日计数,,
 IRSCCS,利率,REC_DISCOUNT_CURVE,recDiscountCurve,字符串,收取折现曲线,,
 IRSCCS,利率,REC_FIXING_CALENDAR,recFixingCalendar,字符串,,,
-IRSCCS,利率,REC_FIXING_CURVE,recFixingCurve,字符串,收取定盘曲线,,
+IRSCCS,利率,REC_REFERENCE_CURVE,recReferenceCurve,字符串,收取定盘曲线,,
 IRSCCS,利率,REC_FIXING_DAYOFF,recFixingDayoff,整数,,,
 IRSCCS,利率,REC_FIXING_FREQ,recFixingFreq,字符串,,,
 IRSCCS,利率,REC_FIXING_ID,recFixingId,字符串,收取定盘ID,,
@@ -885,7 +885,7 @@ IR_AUTO_CALL,利率,PATH_FLAG,pathFlag,布尔,,,
 IR_AUTO_CALL,利率,PATH_NB,pathNb,整数,模拟路径数,,
 IR_AUTO_CALL,利率,PAYOFF_RATE,payoffRate,浮点数,赔付率,,
 IR_AUTO_CALL,利率,PREMIUM_RATE,premiumRate,浮点数,溢价率,,
-IR_AUTO_CALL,利率,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+IR_AUTO_CALL,利率,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 IR_AUTO_CALL,利率,PRODUCT_CODE,productCode,字符串,产品代码,,
 IR_AUTO_CALL,利率,RATE_TYPE,rateType,字符串,利率类型,,
 IR_AUTO_CALL,利率,SETTLE_CALENDAR,settleCalendar,字符串,结算日历,,
@@ -909,7 +909,7 @@ IR_BARRIER,利率,KNOCK_OUT_FLAG,knockOutFlag,字符串,敲出标志,,
 IR_BARRIER,利率,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 IR_BARRIER,利率,OPTION_TYPE,optionType,字符串,期权类型,,
 IR_BARRIER,利率,PAYOFF_LOWER,payoffLower,浮点数,下行赔付,,
-IR_BARRIER,利率,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+IR_BARRIER,利率,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 IR_BARRIER,利率,PRODUCT_CODE,productCode,字符串,产品代码,,
 IR_BARRIER,利率,RATE_TYPE,rateType,字符串,利率类型,,
 IR_BARRIER,利率,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
@@ -930,7 +930,7 @@ IR_DIGITAL,利率,FIXING_ID,fixingId,字符串,定盘ID,,
 IR_DIGITAL,利率,INSTRUMENT_ID,instrumentId,字符串,交易编号,,
 IR_DIGITAL,利率,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 IR_DIGITAL,利率,PAYOFF_LOWER,payoffLower,浮点数,下行赔付,,
-IR_DIGITAL,利率,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+IR_DIGITAL,利率,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 IR_DIGITAL,利率,PRODUCT_CODE,productCode,字符串,产品代码,,
 IR_DIGITAL,利率,RATE_TYPE,rateType,字符串,利率类型,,
 IR_DIGITAL,利率,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
@@ -951,7 +951,7 @@ IR_RANGE_ACCURE,利率,LOWER_BARRIER,lowerBarrier,浮点数,下障碍,,
 IR_RANGE_ACCURE,利率,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 IR_RANGE_ACCURE,利率,NOTIONAL,notional,浮点数,名义金额,,非负有限数
 IR_RANGE_ACCURE,利率,OBS_DATE,obsDate,字符串,,,
-IR_RANGE_ACCURE,利率,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+IR_RANGE_ACCURE,利率,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 IR_RANGE_ACCURE,利率,PRODUCT_CODE,productCode,字符串,产品代码,,
 IR_RANGE_ACCURE,利率,RANGE_ACCURE_RATE,rangeAccureRate,浮点数,,,
 IR_RANGE_ACCURE,利率,RANGE_DIRECTION,rangeDirection,字符串,区间方向,,
@@ -976,7 +976,7 @@ IR_SHARKFIN,利率,INSTRUMENT_ID,instrumentId,字符串,交易编号,,
 IR_SHARKFIN,利率,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 IR_SHARKFIN,利率,NOTIONAL,notional,浮点数,名义金额,,非负有限数
 IR_SHARKFIN,利率,OPTION_TYPE,optionType,字符串,期权类型,,
-IR_SHARKFIN,利率,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+IR_SHARKFIN,利率,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 IR_SHARKFIN,利率,PRODUCT_CODE,productCode,字符串,产品代码,,
 IR_SHARKFIN,利率,RATE_TYPE,rateType,字符串,利率类型,,
 IR_SHARKFIN,利率,SETTLE_CURRENCY_CODE,settleCcyCode,字符串,结算货币,,
@@ -1008,7 +1008,7 @@ IR_SPREADOPT,利率,INSTRUMENT_ID,instrumentId,字符串,交易编号,,
 IR_SPREADOPT,利率,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 IR_SPREADOPT,利率,NOTIONAL,notional,浮点数,名义金额,,非负有限数
 IR_SPREADOPT,利率,OPTION_TYPE,optionType,字符串,期权类型,,
-IR_SPREADOPT,利率,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+IR_SPREADOPT,利率,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 IR_SPREADOPT,利率,PRODUCT_CODE,productCode,字符串,产品代码,,
 IR_SPREADOPT,利率,RATE_TYPE,rateType,字符串,利率类型,,
 IR_SPREADOPT,利率,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
@@ -1038,7 +1038,7 @@ IR_STEP_UP,利率,LOW_RATE,lowRate,浮点数,低收益率,,
 IR_STEP_UP,利率,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 IR_STEP_UP,利率,MID_RATE,midRate,浮点数,中间收益率,,
 IR_STEP_UP,利率,NOTIONAL,notional,浮点数,名义金额,,非负有限数
-IR_STEP_UP,利率,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+IR_STEP_UP,利率,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 IR_STEP_UP,利率,PRODUCT_CODE,productCode,字符串,产品代码,,
 IR_STEP_UP,利率,SETTLE_CURRENCY_CODE,settleCcyCode,字符串,结算货币,,
 IR_STEP_UP,利率,SETTLE_DATE,settleDate,日期,结算日,,yyyyMMdd
@@ -1067,7 +1067,7 @@ IR_WEDDING_CAKE,利率,NOTIONAL,notional,浮点数,名义金额,,非负有限数
 IR_WEDDING_CAKE,利率,OUTER_LOWER_BARRIER,outerLowerBarrier,浮点数,外层下障碍,,
 IR_WEDDING_CAKE,利率,OUTER_UPPER_BARRIER,outerUpperBarrier,浮点数,外层上障碍,,
 IR_WEDDING_CAKE,利率,OUT_RATE,outRate,浮点数,外层收益率,,
-IR_WEDDING_CAKE,利率,PRICE_CURVE,priceCurve,字符串,价格曲线,,
+IR_WEDDING_CAKE,利率,REFERENCE_CURVE,referenceCurve,字符串,价格曲线,,
 IR_WEDDING_CAKE,利率,PRODUCT_CODE,productCode,字符串,产品代码,,
 IR_WEDDING_CAKE,利率,RATE_TYPE,rateType,字符串,利率类型,,
 IR_WEDDING_CAKE,利率,SETTLE_CURRENCY_CODE,settleCcyCode,字符串,结算货币,,
@@ -1081,7 +1081,7 @@ IR_WEDDING_CAKE,利率,VV_FLAG,vvFlag,布尔,VannaVolga开关,true/false,
 STD_IRS,利率,BUY_OR_SELL,buyOrSell,字符串,买卖方向,B/S,
 STD_IRS,利率,CURRENCY_CODE,currencyCode,字符串,货币代码,,
 STD_IRS,利率,DAY_COUNT_BASIS,dayCountBasis,字符串,日计数基准,"actual/365,actual/360,30/360",
-STD_IRS,利率,FIXING_CURVE,fixingCurve,字符串,定盘曲线,,引用市场数据定盘曲线key
+STD_IRS,利率,REFERENCE_CURVE,referenceCurve,字符串,定盘曲线,,引用市场数据定盘曲线key
 STD_IRS,利率,INSTRUMENT_ID,instrumentId,字符串,交易编号,,
 STD_IRS,利率,MATURITY_DATE,maturityDate,日期,到期日,,yyyyMMdd
 STD_IRS,利率,NOTIONAL,notional,浮点数,名义金额,,非负有限数
@@ -1096,7 +1096,7 @@ SWAPTION,利率,DISCOUNT_CURVE,discountCurve,字符串,折现曲线,,引用市�
 SWAPTION,利率,FIXED_DAY_COUNT_BASIS,fixedDayCountBasis,字符串,固定日计数基准,,
 SWAPTION,利率,FIXED_RATE,fixedRate,浮点数,固定利率,,
 SWAPTION,利率,FIXING_CALENDAR,fixingCalendar,字符串,,,
-SWAPTION,利率,FIXING_CURVE,fixingCurve,字符串,定盘曲线,,引用市场数据定盘曲线key
+SWAPTION,利率,REFERENCE_CURVE,referenceCurve,字符串,定盘曲线,,引用市场数据定盘曲线key
 SWAPTION,利率,FIXING_DAYOFF,fixingDayoff,整数,,,
 SWAPTION,利率,FIXING_FREQ,fixingFreq,字符串,定盘频率,,
 SWAPTION,利率,FIXING_ID,fixingId,字符串,定盘ID,,
@@ -1119,3 +1119,4 @@ SWAPTION,利率,UNDERLYING_SETTLE_RULE,underlyingSettleRule,字符串,,,
 SWAPTION,利率,UNDERLYING_START_DATE,underlyingStartDate,日期,标的起息日,,yyyyMMdd
 SWAPTION,利率,VALUATION_MODEL,valuationModel,字符串,估值模型,BACHELIER/BLACK76,
 SWAPTION,利率,VOLATILITY_SURFACE,volatilitySurface,字符串,波动率曲面,,引用市场数据波动率曲面key
+

@@ -51,7 +51,7 @@ public class VarDbRunnerService {
                               ObjectProvider<VarDetailCacheService> varDetailCacheServiceProvider) {
         this.inputQueryService = inputQueryService;
         this.dimensionAggregationService = dimensionAggregationService;
-        this.varDetailCacheService = varDetailCacheServiceProvider.getIfAvailable();
+        this.varDetailCacheService = varDetailCacheServiceProvider == null ? null : varDetailCacheServiceProvider.getIfAvailable();
     }
 
     public String calculateByInline(String payloadJson) {
@@ -171,6 +171,8 @@ public class VarDbRunnerService {
                 JSONObject dimensionResult = new JSONObject();
                 dimensionResult.put("group_type", dimensionGroup.groupType);
                 dimensionResult.put("group_value", dimensionGroup.groupValue);
+                dimensionResult.put("base_valuation_cny", dimensionGroup.baseValuationCny != null
+                        ? dimensionGroup.baseValuationCny.stripTrailingZeros().toPlainString() : "0");
                 if (includeDetail) {
                     boolean cached = cacheDimensionDetail(
                             requestId,
@@ -949,6 +951,8 @@ public class VarDbRunnerService {
         private final String groupType;
         private final String groupValue;
         private final Map<ScenarioKey, ScenarioPnlAggregate> scenarioPnls = new LinkedHashMap<ScenarioKey, ScenarioPnlAggregate>();
+        /** 基准估值（取任一场景的值，因同一维度下各场景的基准估值等价） */
+        private BigDecimal baseValuationCny;
 
         private DimensionGroupData(String groupType, String groupValue) {
             this.groupType = groupType;
@@ -967,6 +971,10 @@ public class VarDbRunnerService {
             aggregate.fxPnl = aggregate.fxPnl.add(safePnl(row.getFxPnl()));
             aggregate.eqPnl = aggregate.eqPnl.add(safePnl(row.getEqPnl()));
             aggregate.commPnl = aggregate.commPnl.add(safePnl(row.getCommPnl()));
+            // 基准估值仅取首次设置，避免跨场景重复累加
+            if (baseValuationCny == null && row.getBaseValuationCny() != null) {
+                baseValuationCny = row.getBaseValuationCny();
+            }
         }
     }
 

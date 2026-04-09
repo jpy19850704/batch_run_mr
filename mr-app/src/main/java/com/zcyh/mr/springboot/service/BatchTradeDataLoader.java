@@ -12,7 +12,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 批量任务交易数据加载器。
@@ -51,6 +53,29 @@ public class BatchTradeDataLoader {
             row.marketDataType = rs.getString("market_data_type");
             row.curveId = rs.getString("curve_id");
             row.curveContentText = rs.getString("curve_content_text");
+            return row;
+        }
+    };
+
+    private static final RowMapper<PortfolioFlatRow> PORTFOLIO_FLAT_ROW_MAPPER = new RowMapper<PortfolioFlatRow>() {
+        @Override
+        public PortfolioFlatRow mapRow(ResultSet rs, int rowNum) throws SQLException {
+            PortfolioFlatRow row = new PortfolioFlatRow();
+            row.portfolioCode = rs.getString("PORTFOLIO_CODE");
+            row.portfolioCode1 = rs.getString("PORTFOLIO_CODE_1");
+            row.portfolioCode2 = rs.getString("PORTFOLIO_CODE_2");
+            row.portfolioCode3 = rs.getString("PORTFOLIO_CODE_3");
+            row.portfolioCode4 = rs.getString("PORTFOLIO_CODE_4");
+            row.portfolioCode5 = rs.getString("PORTFOLIO_CODE_5");
+            row.portfolioCode6 = rs.getString("PORTFOLIO_CODE_6");
+            row.portfolioCode7 = rs.getString("PORTFOLIO_CODE_7");
+            row.portfolioName1 = rs.getString("PORTFOLIO_NAME_1");
+            row.portfolioName2 = rs.getString("PORTFOLIO_NAME_2");
+            row.portfolioName3 = rs.getString("PORTFOLIO_NAME_3");
+            row.portfolioName4 = rs.getString("PORTFOLIO_NAME_4");
+            row.portfolioName5 = rs.getString("PORTFOLIO_NAME_5");
+            row.portfolioName6 = rs.getString("PORTFOLIO_NAME_6");
+            row.portfolioName7 = rs.getString("PORTFOLIO_NAME_7");
             return row;
         }
     };
@@ -108,6 +133,41 @@ public class BatchTradeDataLoader {
         return jdbcTemplate.query(sql, CURVE_ROW_MAPPER, Date.valueOf(dataDate));
     }
 
+    /**
+     * 按投组代码批量读取投组层级平铺信息。
+     */
+    public Map<String, PortfolioFlatRow> loadPortfolioFlatByCodes(List<String> portfolioCodes) {
+        List<String> normalizedCodes = normalizePortfolioCodes(portfolioCodes);
+        if (normalizedCodes.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        StringBuilder sql = new StringBuilder();
+        List<Object> params = new ArrayList<Object>();
+        sql.append("SELECT PORTFOLIO_CODE, ");
+        sql.append("PORTFOLIO_CODE_1, PORTFOLIO_CODE_2, PORTFOLIO_CODE_3, PORTFOLIO_CODE_4, PORTFOLIO_CODE_5, PORTFOLIO_CODE_6, PORTFOLIO_CODE_7, ");
+        sql.append("PORTFOLIO_NAME_1, PORTFOLIO_NAME_2, PORTFOLIO_NAME_3, PORTFOLIO_NAME_4, PORTFOLIO_NAME_5, PORTFOLIO_NAME_6, PORTFOLIO_NAME_7 ");
+        sql.append("FROM V_PORTFOLIO_HIERARCHY_FLAT WHERE PORTFOLIO_CODE IN (");
+        for (int i = 0; i < normalizedCodes.size(); i++) {
+            if (i > 0) {
+                sql.append(", ");
+            }
+            sql.append("?");
+            params.add(normalizedCodes.get(i));
+        }
+        sql.append(")");
+
+        List<PortfolioFlatRow> rows = jdbcTemplate.query(sql.toString(), PORTFOLIO_FLAT_ROW_MAPPER, params.toArray());
+        Map<String, PortfolioFlatRow> result = new LinkedHashMap<String, PortfolioFlatRow>();
+        for (PortfolioFlatRow row : rows) {
+            String key = trimToNull(row.portfolioCode);
+            if (key != null) {
+                result.put(key, row);
+            }
+        }
+        return result;
+    }
+
     // ==================== 校验 ====================
 
     /**
@@ -150,6 +210,22 @@ public class BatchTradeDataLoader {
         return new ArrayList<String>(normalized);
     }
 
+    /**
+     * 标准化投组代码列表（去空去重）。
+     */
+    public static List<String> normalizePortfolioCodes(List<String> portfolioCodeList) {
+        LinkedHashSet<String> normalized = new LinkedHashSet<String>();
+        if (portfolioCodeList != null) {
+            for (String portfolioCode : portfolioCodeList) {
+                String safe = trimToNull(portfolioCode);
+                if (safe != null) {
+                    normalized.add(safe);
+                }
+            }
+        }
+        return new ArrayList<String>(normalized);
+    }
+
     // ==================== 数据类 ====================
 
     /**
@@ -172,6 +248,27 @@ public class BatchTradeDataLoader {
         public String marketDataType;
         public String curveId;
         public String curveContentText;
+    }
+
+    /**
+     * 投组层级平铺行。
+     */
+    public static class PortfolioFlatRow {
+        public String portfolioCode;
+        public String portfolioCode1;
+        public String portfolioCode2;
+        public String portfolioCode3;
+        public String portfolioCode4;
+        public String portfolioCode5;
+        public String portfolioCode6;
+        public String portfolioCode7;
+        public String portfolioName1;
+        public String portfolioName2;
+        public String portfolioName3;
+        public String portfolioName4;
+        public String portfolioName5;
+        public String portfolioName6;
+        public String portfolioName7;
     }
 
     private static String trimToNull(String txt) {

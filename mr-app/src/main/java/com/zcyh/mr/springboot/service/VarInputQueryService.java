@@ -21,6 +21,8 @@ import java.util.Set;
 @Service
 public class VarInputQueryService {
     private static final String TABLE = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
+    private static final String PORTFOLIO_FLAT_VIEW = "V_TB_OUT_PORTFOLIO_HIERARCHY_FLAT";
+    private static final int PORTFOLIO_LEVEL_MAX = 7;
     private final JdbcTemplate engineResultDbJdbcTemplate;
 
     public VarInputQueryService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate) {
@@ -53,6 +55,8 @@ public class VarInputQueryService {
                 }
             }
         }
+        Set<String> filterFields = collectFilterFields(rule);
+        boolean usePortfolioFlatView = requiresPortfolioFlatView(dimensionFields, filterFields);
 
         StringBuilder sql = new StringBuilder()
                 .append("SELECT ")
@@ -75,12 +79,19 @@ public class VarInputQueryService {
                 .append(", SUM(d.FX_PNL) AS FX_PNL")
                 .append(", SUM(d.EQ_PNL) AS EQ_PNL")
                 .append(", SUM(d.COMM_PNL) AS COMM_PNL")
+                .append(", SUM(d.BASE_VALUATION_CNY) AS BASE_VALUATION_CNY")
                 .append(" FROM ").append(TABLE).append(" d ")
                 .append(" INNER JOIN TB_OUT_TRADE_RESULT_DETAIL r ")
                 .append(" ON r.BATCH_ID = d.BATCH_ID ")
                 .append(" AND r.DATA_DATE = d.DATA_DATE ")
-                .append(" AND r.INSTRUMENT_ID = d.INSTRUMENT_ID ")
-                .append(" WHERE d.BATCH_ID = ? AND d.DATA_DATE = ?");
+                .append(" AND r.INSTRUMENT_ID = d.INSTRUMENT_ID ");
+        if (usePortfolioFlatView) {
+            sql.append(" LEFT JOIN ").append(PORTFOLIO_FLAT_VIEW).append(" p ")
+                    .append(" ON p.BATCH_ID = d.BATCH_ID ")
+                    .append(" AND p.DATA_DATE = d.DATA_DATE ")
+                    .append(" AND p.PORTFOLIO_CODE = r.PORTFOLIO ");
+        }
+        sql.append(" WHERE d.BATCH_ID = ? AND d.DATA_DATE = ?");
 
         List<Object> params = new ArrayList<Object>();
         params.add(safeBatchId);
@@ -116,7 +127,8 @@ public class VarInputQueryService {
                                 rs.getBigDecimal("IR_PNL"),
                                 rs.getBigDecimal("FX_PNL"),
                                 rs.getBigDecimal("EQ_PNL"),
-                                rs.getBigDecimal("COMM_PNL"));
+                                rs.getBigDecimal("COMM_PNL"),
+                                rs.getBigDecimal("BASE_VALUATION_CNY"));
                     });
             if (rows == null || rows.isEmpty()) {
                 throw new IllegalArgumentException("未查到可用于 VaR 规则汇总的情景损益明细: batch_id="
@@ -324,7 +336,64 @@ public class VarInputQueryService {
         if ("OP_CODE".equalsIgnoreCase(safeField)) {
             return "d.OP_CODE";
         }
+        for (int i = 1; i <= PORTFOLIO_LEVEL_MAX; i++) {
+            if (("PORTFOLIO_CODE_" + i).equalsIgnoreCase(safeField)) {
+                return "p.PORTFOLIO_CODE_" + i;
+            }
+            if (("PORTFOLIO_NAME_" + i).equalsIgnoreCase(safeField)) {
+                return "p.PORTFOLIO_NAME_" + i;
+            }
+        }
         return null;
+    }
+
+    private static Set<String> collectFilterFields(AggregationRule rule) {
+        Set<String> fields = new LinkedHashSet<String>();
+        if (rule == null || rule.getFilters() == null) {
+            return fields;
+        }
+        for (AggregationRule.FilterCondition filter : rule.getFilters()) {
+            if (filter == null) {
+                continue;
+            }
+            String field = trimToNull(filter.getField());
+            if (field != null) {
+                fields.add(field.toUpperCase());
+            }
+        }
+        return fields;
+    }
+
+    private static boolean requiresPortfolioFlatView(Set<String> dimensionFields, Set<String> filterFields) {
+        if (dimensionFields != null) {
+            for (String field : dimensionFields) {
+                if (isPortfolioFlatField(field)) {
+                    return true;
+                }
+            }
+        }
+        if (filterFields != null) {
+            for (String field : filterFields) {
+                if (isPortfolioFlatField(field)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isPortfolioFlatField(String field) {
+        String safeField = trimToNull(field);
+        if (safeField == null) {
+            return false;
+        }
+        for (int i = 1; i <= PORTFOLIO_LEVEL_MAX; i++) {
+            if (("PORTFOLIO_CODE_" + i).equalsIgnoreCase(safeField)
+                    || ("PORTFOLIO_NAME_" + i).equalsIgnoreCase(safeField)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String trimToNull(String value) {
@@ -348,6 +417,7 @@ public class VarInputQueryService {
         private final BigDecimal fxPnl;
         private final BigDecimal eqPnl;
         private final BigDecimal commPnl;
+        private final BigDecimal baseValuationCny;
 
         public RuleScenarioPnlRow(String scenarioId,
                                   String subScenarioId,
@@ -357,7 +427,8 @@ public class VarInputQueryService {
                                   BigDecimal irPnl,
                                   BigDecimal fxPnl,
                                   BigDecimal eqPnl,
-                                  BigDecimal commPnl) {
+                                  BigDecimal commPnl,
+                                  BigDecimal baseValuationCny) {
             this.scenarioId = scenarioId;
             this.subScenarioId = subScenarioId;
             this.scenarioName = scenarioName;
@@ -367,6 +438,7 @@ public class VarInputQueryService {
             this.fxPnl = fxPnl;
             this.eqPnl = eqPnl;
             this.commPnl = commPnl;
+            this.baseValuationCny = baseValuationCny;
         }
 
         public String getScenarioId() {
@@ -403,6 +475,10 @@ public class VarInputQueryService {
 
         public BigDecimal getCommPnl() {
             return commPnl;
+        }
+
+        public BigDecimal getBaseValuationCny() {
+            return baseValuationCny;
         }
     }
 

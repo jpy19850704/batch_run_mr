@@ -113,7 +113,7 @@ public class ScenarioRequestAssembler {
         for (Map<String, Object> row : rows) {
             ScenarioDefinition definition = new ScenarioDefinition();
             definition.setScenarioId(scenarioId);
-            definition.setScenarioCode(firstNonBlank(row.get("SCENARIO_CODE"), scenarioId));
+            definition.setScenarioCode(scenarioId);
             definition.setScenarioName(toStringValue(row.get("SCENARIO_NAME")));
             String resolvedScenarioType = firstNonBlank(row.get("SCENARIO_TYPE"), scenarioType);
             definition.setScenarioType(resolvedScenarioType);

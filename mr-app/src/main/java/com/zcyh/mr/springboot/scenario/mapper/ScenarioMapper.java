@@ -33,8 +33,7 @@ public class ScenarioMapper {
     public List<Map<String, Object>> selectScenarioMpByScenarioIdList(String scenarioIdList) {
         StringBuilder sql = new StringBuilder()
                 .append("SELECT ")
-                .append("SCENARIO_ID AS SCENARIO_SET_CODE, ")
-                .append("SCENARIO_ID AS SCENARIO_CODE, ")
+                .append("SCENARIO_ID, ")
                 .append("SCENARIO_NAME, ")
                 .append("SCENARIO_TYPE, ")
                 .append("CURVE_TYPE, ")
@@ -53,8 +52,7 @@ public class ScenarioMapper {
     public List<Map<String, Object>> selectMcScenarioMpByScenarioIdList(String scenarioIdList) {
         StringBuilder sql = new StringBuilder()
                 .append("SELECT ")
-                .append("SCENARIO_ID AS SCENARIO_SET_CODE, ")
-                .append("SCENARIO_ID AS SCENARIO_CODE, ")
+                .append("SCENARIO_ID, ")
                 .append("SCENARIO_NAME, ")
                 .append("SCENARIO_TYPE, ")
                 .append("START_DATE, ")
@@ -79,8 +77,7 @@ public class ScenarioMapper {
     public List<Map<String, Object>> selectHistoryScenarioMpByScenarioIdList(String scenarioIdList) {
         StringBuilder sql = new StringBuilder()
                 .append("SELECT ")
-                .append("SCENARIO_ID AS SCENARIO_SET_CODE, ")
-                .append("SCENARIO_ID AS SCENARIO_CODE, ")
+                .append("SCENARIO_ID, ")
                 .append("SCENARIO_NAME, ")
                 .append("SCENARIO_TYPE, ")
                 .append("START_DATE, ")
