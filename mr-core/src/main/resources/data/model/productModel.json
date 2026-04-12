@@ -208,5 +208,14 @@
       "SETTLE_TYPE": "CASH",
       "CALL_OPTION": "true"
     }
+  },
+  "AUTO_CALL" : {
+    "TRADE": {
+      "PRODUCT_CODE": "AUTO_CALL",
+      "PAYOFF_TYPE": "AUTO_CALL",
+      "MODEL_TYPE": "CONST_VOL",
+      "PATH_NB": 10000,
+      "PATH_FLAG": false
+    }
   }
 }

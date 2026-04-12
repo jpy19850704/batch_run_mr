@@ -168,20 +168,20 @@
 - PV外计量方法：组合净值差分 Greeks。
 - 计量输出：OptionMeasure。
 
-### 自动赎回结构（FX_AUTO_CALL / IR_AUTO_CALL / EQ_AUTO_CALL / COMM_AUTO_CALL）
+### 自动赎回结构（AUTO_CALL + PAYOFF_TYPE=AUTO_CALL）
 - 金融介绍：定期观察是否提前赎回，常用于收益增强票据。
-- 主要输入要素：观察日序列、敲出条件、票息参数、名义。
+- 主要输入要素：`UNDERLYING_TYPE`、观察日序列、敲出条件、票息参数、名义、路径模型类型。
 - 主要市场数据：标的曲线、波动率、折现曲线。
 - 估值计量方法：Monte Carlo 路径估值。
 - PV外计量方法：固定随机矩阵下的重估差分（降噪）。
 - 计量输出：OptionMeasure + path/detail。
 
-### 鲨鱼鳍结构（FX_SHARKFIN / FX_MC_SHARKFIN / IR_SHARKFIN / EQ_SHARKFIN / COMM_SHARKFIN）
+### 鲨鱼鳍结构（FX_SHARKFIN / IR_SHARKFIN / EQ_SHARKFIN / COMM_SHARKFIN）
 - 金融介绍：分段收益与尾部不对称结构，兼顾收益增强与尾部控制。
 - 主要输入要素：区间边界、收益参数、观察规则。
 - 主要市场数据：标的曲线、波动率、折现曲线、必要 fixing。
-- 估值计量方法：解析拆腿或 MC 路径。
-- PV外计量方法：差分 Greeks（MC 版本复用路径）。
+- 估值计量方法：解析拆腿。
+- PV外计量方法：差分 Greeks。
 - 计量输出：OptionMeasure。
 
 ### 婚礼蛋糕结构（FX_WEDDING_CAKE / IR_WEDDING_CAKE / EQ_WEDDING_CAKE / COMM_WEDDING_CAKE）
@@ -207,4 +207,3 @@
 - 估值计量方法：分段收益函数拆解并合成总价值。
 - PV外计量方法：差分 Greeks。
 - 计量输出：OptionMeasure 扩展字段。
-
