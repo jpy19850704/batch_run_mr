@@ -5,11 +5,15 @@ import com.zcyh.mr.springboot.engine.EngineRegistry;
 import com.zcyh.mr.springboot.engine.FrtbDrcEngineAdapter;
 import com.zcyh.mr.springboot.engine.FrtbSaEngineAdapter;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
+import com.zcyh.mr.springboot.engine.MrPayloadBuildEngineAdapter;
 import com.zcyh.mr.springboot.engine.VarEngineAdapter;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
 import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
 import com.zcyh.mr.springboot.engine.ScenarioEngineAdapter;
+import com.zcyh.mr.springboot.service.BatchTradeDataLoader;
+import com.zcyh.mr.springboot.service.JobPayloadBuilder;
+import com.zcyh.mr.springboot.service.MrMarketDataSliceService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,6 +36,14 @@ public class EngineRegistryConfig {
     public MrCalcEngineAdapter mrCalcEngineAdapter(
             @Value("${mr.calc.scenario-set.root-dir:}") String scenarioSetRootDir) {
         return new MrCalcEngineAdapter(scenarioSetRootDir);
+    }
+
+    @Bean
+    public MrPayloadBuildEngineAdapter mrPayloadBuildEngineAdapter(
+            BatchTradeDataLoader batchTradeDataLoader,
+            MrMarketDataSliceService marketDataSliceService,
+            JobPayloadBuilder payloadBuilder) {
+        return new MrPayloadBuildEngineAdapter(batchTradeDataLoader, marketDataSliceService, payloadBuilder);
     }
 
     @Bean(destroyMethod = "shutdown")

@@ -111,7 +111,7 @@ public class BatchTradeDataLoader {
         }
         StringBuilder sql = new StringBuilder();
         List<Object> params = new ArrayList<Object>();
-        sql.append("SELECT id, trade_id, product_type, trade_content_text FROM MR_TRADE_INPUT WHERE data_date=?");
+        sql.append("SELECT id, trade_id, product_type, trade_content_text, portfolio, desk, trader FROM MR_TRADE_INPUT WHERE data_date=?");
         params.add(Date.valueOf(dataDate));
         sql.append(" AND trade_id IN (");
         for (int i = 0; i < tradeIds.size(); i++) {

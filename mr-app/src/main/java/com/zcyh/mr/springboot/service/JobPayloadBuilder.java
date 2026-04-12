@@ -45,6 +45,24 @@ public class JobPayloadBuilder {
             int seqNo,
             String scenarioIdList
     ) {
+        return buildPayload(opCode, dataDate, chunkTrades, curves, tradeMarketDataKeys,
+                batchId, seqNo, scenarioIdList, true);
+    }
+
+    /**
+     * 构建单个 Job 的引擎 payload，可控制是否包含交易维度映射。
+     */
+    public JSONObject buildPayload(
+            String opCode,
+            LocalDate dataDate,
+            List<BatchTradeDataLoader.TradeRow> chunkTrades,
+            List<MrMarketDataSliceService.CurveSliceSource> curves,
+            Map<String, Set<String>> tradeMarketDataKeys,
+            String batchId,
+            int seqNo,
+            String scenarioIdList,
+            boolean includeTradeDimension
+    ) {
         // 组装 trade_data
         JSONArray tradeData = new JSONArray();
         for (BatchTradeDataLoader.TradeRow trade : chunkTrades) {
@@ -103,6 +121,9 @@ public class JobPayloadBuilder {
         }
 
         // 维度映射表（PORTFOLIO, DESK, TRADER）
+        if (!includeTradeDimension) {
+            return payload;
+        }
         JSONObject tradeDimension = new JSONObject();
         for (BatchTradeDataLoader.TradeRow trade : chunkTrades) {
             String dimTradeId = trimToNull(trade.tradeId);
