@@ -278,6 +278,87 @@ PROPERTIES (
     "enable_unique_key_merge_on_write" = "true"
 );
 
+-- =====================================================================
+-- FRTB IMA 内部模型法结果表
+-- Phase1：分批重定价 → 情景 PnL 落库
+-- Phase2：从库读取 → ES → IMCC → 资本汇总
+-- =====================================================================
+
+-- IMA 可建模风险因子情景 PnL 明细表（Phase1 输出）
+-- 每行对应一笔交易在某一流动性期限子集（LH_SUBSET 1-5）下的情景重定价损益。
+-- SCENARIO_TYPE 区分 STRESS（压力期）/ NORMAL（当前期）/ REDUCED_SET（缩减集，MAR33.5）。
+-- ES 聚合在 Phase2 中从本表读取，按 SCENARIO_TYPE+SCENARIO_ID+SUBSCENARIO_ID+LH_DAYS 分组。
+-- 风险类别损益按列拆分（对齐 TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL），ALL_PNL 为全风险类别合计。
+CREATE TABLE IF NOT EXISTS TB_OUT_IMA_MODELLABLE_SCENARIO_PNL (
+    ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
+    REQUEST_ID              VARCHAR(128)                             COMMENT '请求ID',
+    JOB_ID                  VARCHAR(64)                              COMMENT '任务ID',
+    BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
+    SEQ_NO                  BIGINT                                   COMMENT '序号',
+    DATA_DATE               VARCHAR(16)                              COMMENT '计算基准日期',
+    OP_CODE                 VARCHAR(64)                              COMMENT '操作码',
+    SCENARIO_ID             VARCHAR(128)                             COMMENT '情景集ID',
+    SUBSCENARIO_ID          VARCHAR(128)                             COMMENT '子情景ID（单条历史情景序号）',
+    SCENARIO_NAME           VARCHAR(256)                             COMMENT '情景名称',
+    SCENARIO_TYPE           VARCHAR(32)                              COMMENT '情景类型：STRESS / NORMAL / REDUCED_SET',
+    INSTRUMENT_ID           VARCHAR(128)                             COMMENT '交易ID',
+    PRODUCT_CODE            VARCHAR(64)                              COMMENT '产品代码',
+    LH_DAYS                 SMALLINT                                 COMMENT '流动性期限天数：10/20/40/60/120（MAR33.4 j=1..5）',
+    BASE_VALUATION_CNY      DECIMAL(38, 10)                          COMMENT '基准估值（人民币）',
+    IR_VALUATION            DECIMAL(38, 10)                          COMMENT '利率风险因子子集重定价估值',
+    IR_PNL                  DECIMAL(38, 10)                          COMMENT '利率风险损益',
+    FX_VALUATION            DECIMAL(38, 10)                          COMMENT '外汇风险因子子集重定价估值',
+    FX_PNL                  DECIMAL(38, 10)                          COMMENT '外汇风险损益',
+    EQ_VALUATION            DECIMAL(38, 10)                          COMMENT '权益风险因子子集重定价估值',
+    EQ_PNL                  DECIMAL(38, 10)                          COMMENT '权益风险损益',
+    COMM_VALUATION          DECIMAL(38, 10)                          COMMENT '大宗商品风险因子子集重定价估值',
+    COMM_PNL                DECIMAL(38, 10)                          COMMENT '大宗商品风险损益',
+    ALL_VALUATION           DECIMAL(38, 10)                          COMMENT '全风险类别子集重定价估值',
+    ALL_PNL                 DECIMAL(38, 10)                          COMMENT '全风险类别损益',
+    RESULT_JSON             TEXT                                     COMMENT '扩展结果JSON',
+    CREATED_AT              BIGINT                                   COMMENT '创建时间戳',
+    UPDATED_AT              BIGINT                                   COMMENT '更新时间戳'
+)
+UNIQUE KEY(ID)
+DISTRIBUTED BY HASH(ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
+-- IMA 不可建模风险因子情景 PnL 明细表（Phase1 输出）
+-- 每行对应一笔交易在某一 NMRF 因子单独压力冲击下的情景损益。
+-- NMRF_TYPE 区分 IDIO_CREDIT / IDIO_EQUITY / OTHER，用于 SES 聚合公式（MAR33.17）。
+-- SES 聚合在 Phase2 中从本表读取，按 RISK_FACTOR_ID 分组取最大损失作为压力场景损失。
+CREATE TABLE IF NOT EXISTS TB_OUT_IMA_NMRF_SCENARIO_PNL (
+    ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
+    REQUEST_ID              VARCHAR(128)                             COMMENT '请求ID',
+    JOB_ID                  VARCHAR(64)                              COMMENT '任务ID',
+    BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
+    SEQ_NO                  BIGINT                                   COMMENT '序号',
+    DATA_DATE               VARCHAR(16)                              COMMENT '计算基准日期',
+    OP_CODE                 VARCHAR(64)                              COMMENT '操作码',
+    SCENARIO_ID             VARCHAR(128)                             COMMENT '情景集ID（NMRF压力情景集）',
+    SUBSCENARIO_ID          VARCHAR(128)                             COMMENT '子情景ID（单条压力情景）',
+    SCENARIO_NAME           VARCHAR(256)                             COMMENT '情景名称',
+    INSTRUMENT_ID           VARCHAR(128)                             COMMENT '交易ID',
+    PRODUCT_CODE            VARCHAR(64)                              COMMENT '产品代码',
+    RISK_FACTOR_ID          VARCHAR(256)                             COMMENT '不可建模风险因子ID（MAR31.13 NMRF）',
+    NMRF_TYPE               VARCHAR(32)                              COMMENT 'NMRF分类：IDIO_CREDIT / IDIO_EQUITY / OTHER（MAR33.17）',
+    BASE_VALUATION_CNY      DECIMAL(38, 10)                          COMMENT '基准估值（人民币）',
+    STRESS_VALUATION_CNY    DECIMAL(38, 10)                          COMMENT '压力情景重定价估值（仅冲击该NMRF因子）',
+    PNL                     DECIMAL(38, 10)                          COMMENT '压力情景损益 = STRESS_VALUATION - BASE_VALUATION',
+    RESULT_JSON             TEXT                                     COMMENT '扩展结果JSON',
+    CREATED_AT              BIGINT                                   COMMENT '创建时间戳',
+    UPDATED_AT              BIGINT                                   COMMENT '更新时间戳'
+)
+UNIQUE KEY(ID)
+DISTRIBUTED BY HASH(ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
 -- SA-CCR 交易对手信用风险 EAD 结果表（BCBS 279）
 CREATE TABLE IF NOT EXISTS TB_OUT_SACCR_RESULT (
     ID                  BIGINT          NOT NULL AUTO_INCREMENT,
