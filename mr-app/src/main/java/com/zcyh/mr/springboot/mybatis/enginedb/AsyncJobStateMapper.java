@@ -16,17 +16,17 @@ import java.util.Map;
 @Mapper
 public interface AsyncJobStateMapper {
 
-    @Select("SELECT job_id,request_id,engine_code,payload_json,status,created_at,started_at,finished_at,elapsed_ms,success_flag,error_code,error_message,idempotency_key,trace_id,client_id,user_id,user_name,source_system,cancel_requested,owner_node,updated_at FROM MR_ASYNC_JOB WHERE 1=0")
+    @Select("SELECT job_id,request_id,engine_code,payload_json,status,created_at,started_at,finished_at,elapsed_ms,success_flag,error_code,error_message,result_json,idempotency_key,trace_id,client_id,user_id,user_name,source_system,cancel_requested,owner_node,updated_at FROM MR_ASYNC_JOB WHERE 1=0")
     List<Map<String, Object>> verifyJobSchema();
 
     @Insert("INSERT INTO MR_ASYNC_JOB (job_id, request_id, engine_code, payload_json, status, created_at, updated_at, idempotency_key, trace_id, client_id, user_id, user_name, source_system, cancel_requested, owner_node) "
             + "VALUES (#{create.jobId}, #{create.requestId}, #{create.engineCode}, #{create.payloadJson}, #{create.status}, #{create.createdAt}, #{create.updatedAt}, #{create.idempotencyKey}, #{create.traceId}, #{create.clientId}, #{create.userId}, #{create.userName}, #{create.sourceSystem}, 0, #{nodeId})")
     int insertJob(@Param("create") AsyncJobEntity create, @Param("nodeId") String nodeId);
 
-    @Select("SELECT job_id,request_id,engine_code,payload_json,status,created_at,started_at,finished_at,elapsed_ms,success_flag,error_code,error_message,idempotency_key,trace_id,client_id,user_id,user_name,source_system,cancel_requested,owner_node,updated_at FROM MR_ASYNC_JOB WHERE job_id=#{jobId}")
+    @Select("SELECT job_id,request_id,engine_code,payload_json,status,created_at,started_at,finished_at,elapsed_ms,success_flag,error_code,error_message,result_json,idempotency_key,trace_id,client_id,user_id,user_name,source_system,cancel_requested,owner_node,updated_at FROM MR_ASYNC_JOB WHERE job_id=#{jobId}")
     List<AsyncJobEntity> findByJobId(@Param("jobId") String jobId);
 
-    @Select("SELECT job_id,request_id,engine_code,payload_json,status,created_at,started_at,finished_at,elapsed_ms,success_flag,error_code,error_message,idempotency_key,trace_id,client_id,user_id,user_name,source_system,cancel_requested,owner_node,updated_at FROM MR_ASYNC_JOB WHERE idempotency_key=#{idempotencyKey}")
+    @Select("SELECT job_id,request_id,engine_code,payload_json,status,created_at,started_at,finished_at,elapsed_ms,success_flag,error_code,error_message,result_json,idempotency_key,trace_id,client_id,user_id,user_name,source_system,cancel_requested,owner_node,updated_at FROM MR_ASYNC_JOB WHERE idempotency_key=#{idempotencyKey}")
     List<AsyncJobEntity> findByIdempotencyKey(@Param("idempotencyKey") String idempotencyKey);
 
     @Select("SELECT COUNT(1) FROM MR_ASYNC_JOB WHERE status=#{pendingStatus}")
@@ -83,7 +83,7 @@ public interface AsyncJobStateMapper {
             @Param("pendingStatus") String pendingStatus
     );
 
-    @Update("UPDATE MR_ASYNC_JOB SET status=#{finalStatus}, finished_at=#{finish}, elapsed_ms=#{elapsed}, success_flag=#{successFlag}, error_code=#{errorCode}, error_message=#{errorMessage}, updated_at=#{finish} WHERE job_id=#{jobId} AND status=#{runningStatus}")
+    @Update("UPDATE MR_ASYNC_JOB SET status=#{finalStatus}, finished_at=#{finish}, elapsed_ms=#{elapsed}, success_flag=#{successFlag}, error_code=#{errorCode}, error_message=#{errorMessage}, result_json=#{resultJson}, updated_at=#{finish} WHERE job_id=#{jobId} AND status=#{runningStatus}")
     int persistRunResult(
             @Param("jobId") String jobId,
             @Param("runningStatus") String runningStatus,
@@ -92,7 +92,8 @@ public interface AsyncJobStateMapper {
             @Param("elapsed") long elapsed,
             @Param("successFlag") int successFlag,
             @Param("errorCode") String errorCode,
-            @Param("errorMessage") String errorMessage
+            @Param("errorMessage") String errorMessage,
+            @Param("resultJson") String resultJson
     );
 
     @Update("UPDATE MR_ASYNC_JOB SET status=#{failedStatus}, finished_at=#{finish}, elapsed_ms=#{elapsed}, success_flag=0, error_code=#{errorCode}, error_message=#{errorMessage}, updated_at=#{finish} WHERE job_id=#{jobId} AND status=#{runningStatus}")

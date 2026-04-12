@@ -8,6 +8,7 @@ public class BatchRunRequest {
     private String dataDate;
     private String user;
     private String scenarioIdList;
+    private String runMode;
 
     public String getBatchId() {
         return batchId;
@@ -39,5 +40,13 @@ public class BatchRunRequest {
 
     public void setScenarioIdList(String scenarioIdList) {
         this.scenarioIdList = scenarioIdList;
+    }
+
+    public String getRunMode() {
+        return runMode;
+    }
+
+    public void setRunMode(String runMode) {
+        this.runMode = runMode;
     }
 }

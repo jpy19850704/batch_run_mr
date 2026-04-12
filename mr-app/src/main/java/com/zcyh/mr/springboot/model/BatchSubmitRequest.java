@@ -10,6 +10,7 @@ public class BatchSubmitRequest {
     private String dataDate;
     private String portfolio;
     private String desk;
+    private String runMode;
 
     public String getBatchId() {
         return batchId;
@@ -57,5 +58,13 @@ public class BatchSubmitRequest {
 
     public void setDesk(String desk) {
         this.desk = desk;
+    }
+
+    public String getRunMode() {
+        return runMode;
+    }
+
+    public void setRunMode(String runMode) {
+        this.runMode = runMode;
     }
 }

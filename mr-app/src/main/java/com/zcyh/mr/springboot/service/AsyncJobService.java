@@ -1,6 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
 import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
 import com.zcyh.mr.springboot.context.RequestContext;
@@ -377,7 +378,7 @@ public class AsyncJobService {
                     handleTerminalSideEffects(jobId, running.requestId, running.payloadJson, running.engineCode, null);
                     return;
                 }
-                persistRunResult(jobId, runResult, finish);
+                persistRunResult(jobId, runResult, finish, running.payloadJson);
                 log.info("异步任务执行完成，jobId={}, engineCode={}, success={}, elapsedMs={}",
                         jobId, running.engineCode, runResult.isSuccess(), runResult.getElapsedMs());
                 handleTerminalSideEffects(jobId, running.requestId, running.payloadJson, running.engineCode, runResult);
@@ -405,7 +406,10 @@ public class AsyncJobService {
      */
     private void handleTerminalSideEffects(String jobId, String requestId, String payloadJson, String engineCode, EngineRunResult runResult) {
         try {
-            if (runResult != null && runResult.isSuccess() && MrCalcEngineAdapter.CODE.equalsIgnoreCase(defaultEngineCode(engineCode))) {
+            if (runResult != null
+                    && runResult.isSuccess()
+                    && MrCalcEngineAdapter.CODE.equalsIgnoreCase(defaultEngineCode(engineCode))
+                    && !isWhatifPayload(payloadJson)) {
                 pricingResultPersistService.persistJobResult(requestId, jobId, payloadJson, runResult);
             }
         } catch (Exception ex) {
@@ -693,18 +697,21 @@ public class AsyncJobService {
         }, "更新运行状态");
     }
 
-    private void persistRunResult(String jobId, EngineRunResult runResult, long finish) {
+    private void persistRunResult(String jobId, EngineRunResult runResult, long finish, String payloadJson) {
         AsyncJobEntity running = requireJob(jobId);
         long elapsed = calcElapsed(running.startedAt, finish, runResult.getElapsedMs());
         runResult.setElapsedMs(elapsed);
         final String finalStatus = runResult.isSuccess() ? SUCCESS : FAILED;
         final String safeErrorMessage = truncateForErrorMessage(runResult.getErrorMessage());
+        final String resultJson = isWhatifPayload(payloadJson)
+                ? JSON.toJSONString(runResult.getData(), JSONWriter.Feature.WriteBigDecimalAsPlain)
+                : null;
         withRetry(new Callable<Void>() {
             @Override
             public Void call() {
                 jobStateRepository.persistRunResult(
                         jobId, RUNNING, finalStatus, finish, elapsed,
-                        runResult.isSuccess(), runResult.getErrorCode(), safeErrorMessage);
+                        runResult.isSuccess(), runResult.getErrorCode(), safeErrorMessage, resultJson);
                 return null;
             }
         }, "持久化任务结果");
@@ -856,6 +863,7 @@ public class AsyncJobService {
         result.setElapsedMs(resolveElapsed(job) == null ? 0L : resolveElapsed(job));
         result.setErrorCode(job.errorCode);
         result.setErrorMessage(job.errorMessage);
+        result.setData(parseJsonSafely(job.resultJson));
         return result;
     }
 
@@ -1064,6 +1072,28 @@ public class AsyncJobService {
             return truncateForErrorMessage(message);
         }
         return truncateForErrorMessage(ex.getClass().getSimpleName());
+    }
+
+    private static boolean isWhatifPayload(String payloadJson) {
+        try {
+            JSONObject payload = JSON.parseObject(payloadJson);
+            String runMode = payload == null ? null : payload.getString("run_mode");
+            return runMode != null && "WHATIF".equalsIgnoreCase(runMode.trim());
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+
+    private static Object parseJsonSafely(String raw) {
+        String txt = trimToNull(raw);
+        if (txt == null) {
+            return null;
+        }
+        try {
+            return JSON.parse(txt);
+        } catch (Exception ignore) {
+            return txt;
+        }
     }
 
     /**

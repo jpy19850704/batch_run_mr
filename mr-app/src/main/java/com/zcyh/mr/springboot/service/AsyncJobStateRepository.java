@@ -69,8 +69,8 @@ class AsyncJobStateRepository {
         return mapper.markRunning(jobId, start, nodeId, runningStatus, pendingStatus) > 0;
     }
 
-    void persistRunResult(String jobId, String runningStatus, String finalStatus, long finish, long elapsed, boolean success, String errorCode, String errorMessage) {
-        mapper.persistRunResult(jobId, runningStatus, finalStatus, finish, elapsed, success ? 1 : 0, errorCode, errorMessage);
+    void persistRunResult(String jobId, String runningStatus, String finalStatus, long finish, long elapsed, boolean success, String errorCode, String errorMessage, String resultJson) {
+        mapper.persistRunResult(jobId, runningStatus, finalStatus, finish, elapsed, success ? 1 : 0, errorCode, errorMessage, resultJson);
     }
 
     void persistRunFailure(String jobId, String runningStatus, String failedStatus, long finish, long elapsed, String errorCode, String errorMessage) {

@@ -32,6 +32,7 @@ public class BatchRunService {
     private static final String DEFAULT_RULE_ID = "BATCH_FRTB_DEFAULT";
     private static final String DEFAULT_VAR_RULE_ID = "BATCH_VAR_DEFAULT";
     private static final String DEFAULT_VAR_QUANTILES = "0.95,0.99";
+    private static final String RUN_MODE_WHATIF = "WHATIF";
 
     private final ScenarioEngineAdapter scenarioEngineAdapter;
     private final CalendarFileBootstrapService calendarFileBootstrapService;
@@ -89,34 +90,38 @@ public class BatchRunService {
         }
         String scenarioIdList = trimToNull(request.getScenarioIdList());
         boolean scenarioMode = scenarioIdList != null;
+        String runMode = normalizeRunMode(request.getRunMode());
+        boolean whatifMode = RUN_MODE_WHATIF.equals(runMode);
 
         RequestContextHolder.setBatchId(batchId);
         RequestContextHolder.setEngineCode("MR_CALC");
 
         calendarFileBootstrapService.refreshForBatch(batchId);
 
-        int scenarioCount = 0;
+        JSONArray scenarioData = new JSONArray();
         if (scenarioMode) {
-            scenarioCount = generateScenarios(batchId, dataDate, user, scenarioIdList);
+            scenarioData = generateScenarios(batchId, dataDate, user, scenarioIdList);
         }
 
-        BatchSubmitResult submitResult = submitBatch(batchId, dataDate, scenarioMode, scenarioIdList);
+        BatchSubmitResult submitResult = submitBatch(batchId, dataDate, scenarioMode, scenarioIdList, runMode);
         BatchDetailResult batchDetail = waitBatchFinished(batchId);
         if (!batchDetail.isSuccess()) {
             throw new IllegalStateException("批量任务执行失败，batchId=" + batchId + ", status=" + batchDetail.getStatus());
         }
 
-        Object frtbSummary = runFrtbSummary(batchId, dataDate);
-        Object drcSummary = runDrcSummary(batchId, dataDate);
-        Object varSummary = runVarSummary(batchId, dataDate);
+        Object frtbSummary = whatifMode ? null : runFrtbSummary(batchId, dataDate);
+        Object drcSummary = whatifMode ? null : runDrcSummary(batchId, dataDate);
+        Object varSummary = whatifMode ? null : runVarSummary(batchId, dataDate);
 
         BatchRunResult result = new BatchRunResult();
         result.setBatchId(batchId);
         result.setDataDate(dataDate);
         result.setUser(user);
         result.setMode(scenarioMode ? "SCENARIO" : "PRICING");
+        result.setRunMode(runMode);
         result.setScenarioGenerated(scenarioMode);
-        result.setScenarioCount(scenarioCount);
+        result.setScenarioCount(scenarioData.size());
+        result.setScenarioData(scenarioData);
         result.setBatchDetail(batchDetail);
         result.setFrtbSummary(frtbSummary);
         result.setDrcSummary(drcSummary);
@@ -124,7 +129,7 @@ public class BatchRunService {
         return result;
     }
 
-    private int generateScenarios(String batchId, String dataDate, String user, String scenarioIdList) {
+    private JSONArray generateScenarios(String batchId, String dataDate, String user, String scenarioIdList) {
         if (trimToNull(scenarioSetRootDir) == null) {
             throw new IllegalStateException("SCENARIO 模式要求已配置 mr.calc.scenario-set.root-dir，用于生成并落地情景文件");
         }
@@ -161,19 +166,32 @@ public class BatchRunService {
             throw new IllegalStateException("写入情景文件失败: " + e.getMessage(), e);
         }
 
-        return data.size();
+        return data;
     }
 
-    private BatchSubmitResult submitBatch(String batchId, String dataDate, boolean scenarioMode, String scenarioIdList) {
+    private BatchSubmitResult submitBatch(String batchId, String dataDate, boolean scenarioMode, String scenarioIdList, String runMode) {
         BatchSubmitRequest request = new BatchSubmitRequest();
         request.setBatchId(batchId);
         request.setRequestId(batchId);
         request.setDataDate(dataDate);
         request.setOpCode(scenarioMode ? "SCENARIO" : "PRICING");
+        request.setRunMode(runMode);
         if (scenarioMode) {
             return batchJobService.submit(request, scenarioIdList);
         }
         return batchJobService.submit(request);
+    }
+
+    private static String normalizeRunMode(String runMode) {
+        String value = trimToNull(runMode);
+        if (value == null) {
+            return null;
+        }
+        value = value.toUpperCase(java.util.Locale.ROOT);
+        if (!RUN_MODE_WHATIF.equals(value)) {
+            throw new IllegalArgumentException("runMode 仅支持 WHATIF 或空值，实际: " + runMode);
+        }
+        return value;
     }
 
     private BatchDetailResult waitBatchFinished(String batchId) {

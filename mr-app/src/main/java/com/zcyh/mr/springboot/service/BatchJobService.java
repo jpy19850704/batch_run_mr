@@ -30,6 +30,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -177,6 +178,7 @@ public class BatchJobService {
         RequestContextHolder.setEngineCode(engineCode);
         String portfolio = trimToNull(request.getPortfolio());
         String desk = trimToNull(request.getDesk());
+        String runMode = normalizeRunMode(request.getRunMode());
 
         List<BatchTradeDataLoader.TradeRow> trades = dataLoader.loadTradeRows(dataDate, portfolio, desk);
         if (trades.isEmpty()) {
@@ -213,6 +215,9 @@ public class BatchJobService {
                         curveSources);
                 JSONObject payload = payloadBuilder.buildPayload(opCode, dataDate, chunkTrades, sliceResult.getCurves(),
                         sliceResult.getTradeMarketDataKeys(), batchId, seqNo, scenarioIdList);
+                if (runMode != null) {
+                    payload.put("run_mode", runMode);
+                }
 
                 JobSubmitRequest jobRequest = new JobSubmitRequest();
                 String jobId = buildJobId(batchId, seqNo);
@@ -745,6 +750,18 @@ public class BatchJobService {
         }
         String value = txt.trim();
         return value.isEmpty() ? null : value;
+    }
+
+    private static String normalizeRunMode(String runMode) {
+        String value = trimToNull(runMode);
+        if (value == null) {
+            return null;
+        }
+        value = value.toUpperCase(Locale.ROOT);
+        if (!"WHATIF".equals(value)) {
+            throw new IllegalArgumentException("runMode 仅支持 WHATIF 或空值，实际: " + runMode);
+        }
+        return value;
     }
 
     // ==================== 内部类 ====================

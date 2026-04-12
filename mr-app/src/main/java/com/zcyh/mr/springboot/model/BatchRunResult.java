@@ -8,8 +8,10 @@ public class BatchRunResult {
     private String dataDate;
     private String user;
     private String mode;
+    private String runMode;
     private boolean scenarioGenerated;
     private int scenarioCount;
+    private Object scenarioData;
     private BatchDetailResult batchDetail;
     private Object frtbSummary;
     private Object drcSummary;
@@ -47,6 +49,14 @@ public class BatchRunResult {
         this.mode = mode;
     }
 
+    public String getRunMode() {
+        return runMode;
+    }
+
+    public void setRunMode(String runMode) {
+        this.runMode = runMode;
+    }
+
     public boolean isScenarioGenerated() {
         return scenarioGenerated;
     }
@@ -61,6 +71,14 @@ public class BatchRunResult {
 
     public void setScenarioCount(int scenarioCount) {
         this.scenarioCount = scenarioCount;
+    }
+
+    public Object getScenarioData() {
+        return scenarioData;
+    }
+
+    public void setScenarioData(Object scenarioData) {
+        this.scenarioData = scenarioData;
     }
 
     public BatchDetailResult getBatchDetail() {
