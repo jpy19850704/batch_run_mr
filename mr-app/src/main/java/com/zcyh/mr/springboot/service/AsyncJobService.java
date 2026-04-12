@@ -405,11 +405,12 @@ public class AsyncJobService {
      * 批次结果快照生成属于非关键动作，失败仅记录日志。
      */
     private void handleTerminalSideEffects(String jobId, String requestId, String payloadJson, String engineCode, EngineRunResult runResult) {
+        boolean whatifPayload = isWhatifPayload(payloadJson);
         try {
             if (runResult != null
                     && runResult.isSuccess()
                     && MrCalcEngineAdapter.CODE.equalsIgnoreCase(defaultEngineCode(engineCode))
-                    && !isWhatifPayload(payloadJson)) {
+                    && !whatifPayload) {
                 pricingResultPersistService.persistJobResult(requestId, jobId, payloadJson, runResult);
             }
         } catch (Exception ex) {
@@ -417,7 +418,9 @@ public class AsyncJobService {
         }
 
         try {
-            batchResultFileService.tryWriteSnapshotForJob(jobId);
+            if (!whatifPayload) {
+                batchResultFileService.tryWriteSnapshotForJob(jobId);
+            }
         } catch (Exception ex) {
             log.error("批次结果快照生成失败，jobId={}", jobId, ex);
         }
@@ -1077,11 +1080,56 @@ public class AsyncJobService {
     private static boolean isWhatifPayload(String payloadJson) {
         try {
             JSONObject payload = JSON.parseObject(payloadJson);
-            String runMode = payload == null ? null : payload.getString("run_mode");
-            return runMode != null && "WHATIF".equalsIgnoreCase(runMode.trim());
+            if (payload == null) {
+                return false;
+            }
+            String runMode = firstNonBlank(
+                    payload.getString("run_mode"),
+                    payload.getString("runMode"));
+            if (runMode != null && "WHATIF".equalsIgnoreCase(runMode.trim())) {
+                return true;
+            }
+            String batchId = resolveBatchId(payload);
+            return batchId != null && batchId.toLowerCase(java.util.Locale.ROOT).startsWith("stresswhatif_");
         } catch (Exception ex) {
             return false;
         }
+    }
+
+    private static String resolveBatchId(JSONObject payload) {
+        if (payload == null) {
+            return null;
+        }
+        String batchId = firstNonBlank(
+                payload.getString("batch_id"),
+                payload.getString("batchId"));
+        if (batchId != null) {
+            return batchId;
+        }
+        JSONObject batchMeta = payload.getJSONObject("batch_meta");
+        batchId = firstNonBlank(
+                batchMeta == null ? null : batchMeta.getString("batch_id"),
+                batchMeta == null ? null : batchMeta.getString("batchId"));
+        if (batchId != null) {
+            return batchId;
+        }
+        JSONObject scenarioRef = payload.getJSONObject("scenario_ref");
+        return firstNonBlank(
+                scenarioRef == null ? null : scenarioRef.getString("batch_id"),
+                scenarioRef == null ? null : scenarioRef.getString("batchId"));
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            String safe = trimToNull(value);
+            if (safe != null) {
+                return safe;
+            }
+        }
+        return null;
     }
 
     private static Object parseJsonSafely(String raw) {
