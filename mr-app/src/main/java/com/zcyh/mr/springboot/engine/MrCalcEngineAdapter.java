@@ -4,7 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.calc.Calc;
-import com.zcyh.mr.calc.ScenarioCache;
+import com.zcyh.mr.scenario.ScenarioCache;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;

@@ -5,11 +5,9 @@ import com.zcyh.mr.springboot.engine.EngineRegistry;
 import com.zcyh.mr.springboot.engine.FrtbDrcEngineAdapter;
 import com.zcyh.mr.springboot.engine.FrtbSaEngineAdapter;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
-import com.zcyh.mr.springboot.engine.StressScenarioPreviewEngineAdapter;
 import com.zcyh.mr.springboot.engine.VarEngineAdapter;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
 import com.zcyh.mr.scenario.ScenarioGenerationEngine;
-import com.zcyh.mr.springboot.service.BatchTradeDataLoader;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
 import com.zcyh.mr.springboot.engine.ScenarioEngineAdapter;
 import org.springframework.beans.factory.ObjectProvider;
@@ -77,13 +75,6 @@ public class EngineRegistryConfig {
         return new ScenarioEngineAdapter(
                 scenarioGenerationEngineProvider.getIfAvailable(),
                 scenarioRequestAssemblerProvider.getIfAvailable());
-    }
-
-    @Bean
-    public StressScenarioPreviewEngineAdapter stressScenarioPreviewEngineAdapter(
-            BatchTradeDataLoader batchTradeDataLoader,
-            MrCalcEngineAdapter mrCalcEngineAdapter) {
-        return new StressScenarioPreviewEngineAdapter(batchTradeDataLoader, mrCalcEngineAdapter);
     }
 
     @Bean
