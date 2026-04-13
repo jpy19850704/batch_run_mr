@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.model;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 /**
  * 批次总编排运行请求。
  */
@@ -9,6 +11,8 @@ public class BatchRunRequest {
     private String user;
     private String scenarioIdList;
     private String runMode;
+    @JsonAlias("persist_scenario")
+    private Boolean persistScenario;
 
     public String getBatchId() {
         return batchId;
@@ -48,5 +52,13 @@ public class BatchRunRequest {
 
     public void setRunMode(String runMode) {
         this.runMode = runMode;
+    }
+
+    public Boolean getPersistScenario() {
+        return persistScenario;
+    }
+
+    public void setPersistScenario(Boolean persistScenario) {
+        this.persistScenario = persistScenario;
     }
 }

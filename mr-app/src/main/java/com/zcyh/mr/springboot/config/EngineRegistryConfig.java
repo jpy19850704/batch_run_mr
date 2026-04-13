@@ -10,6 +10,7 @@ import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
 import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
 import com.zcyh.mr.springboot.engine.ScenarioEngineAdapter;
+import com.zcyh.mr.springboot.service.ScenarioGeneratedPersistService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -71,10 +72,12 @@ public class EngineRegistryConfig {
     @Bean
     public ScenarioEngineAdapter scenarioEngineAdapter(
             ObjectProvider<ScenarioGenerationEngine> scenarioGenerationEngineProvider,
-            ObjectProvider<ScenarioRequestAssembler> scenarioRequestAssemblerProvider) {
+            ObjectProvider<ScenarioRequestAssembler> scenarioRequestAssemblerProvider,
+            ObjectProvider<ScenarioGeneratedPersistService> scenarioGeneratedPersistServiceProvider) {
         return new ScenarioEngineAdapter(
                 scenarioGenerationEngineProvider.getIfAvailable(),
-                scenarioRequestAssemblerProvider.getIfAvailable());
+                scenarioRequestAssemblerProvider.getIfAvailable(),
+                scenarioGeneratedPersistServiceProvider.getIfAvailable());
     }
 
     @Bean

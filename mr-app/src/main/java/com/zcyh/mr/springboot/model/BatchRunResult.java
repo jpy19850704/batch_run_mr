@@ -13,7 +13,7 @@ public class BatchRunResult {
     private int scenarioCount;
     private Object scenarioData;
     private BatchDetailResult batchDetail;
-    private Object frtbSummary;
+    private Object sbaSummary;
     private Object drcSummary;
     private Object varSummary;
 
@@ -89,12 +89,12 @@ public class BatchRunResult {
         this.batchDetail = batchDetail;
     }
 
-    public Object getFrtbSummary() {
-        return frtbSummary;
+    public Object getSbaSummary() {
+        return sbaSummary;
     }
 
-    public void setFrtbSummary(Object frtbSummary) {
-        this.frtbSummary = frtbSummary;
+    public void setSbaSummary(Object sbaSummary) {
+        this.sbaSummary = sbaSummary;
     }
 
     public Object getDrcSummary() {

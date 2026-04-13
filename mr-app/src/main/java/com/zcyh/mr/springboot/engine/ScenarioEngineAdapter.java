@@ -7,6 +7,7 @@ import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.scenario.model.ScenarioGenerationRequest;
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
+import com.zcyh.mr.springboot.service.ScenarioGeneratedPersistService;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -20,12 +21,15 @@ public class ScenarioEngineAdapter implements EngineAdapter {
     public static final String CODE = "scenario";
     private final ScenarioGenerationEngine scenarioGenerationEngine;
     private final ScenarioRequestAssembler scenarioRequestAssembler;
+    private final ScenarioGeneratedPersistService scenarioGeneratedPersistService;
 
     public ScenarioEngineAdapter(
             ScenarioGenerationEngine scenarioGenerationEngine,
-            ScenarioRequestAssembler scenarioRequestAssembler) {
+            ScenarioRequestAssembler scenarioRequestAssembler,
+            ScenarioGeneratedPersistService scenarioGeneratedPersistService) {
         this.scenarioGenerationEngine = scenarioGenerationEngine;
         this.scenarioRequestAssembler = scenarioRequestAssembler;
+        this.scenarioGeneratedPersistService = scenarioGeneratedPersistService;
     }
 
     @Override
@@ -62,6 +66,8 @@ public class ScenarioEngineAdapter implements EngineAdapter {
         if (user == null || user.trim().isEmpty()) {
             user = "outer_service";
         }
+        String batchId = trimToNull(firstNonBlank(req.getString("batch_id"), req.getString("batchId")));
+        Boolean persistScenario = readBoolean(req, "persist_scenario", "persistScenario");
 
         ScenarioGenerationRequest request = scenarioRequestAssembler.build(
                 scenarioIdList,
@@ -69,6 +75,9 @@ public class ScenarioEngineAdapter implements EngineAdapter {
                 user,
                 "mr-app");
         List<ScenarioGeneratedRecord> result = scenarioGenerationEngine.generate(request);
+        if (scenarioGeneratedPersistService != null) {
+            scenarioGeneratedPersistService.persist(batchId, dataDate, persistScenario, result);
+        }
         return JSON.toJSONString(result, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
 
@@ -78,5 +87,55 @@ public class ScenarioEngineAdapter implements EngineAdapter {
             throw new IllegalArgumentException(key + " is required");
         }
         return value.trim();
+    }
+
+    private static Boolean readBoolean(JSONObject obj, String... keys) {
+        if (obj == null || keys == null) {
+            return null;
+        }
+        for (String key : keys) {
+            if (key == null) {
+                continue;
+            }
+            Object raw = obj.get(key);
+            if (raw == null) {
+                continue;
+            }
+            if (raw instanceof Boolean) {
+                return (Boolean) raw;
+            }
+            String text = trimToNull(String.valueOf(raw));
+            if (text == null) {
+                continue;
+            }
+            if ("true".equalsIgnoreCase(text) || "1".equals(text) || "y".equalsIgnoreCase(text)) {
+                return true;
+            }
+            if ("false".equalsIgnoreCase(text) || "0".equals(text) || "n".equalsIgnoreCase(text)) {
+                return false;
+            }
+        }
+        return null;
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            String safe = trimToNull(value);
+            if (safe != null) {
+                return safe;
+            }
+        }
+        return null;
+    }
+
+    private static String trimToNull(String text) {
+        if (text == null) {
+            return null;
+        }
+        String value = text.trim();
+        return value.isEmpty() ? null : value;
     }
 }
