@@ -123,16 +123,11 @@ public class MrJobController {
     public ApiResponse<BatchSubmitResult> submitBatch(@RequestBody BatchSubmitRequest request) {
         long start = System.currentTimeMillis();
         RequestContextHolder.setEngineCode("MR_CALC");
-        try {
-            BatchSubmitResult result = batchJobService.submit(request);
-            RequestContextHolder.setBatchId(result.getBatchId());
-            auditLogService.recordSuccess("BATCH_SUBMIT", "BATCH", result.getBatchId(), result.getEngineCode(), "批量任务提交成功", System.currentTimeMillis() - start);
-            return ApiResponse.ok(result);
-        } catch (RuntimeException ex) {
-            alertService.error("BATCH_SUBMIT_FAILED", "批量任务提交失败", ex);
-            auditLogService.recordFailure("BATCH_SUBMIT", "BATCH", request == null ? null : request.getBatchId(), "MR_CALC", "BATCH_SUBMIT_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
-            throw ex;
-        }
+        String message = "批量提交接口已下线，请统一使用 /api/v1/jobs/batch/run";
+        IllegalStateException ex = new IllegalStateException(message);
+        alertService.error("BATCH_SUBMIT_DISABLED", "批量提交接口已禁用", ex);
+        auditLogService.recordFailure("BATCH_SUBMIT", "BATCH", request == null ? null : request.getBatchId(), "MR_CALC", "BATCH_SUBMIT_DISABLED", message, System.currentTimeMillis() - start);
+        throw ex;
     }
 
     @PostMapping("/batch/run")

@@ -166,6 +166,22 @@ public class BatchJobService {
         return submitInternal(request, scenarioIdList);
     }
 
+    void prepareBatchSubmission(
+            String batchId,
+            String requestId,
+            String engineCode,
+            String opCode,
+            LocalDate dataDate,
+            String portfolio,
+            String desk,
+            int totalTrades,
+            int totalJobs,
+            long now) {
+        ensureBatchNotRunning(batchId);
+        clearExistingBatchData(batchId);
+        insertBatchJob(batchId, requestId, engineCode, opCode, dataDate, portfolio, desk, totalTrades, totalJobs, now);
+    }
+
     private BatchSubmitResult submitInternal(BatchSubmitRequest request, String scenarioIdList) {
         if (request == null) {
             throw new IllegalArgumentException("request 不能为空");
@@ -426,6 +442,7 @@ public class BatchJobService {
 
         engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_RESULT_DETAIL WHERE BATCH_ID=?", batchId);
         engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_SCENARIO_RESULT_DETAIL WHERE BATCH_ID=?", batchId);
+        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL WHERE BATCH_ID=?", batchId);
         engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL WHERE BATCH_ID=?", batchId);
         engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_DRC_DETAIL WHERE BATCH_ID=?", batchId);
         engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_DRC_RESULT WHERE BATCH_ID=?", batchId);
@@ -445,7 +462,7 @@ public class BatchJobService {
         jdbcTemplate.update("DELETE FROM MR_ASYNC_JOB WHERE job_id IN (SELECT job_id FROM MR_ASYNC_BATCH_ITEM WHERE batch_id=?)", batchId);
     }
 
-    private void syncPortfolioHierarchySnapshot(String batchId, LocalDate dataDate) {
+    void syncPortfolioHierarchySnapshot(String batchId, LocalDate dataDate) {
         engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_PORTFOLIO_HIERARCHY WHERE BATCH_ID=?", batchId);
         List<Map<String, Object>> hierarchyRows = jdbcTemplate.queryForList(
                 "SELECT PORTFOLIO_CODE, PORTFOLIO_NAME, UPPER_LEVEL_PORTFOLIO, LEVEL_CODE FROM V_PORTFOLIO_HIERARCHY");
@@ -500,7 +517,7 @@ public class BatchJobService {
         return value == null ? "" : value;
     }
 
-    private void insertBatchJob(
+    void insertBatchJob(
             String batchId, String requestId, String engineCode, String opCode,
             LocalDate dataDate, String portfolio, String desk,
             int totalTrades, int totalJobs, long now
@@ -522,7 +539,7 @@ public class BatchJobService {
         );
     }
 
-    private void insertBatchItem(String batchId, int seqNo, String jobId, List<BatchTradeDataLoader.TradeRow> chunkTrades) {
+    void insertBatchItem(String batchId, int seqNo, String jobId, List<BatchTradeDataLoader.TradeRow> chunkTrades) {
         long now = System.currentTimeMillis();
         String productMix = JobPayloadBuilder.buildProductMixJson(chunkTrades);
         String sql = "INSERT INTO MR_ASYNC_BATCH_ITEM (batch_id, seq_no, job_id, trade_count, product_mix_json, created_at) VALUES (?, ?, ?, ?, ?, ?)";
@@ -540,7 +557,7 @@ public class BatchJobService {
         jdbcTemplate.update(sql, totalJobs, status, pendingJobs, runningJobs, successJobs, failedJobs, cancelledJobs, message, updatedAt, batchId);
     }
 
-    private void updateBatchStatus(
+    void updateBatchStatus(
             String batchId, String status,
             int pendingJobs, int runningJobs, int successJobs,
             int failedJobs, int cancelledJobs, long updatedAt, String message
@@ -679,15 +696,13 @@ public class BatchJobService {
 
     private static LocalDate parseDataDate(String txt) {
         String safe = requireNonBlank(txt, "dataDate 不能为空");
-        Matcher m = DATE_8_PATTERN.matcher(safe);
-        if (m.matches()) {
-            String d = m.group(1);
-            return LocalDate.parse(d.substring(0, 4) + "-" + d.substring(4, 6) + "-" + d.substring(6, 8), DateTimeFormatter.ISO_LOCAL_DATE);
-        }
         try {
-            return LocalDate.parse(safe, DateTimeFormatter.ISO_LOCAL_DATE);
+            if (!DATE_8_PATTERN.matcher(safe).matches()) {
+                throw new IllegalArgumentException("dataDate 格式错误，仅支持 yyyyMMdd");
+            }
+            return LocalDate.parse(safe, DateTimeFormatter.BASIC_ISO_DATE);
         } catch (DateTimeParseException ex) {
-            throw new IllegalArgumentException("dataDate 格式错误，支持 yyyy-MM-dd 或 yyyyMMdd");
+            throw new IllegalArgumentException("dataDate 格式错误，仅支持 yyyyMMdd");
         }
     }
 
@@ -700,11 +715,11 @@ public class BatchJobService {
         return batchId;
     }
 
-    private static String buildJobId(String batchId, int seqNo) {
+    static String buildJobId(String batchId, int seqNo) {
         return batchId + "_J" + seqNo;
     }
 
-    private static String buildJobRequestId(String requestId, int seqNo) {
+    static String buildJobRequestId(String requestId, int seqNo) {
         return requestId + "-J" + seqNo;
     }
 

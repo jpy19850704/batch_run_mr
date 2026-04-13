@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,6 +36,14 @@ public class BatchResultFileService {
     }
 
     /**
+     * 系统启动后一次性校验批次快照依赖表结构。
+     */
+    @PostConstruct
+    public void verifyRequiredSchemaOnStartup() {
+        ensureRequiredSchema();
+    }
+
+    /**
      * 如果任务属于批次，且批次已经全部结束，则输出一份批次快照。
      */
     public void tryWriteSnapshotForJob(String jobId) {
@@ -42,7 +51,6 @@ public class BatchResultFileService {
         if (safeJobId == null) {
             return;
         }
-        ensureRequiredSchema();
         String batchId = findBatchIdByJobId(safeJobId);
         if (batchId == null) {
             return;

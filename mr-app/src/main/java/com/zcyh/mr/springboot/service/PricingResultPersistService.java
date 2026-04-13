@@ -11,7 +11,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -45,9 +47,18 @@ public class PricingResultPersistService {
     }
 
     /**
+     * 系统启动后一次性校验结果表结构，运行期不重复触发表字段探测。
+     */
+    @PostConstruct
+    public void verifyRequiredSchemaOnStartup() {
+        ensureRequiredOutputSchema();
+    }
+
+    /**
      * 按任务覆盖写入结果明细。
      * 写入失败不影响任务状态，仅记录日志。
      */
+    @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
     public void persistJobResult(String requestId, String jobId, String payloadJson, EngineRunResult runResult) {
         if (runResult == null || !runResult.isSuccess()) {
             return;
@@ -55,7 +66,6 @@ public class PricingResultPersistService {
         if (!MrCalcEngineAdapter.CODE.equalsIgnoreCase(trimToNull(runResult.getEngineCode()))) {
             return;
         }
-        ensureRequiredOutputSchema();
         boolean decompTableExists = true;
 
         JSONObject root = toJsonObject(runResult.getData());
@@ -71,8 +81,6 @@ public class PricingResultPersistService {
         JSONArray baseTrades = data.getJSONArray("trade_data");
         Map<String, JSONObject> baseTradeIndex = buildTradeIndex(baseTrades);
         JSONArray scenarioResults = data.getJSONArray("scenario_result");
-        Set<String> instrumentIds = collectInstrumentIds(baseTrades, scenarioResults);
-        deleteExistingResultRows(context, jobId, instrumentIds, decompTableExists);
 
         // 从输入侧 payload 提取原始交易数据和市场数据（沿用已有的非计量指标写入模式）
         JSONObject payload = parseObjectSafely(payloadJson);
@@ -162,49 +170,6 @@ public class PricingResultPersistService {
         }
         context.tradeDimension = payload.getJSONObject("trade_dimension");
         return context;
-    }
-
-    private void deleteByJobId(String jobId, boolean decompTableExists) {
-        jdbcTemplate.update("DELETE FROM TB_OUT_TRADE_RESULT_DETAIL WHERE JOB_ID=?", jobId);
-        jdbcTemplate.update("DELETE FROM TB_OUT_TRADE_SCENARIO_RESULT_DETAIL WHERE JOB_ID=?", jobId);
-        jdbcTemplate.update("DELETE FROM TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL WHERE JOB_ID=?", jobId);
-        jdbcTemplate.update("DELETE FROM TB_OUT_TRADE_DRC_DETAIL WHERE JOB_ID=?", jobId);
-        if (decompTableExists) {
-            jdbcTemplate.update("DELETE FROM " + DECOMP_TABLE + " WHERE JOB_ID=?", jobId);
-        }
-        // 市场数据表无 JOB_ID 字段，在 deleteExistingResultRows 中按 BATCH_ID 统一清理
-    }
-
-    private void deleteExistingResultRows(PersistContext context, String jobId, Set<String> instrumentIds, boolean decompTableExists) {
-        deleteByJobId(jobId, decompTableExists);
-        if (trimToNull(context.batchId) == null || instrumentIds == null || instrumentIds.isEmpty()) {
-            return;
-        }
-        deleteByBatchAndInstrumentIds("TB_OUT_TRADE_RESULT_DETAIL", context.batchId, instrumentIds);
-        deleteByBatchAndInstrumentIds("TB_OUT_TRADE_SCENARIO_RESULT_DETAIL", context.batchId, instrumentIds);
-        deleteByBatchAndInstrumentIds("TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL", context.batchId, instrumentIds);
-        deleteByBatchAndInstrumentIds("TB_OUT_TRADE_DRC_DETAIL", context.batchId, instrumentIds);
-        if (decompTableExists) {
-            deleteByBatchAndInstrumentIds(DECOMP_TABLE, context.batchId, instrumentIds);
-        }
-    }
-
-    private void deleteByBatchAndInstrumentIds(String tableName, String batchId, Set<String> instrumentIds) {
-        StringBuilder sql = new StringBuilder();
-        List<Object> params = new ArrayList<Object>();
-        sql.append("DELETE FROM ").append(tableName).append(" WHERE BATCH_ID=? AND INSTRUMENT_ID IN (");
-        params.add(batchId);
-        int index = 0;
-        for (String instrumentId : instrumentIds) {
-            if (index > 0) {
-                sql.append(", ");
-            }
-            sql.append("?");
-            params.add(instrumentId);
-            index++;
-        }
-        sql.append(")");
-        jdbcTemplate.update(sql.toString(), params.toArray());
     }
 
     /**
@@ -482,6 +447,7 @@ public class PricingResultPersistService {
 
         int skippedNullJtdCny = 0;
         int logged = 0;
+        List<Object[]> batchArgs = new ArrayList<Object[]>();
         for (int i = 0; i < trades.size(); i++) {
             JSONObject trade = trades.getJSONObject(i);
             if (trade == null) {
@@ -508,8 +474,7 @@ public class PricingResultPersistService {
                 }
                 continue;
             }
-            jdbcTemplate.update(
-                    sql,
+            batchArgs.add(new Object[]{
                     context.requestId,
                     context.jobId,
                     context.batchId,
@@ -536,7 +501,14 @@ public class PricingResultPersistService {
                     toJsonString(drc),
                     context.createdAt,
                     context.updatedAt
-            );
+            });
+            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
+                jdbcTemplate.batchUpdate(sql, batchArgs);
+                batchArgs.clear();
+            }
+        }
+        if (!batchArgs.isEmpty()) {
+            jdbcTemplate.batchUpdate(sql, batchArgs);
         }
         if (skippedNullJtdCny > 0) {
             log.warn("DRC明细落库跳过记录: batchId={}, skippedNullJtdCny={}, loggedRows={}",
@@ -693,37 +665,6 @@ public class PricingResultPersistService {
             curveId = trimToNull(curve.getString("FIXING_ID"));
         }
         return curveId;
-    }
-
-    private Set<String> collectInstrumentIds(JSONArray baseTrades, JSONArray scenarioResults) {
-        LinkedHashSet<String> instrumentIds = new LinkedHashSet<String>();
-        appendInstrumentIds(instrumentIds, baseTrades);
-        if (scenarioResults != null) {
-            for (int i = 0; i < scenarioResults.size(); i++) {
-                JSONObject scenario = scenarioResults.getJSONObject(i);
-                if (scenario == null) {
-                    continue;
-                }
-                appendInstrumentIds(instrumentIds, scenario.getJSONArray("trade_data"));
-            }
-        }
-        return instrumentIds;
-    }
-
-    private void appendInstrumentIds(Set<String> instrumentIds, JSONArray trades) {
-        if (trades == null) {
-            return;
-        }
-        for (int i = 0; i < trades.size(); i++) {
-            JSONObject trade = trades.getJSONObject(i);
-            if (trade == null) {
-                continue;
-            }
-            String instrumentId = trimToNull(trade.getString("INSTRUMENT_ID"));
-            if (instrumentId != null) {
-                instrumentIds.add(instrumentId);
-            }
-        }
     }
 
     private static boolean isDecompScenarioResult(JSONObject scenario) {
