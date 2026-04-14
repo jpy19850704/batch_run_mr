@@ -156,6 +156,7 @@ public class FrtbSbaDbRunnerService {
         rule.setSumFields(toStringList(ruleJson.get("sumFields")));
         rule.setDimensions(toStringMap(ruleJson.get("dimensions")));
         rule.setFilters(toFilterConditions(ruleJson.get("filters")));
+        rule.setFilterTree(toFilterExpression(firstNonNull(ruleJson.get("filter_tree"), ruleJson.get("filterTree"))));
         return rule;
     }
 
@@ -179,6 +180,33 @@ public class FrtbSbaDbRunnerService {
             result.add(condition);
         }
         return result;
+    }
+
+    private static AggregationRule.FilterExpression toFilterExpression(Object rawExpression) {
+        if (!(rawExpression instanceof Map)) {
+            return null;
+        }
+        Map<?, ?> row = (Map<?, ?>) rawExpression;
+        AggregationRule.FilterExpression expression = new AggregationRule.FilterExpression();
+        expression.setOp(asTrimmedString(firstNonNull(row.get("op"), row.get("logic"))));
+        expression.setField(asTrimmedString(row.get("field")));
+        String operator = asTrimmedString(row.get("operator"));
+        expression.setOperator(operator);
+        Object rawValue = row.containsKey("value") ? row.get("value") : row.get("values");
+        expression.setValue(normalizeFilterValue(operator, rawValue));
+
+        Object rawChildren = row.get("children");
+        if (rawChildren instanceof List) {
+            List<AggregationRule.FilterExpression> children = new ArrayList<AggregationRule.FilterExpression>();
+            for (Object child : (List<?>) rawChildren) {
+                AggregationRule.FilterExpression childExpression = toFilterExpression(child);
+                if (childExpression != null) {
+                    children.add(childExpression);
+                }
+            }
+            expression.setChildren(children);
+        }
+        return expression;
     }
 
     /**
@@ -237,6 +265,10 @@ public class FrtbSbaDbRunnerService {
             return null;
         }
         return trimToNull(String.valueOf(value));
+    }
+
+    private static Object firstNonNull(Object first, Object second) {
+        return first == null ? second : first;
     }
 
     private static String requireTopLevelString(JSONObject obj, String key) {

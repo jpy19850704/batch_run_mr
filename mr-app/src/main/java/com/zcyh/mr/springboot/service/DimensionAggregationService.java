@@ -35,6 +35,10 @@ public class DimensionAggregationService {
     private static final String OP_NOT_IN = "not_in";
     private static final String OP_CONTAINS = "contains";
     private static final String OP_NOT_CONTAINS = "not_contains";
+    private static final String OP_IS_NULL = "is_null";
+    private static final String OP_IS_NOT_NULL = "is_not_null";
+    private static final int MAX_FILTER_TREE_DEPTH = 5;
+    private static final int MAX_FILTER_TREE_NODES = 100;
 
     /**
      * 校验汇总规则是否合法。
@@ -95,6 +99,9 @@ public class DimensionAggregationService {
                 throw new IllegalArgumentException("AggregationRule.filters[" + i + "].operator 不支持: " + condition.getOperator());
             }
             condition.setOperator(operator);
+        }
+        if (rule.getFilterTree() != null) {
+            validateFilterExpression(rule.getFilterTree(), "AggregationRule.filterTree", 1, new int[]{0});
         }
     }
 
@@ -170,10 +177,59 @@ public class DimensionAggregationService {
                 || OP_IN.equalsIgnoreCase(safe)
                 || OP_NOT_IN.equalsIgnoreCase(safe)
                 || OP_CONTAINS.equalsIgnoreCase(safe)
-                || OP_NOT_CONTAINS.equalsIgnoreCase(safe)) {
+                || OP_NOT_CONTAINS.equalsIgnoreCase(safe)
+                || OP_IS_NULL.equalsIgnoreCase(safe)
+                || OP_IS_NOT_NULL.equalsIgnoreCase(safe)) {
             return safe.toLowerCase();
         }
         return null;
+    }
+
+    private void validateFilterExpression(AggregationRule.FilterExpression node, String path, int depth, int[] nodeCount) {
+        if (node == null) {
+            throw new IllegalArgumentException(path + " 不能为空");
+        }
+        if (depth > MAX_FILTER_TREE_DEPTH) {
+            throw new IllegalArgumentException(path + " 嵌套层级超过上限: " + MAX_FILTER_TREE_DEPTH);
+        }
+        nodeCount[0]++;
+        if (nodeCount[0] > MAX_FILTER_TREE_NODES) {
+            throw new IllegalArgumentException("AggregationRule.filterTree 节点数量超过上限: " + MAX_FILTER_TREE_NODES);
+        }
+
+        String op = trimToNull(node.getOp());
+        String field = trimToNull(node.getField());
+        if (op != null) {
+            if (field != null) {
+                throw new IllegalArgumentException(path + " 不能同时包含 op 和 field");
+            }
+            String normalizedOp = op.toLowerCase();
+            if (!"and".equals(normalizedOp) && !"or".equals(normalizedOp)) {
+                throw new IllegalArgumentException(path + ".op 仅支持 and/or: " + op);
+            }
+            node.setOp(normalizedOp);
+            List<AggregationRule.FilterExpression> children = node.getChildren();
+            if (children == null || children.isEmpty()) {
+                throw new IllegalArgumentException(path + ".children 不能为空");
+            }
+            for (int i = 0; i < children.size(); i++) {
+                validateFilterExpression(children.get(i), path + ".children[" + i + "]", depth + 1, nodeCount);
+            }
+            return;
+        }
+
+        if (field == null) {
+            throw new IllegalArgumentException(path + ".field 不能为空");
+        }
+        if (node.getChildren() != null && !node.getChildren().isEmpty()) {
+            throw new IllegalArgumentException(path + " 条件节点不能包含 children");
+        }
+        node.setField(field.toUpperCase());
+        String operator = normalizeOperator(node.getOperator());
+        if (operator == null) {
+            throw new IllegalArgumentException(path + ".operator 不支持: " + node.getOperator());
+        }
+        node.setOperator(operator);
     }
 
     /**

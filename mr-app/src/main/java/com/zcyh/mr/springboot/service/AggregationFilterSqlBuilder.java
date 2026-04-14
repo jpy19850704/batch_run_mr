@@ -1,0 +1,167 @@
+package com.zcyh.mr.springboot.service;
+
+import com.zcyh.mr.springboot.model.AggregationRule;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+/**
+ * 汇总规则过滤条件 SQL 构建器。
+ */
+public class AggregationFilterSqlBuilder {
+    private static final int MAX_IN_VALUES = 1000;
+
+    public interface ColumnResolver {
+        String resolve(String field);
+    }
+
+    private AggregationFilterSqlBuilder() {
+    }
+
+    public static void appendWhereClause(StringBuilder sql,
+                                         List<Object> params,
+                                         AggregationRule rule,
+                                         ColumnResolver columnResolver) {
+        if (rule == null) {
+            return;
+        }
+        appendLegacyFilters(sql, params, rule.getFilters(), columnResolver);
+        AggregationRule.FilterExpression filterTree = rule.getFilterTree();
+        if (filterTree != null) {
+            sql.append(" AND ").append(buildExpression(filterTree, params, columnResolver));
+        }
+    }
+
+    private static void appendLegacyFilters(StringBuilder sql,
+                                            List<Object> params,
+                                            List<AggregationRule.FilterCondition> filters,
+                                            ColumnResolver columnResolver) {
+        if (filters == null || filters.isEmpty()) {
+            return;
+        }
+        for (AggregationRule.FilterCondition filter : filters) {
+            if (filter == null) {
+                continue;
+            }
+            sql.append(" AND ").append(buildCondition(
+                    filter.getField(),
+                    filter.getOperator(),
+                    filter.getValue(),
+                    params,
+                    columnResolver));
+        }
+    }
+
+    private static String buildExpression(AggregationRule.FilterExpression node,
+                                          List<Object> params,
+                                          ColumnResolver columnResolver) {
+        String op = trimToNull(node.getOp());
+        if (op != null) {
+            List<AggregationRule.FilterExpression> children = node.getChildren();
+            if (children == null || children.isEmpty()) {
+                throw new IllegalArgumentException("filter_tree.children 不能为空");
+            }
+            List<String> parts = new ArrayList<String>();
+            for (AggregationRule.FilterExpression child : children) {
+                if (child == null) {
+                    throw new IllegalArgumentException("filter_tree.children 不能包含空节点");
+                }
+                parts.add(buildExpression(child, params, columnResolver));
+            }
+            String joiner = " " + op.toUpperCase() + " ";
+            return "(" + String.join(joiner, parts) + ")";
+        }
+        return buildCondition(node.getField(), node.getOperator(), node.getValue(), params, columnResolver);
+    }
+
+    private static String buildCondition(String field,
+                                         String operator,
+                                         Object value,
+                                         List<Object> params,
+                                         ColumnResolver columnResolver) {
+        String safeField = trimToNull(field);
+        String safeOperator = trimToNull(operator);
+        String column = columnResolver == null ? null : columnResolver.resolve(safeField);
+        if (column == null || safeOperator == null) {
+            throw new IllegalArgumentException("不支持的过滤字段或操作符: " + safeField + " / " + safeOperator);
+        }
+
+        if ("=".equals(safeOperator)) {
+            params.add(value);
+            return column + " = ?";
+        }
+        if ("!=".equals(safeOperator)) {
+            params.add(value);
+            return column + " <> ?";
+        }
+        if (">".equals(safeOperator) || ">=".equals(safeOperator)
+                || "<".equals(safeOperator) || "<=".equals(safeOperator)) {
+            params.add(value);
+            return column + " " + safeOperator + " ?";
+        }
+        if ("contains".equals(safeOperator) || "not_contains".equals(safeOperator)) {
+            params.add("%" + String.valueOf(value) + "%");
+            return column + ("contains".equals(safeOperator) ? " LIKE ?" : " NOT LIKE ?");
+        }
+        if ("in".equals(safeOperator) || "not_in".equals(safeOperator)) {
+            List<Object> values = asList(value);
+            if (values.isEmpty()) {
+                throw new IllegalArgumentException("过滤条件 " + safeField + " 的取值不能为空");
+            }
+            if (values.size() > MAX_IN_VALUES) {
+                throw new IllegalArgumentException("过滤条件 " + safeField + " 的取值数量超过上限: " + MAX_IN_VALUES);
+            }
+            return buildInCondition(column, "in".equals(safeOperator), values, params);
+        }
+        if ("is_null".equals(safeOperator)) {
+            return column + " IS NULL";
+        }
+        if ("is_not_null".equals(safeOperator)) {
+            return column + " IS NOT NULL";
+        }
+        throw new IllegalArgumentException("不支持的过滤操作符: " + safeOperator);
+    }
+
+    private static String buildInCondition(String column, boolean positive, List<Object> values, List<Object> params) {
+        StringBuilder sql = new StringBuilder();
+        sql.append(column).append(positive ? " IN (" : " NOT IN (");
+        for (int i = 0; i < values.size(); i++) {
+            if (i > 0) {
+                sql.append(", ");
+            }
+            sql.append("?");
+            params.add(values.get(i));
+        }
+        sql.append(")");
+        return sql.toString();
+    }
+
+    private static List<Object> asList(Object value) {
+        List<Object> values = new ArrayList<Object>();
+        if (value == null) {
+            return values;
+        }
+        if (value instanceof Collection) {
+            values.addAll((Collection<?>) value);
+            return values;
+        }
+        if (value.getClass().isArray()) {
+            int length = java.lang.reflect.Array.getLength(value);
+            for (int i = 0; i < length; i++) {
+                values.add(java.lang.reflect.Array.get(value, i));
+            }
+            return values;
+        }
+        values.add(value);
+        return values;
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+}

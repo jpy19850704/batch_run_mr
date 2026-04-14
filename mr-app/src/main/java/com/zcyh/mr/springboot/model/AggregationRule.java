@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.model;
 
+import com.alibaba.fastjson2.annotation.JSONField;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,6 +19,8 @@ public class AggregationRule {
     private List<String> groupByFields = new ArrayList<String>();
     private List<String> sumFields = new ArrayList<String>();
     private List<FilterCondition> filters = new ArrayList<FilterCondition>();
+    @JSONField(name = "filter_tree")
+    private FilterExpression filterTree;
 
     public String getRuleId() {
         return ruleId;
@@ -82,6 +86,14 @@ public class AggregationRule {
         this.filters = filters == null ? new ArrayList<FilterCondition>() : filters;
     }
 
+    public FilterExpression getFilterTree() {
+        return filterTree;
+    }
+
+    public void setFilterTree(FilterExpression filterTree) {
+        this.filterTree = filterTree;
+    }
+
     /**
      * 统一过滤条件定义。
      */
@@ -89,6 +101,57 @@ public class AggregationRule {
         private String field;
         private String operator;
         private Object value;
+
+        public String getField() {
+            return field;
+        }
+
+        public void setField(String field) {
+            this.field = field;
+        }
+
+        public String getOperator() {
+            return operator;
+        }
+
+        public void setOperator(String operator) {
+            this.operator = operator;
+        }
+
+        public Object getValue() {
+            return value;
+        }
+
+        public void setValue(Object value) {
+            this.value = value;
+        }
+    }
+
+    /**
+     * 复杂过滤表达式树节点。
+     */
+    public static class FilterExpression {
+        private String op;
+        private List<FilterExpression> children = new ArrayList<FilterExpression>();
+        private String field;
+        private String operator;
+        private Object value;
+
+        public String getOp() {
+            return op;
+        }
+
+        public void setOp(String op) {
+            this.op = op;
+        }
+
+        public List<FilterExpression> getChildren() {
+            return children;
+        }
+
+        public void setChildren(List<FilterExpression> children) {
+            this.children = children == null ? new ArrayList<FilterExpression>() : children;
+        }
 
         public String getField() {
             return field;

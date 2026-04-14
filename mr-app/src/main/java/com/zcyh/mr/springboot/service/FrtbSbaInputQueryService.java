@@ -126,9 +126,12 @@ public class FrtbSbaInputQueryService {
         params.add(safeBatchId);
         params.add(safeDataDate);
 
-        for (AggregationRule.FilterCondition filter : rule.getFilters()) {
-            appendFilterClause(sql, params, filter);
-        }
+        AggregationFilterSqlBuilder.appendWhereClause(sql, params, rule, new AggregationFilterSqlBuilder.ColumnResolver() {
+            @Override
+            public String resolve(String field) {
+                return resolveRuleColumn(field);
+            }
+        });
         sql.append(" ORDER BY d.INSTRUMENT_ID, d.RISK_FACTOR_CLASS, d.RISK_FACTOR_BUCKET, d.RISK_FACTOR_ID, d.SENSITIVITY_TYPE");
 
         try {
@@ -178,66 +181,6 @@ public class FrtbSbaInputQueryService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private static void appendFilterClause(StringBuilder sql, List<Object> params, AggregationRule.FilterCondition filter) {
-        String field = trimToNull(filter.getField());
-        String operator = trimToNull(filter.getOperator());
-        String column = resolveRuleColumn(field);
-        if (column == null || operator == null) {
-            throw new IllegalArgumentException("不支持的过滤字段或操作符: " + field + " / " + operator);
-        }
-        if ("=".equals(operator)) {
-            sql.append(" AND ").append(column).append(" = ?");
-            params.add(filter.getValue());
-            return;
-        }
-        if ("!=".equals(operator)) {
-            sql.append(" AND ").append(column).append(" <> ?");
-            params.add(filter.getValue());
-            return;
-        }
-        if (">".equals(operator) || ">=".equals(operator) || "<".equals(operator) || "<=".equals(operator)) {
-            sql.append(" AND ").append(column).append(" ").append(operator).append(" ?");
-            params.add(filter.getValue());
-            return;
-        }
-        if ("contains".equals(operator) || "not_contains".equals(operator)) {
-            sql.append(" AND ").append(column);
-            sql.append("contains".equals(operator) ? " LIKE ?" : " NOT LIKE ?");
-            params.add("%" + String.valueOf(filter.getValue()) + "%");
-            return;
-        }
-        if ("in".equals(operator) || "not_in".equals(operator)) {
-            List<Object> values = asList(filter.getValue());
-            if (values.isEmpty()) {
-                throw new IllegalArgumentException("过滤条件 " + field + " 的取值不能为空");
-            }
-            sql.append(" AND ").append(column).append(" ").append("in".equals(operator) ? "IN (" : "NOT IN (");
-            for (int i = 0; i < values.size(); i++) {
-                if (i > 0) {
-                    sql.append(", ");
-                }
-                sql.append("?");
-                params.add(values.get(i));
-            }
-            sql.append(")");
-            return;
-        }
-        throw new IllegalArgumentException("不支持的过滤操作符: " + operator);
-    }
-
-    private static List<Object> asList(Object value) {
-        List<Object> values = new ArrayList<Object>();
-        if (value == null) {
-            return values;
-        }
-        if (value instanceof List) {
-            values.addAll((List<?>) value);
-            return values;
-        }
-        values.add(value);
-        return values;
-    }
-
     private static String resolveRuleColumn(String field) {
         String safeField = trimToNull(field);
         if (safeField == null) {
@@ -251,12 +194,6 @@ public class FrtbSbaInputQueryService {
         }
         if ("TRADER".equalsIgnoreCase(safeField)) {
             return "r.TRADER";
-        }
-        if ("PRODUCT_TYPE".equalsIgnoreCase(safeField)) {
-            return "r.PRODUCT_CODE";
-        }
-        if ("TRADE_ID".equalsIgnoreCase(safeField)) {
-            return "r.INSTRUMENT_ID";
         }
         if ("INSTRUMENT_ID".equalsIgnoreCase(safeField)) {
             return "d.INSTRUMENT_ID";
