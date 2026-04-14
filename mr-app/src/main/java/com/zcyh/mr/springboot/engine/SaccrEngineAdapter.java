@@ -42,14 +42,14 @@ import java.util.List;
  *       "has_dispute_history": false,
  *       "trades": [
  *         {
- *           "trade_id": "T001",
+ *           "instrument_id": "T001",
  *           "asset_class": "IR",
  *           "direction": 1,
  *           "notional": 10000000,
  *           "currency": "CNY",
  *           "start_date": "20260408",
  *           "end_date": "20310408",
- *           "product_type": "Swap",
+ *           "product_code": "Swap",
  *           "mtm_value": 50000,
  *           "is_option": false
  *         }
@@ -159,7 +159,7 @@ public class SaccrEngineAdapter implements EngineAdapter {
     private static SaccrTrade parseTrade(JSONObject obj, int nsIndex, int index) {
         String path = "netting_sets[" + nsIndex + "].trades";
         SaccrTrade trade = new SaccrTrade();
-        trade.tradeId = requireString(obj, "trade_id", path, index);
+        trade.tradeId = requireString(obj, "instrument_id", path, index);
         trade.assetClass = requireString(obj, "asset_class", path, index);
         trade.direction = obj.getIntValue("direction");
         trade.notional = obj.getDoubleValue("notional");
@@ -167,7 +167,7 @@ public class SaccrEngineAdapter implements EngineAdapter {
         trade.startDate = parseOptionalDate(obj.getString("start_date"));
         trade.endDate = parseOptionalDate(obj.getString("end_date"));
         trade.optionExpiry = parseOptionalDate(obj.getString("option_expiry"));
-        trade.productType = obj.getString("product_type");
+        trade.productType = obj.getString("product_code");
         trade.mtmValue = obj.getDoubleValue("mtm_value");
         trade.isOption = Boolean.TRUE.equals(obj.getBoolean("is_option"));
         trade.optionLong = Boolean.TRUE.equals(obj.getBoolean("option_long"));
