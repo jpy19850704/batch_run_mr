@@ -6,7 +6,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -17,6 +19,7 @@ import java.util.List;
 public class ImaNmrfPnlPersistService {
 
     private static final Logger log = LoggerFactory.getLogger(ImaNmrfPnlPersistService.class);
+    private static final int DEFAULT_BATCH_SIZE = 500;
 
     private static final String INSERT_SQL =
             "INSERT INTO TB_OUT_IMA_NMRF_SCENARIO_PNL ("
@@ -40,22 +43,31 @@ public class ImaNmrfPnlPersistService {
      * @param records  NmrfScenarioRunner 输出列表
      * @param opCode   操作码
      */
+    @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
     public void persist(List<NmrfPnlRecord> records, String opCode) {
         if (records == null || records.isEmpty()) {
             log.warn("IMA NMRF PnL 结果为空，跳过落库");
             return;
         }
         long now = System.currentTimeMillis();
+        List<Object[]> batchArgs = new ArrayList<Object[]>();
 
         for (NmrfPnlRecord r : records) {
-            jdbcTemplate.update(INSERT_SQL,
+            batchArgs.add(new Object[]{
                     r.getRequestId(), r.getJobId(), r.getBatchId(),
                     r.getSeqNo(), r.getDataDate(), opCode,
                     r.getScenarioId(), r.getSubscenarioId(), r.getScenarioName(),
                     r.getInstrumentId(), r.getProductCode(),
                     r.getRiskFactorId(), r.getNmrfType(),
                     r.getBaseValuationCny(), r.getStressValuationCny(), r.getPnl(),
-                    r.getCreatedAt() > 0 ? r.getCreatedAt() : now, now);
+                    r.getCreatedAt() > 0 ? r.getCreatedAt() : now, now});
+            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
+                jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
+                batchArgs.clear();
+            }
+        }
+        if (!batchArgs.isEmpty()) {
+            jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
         }
 
         log.info("IMA NMRF PnL 落库完成: batchId={}, rows={}",

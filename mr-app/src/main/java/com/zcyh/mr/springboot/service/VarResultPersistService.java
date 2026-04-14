@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import java.util.List;
 @Service
 public class VarResultPersistService {
     private static final Logger log = LoggerFactory.getLogger(VarResultPersistService.class);
+    private static final int DEFAULT_BATCH_SIZE = 500;
 
     private static final String INSERT_SQL =
             "INSERT INTO TB_OUT_VAR_RESULT ("
@@ -48,6 +50,7 @@ public class VarResultPersistService {
     /**
      * 按 quantile -> rule -> dimension -> risk_class 展平写入 TB_OUT_VAR_RESULT。
      */
+    @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
     public void persist(String batchId, String dataDate, JSONObject varResult) {
         String safeBatchId = trimToNull(batchId);
         String safeDataDate = trimToNull(dataDate);
@@ -144,9 +147,9 @@ public class VarResultPersistService {
         }
 
         long now = System.currentTimeMillis();
+        List<Object[]> batchArgs = new ArrayList<Object[]>();
         for (ResultRow row : rows) {
-            jdbcTemplate.update(
-                    INSERT_SQL,
+            batchArgs.add(new Object[]{
                     row.batchId,
                     row.dataDate,
                     row.quantile,
@@ -161,7 +164,14 @@ public class VarResultPersistService {
                     row.esValue,
                     row.selectedMethod,
                     now
-            );
+            });
+            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
+                jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
+                batchArgs.clear();
+            }
+        }
+        if (!batchArgs.isEmpty()) {
+            jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
         }
         log.info("VaR 汇总结果落库完成: batchId={}, dataDate={}, rows={}", safeBatchId, safeDataDate, rows.size());
     }

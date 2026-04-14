@@ -6,7 +6,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -17,6 +19,7 @@ import java.util.List;
 public class ImaModellablePnlPersistService {
 
     private static final Logger log = LoggerFactory.getLogger(ImaModellablePnlPersistService.class);
+    private static final int DEFAULT_BATCH_SIZE = 500;
 
     private static final String INSERT_SQL =
             "INSERT INTO TB_OUT_IMA_MODELLABLE_SCENARIO_PNL ("
@@ -42,15 +45,17 @@ public class ImaModellablePnlPersistService {
      * @param records  SubsetScenarioRunner 输出列表
      * @param opCode   操作码（来自请求上下文）
      */
+    @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
     public void persist(List<SubsetPnlRecord> records, String opCode) {
         if (records == null || records.isEmpty()) {
             log.warn("IMA 可建模 PnL 结果为空，跳过落库");
             return;
         }
         long now = System.currentTimeMillis();
+        List<Object[]> batchArgs = new ArrayList<Object[]>();
 
         for (SubsetPnlRecord r : records) {
-            jdbcTemplate.update(INSERT_SQL,
+            batchArgs.add(new Object[]{
                     r.getRequestId(), r.getJobId(), r.getBatchId(),
                     r.getSeqNo(), r.getDataDate(), opCode,
                     r.getScenarioId(), r.getSubscenarioId(), r.getScenarioName(),
@@ -62,7 +67,14 @@ public class ImaModellablePnlPersistService {
                     r.getEqValuation(), r.getEqPnl(),
                     r.getCommValuation(), r.getCommPnl(),
                     r.getAllValuation(), r.getAllPnl(),
-                    r.getCreatedAt() > 0 ? r.getCreatedAt() : now, now);
+                    r.getCreatedAt() > 0 ? r.getCreatedAt() : now, now});
+            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
+                jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
+                batchArgs.clear();
+            }
+        }
+        if (!batchArgs.isEmpty()) {
+            jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
         }
 
         log.info("IMA 可建模 PnL 落库完成: batchId={}, rows={}",

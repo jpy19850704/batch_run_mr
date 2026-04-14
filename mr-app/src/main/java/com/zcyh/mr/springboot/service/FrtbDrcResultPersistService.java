@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import java.util.List;
 public class FrtbDrcResultPersistService {
     private static final Logger log = LoggerFactory.getLogger(FrtbDrcResultPersistService.class);
     private static final int MAX_INVALID_ROW_LOG = 10;
+    private static final int DEFAULT_BATCH_SIZE = 500;
 
     private static final String FLAG_DRC_VALUE = "DRC_VALUE";
     private static final String FLAG_DECOMP_LEGAL_ENTITY = "DECOMP_LEGALENTITY";
@@ -52,6 +54,7 @@ public class FrtbDrcResultPersistService {
      * 将 DRC 计量结果写入单表。
      * 输入只使用 DRC_VALUE 与 DECOMP_LEGALENTITY 两类模块，聚合层级由核心模块输出。
      */
+    @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
     public void persist(String requestId, String jobId, String batchId, String dataDate, JSONObject drcResult) {
         String safeBatchId = trimToNull(batchId);
         String safeDataDate = trimToNull(dataDate);
@@ -87,9 +90,9 @@ public class FrtbDrcResultPersistService {
         }
 
         long now = System.currentTimeMillis();
+        List<Object[]> batchArgs = new ArrayList<Object[]>();
         for (ResultRow row : rows) {
-            jdbcTemplate.update(
-                    INSERT_SQL,
+            batchArgs.add(new Object[]{
                     trimToNull(requestId),
                     trimToNull(jobId),
                     row.batchId,
@@ -101,7 +104,14 @@ public class FrtbDrcResultPersistService {
                     row.legalEntity,
                     row.drcValue,
                     now
-            );
+            });
+            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
+                jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
+                batchArgs.clear();
+            }
+        }
+        if (!batchArgs.isEmpty()) {
+            jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
         }
         log.info("DRC 汇总结果落库完成: batchId={}, dataDate={}, rows={}", safeBatchId, safeDataDate, rows.size());
     }

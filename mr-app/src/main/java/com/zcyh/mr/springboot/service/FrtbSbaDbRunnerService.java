@@ -84,7 +84,7 @@ public class FrtbSbaDbRunnerService {
         if (ruleJson == null) {
             throw new IllegalArgumentException("rule 不能为空，需要包含 buildOrder/dimensions/filters 等");
         }
-        AggregationRule rule = ruleJson.toJavaObject(AggregationRule.class);
+        AggregationRule rule = parseInlineRule(ruleJson);
         if (rule == null) {
             throw new IllegalArgumentException("rule 解析失败");
         }
@@ -138,6 +138,105 @@ public class FrtbSbaDbRunnerService {
             return 0;
         }
         return Math.max(1, threadCount);
+    }
+
+    /**
+     * 手工解析内联 rule，避免 fastjson2 在 Object/数组场景下反序列化异常。
+     */
+    private static AggregationRule parseInlineRule(JSONObject ruleJson) {
+        if (ruleJson == null) {
+            return null;
+        }
+        AggregationRule rule = new AggregationRule();
+        rule.setRuleId(trimToNull(ruleJson.getString("ruleId")));
+        rule.setRuleType(trimToNull(ruleJson.getString("ruleType")));
+        rule.setRuleName(trimToNull(ruleJson.getString("ruleName")));
+        rule.setBuildOrder(toStringList(ruleJson.get("buildOrder")));
+        rule.setGroupByFields(toStringList(ruleJson.get("groupByFields")));
+        rule.setSumFields(toStringList(ruleJson.get("sumFields")));
+        rule.setDimensions(toStringMap(ruleJson.get("dimensions")));
+        rule.setFilters(toFilterConditions(ruleJson.get("filters")));
+        return rule;
+    }
+
+    private static List<AggregationRule.FilterCondition> toFilterConditions(Object rawFilters) {
+        List<AggregationRule.FilterCondition> result = new ArrayList<AggregationRule.FilterCondition>();
+        if (!(rawFilters instanceof List)) {
+            return result;
+        }
+        List<?> rows = (List<?>) rawFilters;
+        for (Object item : rows) {
+            if (!(item instanceof Map)) {
+                continue;
+            }
+            Map<?, ?> row = (Map<?, ?>) item;
+            AggregationRule.FilterCondition condition = new AggregationRule.FilterCondition();
+            String operator = asTrimmedString(row.get("operator"));
+            condition.setField(asTrimmedString(row.get("field")));
+            condition.setOperator(operator);
+            Object rawValue = row.containsKey("value") ? row.get("value") : row.get("values");
+            condition.setValue(normalizeFilterValue(operator, rawValue));
+            result.add(condition);
+        }
+        return result;
+    }
+
+    /**
+     * 过滤值归一化：in/not_in 保留数组，其它操作符按单值处理。
+     */
+    private static Object normalizeFilterValue(String operator, Object rawValue) {
+        if (rawValue == null) {
+            return null;
+        }
+        if (rawValue instanceof List) {
+            List<?> values = (List<?>) rawValue;
+            if ("in".equalsIgnoreCase(operator) || "not_in".equalsIgnoreCase(operator)) {
+                return new ArrayList<Object>(values);
+            }
+            for (Object item : values) {
+                if (item != null) {
+                    return item;
+                }
+            }
+            return null;
+        }
+        return rawValue;
+    }
+
+    private static List<String> toStringList(Object rawList) {
+        List<String> result = new ArrayList<String>();
+        if (!(rawList instanceof List)) {
+            return result;
+        }
+        for (Object item : (List<?>) rawList) {
+            String value = asTrimmedString(item);
+            if (value != null) {
+                result.add(value);
+            }
+        }
+        return result;
+    }
+
+    private static Map<String, String> toStringMap(Object rawMap) {
+        Map<String, String> result = new LinkedHashMap<String, String>();
+        if (!(rawMap instanceof Map)) {
+            return result;
+        }
+        for (Map.Entry<?, ?> entry : ((Map<?, ?>) rawMap).entrySet()) {
+            String key = asTrimmedString(entry.getKey());
+            String value = asTrimmedString(entry.getValue());
+            if (key != null && value != null) {
+                result.put(key, value);
+            }
+        }
+        return result;
+    }
+
+    private static String asTrimmedString(Object value) {
+        if (value == null) {
+            return null;
+        }
+        return trimToNull(String.valueOf(value));
     }
 
     private static String requireTopLevelString(JSONObject obj, String key) {

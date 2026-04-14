@@ -6,7 +6,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -18,6 +20,7 @@ import java.util.List;
 public class FrtbSbaResultPersistService {
 
     private static final Logger log = LoggerFactory.getLogger(FrtbSbaResultPersistService.class);
+    private static final int DEFAULT_BATCH_SIZE = 500;
 
     private static final String INSERT_SQL =
             "INSERT INTO TB_OUT_FRTB_SBA_CLASS_RESULT ("
@@ -44,6 +47,7 @@ public class FrtbSbaResultPersistService {
      * @param dataDate     估值日期
      * @param ruleId       规则 ID
      */
+    @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
     public void persist(List<FRTBClassResult> classResults, String batchId, String dataDate, String ruleId) {
         if (classResults == null || classResults.isEmpty()) {
             log.warn("FRTB SBA Class 结果为空，跳过落库: batchId={}", batchId);
@@ -51,10 +55,11 @@ public class FrtbSbaResultPersistService {
         }
 
         long now = System.currentTimeMillis();
+        List<Object[]> batchArgs = new ArrayList<Object[]>();
 
         for (FRTBClassResult cr : classResults) {
             // NONADDITIVE：SBA 独立计算资本（含相关性矩阵）
-            jdbcTemplate.update(INSERT_SQL,
+            batchArgs.add(new Object[]{
                     batchId, dataDate, ruleId,
                     cr.getTreeId(), cr.getGroupType(), cr.getGroupValue(),
                     cr.getRiskFactorClass(), cr.getMaxSign(),
@@ -62,11 +67,11 @@ public class FrtbSbaResultPersistService {
                     decVal(cr.getNormalDelta()), decVal(cr.getHighDelta()), decVal(cr.getLowDelta()),
                     decVal(cr.getNormalVega()), decVal(cr.getHighVega()), decVal(cr.getLowVega()),
                     decVal(cr.getNormalCurvature()), decVal(cr.getHighCurvature()), decVal(cr.getLowCurvature()),
-                    now, now);
+                    now, now});
 
             // ADDITIVE：Euler 分摊资本（按 sensType × scenario）
             BigDecimal allocCharge = computeAllocRiskCharge(cr);
-            jdbcTemplate.update(INSERT_SQL,
+            batchArgs.add(new Object[]{
                     batchId, dataDate, ruleId,
                     cr.getTreeId(), cr.getGroupType(), cr.getGroupValue(),
                     cr.getRiskFactorClass(), cr.getMaxSign(),
@@ -74,7 +79,15 @@ public class FrtbSbaResultPersistService {
                     decVal(cr.getAllocDeltaNormal()), decVal(cr.getAllocDeltaHigh()), decVal(cr.getAllocDeltaLow()),
                     decVal(cr.getAllocVegaNormal()), decVal(cr.getAllocVegaHigh()), decVal(cr.getAllocVegaLow()),
                     decVal(cr.getAllocCurvatureNormal()), decVal(cr.getAllocCurvatureHigh()), decVal(cr.getAllocCurvatureLow()),
-                    now, now);
+                    now, now});
+
+            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
+                jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
+                batchArgs.clear();
+            }
+        }
+        if (!batchArgs.isEmpty()) {
+            jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
         }
 
         log.info("FRTB SBA Class 结果落库完成: batchId={}, classCount={}, rows={}",

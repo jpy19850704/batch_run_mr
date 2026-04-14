@@ -8,6 +8,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collections;
 
 /**
  * IMA 最终资本结果落库服务。
@@ -40,6 +43,7 @@ public class ImaCapitalResultPersistService {
      *
      * @param result ImaCapitalCalculator 输出
      */
+    @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
     public void persist(ImaCapitalResult result) {
         if (result == null) {
             log.warn("IMA 资本结果为空，跳过落库");
@@ -48,7 +52,7 @@ public class ImaCapitalResultPersistService {
         long now = System.currentTimeMillis();
         String resultJson = JSON.toJSONString(result, JSONWriter.Feature.WriteBigDecimalAsPlain);
 
-        jdbcTemplate.update(INSERT_SQL,
+        Object[] row = new Object[]{
                 result.getBatchId(),
                 result.getDataDate(),
                 result.getImccResult() != null ? result.getImccResult().getImcc() : null,
@@ -56,7 +60,9 @@ public class ImaCapitalResultPersistService {
                 result.getAmberSurchargeRatio(),
                 result.getAcrTotal(),
                 resultJson,
-                now, now);
+                now, now
+        };
+        jdbcTemplate.batchUpdate(INSERT_SQL, Collections.singletonList(row));
 
         log.info("IMA 资本结果落库完成: batchId={}, acrTotal={}",
                 result.getBatchId(), result.getAcrTotal());
