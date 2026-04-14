@@ -123,7 +123,7 @@ public class AsyncJobService {
             @Value("${mr.job.engine.retry.max-attempts:2}") int engineRetryMaxAttempts,
             @Value("${mr.job.engine.retry.backoff-ms:200}") long engineRetryBackoffMs,
             @Value("${mr.job.client.poll-after-ms:500}") long pollAfterMs,
-            @Value("${mr.job.api.base-path:/api/v1/jobs}") String jobApiBasePath,
+            @Value("${mr.job.api.base-path:/api/jobs}") String jobApiBasePath,
             @Value("${mr.alert.pending-job-threshold:200}") int pendingJobAlertThreshold,
             @Value("${mr.alert.executor-queue-threshold:800}") int executorQueueAlertThreshold
     ) {
@@ -1087,7 +1087,7 @@ public class AsyncJobService {
     private static String normalizeApiBasePath(String raw) {
         String base = trimToNull(raw);
         if (base == null) {
-            return "/api/v1/jobs";
+            return "/api/jobs";
         }
         String normalized = base.startsWith("/") ? base : "/" + base;
         while (normalized.endsWith("/") && normalized.length() > 1) {

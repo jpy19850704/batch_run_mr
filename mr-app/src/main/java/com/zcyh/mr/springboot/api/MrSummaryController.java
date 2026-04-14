@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 提供独立的 VaR、FRTB SBA、FRTB DRC 汇总入口。
  */
 @RestController
-@RequestMapping("/api/v1/summary")
+@RequestMapping("/api/summary")
 public class MrSummaryController {
     private final FrtbSbaSummaryService frtbSbaSummaryService;
     private final FrtbDrcSummaryService frtbDrcSummaryService;

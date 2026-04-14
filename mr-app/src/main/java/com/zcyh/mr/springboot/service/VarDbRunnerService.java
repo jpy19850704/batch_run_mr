@@ -39,7 +39,7 @@ public class VarDbRunnerService {
     private static final BigDecimal TWO = BigDecimal.valueOf(2L);
     private static final int DEFAULT_SCALE = 10;
     private static final String TOTAL = "TOTAL";
-    private static final String VAR_DETAIL_FETCH_API = "/api/v1/engine/var/detail";
+    private static final String VAR_DETAIL_FETCH_API = "/api/engine/var/detail";
 
     private final VarInputQueryService inputQueryService;
     private final DimensionAggregationService dimensionAggregationService;

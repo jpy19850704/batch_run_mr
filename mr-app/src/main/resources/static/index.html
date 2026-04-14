@@ -96,7 +96,7 @@
 
     <div class="card">
         <h2>Sync Run</h2>
-        <p class="hint">POST /api/v1/engine/run</p>
+        <p class="hint">POST /api/engine/run</p>
         <textarea id="syncPayload">{
   "requestId": "ui-sync-001",
   "engineCode": "mr_calc",
@@ -162,17 +162,17 @@
 
     async function runSync() {
         const payload = document.getElementById("syncPayload").value;
-        const result = await callApi("POST", "/api/v1/engine/run", payload);
-        print("SYNC /api/v1/engine/run", result);
+        const result = await callApi("POST", "/api/engine/run", payload);
+        print("SYNC /api/engine/run", result);
     }
 
     async function submitJob() {
         const payload = document.getElementById("asyncPayload").value;
-        const result = await callApi("POST", "/api/v1/jobs/submit", payload);
+        const result = await callApi("POST", "/api/jobs/submit", payload);
         if (result.body && result.body.data && result.body.data.jobId) {
             document.getElementById("jobIdInput").value = result.body.data.jobId;
         }
-        print("ASYNC /api/v1/jobs/submit", result);
+        print("ASYNC /api/jobs/submit", result);
     }
 
     async function getDetail() {
@@ -181,8 +181,8 @@
             print("DETAIL", { error: "jobId is required" });
             return;
         }
-        const result = await callApi("GET", "/api/v1/jobs/" + encodeURIComponent(jobId));
-        print("ASYNC /api/v1/jobs/{jobId}", result);
+        const result = await callApi("GET", "/api/jobs/" + encodeURIComponent(jobId));
+        print("ASYNC /api/jobs/{jobId}", result);
     }
 
     async function getResult() {
@@ -191,8 +191,8 @@
             print("RESULT", { error: "jobId is required" });
             return;
         }
-        const result = await callApi("GET", "/api/v1/jobs/" + encodeURIComponent(jobId) + "/result");
-        print("ASYNC /api/v1/jobs/{jobId}/result", result);
+        const result = await callApi("GET", "/api/jobs/" + encodeURIComponent(jobId) + "/result");
+        print("ASYNC /api/jobs/{jobId}/result", result);
     }
 
     async function cancelJob() {
@@ -201,8 +201,8 @@
             print("CANCEL", { error: "jobId is required" });
             return;
         }
-        const result = await callApi("POST", "/api/v1/jobs/" + encodeURIComponent(jobId) + "/cancel");
-        print("ASYNC /api/v1/jobs/{jobId}/cancel", result);
+        const result = await callApi("POST", "/api/jobs/" + encodeURIComponent(jobId) + "/cancel");
+        print("ASYNC /api/jobs/{jobId}/cancel", result);
     }
 
     async function autoPoll() {
@@ -212,7 +212,7 @@
             return;
         }
         for (let i = 0; i < 20; i++) {
-            const detail = await callApi("GET", "/api/v1/jobs/" + encodeURIComponent(jobId));
+            const detail = await callApi("GET", "/api/jobs/" + encodeURIComponent(jobId));
             print("AUTO POLL round=" + (i + 1), detail);
             const data = detail.body && detail.body.data ? detail.body.data : null;
             if (data && data.done) {

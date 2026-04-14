@@ -30,7 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 异步任务控制器。
  */
 @RestController
-@RequestMapping("/api/v1/jobs")
+@RequestMapping("/api/jobs")
 public class MrJobController {
     private static final Logger log = LoggerFactory.getLogger(MrJobController.class);
 
@@ -58,7 +58,7 @@ public class MrJobController {
     public ApiResponse<JobSubmitResult> submit(@RequestBody JobSubmitRequest request) {
         long start = System.currentTimeMillis();
         RequestContextHolder.setEngineCode("MR_CALC");
-        String message = "异步子任务提交接口已下线，请统一使用 /api/v1/jobs/batch/run";
+        String message = "异步子任务提交接口已下线，请统一使用 /api/jobs/batch/run";
         IllegalStateException ex = new IllegalStateException(message);
         alertService.error("JOB_SUBMIT_DISABLED", "异步子任务提交接口已禁用", ex);
         auditLogService.recordFailure("JOB_SUBMIT", "JOB", null, request == null ? null : request.getEngineCode(), "JOB_SUBMIT_DISABLED", message, System.currentTimeMillis() - start);
@@ -116,7 +116,7 @@ public class MrJobController {
     public ApiResponse<BatchSubmitResult> submitBatch(@RequestBody BatchSubmitRequest request) {
         long start = System.currentTimeMillis();
         RequestContextHolder.setEngineCode("MR_CALC");
-        String message = "批量提交接口已下线，请统一使用 /api/v1/jobs/batch/run";
+        String message = "批量提交接口已下线，请统一使用 /api/jobs/batch/run";
         IllegalStateException ex = new IllegalStateException(message);
         alertService.error("BATCH_SUBMIT_DISABLED", "批量提交接口已禁用", ex);
         auditLogService.recordFailure("BATCH_SUBMIT", "BATCH", request == null ? null : request.getBatchId(), "MR_CALC", "BATCH_SUBMIT_DISABLED", message, System.currentTimeMillis() - start);

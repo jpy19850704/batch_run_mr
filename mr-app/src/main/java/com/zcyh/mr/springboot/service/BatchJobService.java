@@ -53,7 +53,7 @@ public class BatchJobService {
     private static final String BATCH_FAILED = "FAILED";
     private static final String BATCH_PARTIAL_FAILED = "PARTIAL_FAILED";
     private static final String BATCH_CANCELLED = "CANCELLED";
-    private static final String JOB_API_BASE_PATH = "/api/v1/jobs";
+    private static final String JOB_API_BASE_PATH = "/api/jobs";
     private static final Pattern DATE_8_PATTERN = Pattern.compile("^(20\\d{6})$");
     private static final Pattern BATCH_ID_PATTERN = Pattern.compile("^[A-Za-z0-9._-]+$");
     private static final List<String> SUPPORTED_BATCH_OP_CODES = buildSupportedBatchOpCodes();
@@ -129,7 +129,7 @@ public class BatchJobService {
             JobPayloadBuilder payloadBuilder,
             @Value("${mr.batch.weight-budget:100}") int weightBudget,
             @Value("${mr.batch.client.poll-after-ms:500}") long pollAfterMs,
-            @Value("${mr.batch.api.base-path:/api/v1/jobs/batch}") String batchApiBasePath
+            @Value("${mr.batch.api.base-path:/api/jobs/batch}") String batchApiBasePath
     ) {
         this.asyncJobService = asyncJobService;
         this.jdbcTemplate = jdbcTemplate;
@@ -865,7 +865,7 @@ public class BatchJobService {
     private static String normalizeApiBasePath(String raw) {
         String safe = trimToNull(raw);
         if (safe == null) {
-            return "/api/v1/jobs/batch";
+            return "/api/jobs/batch";
         }
         String out = safe.startsWith("/") ? safe : "/" + safe;
         while (out.endsWith("/") && out.length() > 1) {

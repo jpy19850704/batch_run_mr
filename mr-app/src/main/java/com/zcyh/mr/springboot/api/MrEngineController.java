@@ -70,12 +70,12 @@ public class MrEngineController {
         return ApiResponse.ok(data);
     }
 
-    @GetMapping("/api/v1/engines")
+    @GetMapping("/api/engines")
     public ApiResponse<Object> engines() {
         return ApiResponse.ok(orchestratorService.listEngines());
     }
 
-    @PostMapping("/api/v1/engine/run")
+    @PostMapping("/api/engine/run")
     public ApiResponse<EngineRunResult> run(@RequestBody EngineRunRequest request) {
         long start = System.currentTimeMillis();
         String engineCode = request == null ? null : request.getEngineCode();
@@ -103,7 +103,7 @@ public class MrEngineController {
     /**
      * 按维度读取 VaR 明细缓存。
      */
-    @PostMapping("/api/v1/engine/var/detail")
+    @PostMapping("/api/engine/var/detail")
     public ApiResponse<Object> varDetail(@RequestBody JSONObject request) {
         if (varDetailCacheService == null) {
             return ApiResponse.fail("CACHE_DISABLED", "VaR 维度缓存服务未启用");
