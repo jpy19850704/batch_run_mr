@@ -48,13 +48,15 @@ public class EngineRegistryConfig {
             @Value("${mr.frtb.batch-executor.core-size:4}") int coreSize,
             @Value("${mr.frtb.batch-executor.max-size:8}") int maxSize,
             @Value("${mr.frtb.batch-executor.queue-capacity:512}") int queueCapacity) {
-        return new ThreadPoolExecutor(
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
                 coreSize,
                 Math.max(coreSize, maxSize),
                 60L,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(queueCapacity),
                 new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
     }
 
     @Bean

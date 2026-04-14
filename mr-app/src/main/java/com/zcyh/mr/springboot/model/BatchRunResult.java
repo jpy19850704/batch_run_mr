@@ -13,9 +13,6 @@ public class BatchRunResult {
     private int scenarioCount;
     private Object scenarioData;
     private BatchDetailResult batchDetail;
-    private Object sbaSummary;
-    private Object drcSummary;
-    private Object varSummary;
 
     public String getBatchId() {
         return batchId;
@@ -87,29 +84,5 @@ public class BatchRunResult {
 
     public void setBatchDetail(BatchDetailResult batchDetail) {
         this.batchDetail = batchDetail;
-    }
-
-    public Object getSbaSummary() {
-        return sbaSummary;
-    }
-
-    public void setSbaSummary(Object sbaSummary) {
-        this.sbaSummary = sbaSummary;
-    }
-
-    public Object getDrcSummary() {
-        return drcSummary;
-    }
-
-    public void setDrcSummary(Object drcSummary) {
-        this.drcSummary = drcSummary;
-    }
-
-    public Object getVarSummary() {
-        return varSummary;
-    }
-
-    public void setVarSummary(Object varSummary) {
-        this.varSummary = varSummary;
     }
 }

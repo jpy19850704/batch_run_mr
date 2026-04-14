@@ -41,7 +41,7 @@ public class ScenarioModuleConfig {
         int normalizedCoreSize = Math.max(1, coreSize);
         int normalizedMaxSize = Math.max(normalizedCoreSize, maxSize);
         int normalizedQueueCapacity = Math.max(1, queueCapacity);
-        return new ThreadPoolExecutor(
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
                 normalizedCoreSize,
                 normalizedMaxSize,
                 60L,
@@ -49,6 +49,8 @@ public class ScenarioModuleConfig {
                 new LinkedBlockingQueue<Runnable>(normalizedQueueCapacity),
                 namedThreadFactory("scenario-exec-"),
                 new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
     }
 
     @Bean

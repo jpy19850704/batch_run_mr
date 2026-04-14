@@ -32,7 +32,8 @@ public class JobPayloadBuilder {
      * @param tradeMarketDataKeys 交易引用的市场数据标识映射
      * @param batchId           批次 ID
      * @param seqNo             分片序号
-     * @param scenarioIdList    情景集 ID（仅 SCENARIO 模式）
+     * @param regularScenarioIdList 普通情景集 ID（仅 SCENARIO 模式）
+     * @param riskClassDecompScenarioIdList 风险类别分解情景集 ID（仅 SCENARIO 模式）
      * @return 组装好的 payload JSON
      */
     public JSONObject buildPayload(
@@ -43,7 +44,8 @@ public class JobPayloadBuilder {
             Map<String, Set<String>> tradeMarketDataKeys,
             String batchId,
             int seqNo,
-            String scenarioIdList
+            String regularScenarioIdList,
+            String riskClassDecompScenarioIdList
     ) {
         // 组装 trade_data
         JSONArray tradeData = new JSONArray();
@@ -90,14 +92,18 @@ public class JobPayloadBuilder {
 
         // 情景引用（仅 SCENARIO 模式）
         if (Constants.OPER_CODE.SCENARIO.equalsIgnoreCase(opCode)) {
-            String safeScenarioIdList = trimToNull(scenarioIdList);
-            if (safeScenarioIdList != null) {
+            String safeRegularScenarioIdList = trimToNull(regularScenarioIdList);
+            String safeRiskClassDecompScenarioIdList = trimToNull(riskClassDecompScenarioIdList);
+            if (safeRegularScenarioIdList != null || safeRiskClassDecompScenarioIdList != null) {
                 JSONObject scenarioRef = new JSONObject();
-                scenarioRef.put("scenario_set_id", safeScenarioIdList);
                 scenarioRef.put("data_date", dataDate.format(DateTimeFormatter.BASIC_ISO_DATE));
                 scenarioRef.put("batch_id", batchId);
-                // Risk Class Decomp：使用 DECOMP_ 前缀的场景文件，Calc 内部按风险组切片重估
-                scenarioRef.put("risk_class_decomp_scenario_set_id", "DECOMP_" + safeScenarioIdList);
+                if (safeRegularScenarioIdList != null) {
+                    scenarioRef.put("scenario_set_id", safeRegularScenarioIdList);
+                }
+                if (safeRiskClassDecompScenarioIdList != null) {
+                    scenarioRef.put("risk_class_decomp_scenario_set_id", safeRiskClassDecompScenarioIdList);
+                }
                 payload.put("scenario_ref", scenarioRef);
             }
         }

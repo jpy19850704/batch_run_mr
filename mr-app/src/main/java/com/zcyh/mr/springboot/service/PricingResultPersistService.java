@@ -37,6 +37,8 @@ public class PricingResultPersistService {
     private static final int DEFAULT_BATCH_SIZE = 500;
     private static final int MAX_INVALID_DRC_LOG = 10;
     private static final String DECOMP_TABLE = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
+    private static final String RESULT_KIND_SCENARIO = "SCENARIO";
+    private static final String RESULT_KIND_RISK_CLASS_DECOMP = "RISK_CLASS_DECOMP";
 
     private final JdbcTemplate jdbcTemplate;
     private final Object schemaVerifyLock = new Object();
@@ -671,19 +673,14 @@ public class PricingResultPersistService {
         if (scenario == null) {
             return false;
         }
-        JSONArray tradeData = scenario.getJSONArray("trade_data");
-        if (tradeData == null || tradeData.isEmpty()) {
+        String resultKind = trimToNull(scenario.getString("RESULT_KIND"));
+        if (RESULT_KIND_RISK_CLASS_DECOMP.equalsIgnoreCase(resultKind)) {
+            return true;
+        }
+        if (RESULT_KIND_SCENARIO.equalsIgnoreCase(resultKind)) {
             return false;
         }
-        JSONObject firstTrade = tradeData.getJSONObject(0);
-        if (firstTrade == null) {
-            return false;
-        }
-        return firstTrade.containsKey("IR_VALUATION")
-                || firstTrade.containsKey("FX_VALUATION")
-                || firstTrade.containsKey("EQ_VALUATION")
-                || firstTrade.containsKey("COMM_VALUATION")
-                || firstTrade.containsKey("ALL_VALUATION");
+        throw new IllegalStateException("scenario_result 缺少合法 RESULT_KIND，仅支持 SCENARIO 或 RISK_CLASS_DECOMP");
     }
 
     private static JSONObject toJsonObject(Object obj) {

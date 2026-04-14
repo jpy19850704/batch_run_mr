@@ -57,19 +57,12 @@ public class MrJobController {
     @PostMapping("/submit")
     public ApiResponse<JobSubmitResult> submit(@RequestBody JobSubmitRequest request) {
         long start = System.currentTimeMillis();
-        RequestContextHolder.setEngineCode(request == null ? null : request.getEngineCode());
-        try {
-            JobSubmitResult result = asyncJobService.submit(request);
-            RequestContextHolder.setJobId(result.getJobId());
-            log.info("异步任务提交完成，jobId={}, engineCode={}, reused={}",
-                    result.getJobId(), result.getEngineCode(), result.isReused());
-            auditLogService.recordSuccess("JOB_SUBMIT", "JOB", result.getJobId(), result.getEngineCode(), "异步任务已提交", System.currentTimeMillis() - start);
-            return ApiResponse.ok(result);
-        } catch (RuntimeException ex) {
-            alertService.error("JOB_SUBMIT_FAILED", "异步任务提交失败", ex);
-            auditLogService.recordFailure("JOB_SUBMIT", "JOB", null, request == null ? null : request.getEngineCode(), "JOB_SUBMIT_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
-            throw ex;
-        }
+        RequestContextHolder.setEngineCode("MR_CALC");
+        String message = "异步子任务提交接口已下线，请统一使用 /api/v1/jobs/batch/run";
+        IllegalStateException ex = new IllegalStateException(message);
+        alertService.error("JOB_SUBMIT_DISABLED", "异步子任务提交接口已禁用", ex);
+        auditLogService.recordFailure("JOB_SUBMIT", "JOB", null, request == null ? null : request.getEngineCode(), "JOB_SUBMIT_DISABLED", message, System.currentTimeMillis() - start);
+        throw ex;
     }
 
     @GetMapping("/{jobId}")
@@ -138,7 +131,7 @@ public class MrJobController {
         try {
             BatchRunResult result = batchRunService.run(request);
             RequestContextHolder.setBatchId(result.getBatchId());
-            auditLogService.recordSuccess("BATCH_RUN", "BATCH", result.getBatchId(), "MR_CALC", "批次总编排执行成功", System.currentTimeMillis() - start);
+            auditLogService.recordSuccess("BATCH_RUN", "BATCH", result.getBatchId(), "MR_CALC", "批次总编排已异步启动", System.currentTimeMillis() - start);
             return ApiResponse.ok(result);
         } catch (RuntimeException ex) {
             alertService.error("BATCH_RUN_FAILED", "批次总编排执行失败", ex);

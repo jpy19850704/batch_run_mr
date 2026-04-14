@@ -7,6 +7,9 @@ import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.springboot.engine.ScenarioEngineAdapter;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
+
 /**
  * 批量情景生成任务。
  */
@@ -23,9 +26,15 @@ public class BatchScenarioGenerateTask implements BatchRunTask {
         if (!context.isScenarioMode()) {
             return;
         }
+        String mergedScenarioIdList = mergeScenarioIdLists(
+                context.getRegularScenarioIdList(),
+                context.getRiskClassDecompScenarioIdList());
+        if (mergedScenarioIdList == null) {
+            throw new IllegalStateException("SCENARIO 模式缺少 regularScenarioIdList 或 riskClassDecompScenarioIdList");
+        }
         JSONObject payload = new JSONObject();
         payload.put("mode", "service");
-        payload.put("scenario_id_list", context.getScenarioIdList());
+        payload.put("scenario_id_list", mergedScenarioIdList);
         payload.put("data_date", context.getDataDate());
         payload.put("user", context.getUser());
         payload.put("batch_id", context.getBatchId());
@@ -37,9 +46,39 @@ public class BatchScenarioGenerateTask implements BatchRunTask {
         JSONArray data = JSON.parseArray(raw);
         if (data == null || data.isEmpty()) {
             throw new IllegalStateException("情景生成结果为空，batchId=" + context.getBatchId()
-                    + ", scenario_id_list=" + context.getScenarioIdList());
+                    + ", scenario_id_list=" + mergedScenarioIdList);
         }
         context.setScenarioJson(raw);
         context.setScenarioData(data);
+    }
+
+    static String mergeScenarioIdLists(String... scenarioIdLists) {
+        Set<String> merged = new LinkedHashSet<String>();
+        if (scenarioIdLists != null) {
+            for (String scenarioIdList : scenarioIdLists) {
+                String safe = trimToNull(scenarioIdList);
+                if (safe == null) {
+                    continue;
+                }
+                for (String part : safe.split(",")) {
+                    String scenarioId = trimToNull(part);
+                    if (scenarioId != null) {
+                        merged.add(scenarioId);
+                    }
+                }
+            }
+        }
+        if (merged.isEmpty()) {
+            return null;
+        }
+        return String.join(",", merged);
+    }
+
+    private static String trimToNull(String txt) {
+        if (txt == null) {
+            return null;
+        }
+        String value = txt.trim();
+        return value.isEmpty() ? null : value;
     }
 }

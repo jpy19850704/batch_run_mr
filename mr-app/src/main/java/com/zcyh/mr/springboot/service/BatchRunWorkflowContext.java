@@ -16,7 +16,8 @@ public class BatchRunWorkflowContext {
     private String batchId;
     private String dataDate;
     private String user;
-    private String scenarioIdList;
+    private String regularScenarioIdList;
+    private String riskClassDecompScenarioIdList;
     private boolean scenarioMode;
     private String runMode;
     private boolean whatifMode;
@@ -28,9 +29,6 @@ public class BatchRunWorkflowContext {
     private List<BatchJobPayload> jobPayloads = new ArrayList<BatchJobPayload>();
     private BatchSubmitResult submitResult;
     private BatchDetailResult batchDetail;
-    private Object sbaSummary;
-    private Object drcSummary;
-    private Object varSummary;
 
     public BatchRunRequest getRequest() {
         return request;
@@ -64,12 +62,20 @@ public class BatchRunWorkflowContext {
         this.user = user;
     }
 
-    public String getScenarioIdList() {
-        return scenarioIdList;
+    public String getRegularScenarioIdList() {
+        return regularScenarioIdList;
     }
 
-    public void setScenarioIdList(String scenarioIdList) {
-        this.scenarioIdList = scenarioIdList;
+    public void setRegularScenarioIdList(String regularScenarioIdList) {
+        this.regularScenarioIdList = regularScenarioIdList;
+    }
+
+    public String getRiskClassDecompScenarioIdList() {
+        return riskClassDecompScenarioIdList;
+    }
+
+    public void setRiskClassDecompScenarioIdList(String riskClassDecompScenarioIdList) {
+        this.riskClassDecompScenarioIdList = riskClassDecompScenarioIdList;
     }
 
     public boolean isScenarioMode() {
@@ -166,29 +172,5 @@ public class BatchRunWorkflowContext {
 
     public void setBatchDetail(BatchDetailResult batchDetail) {
         this.batchDetail = batchDetail;
-    }
-
-    public Object getSbaSummary() {
-        return sbaSummary;
-    }
-
-    public void setSbaSummary(Object sbaSummary) {
-        this.sbaSummary = sbaSummary;
-    }
-
-    public Object getDrcSummary() {
-        return drcSummary;
-    }
-
-    public void setDrcSummary(Object drcSummary) {
-        this.drcSummary = drcSummary;
-    }
-
-    public Object getVarSummary() {
-        return varSummary;
-    }
-
-    public void setVarSummary(Object varSummary) {
-        this.varSummary = varSummary;
     }
 }

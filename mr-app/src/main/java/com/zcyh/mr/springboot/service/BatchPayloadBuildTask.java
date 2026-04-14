@@ -43,7 +43,8 @@ public class BatchPayloadBuildTask implements BatchRunTask {
                     sliceResult.getTradeMarketDataKeys(),
                     context.getBatchId(),
                     seqNo,
-                    context.getScenarioIdList());
+                    context.getRegularScenarioIdList(),
+                    context.getRiskClassDecompScenarioIdList());
             if (context.getRunMode() != null) {
                 payload.put("run_mode", context.getRunMode());
             }

@@ -177,9 +177,76 @@ public class BatchJobService {
             int totalTrades,
             int totalJobs,
             long now) {
+        ensureWorkflowNotRunning(batchId);
+        if (batchExists(batchId)) {
+            updateBatchDefinition(batchId, requestId, engineCode, opCode, dataDate, portfolio, desk, totalTrades, totalJobs, now);
+            return;
+        }
         ensureBatchNotRunning(batchId);
         clearExistingBatchData(batchId);
         insertBatchJob(batchId, requestId, engineCode, opCode, dataDate, portfolio, desk, totalTrades, totalJobs, now);
+    }
+
+    void initializeWorkflowBatch(
+            String batchId,
+            String requestId,
+            String engineCode,
+            String opCode,
+            LocalDate dataDate,
+            String portfolio,
+            String desk,
+            long now,
+            String message) {
+        ensureWorkflowNotRunning(batchId);
+        ensureBatchNotRunning(batchId);
+        clearExistingBatchData(batchId);
+        insertBatchJob(batchId, requestId, engineCode, opCode, dataDate, portfolio, desk, 0, 0, now);
+        updateBatchStatus(batchId, BATCH_PENDING, 0, 0, 0, 0, 0, now, message);
+    }
+
+    void markWorkflowRunning(String batchId, String message) {
+        BatchJobRow batchRow = requireBatchRow(batchId);
+        updateBatchStatus(
+                batchId,
+                BATCH_RUNNING,
+                batchRow.pendingJobs,
+                batchRow.runningJobs,
+                batchRow.successJobs,
+                batchRow.failedJobs,
+                batchRow.cancelledJobs,
+                System.currentTimeMillis(),
+                message
+        );
+    }
+
+    void markWorkflowFailed(String batchId, String message) {
+        BatchJobRow batchRow = requireBatchRow(batchId);
+        updateBatchStatus(
+                batchId,
+                BATCH_FAILED,
+                batchRow.pendingJobs,
+                batchRow.runningJobs,
+                batchRow.successJobs,
+                batchRow.failedJobs,
+                batchRow.cancelledJobs,
+                System.currentTimeMillis(),
+                message
+        );
+    }
+
+    void markWorkflowSuccess(String batchId, String message) {
+        BatchJobRow batchRow = requireBatchRow(batchId);
+        updateBatchStatus(
+                batchId,
+                BATCH_SUCCESS,
+                batchRow.pendingJobs,
+                batchRow.runningJobs,
+                batchRow.successJobs,
+                batchRow.failedJobs,
+                batchRow.cancelledJobs,
+                System.currentTimeMillis(),
+                message
+        );
     }
 
     private BatchSubmitResult submitInternal(BatchSubmitRequest request, String scenarioIdList) {
@@ -205,6 +272,7 @@ public class BatchJobService {
             throw new IllegalArgumentException("未查询到市场数据，请先加载 MR_MARKET_CURVE_INPUT");
         }
 
+        ensureWorkflowNotRunning(batchId);
         ensureBatchNotRunning(batchId);
         clearExistingBatchData(batchId);
 
@@ -230,7 +298,7 @@ public class BatchJobService {
                         JobPayloadBuilder.toTradeSliceSources(chunkTrades),
                         curveSources);
                 JSONObject payload = payloadBuilder.buildPayload(opCode, dataDate, chunkTrades, sliceResult.getCurves(),
-                        sliceResult.getTradeMarketDataKeys(), batchId, seqNo, scenarioIdList);
+                        sliceResult.getTradeMarketDataKeys(), batchId, seqNo, scenarioIdList, null);
                 if (runMode != null) {
                     payload.put("run_mode", runMode);
                 }
@@ -329,7 +397,7 @@ public class BatchJobService {
                         curveSources
                 );
                 JSONObject payload = payloadBuilder.buildPayload(batchRow.opCode, dataDate, chunkTrades, sliceResult.getCurves(),
-                        sliceResult.getTradeMarketDataKeys(), batchId, seqNo, null);
+                        sliceResult.getTradeMarketDataKeys(), batchId, seqNo, null, null);
 
                 JobSubmitRequest jobRequest = new JobSubmitRequest();
                 String jobId = buildJobId(batchId, seqNo);
@@ -373,6 +441,9 @@ public class BatchJobService {
         String safeBatchId = requireNonBlank(batchId, "batchId 不能为空");
         BatchJobRow batchRow = requireBatchRow(safeBatchId);
         List<BatchItemRow> itemRows = loadBatchItems(safeBatchId);
+        if (batchRow.totalJobs <= 0 && itemRows.isEmpty()) {
+            return buildBatchDetail(batchRow, itemRows, false, false);
+        }
         AggregatedCount aggregated = aggregate(itemRows, batchRow.totalJobs);
         String mergedStatus = deriveBatchStatus(aggregated, batchRow.totalJobs);
         long now = System.currentTimeMillis();
@@ -391,7 +462,10 @@ public class BatchJobService {
             );
             batchRow = requireBatchRow(safeBatchId);
         }
+        return buildBatchDetail(batchRow, itemRows, aggregated.done, aggregated.success);
+    }
 
+    private BatchDetailResult buildBatchDetail(BatchJobRow batchRow, List<BatchItemRow> itemRows, boolean done, boolean success) {
         BatchDetailResult detail = new BatchDetailResult();
         detail.setBatchId(batchRow.batchId);
         detail.setRequestId(batchRow.requestId);
@@ -409,8 +483,8 @@ public class BatchJobService {
         detail.setCancelledJobs(batchRow.cancelledJobs);
         detail.setSubmittedAt(batchRow.createdAt);
         detail.setUpdatedAt(batchRow.updatedAt);
-        detail.setDone(aggregated.done);
-        detail.setSuccess(aggregated.success);
+        detail.setDone(done);
+        detail.setSuccess(success);
         detail.setPollAfterMs(pollAfterMs);
         detail.setDetailUrl(buildDetailUrl(batchRow.batchId));
         detail.setMessage(batchRow.message);
@@ -430,6 +504,25 @@ public class BatchJobService {
         );
         if (active != null && active > 0) {
             throw new IllegalStateException("batch_id 正在运行，不能覆盖重跑: " + batchId);
+        }
+    }
+
+    private void ensureWorkflowNotRunning(String batchId) {
+        List<String> statuses = jdbcTemplate.queryForList(
+                "SELECT status FROM MR_ASYNC_BATCH_JOB WHERE batch_id=?",
+                String.class,
+                batchId
+        );
+        if (statuses == null || statuses.isEmpty()) {
+            return;
+        }
+        for (String status : statuses) {
+            String safeStatus = trimToNull(status);
+            if (BATCH_PENDING.equalsIgnoreCase(safeStatus)
+                    || BATCH_SUBMITTED.equalsIgnoreCase(safeStatus)
+                    || BATCH_RUNNING.equalsIgnoreCase(safeStatus)) {
+                throw new IllegalStateException("batch_id 工作流正在运行，不能覆盖重跑: " + batchId);
+            }
         }
     }
 
@@ -517,6 +610,15 @@ public class BatchJobService {
         return value == null ? "" : value;
     }
 
+    private boolean batchExists(String batchId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM MR_ASYNC_BATCH_JOB WHERE batch_id=?",
+                Integer.class,
+                batchId
+        );
+        return count != null && count > 0;
+    }
+
     void insertBatchJob(
             String batchId, String requestId, String engineCode, String opCode,
             LocalDate dataDate, String portfolio, String desk,
@@ -536,6 +638,34 @@ public class BatchJobService {
                 opCode, Date.valueOf(dataDate), portfolio, desk,
                 totalTrades, totalJobs, weightBudget, BATCH_PENDING, totalJobs,
                 "批量任务创建完成", now, now
+        );
+    }
+
+    private void updateBatchDefinition(
+            String batchId, String requestId, String engineCode, String opCode,
+            LocalDate dataDate, String portfolio, String desk,
+            int totalTrades, int totalJobs, long now
+    ) {
+        String sql = "UPDATE MR_ASYNC_BATCH_JOB "
+                + "SET request_id=?, engine_code=?, op_code=?, data_date=?, portfolio=?, desk=?, "
+                + "total_trades=?, total_jobs=?, chunk_size=?, status=?, pending_jobs=?, running_jobs=0, success_jobs=0, failed_jobs=0, cancelled_jobs=0, message=?, updated_at=? "
+                + "WHERE batch_id=?";
+        jdbcTemplate.update(
+                sql,
+                requestId,
+                engineCode,
+                opCode,
+                Date.valueOf(dataDate),
+                portfolio,
+                desk,
+                totalTrades,
+                totalJobs,
+                weightBudget,
+                BATCH_PENDING,
+                totalJobs,
+                "批量任务准备提交",
+                now,
+                batchId
         );
     }
 

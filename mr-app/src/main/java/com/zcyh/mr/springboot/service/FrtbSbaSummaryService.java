@@ -1,0 +1,262 @@
+package com.zcyh.mr.springboot.service;
+
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.JSONWriter;
+import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
+import com.zcyh.mr.frtbsa.sba.pojo.FRTBClassResult;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * FRTB SBA 汇总服务。
+ * 从批次敏感性明细生成 SBA 汇总结果，并按需要执行结果落库。
+ */
+@Service
+public class FrtbSbaSummaryService {
+    private static final String DEFAULT_RULE_ID = "BATCH_FRTB_DEFAULT";
+
+    private final FrtbSbaDbRunnerService frtbSbaDbRunnerService;
+    private final FrtbSbaResultPersistService frtbSbaResultPersistService;
+    private final FrtbAggregator frtbAggregator;
+
+    public FrtbSbaSummaryService(FrtbSbaDbRunnerService frtbSbaDbRunnerService,
+                                 FrtbSbaResultPersistService frtbSbaResultPersistService,
+                                 FrtbAggregator frtbAggregator) {
+        this.frtbSbaDbRunnerService = frtbSbaDbRunnerService;
+        this.frtbSbaResultPersistService = frtbSbaResultPersistService;
+        this.frtbAggregator = frtbAggregator;
+    }
+
+    @SuppressWarnings("unchecked")
+    public JSONObject summarize(JSONObject request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request 不能为空");
+        }
+        String batchId = readRequiredString(request, "batch_id", "batchId");
+        String dataDate = readRequiredString(request, "data_date", "dataDate");
+        boolean needDecompose = readBoolean(request, true, "need_decompose", "needDecompose");
+        int threadCount = readInteger(request, 0, "thread_count", "threadCount");
+        boolean persistResult = readBoolean(request, true, "persist_result", "persistResult");
+        JSONArray ruleList = resolveRuleList(request);
+
+        if (persistResult) {
+            frtbSbaResultPersistService.deleteByBatch(batchId);
+        }
+
+        JSONArray results = new JSONArray();
+        AtomicInteger inlineCounter = new AtomicInteger(1);
+        for (int i = 0; i < ruleList.size(); i++) {
+            JSONObject ruleItem = ruleList.getJSONObject(i);
+            if (ruleItem == null) {
+                throw new IllegalArgumentException("rule_list[" + i + "] 不能为空对象");
+            }
+            RuleExecution execution = resolveRuleExecution(ruleItem, inlineCounter);
+            String raw = executeOne(batchId, dataDate, needDecompose, threadCount, execution);
+            Object parsed = JSON.parse(raw);
+
+            if (persistResult) {
+                Map<String, Map<String, Object>> batchResult = JSON.parseObject(raw, Map.class);
+                persistRuleResult(batchId, dataDate, execution.ruleId, batchResult);
+            }
+
+            JSONObject resultItem = new JSONObject();
+            resultItem.put("rule_id", execution.ruleId);
+            resultItem.put("source_type", execution.sourceType);
+            resultItem.put("summary", parsed);
+            results.add(resultItem);
+        }
+
+        JSONObject response = new JSONObject();
+        response.put("batch_id", batchId);
+        response.put("data_date", dataDate);
+        response.put("results", results);
+        return response;
+    }
+
+    private String executeOne(String batchId,
+                              String dataDate,
+                              boolean needDecompose,
+                              int threadCount,
+                              RuleExecution execution) {
+        JSONObject payload = new JSONObject();
+        payload.put("batch_id", batchId);
+        payload.put("data_date", dataDate);
+        payload.put("need_decompose", needDecompose);
+        if (threadCount > 0) {
+            payload.put("thread_count", threadCount);
+        }
+        if ("db".equals(execution.sourceType)) {
+            payload.put("rule_id", execution.ruleId);
+            return frtbSbaDbRunnerService.calculateByRule(
+                    payload.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
+        }
+        payload.put("rule", execution.ruleJson);
+        return frtbSbaDbRunnerService.calculateByInlineRule(
+                payload.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void persistRuleResult(String batchId,
+                                   String dataDate,
+                                   String ruleId,
+                                   Map<String, Map<String, Object>> batchResult) {
+        if (batchResult == null || batchResult.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, Map<String, Object>> entry : batchResult.entrySet()) {
+            String[] parts = entry.getKey().split("\\|", 2);
+            String treeId = parts.length > 0 ? parts[0] : null;
+            String groupValue = parts.length > 1 ? parts[1] : null;
+            String groupType = inferGroupType(groupValue);
+            Map<String, List<?>> pojoResult = frtbAggregator.buildResults(
+                    entry.getValue(), treeId, groupType, groupValue);
+            List<?> classResults = pojoResult.get("classResults");
+            if (classResults == null || classResults.isEmpty()) {
+                continue;
+            }
+            frtbSbaResultPersistService.persist(
+                    (List<FRTBClassResult>) classResults, batchId, dataDate, ruleId);
+        }
+    }
+
+    private static JSONArray resolveRuleList(JSONObject request) {
+        JSONArray ruleList = request.getJSONArray("rule_list");
+        if (ruleList != null && !ruleList.isEmpty()) {
+            return ruleList;
+        }
+        JSONArray single = new JSONArray();
+        JSONObject item = new JSONObject();
+        String ruleId = readString(request, "rule_id", "ruleId");
+        JSONObject rule = request.getJSONObject("rule");
+        if (ruleId != null) {
+            item.put("rule_id", ruleId);
+            single.add(item);
+            return single;
+        }
+        if (rule != null) {
+            item.put("rule", rule);
+            single.add(item);
+            return single;
+        }
+        item.put("rule_id", DEFAULT_RULE_ID);
+        single.add(item);
+        return single;
+    }
+
+    private static RuleExecution resolveRuleExecution(JSONObject ruleItem, AtomicInteger inlineCounter) {
+        JSONObject rule = ruleItem.getJSONObject("rule");
+        String ruleId = readString(ruleItem, "rule_id", "ruleId");
+        if (rule == null) {
+            if (ruleId == null) {
+                throw new IllegalArgumentException("rule_list 项必须提供 rule_id 或 rule");
+            }
+            return RuleExecution.db(ruleId);
+        }
+        if (ruleId == null) {
+            ruleId = readString(rule, "ruleId", "rule_id");
+        }
+        if (ruleId == null) {
+            ruleId = "INLINE_FRTB_SBA_" + inlineCounter.getAndIncrement();
+        }
+        rule.put("ruleId", ruleId);
+        if (readString(rule, "ruleType", "rule_type") == null) {
+            rule.put("ruleType", "FRTB");
+        }
+        return RuleExecution.inline(ruleId, rule);
+    }
+
+    private static boolean readBoolean(JSONObject request, boolean defaultValue, String... keys) {
+        for (String key : keys) {
+            if (key == null || !request.containsKey(key)) {
+                continue;
+            }
+            Boolean value = request.getBoolean(key);
+            if (value != null) {
+                return value;
+            }
+        }
+        return defaultValue;
+    }
+
+    private static int readInteger(JSONObject request, int defaultValue, String... keys) {
+        for (String key : keys) {
+            if (key == null || !request.containsKey(key)) {
+                continue;
+            }
+            Integer value = request.getInteger(key);
+            if (value != null) {
+                return value;
+            }
+        }
+        return defaultValue;
+    }
+
+    private static String readRequiredString(JSONObject request, String... keys) {
+        String value = readString(request, keys);
+        if (value == null) {
+            throw new IllegalArgumentException("参数缺失: " + keys[0]);
+        }
+        return value;
+    }
+
+    private static String readString(JSONObject request, String... keys) {
+        if (request == null || keys == null) {
+            return null;
+        }
+        for (String key : keys) {
+            if (key == null) {
+                continue;
+            }
+            String value = trimToNull(request.getString(key));
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private static String trimToNull(String text) {
+        if (text == null) {
+            return null;
+        }
+        String value = text.trim();
+        return value.isEmpty() ? null : value;
+    }
+
+    private static String inferGroupType(String groupValue) {
+        if (groupValue == null || "TOTAL".equalsIgnoreCase(groupValue)
+                || "__EMPTY_GROUP__".equals(groupValue)) {
+            return "TOTAL";
+        }
+        return "PORTFOLIO";
+    }
+
+    /**
+     * 单条 SBA 汇总规则执行定义。
+     */
+    private static class RuleExecution {
+        private String ruleId;
+        private String sourceType;
+        private JSONObject ruleJson;
+
+        static RuleExecution db(String ruleId) {
+            RuleExecution execution = new RuleExecution();
+            execution.ruleId = ruleId;
+            execution.sourceType = "db";
+            return execution;
+        }
+
+        static RuleExecution inline(String ruleId, JSONObject ruleJson) {
+            RuleExecution execution = new RuleExecution();
+            execution.ruleId = ruleId;
+            execution.sourceType = "db_inline";
+            execution.ruleJson = ruleJson;
+            return execution;
+        }
+    }
+}

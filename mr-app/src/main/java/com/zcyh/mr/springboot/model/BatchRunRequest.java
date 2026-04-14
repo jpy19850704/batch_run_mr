@@ -9,7 +9,10 @@ public class BatchRunRequest {
     private String batchId;
     private String dataDate;
     private String user;
-    private String scenarioIdList;
+    @JsonAlias("regular_scenario_id_list")
+    private String regularScenarioIdList;
+    @JsonAlias({"riskclassdecomp_scenario_id_list", "risk_class_decomp_scenario_id_list"})
+    private String riskClassDecompScenarioIdList;
     private String runMode;
     @JsonAlias("persist_scenario")
     private Boolean persistScenario;
@@ -38,12 +41,20 @@ public class BatchRunRequest {
         this.user = user;
     }
 
-    public String getScenarioIdList() {
-        return scenarioIdList;
+    public String getRegularScenarioIdList() {
+        return regularScenarioIdList;
     }
 
-    public void setScenarioIdList(String scenarioIdList) {
-        this.scenarioIdList = scenarioIdList;
+    public void setRegularScenarioIdList(String regularScenarioIdList) {
+        this.regularScenarioIdList = regularScenarioIdList;
+    }
+
+    public String getRiskClassDecompScenarioIdList() {
+        return riskClassDecompScenarioIdList;
+    }
+
+    public void setRiskClassDecompScenarioIdList(String riskClassDecompScenarioIdList) {
+        this.riskClassDecompScenarioIdList = riskClassDecompScenarioIdList;
     }
 
     public String getRunMode() {

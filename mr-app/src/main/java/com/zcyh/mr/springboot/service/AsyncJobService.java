@@ -42,6 +42,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -71,6 +72,8 @@ public class AsyncJobService {
     private final TransactionTemplate transactionTemplate;
     private final ThreadPoolExecutor executor;
     private final ScheduledExecutorService dispatcherExecutor;
+    /** 分发器定时任务句柄，null 表示分发器当前未运行。 */
+    private volatile ScheduledFuture<?> dispatcherFuture;
     private final ConcurrentMap<String, Future<?>> localFutureMap = new ConcurrentHashMap<String, Future<?>>();
     private final AtomicLong submitCounter = new AtomicLong(0L);
     private volatile boolean shuttingDown = false;
@@ -111,7 +114,7 @@ public class AsyncJobService {
             @Value("${mr.job.store.cleanup.retention-days:7}") int retentionDays,
             @Value("${mr.job.store.retry.max-attempts:3}") int retryMaxAttempts,
             @Value("${mr.job.store.retry.backoff-ms:80}") long retryBackoffMs,
-            @Value("${mr.job.dispatcher.enabled:true}") boolean dispatcherEnabled,
+            @Value("${mr.job.dispatcher.enabled:false}") boolean dispatcherEnabled,
             @Value("${mr.job.dispatcher.interval-ms:500}") long dispatchIntervalMs,
             @Value("${mr.job.dispatcher.claim-batch-size:50}") int claimBatchSize,
             @Value("${mr.job.dispatcher.stale-pending-ms:30000}") long stalePendingMs,
@@ -164,14 +167,11 @@ public class AsyncJobService {
                 new NamedThreadFactory("mr-job-worker-"),
                 new ThreadPoolExecutor.AbortPolicy()
         );
+        this.executor.allowCoreThreadTimeOut(true);
         this.dispatcherExecutor = Executors.newSingleThreadScheduledExecutor(
-                new NamedThreadFactory("mr-job-dispatcher-", true)
-        );
+                new NamedThreadFactory("mr-job-dispatcher-", true));
 
         verifyJobSchema();
-        if (this.dispatcherEnabled) {
-            startDispatcher();
-        }
     }
 
     public JobSubmitResult submit(JobSubmitRequest request) {
@@ -246,6 +246,7 @@ public class AsyncJobService {
             throw new IllegalStateException("任务队列已满，请稍后重试");
         }
 
+        ensureDispatcherRunning();
         cleanupIfNeeded();
         return toSubmitResult(create, false, "任务已提交");
     }
@@ -313,7 +314,7 @@ public class AsyncJobService {
         int queueRemain = executor.getQueue().remainingCapacity();
         int pendingJobs = countPendingJobs();
         boolean executorReady = !shuttingDown && queueRemain > 0;
-        boolean dispatcherReady = !dispatcherEnabled || !dispatcherExecutor.isShutdown();
+        boolean dispatcherReady = !dispatcherExecutor.isShutdown();
 
         boolean ready = dbReady && executorReady && dispatcherReady;
         data.put("status", ready ? "READY" : "NOT_READY");
@@ -334,6 +335,7 @@ public class AsyncJobService {
     @PreDestroy
     public void shutdown() {
         shuttingDown = true;
+        stopDispatcher();
         dispatcherExecutor.shutdown();
         executor.shutdown();
         try {
@@ -447,19 +449,51 @@ public class AsyncJobService {
     }
 
     /**
-     * 启动本地分发器，周期性抢占并执行待处理任务。
+     * 幂等启动分发器。已在运行中则跳过。
      */
-    private void startDispatcher() {
-        dispatcherExecutor.scheduleWithFixedDelay(new Runnable() {
+    private synchronized void startDispatcher() {
+        if (shuttingDown) {
+            return;
+        }
+        if (dispatcherFuture != null && !dispatcherFuture.isDone()) {
+            return;
+        }
+        log.info("启动任务分发器，轮询间隔={}ms", dispatchIntervalMs);
+        dispatcherFuture = dispatcherExecutor.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
                 runDispatchLoop();
             }
-        }, dispatchIntervalMs, dispatchIntervalMs, TimeUnit.MILLISECONDS);
+        }, 0, dispatchIntervalMs, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * 停止分发器定时任务。分发线程本身不销毁，可再次启动。
+     */
+    private synchronized void stopDispatcher() {
+        if (dispatcherFuture != null && !dispatcherFuture.isDone()) {
+            dispatcherFuture.cancel(false);
+            log.info("任务分发器已停止（无待处理任务）");
+        }
+        dispatcherFuture = null;
+    }
+
+    /**
+     * 确保分发器正在运行。由 submit() 调用，按需唤醒分发器。
+     */
+    private void ensureDispatcherRunning() {
+        if (!dispatcherEnabled || shuttingDown) {
+            return;
+        }
+        if (dispatcherFuture != null && !dispatcherFuture.isDone()) {
+            return;
+        }
+        startDispatcher();
     }
 
     /**
      * 分发循环：处理 PENDING 任务，并可选回收超时 RUNNING 任务。
+     * 空闲时自动停止分发器，等待下次 submit() 唤醒。
      */
     private void runDispatchLoop() {
         if (shuttingDown) {
@@ -468,6 +502,10 @@ public class AsyncJobService {
         try {
             dispatchPendingJobs();
             recoverStaleRunningJobs();
+            // 空闲检测：无本地执行中任务且无 DB 待处理任务时，停止轮询
+            if (localFutureMap.isEmpty() && countPendingJobs() == 0) {
+                stopDispatcher();
+            }
         } catch (Exception ex) {
             // 分发线程不抛出异常，避免被调度器终止
             alertService.error("JOB_DISPATCH_FAILED", "任务分发线程执行异常", ex);
