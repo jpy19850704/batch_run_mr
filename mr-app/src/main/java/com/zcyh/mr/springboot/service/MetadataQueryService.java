@@ -12,7 +12,7 @@ import java.util.Map;
 /**
  * 通用元数据查询服务。
  * 从 engine_result_db 结果表中查询下拉选项、维度域值等前端所需的元数据。
- * 按 scope 分发：batches / dimDomains / scenarios / tradeIds
+ * 按 scope 分发：batches / dimDomains / scenarios / instrumentIds
  */
 @Service
 public class MetadataQueryService {
@@ -62,11 +62,11 @@ public class MetadataQueryService {
     }
 
     /**
-     * 查询指定批次下的交易 ID 列表。
+     * 查询指定批次下的 instrumentId 列表。
      * 返回：[{instrument_id, product_code}]
      */
-    public List<Map<String, Object>> listTradeIds(String batchId) {
-        return metadataQueryMapper.listTradeIds(batchId);
+    public List<Map<String, Object>> listInstrumentIds(String batchId) {
+        return metadataQueryMapper.listInstrumentIds(batchId);
     }
 
     /**
@@ -83,8 +83,8 @@ public class MetadataQueryService {
                 return listDimDomains(requireParam(params, "batch_id"));
             case "scenarios":
                 return listScenarios(requireParam(params, "batch_id"));
-            case "tradeIds":
-                return listTradeIds(requireParam(params, "batch_id"));
+            case "instrumentIds":
+                return listInstrumentIds(requireParam(params, "batch_id"));
             default:
                 throw new IllegalArgumentException("不支持的 metadata scope: " + scope);
         }

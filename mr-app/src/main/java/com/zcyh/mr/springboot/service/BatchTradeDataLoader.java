@@ -36,8 +36,8 @@ public class BatchTradeDataLoader {
         public TradeRow mapRow(ResultSet rs, int rowNum) throws SQLException {
             TradeRow row = new TradeRow();
             row.id = rs.getLong("id");
-            row.tradeId = rs.getString("trade_id");
-            row.productType = rs.getString("product_type");
+            row.instrumentId = rs.getString("instrument_id");
+            row.productCode = rs.getString("product_code");
             row.tradeContentText = rs.getString("trade_content_text");
             row.portfolio = rs.getString("portfolio");
             row.desk = rs.getString("desk");
@@ -88,7 +88,7 @@ public class BatchTradeDataLoader {
     public List<TradeRow> loadTradeRows(LocalDate dataDate, String portfolio, String desk) {
         StringBuilder sql = new StringBuilder();
         List<Object> params = new ArrayList<Object>();
-        sql.append("SELECT id, trade_id, product_type, trade_content_text, portfolio, desk, trader FROM MR_TRADE_INPUT WHERE data_date=?");
+        sql.append("SELECT id, instrument_id, product_code, trade_content_text, portfolio, desk, trader FROM MR_TRADE_INPUT WHERE data_date=?");
         params.add(Date.valueOf(dataDate));
         if (portfolio != null) {
             sql.append(" AND portfolio=?");
@@ -103,23 +103,23 @@ public class BatchTradeDataLoader {
     }
 
     /**
-     * 按指定的 tradeId 列表加载交易行。
+     * 按指定的 instrumentId 列表加载交易行。
      */
-    public List<TradeRow> loadTradeRowsByTradeIds(LocalDate dataDate, List<String> tradeIds) {
-        if (tradeIds == null || tradeIds.isEmpty()) {
+    public List<TradeRow> loadTradeRowsByInstrumentIds(LocalDate dataDate, List<String> instrumentIds) {
+        if (instrumentIds == null || instrumentIds.isEmpty()) {
             return Collections.emptyList();
         }
         StringBuilder sql = new StringBuilder();
         List<Object> params = new ArrayList<Object>();
-        sql.append("SELECT id, trade_id, product_type, trade_content_text, portfolio, desk, trader FROM MR_TRADE_INPUT WHERE data_date=?");
+        sql.append("SELECT id, instrument_id, product_code, trade_content_text, portfolio, desk, trader FROM MR_TRADE_INPUT WHERE data_date=?");
         params.add(Date.valueOf(dataDate));
-        sql.append(" AND trade_id IN (");
-        for (int i = 0; i < tradeIds.size(); i++) {
+        sql.append(" AND instrument_id IN (");
+        for (int i = 0; i < instrumentIds.size(); i++) {
             if (i > 0) {
                 sql.append(", ");
             }
             sql.append("?");
-            params.add(tradeIds.get(i));
+            params.add(instrumentIds.get(i));
         }
         sql.append(") ORDER BY id");
         return jdbcTemplate.query(sql.toString(), TRADE_ROW_MAPPER, params.toArray());
@@ -171,37 +171,37 @@ public class BatchTradeDataLoader {
     // ==================== 校验 ====================
 
     /**
-     * 校验所有 tradeId 均已成功加载，否则抛出异常。
+     * 校验所有 instrumentId 均已成功加载，否则抛出异常。
      */
-    public static void ensureAllTradeIdsLoaded(List<String> tradeIds, List<TradeRow> trades) {
+    public static void ensureAllInstrumentIdsLoaded(List<String> instrumentIds, List<TradeRow> trades) {
         LinkedHashSet<String> found = new LinkedHashSet<String>();
         if (trades != null) {
             for (TradeRow trade : trades) {
-                String tradeId = trimToNull(trade.tradeId);
-                if (tradeId != null) {
-                    found.add(tradeId);
+                String instrumentId = trimToNull(trade.instrumentId);
+                if (instrumentId != null) {
+                    found.add(instrumentId);
                 }
             }
         }
         List<String> missing = new ArrayList<String>();
-        for (String tradeId : tradeIds) {
-            if (!found.contains(tradeId)) {
-                missing.add(tradeId);
+        for (String instrumentId : instrumentIds) {
+            if (!found.contains(instrumentId)) {
+                missing.add(instrumentId);
             }
         }
         if (!missing.isEmpty()) {
-            throw new IllegalArgumentException("以下 tradeId 未查询到输入交易: " + String.join(", ", missing));
+            throw new IllegalArgumentException("以下 instrumentId 未查询到输入交易: " + String.join(", ", missing));
         }
     }
 
     /**
-     * 标准化 tradeId 列表（去空去重）。
+     * 标准化 instrumentId 列表（去空去重）。
      */
-    public static List<String> normalizeTradeIds(List<String> tradeIdList) {
+    public static List<String> normalizeInstrumentIds(List<String> instrumentIdList) {
         LinkedHashSet<String> normalized = new LinkedHashSet<String>();
-        if (tradeIdList != null) {
-            for (String tradeId : tradeIdList) {
-                String safe = trimToNull(tradeId);
+        if (instrumentIdList != null) {
+            for (String instrumentId : instrumentIdList) {
+                String safe = trimToNull(instrumentId);
                 if (safe != null) {
                     normalized.add(safe);
                 }
@@ -233,8 +233,8 @@ public class BatchTradeDataLoader {
      */
     public static class TradeRow {
         public long id;
-        public String tradeId;
-        public String productType;
+        public String instrumentId;
+        public String productCode;
         public String tradeContentText;
         public String portfolio;
         public String desk;

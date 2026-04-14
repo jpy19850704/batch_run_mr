@@ -34,6 +34,7 @@ public class JobPayloadBuilder {
      * @param seqNo             分片序号
      * @param regularScenarioIdList 普通情景集 ID（仅 SCENARIO 模式）
      * @param riskClassDecompScenarioIdList 风险类别分解情景集 ID（仅 SCENARIO 模式）
+     * @param persistResult     是否写入结果库
      * @return 组装好的 payload JSON
      */
     public JSONObject buildPayload(
@@ -45,7 +46,8 @@ public class JobPayloadBuilder {
             String batchId,
             int seqNo,
             String regularScenarioIdList,
-            String riskClassDecompScenarioIdList
+            String riskClassDecompScenarioIdList,
+            boolean persistResult
     ) {
         // 组装 trade_data
         JSONArray tradeData = new JSONArray();
@@ -54,11 +56,11 @@ public class JobPayloadBuilder {
             if (parsed instanceof JSONArray) {
                 JSONArray arr = (JSONArray) parsed;
                 for (int i = 0; i < arr.size(); i++) {
-                    injectMarketDataKeys(arr.get(i), trade.tradeId, tradeMarketDataKeys);
+                    injectMarketDataKeys(arr.get(i), trade.instrumentId, tradeMarketDataKeys);
                     tradeData.add(arr.get(i));
                 }
             } else if (parsed != null) {
-                injectMarketDataKeys(parsed, trade.tradeId, tradeMarketDataKeys);
+                injectMarketDataKeys(parsed, trade.instrumentId, tradeMarketDataKeys);
                 tradeData.add(parsed);
             }
         }
@@ -82,6 +84,7 @@ public class JobPayloadBuilder {
         payload.put("data_date", dataDate.format(DateTimeFormatter.BASIC_ISO_DATE));
         payload.put("trade_data", tradeData);
         payload.put("market_data", marketData);
+        payload.put("persist_result", persistResult);
 
         // batch_meta
         JSONObject batchMeta = new JSONObject();
@@ -111,8 +114,8 @@ public class JobPayloadBuilder {
         // 维度映射表（PORTFOLIO, DESK, TRADER）
         JSONObject tradeDimension = new JSONObject();
         for (BatchTradeDataLoader.TradeRow trade : chunkTrades) {
-            String dimTradeId = trimToNull(trade.tradeId);
-            if (dimTradeId == null) {
+            String dimInstrumentId = trimToNull(trade.instrumentId);
+            if (dimInstrumentId == null) {
                 continue;
             }
             JSONObject dim = new JSONObject();
@@ -126,7 +129,7 @@ public class JobPayloadBuilder {
                 dim.put("TRADER", trade.trader.trim());
             }
             if (!dim.isEmpty()) {
-                tradeDimension.put(dimTradeId, dim);
+                tradeDimension.put(dimInstrumentId, dim);
             }
         }
         if (!tradeDimension.isEmpty()) {
@@ -141,11 +144,11 @@ public class JobPayloadBuilder {
     public static String buildProductMixJson(List<BatchTradeDataLoader.TradeRow> chunkTrades) {
         Map<String, Integer> count = new LinkedHashMap<>();
         for (BatchTradeDataLoader.TradeRow trade : chunkTrades) {
-            String productType = trimToNull(trade.productType);
-            if (productType == null) {
-                productType = "UNKNOWN";
+            String productCode = trimToNull(trade.productCode);
+            if (productCode == null) {
+                productCode = "UNKNOWN";
             }
-            count.merge(productType, 1, Integer::sum);
+            count.merge(productCode, 1, Integer::sum);
         }
         return JSON.toJSONString(count, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
@@ -157,7 +160,7 @@ public class JobPayloadBuilder {
             List<BatchTradeDataLoader.TradeRow> chunkTrades) {
         List<MrMarketDataSliceService.TradeSliceSource> trades = new ArrayList<>();
         for (BatchTradeDataLoader.TradeRow trade : chunkTrades) {
-            trades.add(new MrMarketDataSliceService.TradeSliceSource(trade.tradeId, trade.tradeContentText));
+            trades.add(new MrMarketDataSliceService.TradeSliceSource(trade.instrumentId, trade.tradeContentText));
         }
         return trades;
     }
@@ -182,12 +185,12 @@ public class JobPayloadBuilder {
     /**
      * 将交易引用的市场数据标识注入到交易 JSON 的 _MARKET_DATA_KEYS 字段。
      */
-    private static void injectMarketDataKeys(Object tradeJson, String tradeId,
+    private static void injectMarketDataKeys(Object tradeJson, String instrumentId,
                                              Map<String, Set<String>> tradeMarketDataKeys) {
         if (!(tradeJson instanceof JSONObject) || tradeMarketDataKeys == null) {
             return;
         }
-        String safeId = trimToNull(tradeId);
+        String safeId = trimToNull(instrumentId);
         if (safeId == null) {
             return;
         }

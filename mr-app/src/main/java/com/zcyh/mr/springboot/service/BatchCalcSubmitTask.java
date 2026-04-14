@@ -62,7 +62,9 @@ public class BatchCalcSubmitTask implements BatchRunTask {
         int submittedJobs = 0;
         List<String> submittedJobIds = new ArrayList<String>();
         try {
-            batchJobService.syncPortfolioHierarchySnapshot(batchId, dataDate);
+            if (context.isPersistResult()) {
+                batchJobService.syncPortfolioHierarchySnapshot(batchId, dataDate);
+            }
             for (BatchJobPayload jobPayload : context.getJobPayloads()) {
                 JobSubmitRequest jobRequest = new JobSubmitRequest();
                 String jobId = BatchJobService.buildJobId(batchId, jobPayload.getSeqNo());

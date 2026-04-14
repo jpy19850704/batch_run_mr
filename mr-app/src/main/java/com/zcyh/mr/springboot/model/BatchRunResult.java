@@ -9,6 +9,7 @@ public class BatchRunResult {
     private String user;
     private String mode;
     private String runMode;
+    private boolean persistResult;
     private boolean scenarioGenerated;
     private int scenarioCount;
     private Object scenarioData;
@@ -52,6 +53,14 @@ public class BatchRunResult {
 
     public void setRunMode(String runMode) {
         this.runMode = runMode;
+    }
+
+    public boolean isPersistResult() {
+        return persistResult;
+    }
+
+    public void setPersistResult(boolean persistResult) {
+        this.persistResult = persistResult;
     }
 
     public boolean isScenarioGenerated() {

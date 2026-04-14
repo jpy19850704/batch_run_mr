@@ -44,7 +44,8 @@ public class BatchPayloadBuildTask implements BatchRunTask {
                     context.getBatchId(),
                     seqNo,
                     context.getRegularScenarioIdList(),
-                    context.getRiskClassDecompScenarioIdList());
+                    context.getRiskClassDecompScenarioIdList(),
+                    context.isPersistResult());
             if (context.getRunMode() != null) {
                 payload.put("run_mode", context.getRunMode());
             }

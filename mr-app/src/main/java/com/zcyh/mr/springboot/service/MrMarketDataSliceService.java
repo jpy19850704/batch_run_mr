@@ -37,7 +37,7 @@ public class MrMarketDataSliceService {
             return curves;
         }
 
-        /** 每笔交易引用的市场数据标识，key=tradeId，value=市场数据标识集合（格式：CURVE_TYPE:CURVE_ID） */
+        /** 每笔交易引用的市场数据标识，key=instrumentId，value=市场数据标识集合（格式：CURVE_TYPE:CURVE_ID） */
         public Map<String, Set<String>> getTradeMarketDataKeys() {
             return tradeMarketDataKeys;
         }
@@ -177,9 +177,9 @@ public class MrMarketDataSliceService {
                 }
             }
 
-            String tradeId = trimToNull(trade.getTradeId());
-            if (tradeId != null) {
-                tradeMarketDataKeys.put(tradeId, mdKeys);
+            String instrumentId = trimToNull(trade.getInstrumentId());
+            if (instrumentId != null) {
+                tradeMarketDataKeys.put(instrumentId, mdKeys);
             }
         }
     }
@@ -189,7 +189,7 @@ public class MrMarketDataSliceService {
             return JSON.parse(trade.getTradeContentText());
         } catch (Exception ex) {
             throw new IllegalArgumentException(
-                    "交易JSON解析失败，tradeId=" + trade.getTradeId() + ": " + ex.getMessage(), ex);
+                    "交易JSON解析失败，instrumentId=" + trade.getInstrumentId() + ": " + ex.getMessage(), ex);
         }
     }
 
@@ -356,16 +356,16 @@ public class MrMarketDataSliceService {
      * 交易切片输入。
      */
     public static class TradeSliceSource {
-        private final String tradeId;
+        private final String instrumentId;
         private final String tradeContentText;
 
-        public TradeSliceSource(String tradeId, String tradeContentText) {
-            this.tradeId = tradeId;
+        public TradeSliceSource(String instrumentId, String tradeContentText) {
+            this.instrumentId = instrumentId;
             this.tradeContentText = tradeContentText;
         }
 
-        public String getTradeId() {
-            return tradeId;
+        public String getInstrumentId() {
+            return instrumentId;
         }
 
         public String getTradeContentText() {

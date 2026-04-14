@@ -309,13 +309,10 @@ public class VarInputQueryService {
         if ("TRADER".equalsIgnoreCase(safeField) || "TRADER_ID".equalsIgnoreCase(safeField)) {
             return "r.TRADER";
         }
-        if ("PRODUCT_TYPE".equalsIgnoreCase(safeField)) {
-            return "r.PRODUCT_CODE";
-        }
         if ("PRODUCT_CODE".equalsIgnoreCase(safeField)) {
             return "d.PRODUCT_CODE";
         }
-        if ("TRADE_ID".equalsIgnoreCase(safeField) || "INSTRUMENT_ID".equalsIgnoreCase(safeField)) {
+        if ("INSTRUMENT_ID".equalsIgnoreCase(safeField)) {
             return "d.INSTRUMENT_ID";
         }
         if ("SCENARIO_ID".equalsIgnoreCase(safeField)) {

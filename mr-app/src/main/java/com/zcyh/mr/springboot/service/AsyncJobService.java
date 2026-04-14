@@ -407,12 +407,12 @@ public class AsyncJobService {
      * 批次结果快照生成属于非关键动作，失败仅记录日志。
      */
     private void handleTerminalSideEffects(String jobId, String requestId, String payloadJson, String engineCode, EngineRunResult runResult) {
-        boolean whatifPayload = isWhatifPayload(payloadJson);
+        boolean persistResult = shouldPersistResult(payloadJson);
         try {
             if (runResult != null
                     && runResult.isSuccess()
                     && MrCalcEngineAdapter.CODE.equalsIgnoreCase(defaultEngineCode(engineCode))
-                    && !whatifPayload) {
+                    && persistResult) {
                 pricingResultPersistService.persistJobResult(requestId, jobId, payloadJson, runResult);
             }
         } catch (Exception ex) {
@@ -420,7 +420,7 @@ public class AsyncJobService {
         }
 
         try {
-            if (!whatifPayload) {
+            if (persistResult) {
                 batchResultFileService.tryWriteSnapshotForJob(jobId);
             }
         } catch (Exception ex) {
@@ -744,9 +744,9 @@ public class AsyncJobService {
         runResult.setElapsedMs(elapsed);
         final String finalStatus = runResult.isSuccess() ? SUCCESS : FAILED;
         final String safeErrorMessage = truncateForErrorMessage(runResult.getErrorMessage());
-        final String resultJson = isWhatifPayload(payloadJson)
-                ? JSON.toJSONString(runResult.getData(), JSONWriter.Feature.WriteBigDecimalAsPlain)
-                : null;
+        final String resultJson = shouldPersistResult(payloadJson)
+                ? null
+                : JSON.toJSONString(runResult.getData(), JSONWriter.Feature.WriteBigDecimalAsPlain);
         withRetry(new Callable<Void>() {
             @Override
             public Void call() {
@@ -1115,46 +1115,42 @@ public class AsyncJobService {
         return truncateForErrorMessage(ex.getClass().getSimpleName());
     }
 
-    private static boolean isWhatifPayload(String payloadJson) {
+    private static boolean shouldPersistResult(String payloadJson) {
         try {
             JSONObject payload = JSON.parseObject(payloadJson);
             if (payload == null) {
-                return false;
-            }
-            String runMode = firstNonBlank(
-                    payload.getString("run_mode"),
-                    payload.getString("runMode"));
-            if (runMode != null && "WHATIF".equalsIgnoreCase(runMode.trim())) {
                 return true;
             }
-            String batchId = resolveBatchId(payload);
-            return batchId != null && batchId.toLowerCase(java.util.Locale.ROOT).startsWith("stresswhatif_");
+            return readBoolean(payload, true, "persist_result", "persistResult");
         } catch (Exception ex) {
-            return false;
+            return true;
         }
     }
 
-    private static String resolveBatchId(JSONObject payload) {
-        if (payload == null) {
-            return null;
+    private static boolean readBoolean(JSONObject payload, boolean defaultValue, String... fieldNames) {
+        if (payload == null || fieldNames == null) {
+            return defaultValue;
         }
-        String batchId = firstNonBlank(
-                payload.getString("batch_id"),
-                payload.getString("batchId"));
-        if (batchId != null) {
-            return batchId;
+        for (String fieldName : fieldNames) {
+            Object raw = payload.get(fieldName);
+            if (raw == null) {
+                continue;
+            }
+            if (raw instanceof Boolean) {
+                return (Boolean) raw;
+            }
+            String text = trimToNull(String.valueOf(raw));
+            if (text == null) {
+                continue;
+            }
+            if ("true".equalsIgnoreCase(text) || "1".equals(text) || "Y".equalsIgnoreCase(text)) {
+                return true;
+            }
+            if ("false".equalsIgnoreCase(text) || "0".equals(text) || "N".equalsIgnoreCase(text)) {
+                return false;
+            }
         }
-        JSONObject batchMeta = payload.getJSONObject("batch_meta");
-        batchId = firstNonBlank(
-                batchMeta == null ? null : batchMeta.getString("batch_id"),
-                batchMeta == null ? null : batchMeta.getString("batchId"));
-        if (batchId != null) {
-            return batchId;
-        }
-        JSONObject scenarioRef = payload.getJSONObject("scenario_ref");
-        return firstNonBlank(
-                scenarioRef == null ? null : scenarioRef.getString("batch_id"),
-                scenarioRef == null ? null : scenarioRef.getString("batchId"));
+        return defaultValue;
     }
 
     private static String firstNonBlank(String... values) {

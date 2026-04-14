@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
 /**
@@ -28,6 +30,8 @@ public class BatchRunService {
     private static final String DEFAULT_USER = "outer_service";
     private static final String RUN_MODE_WHATIF = "WHATIF";
     private static final Pattern DATE_8_PATTERN = Pattern.compile("^\\d{8}$");
+    private static final Pattern BATCH_ID_PATTERN = Pattern.compile("^[A-Za-z0-9._-]+$");
+    private static final DateTimeFormatter GENERATED_BATCH_TIME_FORMATTER = DateTimeFormatter.ofPattern("HHmmssSSS");
     private static final String ENGINE_CODE = "MR_CALC";
 
     private final List<BatchRunTask> batchPrepareTasks;
@@ -100,17 +104,26 @@ public class BatchRunService {
         String regularScenarioIdList = trimToNull(request.getRegularScenarioIdList());
         String riskClassDecompScenarioIdList = trimToNull(request.getRiskClassDecompScenarioIdList());
         String runMode = normalizeRunMode(request.getRunMode());
+        String dataDate = normalizeDataDate(request.getDataDate());
+        String externalBatchId = trimToNull(request.getBatchId());
+        String batchId = externalBatchId == null ? buildGeneratedBatchId(dataDate) : externalBatchId;
+        validateBatchId(batchId);
+        boolean persistResult = request.getPersistResult() == null
+                ? externalBatchId != null
+                : Boolean.TRUE.equals(request.getPersistResult());
 
         BatchRunWorkflowContext context = new BatchRunWorkflowContext();
         context.setRequest(request);
-        context.setBatchId(requireNonBlank(request.getBatchId(), "batchId 不能为空"));
-        context.setDataDate(normalizeDataDate(request.getDataDate()));
+        context.setBatchId(batchId);
+        context.setDataDate(dataDate);
         context.setUser(user == null ? DEFAULT_USER : user);
         context.setRegularScenarioIdList(regularScenarioIdList);
         context.setRiskClassDecompScenarioIdList(riskClassDecompScenarioIdList);
         context.setScenarioMode(regularScenarioIdList != null || riskClassDecompScenarioIdList != null);
         context.setRunMode(runMode);
         context.setWhatifMode(RUN_MODE_WHATIF.equals(runMode));
+        context.setExternalBatchIdProvided(externalBatchId != null);
+        context.setPersistResult(persistResult);
         return context;
     }
 
@@ -121,6 +134,7 @@ public class BatchRunService {
         result.setUser(context.getUser());
         result.setMode(context.isScenarioMode() ? "SCENARIO" : "PRICING");
         result.setRunMode(context.getRunMode());
+        result.setPersistResult(context.isPersistResult());
         result.setScenarioGenerated(false);
         result.setScenarioCount(0);
         result.setScenarioData(context.getScenarioData());
@@ -140,7 +154,8 @@ public class BatchRunService {
                 null,
                 null,
                 System.currentTimeMillis(),
-                "批次工作流已启动"
+                "批次工作流已启动",
+                context.isPersistResult()
         );
     }
 
@@ -201,6 +216,18 @@ public class BatchRunService {
             return safe;
         } catch (DateTimeParseException ex) {
             throw new IllegalArgumentException("dataDate 格式错误，仅支持 yyyyMMdd");
+        }
+    }
+
+    private static String buildGeneratedBatchId(String dataDate) {
+        String random = Long.toUnsignedString(ThreadLocalRandom.current().nextLong(), 36);
+        return "batch_" + dataDate + "_" + LocalDateTime.now().format(GENERATED_BATCH_TIME_FORMATTER) + "_" + random;
+    }
+
+    private static void validateBatchId(String batchId) {
+        String safe = requireNonBlank(batchId, "batchId 不能为空");
+        if (!BATCH_ID_PATTERN.matcher(safe).matches()) {
+            throw new IllegalArgumentException("batchId 格式非法，仅支持字母、数字、点、下划线、中划线");
         }
     }
 

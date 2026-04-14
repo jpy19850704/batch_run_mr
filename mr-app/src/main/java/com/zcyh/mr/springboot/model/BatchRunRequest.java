@@ -6,16 +6,21 @@ import com.fasterxml.jackson.annotation.JsonAlias;
  * 批次总编排运行请求。
  */
 public class BatchRunRequest {
+    @JsonAlias("batch_id")
     private String batchId;
+    @JsonAlias("data_date")
     private String dataDate;
     private String user;
     @JsonAlias("regular_scenario_id_list")
     private String regularScenarioIdList;
     @JsonAlias({"riskclassdecomp_scenario_id_list", "risk_class_decomp_scenario_id_list"})
     private String riskClassDecompScenarioIdList;
+    @JsonAlias("run_mode")
     private String runMode;
     @JsonAlias("persist_scenario")
     private Boolean persistScenario;
+    @JsonAlias("persist_result")
+    private Boolean persistResult;
 
     public String getBatchId() {
         return batchId;
@@ -71,5 +76,13 @@ public class BatchRunRequest {
 
     public void setPersistScenario(Boolean persistScenario) {
         this.persistScenario = persistScenario;
+    }
+
+    public Boolean getPersistResult() {
+        return persistResult;
+    }
+
+    public void setPersistResult(Boolean persistResult) {
+        this.persistResult = persistResult;
     }
 }

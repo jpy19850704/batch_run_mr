@@ -177,7 +177,6 @@ public class BatchJobService {
             int totalTrades,
             int totalJobs,
             long now) {
-        ensureWorkflowNotRunning(batchId);
         if (batchExists(batchId)) {
             updateBatchDefinition(batchId, requestId, engineCode, opCode, dataDate, portfolio, desk, totalTrades, totalJobs, now);
             return;
@@ -196,10 +195,11 @@ public class BatchJobService {
             String portfolio,
             String desk,
             long now,
-            String message) {
+            String message,
+            boolean clearResultData) {
         ensureWorkflowNotRunning(batchId);
         ensureBatchNotRunning(batchId);
-        clearExistingBatchData(batchId);
+        clearExistingBatchData(batchId, clearResultData);
         insertBatchJob(batchId, requestId, engineCode, opCode, dataDate, portfolio, desk, 0, 0, now);
         updateBatchStatus(batchId, BATCH_PENDING, 0, 0, 0, 0, 0, now, message);
     }
@@ -298,7 +298,7 @@ public class BatchJobService {
                         JobPayloadBuilder.toTradeSliceSources(chunkTrades),
                         curveSources);
                 JSONObject payload = payloadBuilder.buildPayload(opCode, dataDate, chunkTrades, sliceResult.getCurves(),
-                        sliceResult.getTradeMarketDataKeys(), batchId, seqNo, scenarioIdList, null);
+                        sliceResult.getTradeMarketDataKeys(), batchId, seqNo, scenarioIdList, null, true);
                 if (runMode != null) {
                     payload.put("run_mode", runMode);
                 }
@@ -367,13 +367,13 @@ public class BatchJobService {
         }
 
         ensureBatchNotRunning(batchId);
-        List<String> tradeIds = BatchTradeDataLoader.normalizeTradeIds(request.getTradeIdList());
-        if (tradeIds.isEmpty()) {
-            throw new IllegalArgumentException("tradeIdList 不能为空");
+        List<String> instrumentIds = BatchTradeDataLoader.normalizeInstrumentIds(request.getInstrumentIdList());
+        if (instrumentIds.isEmpty()) {
+            throw new IllegalArgumentException("instrumentIdList 不能为空");
         }
 
-        List<BatchTradeDataLoader.TradeRow> trades = dataLoader.loadTradeRowsByTradeIds(dataDate, tradeIds);
-        BatchTradeDataLoader.ensureAllTradeIdsLoaded(tradeIds, trades);
+        List<BatchTradeDataLoader.TradeRow> trades = dataLoader.loadTradeRowsByInstrumentIds(dataDate, instrumentIds);
+        BatchTradeDataLoader.ensureAllInstrumentIdsLoaded(instrumentIds, trades);
         List<BatchTradeDataLoader.CurveRow> curves = dataLoader.loadCurveRows(dataDate);
         if (curves.isEmpty()) {
             throw new IllegalArgumentException("未查询到市场数据，请先加载 MR_MARKET_CURVE_INPUT");
@@ -397,7 +397,7 @@ public class BatchJobService {
                         curveSources
                 );
                 JSONObject payload = payloadBuilder.buildPayload(batchRow.opCode, dataDate, chunkTrades, sliceResult.getCurves(),
-                        sliceResult.getTradeMarketDataKeys(), batchId, seqNo, null, null);
+                        sliceResult.getTradeMarketDataKeys(), batchId, seqNo, null, null, true);
 
                 JobSubmitRequest jobRequest = new JobSubmitRequest();
                 String jobId = buildJobId(batchId, seqNo);
@@ -527,20 +527,19 @@ public class BatchJobService {
     }
 
     private void clearExistingBatchData(String batchId) {
+        clearExistingBatchData(batchId, true);
+    }
+
+    private void clearExistingBatchData(String batchId, boolean clearResultData) {
         List<String> oldJobIds = jdbcTemplate.queryForList(
                 "SELECT job_id FROM MR_ASYNC_BATCH_ITEM WHERE batch_id=? ORDER BY seq_no",
                 String.class,
                 batchId
         );
 
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_RESULT_DETAIL WHERE BATCH_ID=?", batchId);
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_SCENARIO_RESULT_DETAIL WHERE BATCH_ID=?", batchId);
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL WHERE BATCH_ID=?", batchId);
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL WHERE BATCH_ID=?", batchId);
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_DRC_DETAIL WHERE BATCH_ID=?", batchId);
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_DRC_RESULT WHERE BATCH_ID=?", batchId);
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_MARKET_DATA_DETAIL WHERE BATCH_ID=?", batchId);
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_PORTFOLIO_HIERARCHY WHERE BATCH_ID=?", batchId);
+        if (clearResultData) {
+            clearExistingResultData(batchId);
+        }
 
         jdbcTemplate.update("DELETE FROM MR_ASYNC_BATCH_ITEM WHERE batch_id=?", batchId);
         jdbcTemplate.update("DELETE FROM MR_ASYNC_BATCH_JOB WHERE batch_id=?", batchId);
@@ -553,6 +552,17 @@ public class BatchJobService {
             }
         }
         jdbcTemplate.update("DELETE FROM MR_ASYNC_JOB WHERE job_id IN (SELECT job_id FROM MR_ASYNC_BATCH_ITEM WHERE batch_id=?)", batchId);
+    }
+
+    private void clearExistingResultData(String batchId) {
+        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_RESULT_DETAIL WHERE BATCH_ID=?", batchId);
+        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_SCENARIO_RESULT_DETAIL WHERE BATCH_ID=?", batchId);
+        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL WHERE BATCH_ID=?", batchId);
+        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL WHERE BATCH_ID=?", batchId);
+        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_DRC_DETAIL WHERE BATCH_ID=?", batchId);
+        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_DRC_RESULT WHERE BATCH_ID=?", batchId);
+        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_MARKET_DATA_DETAIL WHERE BATCH_ID=?", batchId);
+        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_PORTFOLIO_HIERARCHY WHERE BATCH_ID=?", batchId);
     }
 
     void syncPortfolioHierarchySnapshot(String batchId, LocalDate dataDate) {

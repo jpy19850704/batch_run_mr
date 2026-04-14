@@ -28,5 +28,5 @@ public interface MetadataQueryMapper {
     List<Map<String, Object>> listScenarios(@Param("batchId") String batchId);
 
     @Select("SELECT DISTINCT INSTRUMENT_ID, PRODUCT_CODE FROM TB_OUT_TRADE_RESULT_DETAIL WHERE BATCH_ID = #{batchId} ORDER BY INSTRUMENT_ID")
-    List<Map<String, Object>> listTradeIds(@Param("batchId") String batchId);
+    List<Map<String, Object>> listInstrumentIds(@Param("batchId") String batchId);
 }

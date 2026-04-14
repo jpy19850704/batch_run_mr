@@ -10,7 +10,7 @@ import java.util.Map;
 
 /**
  * 交易分片策略。
- * 按产品类型分组后，根据权重预算将交易拆分为多个 chunk。
+ * 按产品代码分组后，根据权重预算将交易拆分为多个 chunk。
  */
 @Component
 public class TradeChunkSplitter {
@@ -27,7 +27,7 @@ public class TradeChunkSplitter {
     }
 
     /**
-     * 按产品类型分组并按权重预算拆分交易列表为多个 chunk。
+     * 按产品代码分组并按权重预算拆分交易列表为多个 chunk。
      */
     public List<List<BatchTradeDataLoader.TradeRow>> splitChunks(
             List<BatchTradeDataLoader.TradeRow> trades, int maxWeightBudget) {
@@ -36,11 +36,11 @@ public class TradeChunkSplitter {
             return chunks;
         }
 
-        // 先按产品类型分组
+        // 先按产品代码分组
         Map<String, List<BatchTradeDataLoader.TradeRow>> grouped = new LinkedHashMap<>();
         for (BatchTradeDataLoader.TradeRow trade : trades) {
-            String productType = normalizeProductType(trade.productType);
-            grouped.computeIfAbsent(productType, k -> new ArrayList<>()).add(trade);
+            String productCode = normalizeProductCode(trade.productCode);
+            grouped.computeIfAbsent(productCode, k -> new ArrayList<>()).add(trade);
         }
 
         // 每个产品组内按权重预算切分
@@ -60,7 +60,7 @@ public class TradeChunkSplitter {
         List<BatchTradeDataLoader.TradeRow> currentChunk = new ArrayList<>();
         int currentWeight = 0;
         for (BatchTradeDataLoader.TradeRow trade : productTrades) {
-            int tradeWeight = resolveWeight(trade.productType);
+            int tradeWeight = resolveWeight(trade.productCode);
             if (!currentChunk.isEmpty() && currentWeight + tradeWeight > maxWeightBudget) {
                 chunks.add(currentChunk);
                 currentChunk = new ArrayList<>();
@@ -80,8 +80,8 @@ public class TradeChunkSplitter {
         return chunks;
     }
 
-    private int resolveWeight(String productType) {
-        String key = productType == null ? null : productType.trim().toUpperCase();
+    private int resolveWeight(String productCode) {
+        String key = productCode == null ? null : productCode.trim().toUpperCase();
         Integer weight = key == null ? null : productWeightRules.get(key);
         if (weight == null) {
             return defaultWeight;
@@ -89,11 +89,11 @@ public class TradeChunkSplitter {
         return normalizeWeight(weight);
     }
 
-    private static String normalizeProductType(String productType) {
-        if (productType == null || productType.trim().isEmpty()) {
+    private static String normalizeProductCode(String productCode) {
+        if (productCode == null || productCode.trim().isEmpty()) {
             return "UNKNOWN";
         }
-        return productType.trim();
+        return productCode.trim();
     }
 
     static int normalizeWeight(int weight) {

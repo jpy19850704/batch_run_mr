@@ -21,6 +21,8 @@ public class BatchRunWorkflowContext {
     private boolean scenarioMode;
     private String runMode;
     private boolean whatifMode;
+    private boolean externalBatchIdProvided;
+    private boolean persistResult;
     private String scenarioJson;
     private JSONArray scenarioData = new JSONArray();
     private List<BatchTradeDataLoader.TradeRow> loadedTrades = new ArrayList<BatchTradeDataLoader.TradeRow>();
@@ -100,6 +102,22 @@ public class BatchRunWorkflowContext {
 
     public void setWhatifMode(boolean whatifMode) {
         this.whatifMode = whatifMode;
+    }
+
+    public boolean isExternalBatchIdProvided() {
+        return externalBatchIdProvided;
+    }
+
+    public void setExternalBatchIdProvided(boolean externalBatchIdProvided) {
+        this.externalBatchIdProvided = externalBatchIdProvided;
+    }
+
+    public boolean isPersistResult() {
+        return persistResult;
+    }
+
+    public void setPersistResult(boolean persistResult) {
+        this.persistResult = persistResult;
     }
 
     public String getScenarioJson() {

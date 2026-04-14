@@ -1,15 +1,21 @@
 package com.zcyh.mr.springboot.model;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 import java.util.List;
 
 /**
  * 批次局部重跑请求。
  */
 public class BatchPatchRequest {
+    @JsonAlias("batch_id")
     private String batchId;
+    @JsonAlias("request_id")
     private String requestId;
+    @JsonAlias("data_date")
     private String dataDate;
-    private List<String> tradeIdList;
+    @JsonAlias("instrument_id_list")
+    private List<String> instrumentIdList;
 
     public String getBatchId() {
         return batchId;
@@ -35,11 +41,11 @@ public class BatchPatchRequest {
         this.dataDate = dataDate;
     }
 
-    public List<String> getTradeIdList() {
-        return tradeIdList;
+    public List<String> getInstrumentIdList() {
+        return instrumentIdList;
     }
 
-    public void setTradeIdList(List<String> tradeIdList) {
-        this.tradeIdList = tradeIdList;
+    public void setInstrumentIdList(List<String> instrumentIdList) {
+        this.instrumentIdList = instrumentIdList;
     }
 }
