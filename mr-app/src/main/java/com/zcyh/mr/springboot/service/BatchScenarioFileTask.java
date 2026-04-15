@@ -75,7 +75,10 @@ public class BatchScenarioFileTask implements BatchRunTask {
             if (item == null) {
                 continue;
             }
-            String scenarioId = trimToNull(item.getString("SCENARIO_ID"));
+            // 兼容 camelCase 和 UPPER_SNAKE_CASE 两种序列化格式
+            String scenarioId = trimToNull(firstNonBlank(
+                    item.getString("SCENARIO_ID"),
+                    item.getString("scenarioId")));
             if (scenarioId != null && allowedIds.contains(scenarioId)) {
                 result.add(item);
             }
@@ -104,5 +107,18 @@ public class BatchScenarioFileTask implements BatchRunTask {
         }
         String value = txt.trim();
         return value.isEmpty() ? null : value;
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String v : values) {
+            String safe = trimToNull(v);
+            if (safe != null) {
+                return safe;
+            }
+        }
+        return null;
     }
 }

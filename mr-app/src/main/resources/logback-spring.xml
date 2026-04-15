@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <!-- 统一日志目录：默认 E:/zcyh_mr/engine/logs，可通过 MR_LOG_DIR 覆盖 -->
-    <springProperty scope="context" name="LOG_DIR" source="mr.log.dir" defaultValue="E:/zcyh_mr/engine/logs"/>
+    <!-- 统一日志目录：默认 ./logs，可通过 MR_LOG_DIR 覆盖 -->
+    <springProperty scope="context" name="LOG_DIR" source="mr.log.dir" defaultValue="./logs"/>
 
     <property name="JSON_PATTERN" value="{&quot;time&quot;:&quot;%date{yyyy-MM-dd HH:mm:ss.SSS}&quot;,&quot;level&quot;:&quot;%level&quot;,&quot;thread&quot;:&quot;%thread&quot;,&quot;logger&quot;:&quot;%logger{36}&quot;,&quot;traceId&quot;:&quot;%X{traceId:-}&quot;,&quot;requestId&quot;:&quot;%X{requestId:-}&quot;,&quot;clientId&quot;:&quot;%X{clientId:-}&quot;,&quot;userId&quot;:&quot;%X{userId:-}&quot;,&quot;jobId&quot;:&quot;%X{jobId:-}&quot;,&quot;batchId&quot;:&quot;%X{batchId:-}&quot;,&quot;engineCode&quot;:&quot;%X{engineCode:-}&quot;,&quot;message&quot;:&quot;%msg&quot;}%n"/>
 

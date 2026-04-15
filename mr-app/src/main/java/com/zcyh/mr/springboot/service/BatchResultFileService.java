@@ -2,6 +2,7 @@ package com.zcyh.mr.springboot.service;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONWriter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -27,12 +28,15 @@ public class BatchResultFileService {
 
     private final JdbcTemplate engineDbJdbcTemplate;
     private final JdbcTemplate engineResultDbJdbcTemplate;
+    private final String batchResultDir;
 
     public BatchResultFileService(
             @Qualifier("engineDbJdbcTemplate") JdbcTemplate engineDbJdbcTemplate,
-            @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate) {
+            @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate,
+            @Value("${mr.batch.result.dir:./data/batch-result}") String batchResultDir) {
         this.engineDbJdbcTemplate = engineDbJdbcTemplate;
         this.engineResultDbJdbcTemplate = engineResultDbJdbcTemplate;
+        this.batchResultDir = batchResultDir == null ? "./data/batch-result" : batchResultDir.trim();
     }
 
     /**
@@ -133,7 +137,7 @@ public class BatchResultFileService {
         ));
 
         String fileName = batchId + "_" + FILE_TS_FORMAT.format(LocalDateTime.now()) + ".json";
-        Path directory = Paths.get("data", "batch-result").toAbsolutePath().normalize();
+        Path directory = Paths.get(batchResultDir).toAbsolutePath().normalize();
         Path file = directory.resolve(fileName);
         try {
             Files.createDirectories(directory);
