@@ -137,7 +137,7 @@ public class BatchRunService {
         result.setPersistResult(context.isPersistResult());
         result.setScenarioGenerated(false);
         result.setScenarioCount(0);
-        result.setScenarioData(context.getScenarioData());
+        result.setScenarioData(null);
         result.setBatchDetail(batchJobService.getDetail(context.getBatchId()));
         return result;
     }

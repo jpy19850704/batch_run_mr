@@ -1,12 +1,11 @@
 package com.zcyh.mr.springboot.service;
 
-import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.alibaba.fastjson2.JSONWriter;
+import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
 import com.zcyh.mr.springboot.engine.ScenarioEngineAdapter;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -42,14 +41,12 @@ public class BatchScenarioGenerateTask implements BatchRunTask {
             payload.put("persist_scenario", context.getRequest().getPersistScenario());
         }
 
-        String raw = scenarioEngineAdapter.calculate(payload.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
-        JSONArray data = JSON.parseArray(raw);
-        if (data == null || data.isEmpty()) {
+        List<ScenarioGeneratedRecord> records = scenarioEngineAdapter.generateRecords(payload);
+        if (records == null || records.isEmpty()) {
             throw new IllegalStateException("情景生成结果为空，batchId=" + context.getBatchId()
                     + ", scenario_id_list=" + mergedScenarioIdList);
         }
-        context.setScenarioJson(raw);
-        context.setScenarioData(data);
+        context.setScenarioRecords(records);
     }
 
     static String mergeScenarioIdLists(String... scenarioIdLists) {

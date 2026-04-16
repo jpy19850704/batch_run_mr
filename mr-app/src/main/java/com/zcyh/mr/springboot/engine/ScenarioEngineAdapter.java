@@ -49,10 +49,10 @@ public class ScenarioEngineAdapter implements EngineAdapter {
             throw new IllegalArgumentException("payload must be a json object");
         }
 
-        return runService(req);
+        return JSON.toJSONString(generateRecords(req), JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
 
-    private String runService(JSONObject req) {
+    public List<ScenarioGeneratedRecord> generateRecords(JSONObject req) {
         if (scenarioGenerationEngine == null) {
             throw new IllegalStateException("scenario generation engine 未启用，请配置 mr.scenario.service.enabled=true 并提供业务库连接");
         }
@@ -78,7 +78,7 @@ public class ScenarioEngineAdapter implements EngineAdapter {
         if (scenarioGeneratedPersistService != null) {
             scenarioGeneratedPersistService.persist(batchId, dataDate, persistScenario, result);
         }
-        return JSON.toJSONString(result, JSONWriter.Feature.WriteBigDecimalAsPlain);
+        return result;
     }
 
     private static String requiredString(JSONObject obj, String key) {

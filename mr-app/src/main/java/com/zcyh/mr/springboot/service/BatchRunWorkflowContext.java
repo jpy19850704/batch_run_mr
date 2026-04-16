@@ -1,9 +1,9 @@
 package com.zcyh.mr.springboot.service;
 
-import com.alibaba.fastjson2.JSONArray;
 import com.zcyh.mr.springboot.model.BatchDetailResult;
 import com.zcyh.mr.springboot.model.BatchRunRequest;
 import com.zcyh.mr.springboot.model.BatchSubmitResult;
+import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,8 +23,7 @@ public class BatchRunWorkflowContext {
     private boolean whatifMode;
     private boolean externalBatchIdProvided;
     private boolean persistResult;
-    private String scenarioJson;
-    private JSONArray scenarioData = new JSONArray();
+    private List<ScenarioGeneratedRecord> scenarioRecords = new ArrayList<ScenarioGeneratedRecord>();
     private List<BatchTradeDataLoader.TradeRow> loadedTrades = new ArrayList<BatchTradeDataLoader.TradeRow>();
     private List<BatchTradeDataLoader.CurveRow> loadedMarketData = new ArrayList<BatchTradeDataLoader.CurveRow>();
     private List<List<BatchTradeDataLoader.TradeRow>> tradeChunks = new ArrayList<List<BatchTradeDataLoader.TradeRow>>();
@@ -120,20 +119,14 @@ public class BatchRunWorkflowContext {
         this.persistResult = persistResult;
     }
 
-    public String getScenarioJson() {
-        return scenarioJson;
+    public List<ScenarioGeneratedRecord> getScenarioRecords() {
+        return scenarioRecords;
     }
 
-    public void setScenarioJson(String scenarioJson) {
-        this.scenarioJson = scenarioJson;
-    }
-
-    public JSONArray getScenarioData() {
-        return scenarioData;
-    }
-
-    public void setScenarioData(JSONArray scenarioData) {
-        this.scenarioData = scenarioData == null ? new JSONArray() : scenarioData;
+    public void setScenarioRecords(List<ScenarioGeneratedRecord> scenarioRecords) {
+        this.scenarioRecords = scenarioRecords == null
+                ? new ArrayList<ScenarioGeneratedRecord>()
+                : scenarioRecords;
     }
 
     public List<BatchTradeDataLoader.TradeRow> getLoadedTrades() {
