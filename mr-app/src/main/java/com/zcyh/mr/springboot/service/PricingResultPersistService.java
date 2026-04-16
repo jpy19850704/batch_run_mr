@@ -36,6 +36,7 @@ public class PricingResultPersistService {
     private static final DateTimeFormatter DATE_10_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final int DEFAULT_BATCH_SIZE = 500;
     private static final int MAX_INVALID_DRC_LOG = 10;
+    private static final int ERROR_TEXT_MAX_LEN = 1000;
     private static final String DECOMP_TABLE = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
     private static final String RESULT_KIND_SCENARIO = "SCENARIO";
     private static final String RESULT_KIND_RISK_CLASS_DECOMP = "RISK_CLASS_DECOMP";
@@ -156,7 +157,7 @@ public class PricingResultPersistService {
         PersistContext context = new PersistContext();
         context.requestId = trimToNull(requestId);
         context.jobId = trimToNull(jobId);
-        context.createdAt = System.currentTimeMillis();
+        context.createdAt = ResultPersistTime.nowText();
         context.updatedAt = context.createdAt;
 
         JSONObject payload = parseObjectSafely(payloadJson);
@@ -593,7 +594,7 @@ public class PricingResultPersistService {
         if (errorTrade == null) {
             return;
         }
-        String safeMessage = trimToNull(message);
+        String safeMessage = normalizeErrorText(message);
         if (safeMessage == null) {
             return;
         }
@@ -817,7 +818,7 @@ public class PricingResultPersistService {
     }
 
     private static String resolveErrorText(JSONObject trade) {
-        String explicit = trimToNull(trade.getString("ERROR"));
+        String explicit = normalizeErrorText(trade.getString("ERROR"));
         if (explicit != null) {
             return explicit;
         }
@@ -828,7 +829,7 @@ public class PricingResultPersistService {
         List<String> messages = new ArrayList<String>();
         for (int i = 0; i < errors.size(); i++) {
             Object item = errors.get(i);
-            String text = item == null ? null : trimToNull(String.valueOf(item));
+            String text = item == null ? null : normalizeErrorText(String.valueOf(item));
             if (text != null) {
                 messages.add(text);
             }
@@ -836,11 +837,11 @@ public class PricingResultPersistService {
         if (messages.isEmpty()) {
             return null;
         }
-        return String.join(" | ", messages);
+        return normalizeErrorText(String.join(" | ", messages));
     }
 
     private static String buildErrorResultJson(String errorText, JSONArray rawErrors) {
-        String safeError = trimToNull(errorText);
+        String safeError = normalizeErrorText(errorText);
         if (safeError == null && (rawErrors == null || rawErrors.isEmpty())) {
             return null;
         }
@@ -866,7 +867,7 @@ public class PricingResultPersistService {
         if (errors == null) {
             return;
         }
-        String safeMessage = trimToNull(message);
+        String safeMessage = normalizeErrorText(message);
         if (safeMessage == null) {
             return;
         }
@@ -876,6 +877,18 @@ public class PricingResultPersistService {
             }
         }
         errors.add(safeMessage);
+    }
+
+    private static String normalizeErrorText(String message) {
+        String safeMessage = trimToNull(message);
+        if (safeMessage == null) {
+            return null;
+        }
+        safeMessage = safeMessage.replace('\r', ' ').replace('\n', ' ').trim();
+        if (safeMessage.length() <= ERROR_TEXT_MAX_LEN) {
+            return safeMessage;
+        }
+        return safeMessage.substring(0, ERROR_TEXT_MAX_LEN) + "...";
     }
 
     private static BigDecimal toBigDecimal(Object value) {
@@ -985,8 +998,8 @@ public class PricingResultPersistService {
         private Long seqNo;
         private String dataDate;
         private String opCode;
-        private long createdAt;
-        private long updatedAt;
+        private String createdAt;
+        private String updatedAt;
         private JSONObject tradeDimension;
     }
 }

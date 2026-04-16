@@ -49,10 +49,11 @@ public class ImaNmrfPnlPersistService {
             log.warn("IMA NMRF PnL 结果为空，跳过落库");
             return;
         }
-        long now = System.currentTimeMillis();
+        String now = ResultPersistTime.nowText();
         List<Object[]> batchArgs = new ArrayList<Object[]>();
 
         for (NmrfPnlRecord r : records) {
+            String createdAt = r.getCreatedAt() > 0 ? ResultPersistTime.formatEpochMillis(r.getCreatedAt()) : now;
             batchArgs.add(new Object[]{
                     r.getRequestId(), r.getJobId(), r.getBatchId(),
                     r.getSeqNo(), r.getDataDate(), opCode,
@@ -60,7 +61,7 @@ public class ImaNmrfPnlPersistService {
                     r.getInstrumentId(), r.getProductCode(),
                     r.getRiskFactorId(), r.getNmrfType(),
                     r.getBaseValuationCny(), r.getStressValuationCny(), r.getPnl(),
-                    r.getCreatedAt() > 0 ? r.getCreatedAt() : now, now});
+                    createdAt, now});
             if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
                 jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
                 batchArgs.clear();

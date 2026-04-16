@@ -577,7 +577,7 @@ public class BatchJobService {
                 + "BATCH_ID, DATA_DATE, PORTFOLIO_CODE, PORTFOLIO_NAME, UPPER_LEVEL_PORTFOLIO, LEVEL_CODE, CREATED_AT, UPDATED_AT"
                 + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         String normalizedDataDate = dataDate == null ? null : dataDate.format(DateTimeFormatter.BASIC_ISO_DATE);
-        long now = System.currentTimeMillis();
+        String now = ResultPersistTime.nowText();
         Set<String> uniqueKeys = new java.util.LinkedHashSet<String>();
         List<Object[]> batchArgs = new ArrayList<Object[]>();
 

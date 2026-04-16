@@ -54,7 +54,7 @@ public class FrtbSbaResultPersistService {
             return;
         }
 
-        long now = System.currentTimeMillis();
+        String now = ResultPersistTime.nowText();
         List<Object[]> batchArgs = new ArrayList<Object[]>();
 
         for (FRTBClassResult cr : classResults) {

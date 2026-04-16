@@ -39,6 +39,8 @@ public class VarDbRunnerService {
     private static final BigDecimal TWO = BigDecimal.valueOf(2L);
     private static final int DEFAULT_SCALE = 10;
     private static final String TOTAL = "TOTAL";
+    private static final String DEFAULT_RULE_TYPE = "VAR";
+    private static final String DEFAULT_SUM_FIELD = "ALL_PNL";
     private static final String VAR_DETAIL_FETCH_API = "/api/engine/var/detail";
 
     private final VarInputQueryService inputQueryService;
@@ -554,29 +556,12 @@ public class VarDbRunnerService {
         rule.setRuleType(readString(ruleJson, "rule_type", "ruleType"));
 
         List<String> buildOrder = readStringList(ruleJson, "build_order", "buildOrder");
-        if (buildOrder.isEmpty()) {
-            buildOrder.add(TOTAL);
-        }
         rule.setBuildOrder(buildOrder);
         rule.setDimensions(readStringMap(ruleJson.getJSONObject("dimensions")));
-
-        List<String> groupByFields = readStringList(ruleJson, "group_by_fields", "groupByFields");
-        if (groupByFields.isEmpty()) {
-            for (String field : rule.getDimensions().values()) {
-                String safeField = trimToNull(field);
-                if (safeField != null && !containsIgnoreCase(groupByFields, safeField)) {
-                    groupByFields.add(safeField);
-                }
-            }
-        }
-        rule.setGroupByFields(groupByFields);
-
-        List<String> sumFields = readStringList(ruleJson, "sum_fields", "sumFields");
-        if (sumFields.isEmpty()) {
-            sumFields.add("ALL_PNL");
-        }
-        rule.setSumFields(sumFields);
+        rule.setGroupByFields(readStringList(ruleJson, "group_by_fields", "groupByFields"));
+        rule.setSumFields(readStringList(ruleJson, "sum_fields", "sumFields"));
         rule.setFilters(readFilters(ruleJson.getJSONArray("filters")));
+        applyVarRuleDefaults(rule);
         dimensionAggregationService.validateRule(rule);
 
         JSONObject calcJson = ruleJson.getJSONObject("calc");
@@ -604,6 +589,51 @@ public class VarDbRunnerService {
                 outputOrder == null ? index + 1 : outputOrder);
     }
 
+    /**
+     * 补齐 VaR 汇总规则默认项，接口只需要表达业务层级、过滤条件和 VaR 计量口径。
+     */
+    private static void applyVarRuleDefaults(AggregationRule rule) {
+        if (rule == null) {
+            throw new IllegalArgumentException("AggregationRule 不能为空");
+        }
+        if (trimToNull(rule.getRuleType()) == null) {
+            rule.setRuleType(DEFAULT_RULE_TYPE);
+        }
+
+        List<String> buildOrder = new ArrayList<String>();
+        addUniqueIgnoreCase(buildOrder, TOTAL);
+        for (String level : rule.getBuildOrder()) {
+            addUniqueIgnoreCase(buildOrder, normalizeFieldName(level));
+        }
+        rule.setBuildOrder(buildOrder);
+
+        Map<String, String> dimensions = normalizeDimensionMap(rule.getDimensions());
+        if (dimensions.isEmpty()) {
+            for (String level : buildOrder) {
+                if (!TOTAL.equalsIgnoreCase(level)) {
+                    dimensions.put(level, level);
+                }
+            }
+        } else {
+            for (String level : buildOrder) {
+                if (!TOTAL.equalsIgnoreCase(level) && !containsKeyIgnoreCase(dimensions, level)) {
+                    dimensions.put(level, level);
+                }
+            }
+        }
+        rule.setDimensions(dimensions);
+
+        List<String> groupByFields = normalizeFieldList(rule.getGroupByFields());
+        for (String mappedField : dimensions.values()) {
+            addUniqueIgnoreCase(groupByFields, normalizeFieldName(mappedField));
+        }
+        rule.setGroupByFields(groupByFields);
+
+        List<String> sumFields = new ArrayList<String>();
+        sumFields.add(DEFAULT_SUM_FIELD);
+        rule.setSumFields(sumFields);
+    }
+
     private static List<AggregationRule.FilterCondition> readFilters(JSONArray filters) {
         List<AggregationRule.FilterCondition> list = new ArrayList<AggregationRule.FilterCondition>();
         if (filters == null || filters.isEmpty()) {
@@ -621,6 +651,66 @@ public class VarDbRunnerService {
             list.add(condition);
         }
         return list;
+    }
+
+    private static Map<String, String> normalizeDimensionMap(Map<String, String> rawMap) {
+        Map<String, String> result = new LinkedHashMap<String, String>();
+        if (rawMap == null || rawMap.isEmpty()) {
+            return result;
+        }
+        for (Map.Entry<String, String> entry : rawMap.entrySet()) {
+            String key = normalizeFieldName(entry.getKey());
+            String value = normalizeFieldName(entry.getValue());
+            if (key != null && value != null) {
+                result.put(key, value);
+            }
+        }
+        return result;
+    }
+
+    private static List<String> normalizeFieldList(List<String> rawList) {
+        List<String> result = new ArrayList<String>();
+        if (rawList == null || rawList.isEmpty()) {
+            return result;
+        }
+        for (String item : rawList) {
+            addUniqueIgnoreCase(result, normalizeFieldName(item));
+        }
+        return result;
+    }
+
+    private static String normalizeFieldName(String value) {
+        String safe = trimToNull(value);
+        if (safe == null) {
+            return null;
+        }
+        return safe.toUpperCase(Locale.ROOT);
+    }
+
+    private static boolean containsKeyIgnoreCase(Map<String, String> values, String target) {
+        String safeTarget = trimToNull(target);
+        if (values == null || values.isEmpty() || safeTarget == null) {
+            return false;
+        }
+        for (String key : values.keySet()) {
+            if (safeTarget.equalsIgnoreCase(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void addUniqueIgnoreCase(List<String> values, String value) {
+        String safeValue = trimToNull(value);
+        if (safeValue == null) {
+            return;
+        }
+        for (String item : values) {
+            if (safeValue.equalsIgnoreCase(item)) {
+                return;
+            }
+        }
+        values.add(safeValue);
     }
 
     private static List<String> resolveNonDecompRiskClasses(List<String> riskClasses) {

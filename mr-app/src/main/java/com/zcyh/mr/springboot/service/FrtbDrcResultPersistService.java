@@ -89,7 +89,7 @@ public class FrtbDrcResultPersistService {
             return;
         }
 
-        long now = System.currentTimeMillis();
+        String now = ResultPersistTime.nowText();
         List<Object[]> batchArgs = new ArrayList<Object[]>();
         for (ResultRow row : rows) {
             batchArgs.add(new Object[]{

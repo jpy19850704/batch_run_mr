@@ -37,7 +37,7 @@ public class ScenarioGeneratedPersistService {
             return;
         }
 
-        long now = System.currentTimeMillis();
+        String now = ResultPersistTime.nowText();
         jdbcTemplate.update("DELETE FROM TB_OUT_SCENARIO_FILE_DETAIL WHERE BATCH_ID=?", safeBatchId);
 
         String sql = "INSERT INTO TB_OUT_SCENARIO_FILE_DETAIL ("

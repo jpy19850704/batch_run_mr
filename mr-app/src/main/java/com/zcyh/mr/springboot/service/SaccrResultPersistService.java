@@ -8,7 +8,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -61,7 +60,7 @@ public class SaccrResultPersistService {
         log.info("SA-CCR 结果落库：删除 jobId={} 旧数据完成", jobId);
 
         // 2. 批量插入
-        LocalDateTime now = LocalDateTime.now();
+        String now = ResultPersistTime.nowText();
         List<Object[]> batchArgs = new ArrayList<>();
 
         for (SaccrResult r : results) {
@@ -92,7 +91,7 @@ public class SaccrResultPersistService {
                     r.riskWeight,
                     r.rwaCcr,
                     r.capitalCcr,
-                    now.toString()
+                    now
             });
 
             if (batchArgs.size() >= BATCH_SIZE) {

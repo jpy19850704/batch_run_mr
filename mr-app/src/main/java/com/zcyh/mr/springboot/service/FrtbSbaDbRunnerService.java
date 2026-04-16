@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -19,6 +20,19 @@ import java.util.Map;
  */
 @Service
 public class FrtbSbaDbRunnerService {
+    private static final String TOTAL = "TOTAL";
+    private static final String DEFAULT_RULE_TYPE = "FRTB";
+    private static final String SBA_SUM_FIELD = "SENSITIVITY_VAL_INST_CURR_CNY";
+    private static final String[] SBA_GROUP_BY_FIELDS = new String[]{
+            "RISK_FACTOR_ID",
+            "RISK_FACTOR_VERTEX_1",
+            "RISK_FACTOR_VERTEX_2",
+            "RISK_FACTOR_CLASS",
+            "RISK_FACTOR_BUCKET",
+            "RISK_FACTOR_TYPE",
+            "SENSITIVITY_TYPE"
+    };
+
     private final FrtbSbaInputQueryService inputQueryService;
     private final FrtbAggregator aggregator;
     private final DimensionAggregationService dimensionAggregationService;
@@ -46,6 +60,7 @@ public class FrtbSbaDbRunnerService {
         String ruleId = requireTopLevelString(req, "rule_id");
 
         AggregationRule rule = inputQueryService.loadAggregationRule(ruleId);
+        applySbaRuleDefaults(rule);
         dimensionAggregationService.validateRule(rule);
 
         List<Map<String, Object>> rows = inputQueryService.queryRuleDetailRows(batchId, dataDate, rule);
@@ -92,23 +107,8 @@ public class FrtbSbaDbRunnerService {
         if (rule.getRuleId() == null || rule.getRuleId().isEmpty()) {
             rule.setRuleId("INLINE_" + System.currentTimeMillis());
         }
-        if (rule.getSumFields() == null || rule.getSumFields().isEmpty()) {
-            List<String> defaultSum = new ArrayList<>();
-            defaultSum.add("SENSITIVITY_VAL_INST_CURR_CNY");
-            rule.setSumFields(defaultSum);
-        }
-        if (rule.getGroupByFields() == null || rule.getGroupByFields().isEmpty()) {
-            List<String> defaultGroupBy = new ArrayList<>();
-            defaultGroupBy.add("RISK_FACTOR_ID");
-            defaultGroupBy.add("RISK_FACTOR_VERTEX_1");
-            defaultGroupBy.add("RISK_FACTOR_VERTEX_2");
-            defaultGroupBy.add("RISK_FACTOR_CLASS");
-            defaultGroupBy.add("RISK_FACTOR_BUCKET");
-            defaultGroupBy.add("RISK_FACTOR_TYPE");
-            defaultGroupBy.add("SENSITIVITY_TYPE");
-            rule.setGroupByFields(defaultGroupBy);
-        }
 
+        applySbaRuleDefaults(rule);
         dimensionAggregationService.validateRule(rule);
         List<Map<String, Object>> rows = inputQueryService.queryRuleDetailRows(batchId, dataDate, rule);
         if (rows == null || rows.isEmpty()) {
@@ -158,6 +158,54 @@ public class FrtbSbaDbRunnerService {
         rule.setFilters(toFilterConditions(ruleJson.get("filters")));
         rule.setFilterTree(toFilterExpression(firstNonNull(ruleJson.get("filter_tree"), ruleJson.get("filterTree"))));
         return rule;
+    }
+
+    /**
+     * 补齐 SBA 汇总规则默认项，接口只需要表达业务层级和过滤条件。
+     */
+    private static void applySbaRuleDefaults(AggregationRule rule) {
+        if (rule == null) {
+            throw new IllegalArgumentException("AggregationRule 不能为空");
+        }
+        if (trimToNull(rule.getRuleType()) == null) {
+            rule.setRuleType(DEFAULT_RULE_TYPE);
+        }
+
+        List<String> buildOrder = new ArrayList<String>();
+        addUniqueIgnoreCase(buildOrder, TOTAL);
+        for (String level : rule.getBuildOrder()) {
+            addUniqueIgnoreCase(buildOrder, normalizeFieldName(level));
+        }
+        rule.setBuildOrder(buildOrder);
+
+        Map<String, String> dimensions = normalizeDimensionMap(rule.getDimensions());
+        if (dimensions.isEmpty()) {
+            for (String level : buildOrder) {
+                if (!TOTAL.equalsIgnoreCase(level)) {
+                    dimensions.put(level, level);
+                }
+            }
+        } else {
+            for (String level : buildOrder) {
+                if (!TOTAL.equalsIgnoreCase(level) && !containsKeyIgnoreCase(dimensions, level)) {
+                    dimensions.put(level, level);
+                }
+            }
+        }
+        rule.setDimensions(dimensions);
+
+        List<String> groupByFields = normalizeFieldList(rule.getGroupByFields());
+        for (String mappedField : dimensions.values()) {
+            addUniqueIgnoreCase(groupByFields, normalizeFieldName(mappedField));
+        }
+        for (String riskFactorField : SBA_GROUP_BY_FIELDS) {
+            addUniqueIgnoreCase(groupByFields, riskFactorField);
+        }
+        rule.setGroupByFields(groupByFields);
+
+        List<String> sumFields = new ArrayList<String>();
+        sumFields.add(SBA_SUM_FIELD);
+        rule.setSumFields(sumFields);
     }
 
     private static List<AggregationRule.FilterCondition> toFilterConditions(Object rawFilters) {
@@ -229,6 +277,66 @@ public class FrtbSbaDbRunnerService {
             return null;
         }
         return rawValue;
+    }
+
+    private static Map<String, String> normalizeDimensionMap(Map<String, String> rawMap) {
+        Map<String, String> result = new LinkedHashMap<String, String>();
+        if (rawMap == null || rawMap.isEmpty()) {
+            return result;
+        }
+        for (Map.Entry<String, String> entry : rawMap.entrySet()) {
+            String key = normalizeFieldName(entry.getKey());
+            String value = normalizeFieldName(entry.getValue());
+            if (key != null && value != null) {
+                result.put(key, value);
+            }
+        }
+        return result;
+    }
+
+    private static List<String> normalizeFieldList(List<String> rawList) {
+        List<String> result = new ArrayList<String>();
+        if (rawList == null || rawList.isEmpty()) {
+            return result;
+        }
+        for (String item : rawList) {
+            addUniqueIgnoreCase(result, normalizeFieldName(item));
+        }
+        return result;
+    }
+
+    private static String normalizeFieldName(String value) {
+        String safe = trimToNull(value);
+        if (safe == null) {
+            return null;
+        }
+        return safe.toUpperCase(Locale.ROOT);
+    }
+
+    private static boolean containsKeyIgnoreCase(Map<String, String> values, String target) {
+        String safeTarget = trimToNull(target);
+        if (values == null || values.isEmpty() || safeTarget == null) {
+            return false;
+        }
+        for (String key : values.keySet()) {
+            if (safeTarget.equalsIgnoreCase(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void addUniqueIgnoreCase(List<String> values, String value) {
+        String safeValue = trimToNull(value);
+        if (safeValue == null) {
+            return;
+        }
+        for (String item : values) {
+            if (safeValue.equalsIgnoreCase(item)) {
+                return;
+            }
+        }
+        values.add(safeValue);
     }
 
     private static List<String> toStringList(Object rawList) {

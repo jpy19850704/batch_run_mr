@@ -49,7 +49,7 @@ public class ImaCapitalResultPersistService {
             log.warn("IMA 资本结果为空，跳过落库");
             return;
         }
-        long now = System.currentTimeMillis();
+        String now = ResultPersistTime.nowText();
         String resultJson = JSON.toJSONString(result, JSONWriter.Feature.WriteBigDecimalAsPlain);
 
         Object[] row = new Object[]{

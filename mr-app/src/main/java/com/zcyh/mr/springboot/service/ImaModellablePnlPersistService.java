@@ -51,10 +51,11 @@ public class ImaModellablePnlPersistService {
             log.warn("IMA 可建模 PnL 结果为空，跳过落库");
             return;
         }
-        long now = System.currentTimeMillis();
+        String now = ResultPersistTime.nowText();
         List<Object[]> batchArgs = new ArrayList<Object[]>();
 
         for (SubsetPnlRecord r : records) {
+            String createdAt = r.getCreatedAt() > 0 ? ResultPersistTime.formatEpochMillis(r.getCreatedAt()) : now;
             batchArgs.add(new Object[]{
                     r.getRequestId(), r.getJobId(), r.getBatchId(),
                     r.getSeqNo(), r.getDataDate(), opCode,
@@ -67,7 +68,7 @@ public class ImaModellablePnlPersistService {
                     r.getEqValuation(), r.getEqPnl(),
                     r.getCommValuation(), r.getCommPnl(),
                     r.getAllValuation(), r.getAllPnl(),
-                    r.getCreatedAt() > 0 ? r.getCreatedAt() : now, now});
+                    createdAt, now});
             if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
                 jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
                 batchArgs.clear();

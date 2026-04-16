@@ -68,16 +68,7 @@ public class VarSummaryService {
         JSONObject rule = new JSONObject();
         rule.put("rule_id", DEFAULT_VAR_RULE_ID);
         rule.put("rule_name", "默认 VaR 批次汇总规则");
-        rule.put("rule_type", "VAR");
-        rule.put("build_order", JSON.parseArray("[\"TRADER\",\"DESK\",\"PORTFOLIO\",\"TOTAL\"]"));
-
-        JSONObject dimensions = new JSONObject();
-        dimensions.put("TRADER", "TRADER");
-        dimensions.put("DESK", "DESK");
-        dimensions.put("PORTFOLIO", "PORTFOLIO");
-        rule.put("dimensions", dimensions);
-        rule.put("group_by_fields", JSON.parseArray("[\"TRADER\",\"DESK\",\"PORTFOLIO\"]"));
-        rule.put("sum_fields", JSON.parseArray("[\"ALL_PNL\"]"));
+        rule.put("build_order", JSON.parseArray("[\"TRADER\",\"DESK\",\"PORTFOLIO\"]"));
         rule.put("filters", new JSONArray());
 
         JSONObject calc = new JSONObject();

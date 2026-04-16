@@ -1,4 +1,4 @@
--- =====================================================================
+﻿-- =====================================================================
 -- Doris 输出表 DDL（Unique Key 模型）
 -- 对应 Engine 结果表结构，定义与 PricingResultPersistService 对齐。
 -- 切换步骤：在 Doris FE 执行本文件后，修改环境变量指向 Doris 即可。
@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_SCENARIO_FILE_DETAIL (
     ORI_VALUE           DECIMAL(38, 10),
     SCENARIO_RESULT     DECIMAL(38, 10),
     MODIFIER            VARCHAR(128),
-    CREATED_AT          BIGINT,
-    UPDATED_AT          BIGINT
+    CREATED_AT          VARCHAR(32),
+    UPDATED_AT          VARCHAR(32)
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -69,8 +69,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_RESULT_DETAIL (
     RESULT_JSON             TEXT,
     TRADE_INPUT_JSON        TEXT            COMMENT '原始交易输入 JSON',
     MARKET_DATA_KEYS_JSON   TEXT            COMMENT '交易引用的市场数据标识 JSON 数组',
-    CREATED_AT              BIGINT,
-    UPDATED_AT              BIGINT
+    CREATED_AT              VARCHAR(32),
+    UPDATED_AT              VARCHAR(32)
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -99,8 +99,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_RESULT_DETAIL (
     ERROR                   TEXT,
     DETAIL                  TEXT,
     RESULT_JSON             TEXT,
-    CREATED_AT              BIGINT,
-    UPDATED_AT              BIGINT
+    CREATED_AT              VARCHAR(32),
+    UPDATED_AT              VARCHAR(32)
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -135,8 +135,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL (
     ALL_VALUATION       DECIMAL(38, 10),
     ALL_PNL             DECIMAL(38, 10),
     RESULT_JSON         TEXT,
-    CREATED_AT          BIGINT,
-    UPDATED_AT          BIGINT
+    CREATED_AT          VARCHAR(32),
+    UPDATED_AT          VARCHAR(32)
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -167,8 +167,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL (
     INSTRUMENT_CURRENCY             VARCHAR(8),
     SENSITIVITY_VAL_INST_CURR_CNY   DECIMAL(38, 10),
     DETAIL_JSON                     TEXT,
-    CREATED_AT                      BIGINT,
-    UPDATED_AT                      BIGINT
+    CREATED_AT                      VARCHAR(32),
+    UPDATED_AT                      VARCHAR(32)
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -204,8 +204,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_DRC_DETAIL (
     FRTB_LGD            DECIMAL(38, 10),
     NOTIONAL            DECIMAL(38, 10),
     DETAIL_JSON         TEXT,
-    CREATED_AT          BIGINT,
-    UPDATED_AT          BIGINT
+    CREATED_AT          VARCHAR(32),
+    UPDATED_AT          VARCHAR(32)
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -226,7 +226,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_DRC_RESULT (
     REQUEST_ID          VARCHAR(128),
     JOB_ID              VARCHAR(64),
     DRC_VALUE           DECIMAL(38, 10),
-    CREATED_AT          BIGINT
+    CREATED_AT          VARCHAR(32)
 )
 UNIQUE KEY(BATCH_ID, DATA_DATE, DECOMP_FLAG, AGG_LEVEL, DRC_TYPE, DRC_BUCKET, LEGAL_ENTITY)
 DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
@@ -250,7 +250,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_VAR_RESULT (
     VAR                 DECIMAL(38, 10),
     ES                  DECIMAL(38, 10),
     SELECTED_METHOD     VARCHAR(32),
-    CREATED_AT          BIGINT
+    CREATED_AT          VARCHAR(32)
 )
 UNIQUE KEY(BATCH_ID, DATA_DATE, QUANTILE, RULE_ID, MODE, SCENARIO_ID, GROUP_TYPE, GROUP_VALUE, RISK_CLASS)
 DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
@@ -268,8 +268,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_MARKET_DATA_DETAIL (
     CURVE_TYPE      VARCHAR(64)     COMMENT '曲线类型: IR_SPOT/FX_SPOT/EQ_SPOT/COMM_SPOT/IR_VOL/FX_VOL/EQ_VOL/COMM_VOL/FIXING',
     CURVE_ID        VARCHAR(256)    COMMENT '曲线ID / FIXING_ID',
     CURVE_DATA_JSON TEXT            COMMENT '完整曲线 JSON（含 CURVE_DATA 等全部结构，前端解析）',
-    CREATED_AT      BIGINT,
-    UPDATED_AT      BIGINT
+    CREATED_AT      VARCHAR(32),
+    UPDATED_AT      VARCHAR(32)
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -316,8 +316,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_MODELLABLE_SCENARIO_PNL (
     ALL_VALUATION           DECIMAL(38, 10)                          COMMENT '全风险类别子集重定价估值',
     ALL_PNL                 DECIMAL(38, 10)                          COMMENT '全风险类别损益',
     RESULT_JSON             TEXT                                     COMMENT '扩展结果JSON',
-    CREATED_AT              BIGINT                                   COMMENT '创建时间戳',
-    UPDATED_AT              BIGINT                                   COMMENT '更新时间戳'
+    CREATED_AT              VARCHAR(32)                                   COMMENT '创建时间',
+    UPDATED_AT              VARCHAR(32)                                   COMMENT '更新时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -349,8 +349,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_NMRF_SCENARIO_PNL (
     STRESS_VALUATION_CNY    DECIMAL(38, 10)                          COMMENT '压力情景重定价估值（仅冲击该NMRF因子）',
     PNL                     DECIMAL(38, 10)                          COMMENT '压力情景损益 = STRESS_VALUATION - BASE_VALUATION',
     RESULT_JSON             TEXT                                     COMMENT '扩展结果JSON',
-    CREATED_AT              BIGINT                                   COMMENT '创建时间戳',
-    UPDATED_AT              BIGINT                                   COMMENT '更新时间戳'
+    CREATED_AT              VARCHAR(32)                                   COMMENT '创建时间',
+    UPDATED_AT              VARCHAR(32)                                   COMMENT '更新时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -401,8 +401,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_PORTFOLIO_HIERARCHY (
     PORTFOLIO_NAME          VARCHAR(256),
     UPPER_LEVEL_PORTFOLIO   VARCHAR(128),
     LEVEL_CODE              VARCHAR(16),
-    CREATED_AT              BIGINT,
-    UPDATED_AT              BIGINT
+    CREATED_AT              VARCHAR(32),
+    UPDATED_AT              VARCHAR(32)
 )
 UNIQUE KEY(BATCH_ID, DATA_DATE, PORTFOLIO_CODE, PORTFOLIO_NAME, UPPER_LEVEL_PORTFOLIO, LEVEL_CODE)
 DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
@@ -585,4 +585,6 @@ LEFT JOIN TB_OUT_PORTFOLIO_HIERARCHY h6
     ON h6.BATCH_ID = h0.BATCH_ID
     AND h6.DATA_DATE = h0.DATA_DATE
     AND h6.PORTFOLIO_CODE = h5.UPPER_LEVEL_PORTFOLIO;
+
+
 
