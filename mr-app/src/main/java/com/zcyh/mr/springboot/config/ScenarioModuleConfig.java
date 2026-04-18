@@ -4,6 +4,7 @@ import com.zcyh.mr.core.Calendar;
 import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
 import com.zcyh.mr.springboot.scenario.mapper.ScenarioMapper;
+import com.zcyh.mr.springboot.service.AlertService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -28,8 +29,15 @@ public class ScenarioModuleConfig {
     public ScenarioRequestAssembler scenarioRequestAssembler(
             ScenarioMapper scenarioMapper,
             @Qualifier("mrHolidayCalendar") Calendar mrHolidayCalendar,
-            @Value("${mr.calendar.default-code:}") String defaultHolidayCalendarCode) {
-        return new ScenarioRequestAssembler(scenarioMapper, mrHolidayCalendar, defaultHolidayCalendarCode);
+            AlertService alertService,
+            @Value("${mr.calendar.default-code:}") String defaultHolidayCalendarCode,
+            @Value("${mr.fx-spot.base-currency:USD}") String fxSpotBaseCurrency) {
+        return new ScenarioRequestAssembler(
+                scenarioMapper,
+                mrHolidayCalendar,
+                alertService,
+                defaultHolidayCalendarCode,
+                fxSpotBaseCurrency);
     }
 
     @Bean(name = "scenarioExecutor", destroyMethod = "shutdown")

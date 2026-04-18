@@ -20,6 +20,24 @@ import java.util.Set;
  */
 @Service
 public class FrtbSbaInputQueryService {
+    private static final String PORTFOLIO_FLAT_VIEW = "V_TB_OUT_PORTFOLIO_HIERARCHY_FLAT";
+    private static final int PORTFOLIO_LEVEL_MAX = 7;
+    private static final Map<String, String> TRADE_FIELD_SQL = buildTradeFieldSqlMap();
+    private static final Map<String, String> PORTFOLIO_FIELD_SQL = buildPortfolioFieldSqlMap();
+    private static final Map<String, String> FRTB_RESULT_FIELD_SQL = buildFrtbResultFieldSqlMap();
+    private static final String[] REQUIRED_SELECT_FIELDS = {
+            "INSTRUMENT_ID",
+            "PRODUCT_CODE",
+            "RISK_FACTOR_ID",
+            "RISK_FACTOR_VERTEX_1",
+            "RISK_FACTOR_VERTEX_2",
+            "RISK_FACTOR_CLASS",
+            "RISK_FACTOR_BUCKET",
+            "RISK_FACTOR_TYPE",
+            "SENSITIVITY_TYPE",
+            "SENSITIVITY_VAL_INST_CURR_CNY"
+    };
+
     private final JdbcTemplate engineDbJdbcTemplate;
     private final JdbcTemplate engineResultDbJdbcTemplate;
 
@@ -93,35 +111,33 @@ public class FrtbSbaInputQueryService {
                 selectedFields.add(safeField);
             }
         }
+        collectFilterTreeFields(rule.getFilterTree(), selectedFields);
+        boolean usePortfolioFlatView = requiresPortfolioFlatView(selectedFields);
 
         StringBuilder sql = new StringBuilder()
-                .append("SELECT ")
-                .append("d.INSTRUMENT_ID AS INSTRUMENT_ID, ")
-                .append("d.PRODUCT_CODE AS PRODUCT_CODE, ")
-                .append("d.RISK_FACTOR_ID AS RISK_FACTOR_ID, ")
-                .append("d.RISK_FACTOR_VERTEX_1 AS RISK_FACTOR_VERTEX_1, ")
-                .append("d.RISK_FACTOR_VERTEX_2 AS RISK_FACTOR_VERTEX_2, ")
-                .append("d.RISK_FACTOR_CLASS AS RISK_FACTOR_CLASS, ")
-                .append("d.RISK_FACTOR_BUCKET AS RISK_FACTOR_BUCKET, ")
-                .append("d.RISK_FACTOR_TYPE AS RISK_FACTOR_TYPE, ")
-                .append("d.SENSITIVITY_TYPE AS SENSITIVITY_TYPE, ")
-                .append("d.SENSITIVITY_VAL_INST_CURR_CNY AS SENSITIVITY_VAL_INST_CURR_CNY");
+                .append("SELECT ");
+        appendSelectFields(sql, REQUIRED_SELECT_FIELDS, false);
 
         for (String field : selectedFields) {
-            if (isBaseSelectedField(field)) {
+            String safeField = normalizeField(field);
+            if (safeField == null || isRequiredSelectedField(safeField)) {
                 continue;
             }
-            String columnExpr = resolveRuleColumn(field);
+            String columnExpr = resolveRuleColumn(safeField);
             if (columnExpr == null) {
                 continue;
             }
-            sql.append(", ").append(columnExpr).append(" AS ").append(field);
+            sql.append(", ").append(columnExpr).append(" AS ").append(safeField);
         }
 
         sql.append(" FROM TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL d ")
                 .append("INNER JOIN TB_OUT_TRADE_RESULT_DETAIL r ")
                 .append("ON r.BATCH_ID = d.BATCH_ID ")
+                .append("AND r.DATA_DATE = d.DATA_DATE ")
                 .append("AND r.INSTRUMENT_ID = d.INSTRUMENT_ID ")
+                .append(usePortfolioFlatView
+                        ? "LEFT JOIN " + PORTFOLIO_FLAT_VIEW + " p ON p.BATCH_ID = d.BATCH_ID AND p.DATA_DATE = d.DATA_DATE AND p.PORTFOLIO_CODE = r.PORTFOLIO "
+                        : "")
                 .append("WHERE d.BATCH_ID = ? AND d.DATA_DATE = ?");
         params.add(safeBatchId);
         params.add(safeDataDate);
@@ -132,7 +148,7 @@ public class FrtbSbaInputQueryService {
                 return resolveRuleColumn(field);
             }
         });
-        sql.append(" ORDER BY d.INSTRUMENT_ID, d.RISK_FACTOR_CLASS, d.RISK_FACTOR_BUCKET, d.RISK_FACTOR_ID, d.SENSITIVITY_TYPE");
+        sql.append(" ORDER BY r.INSTRUMENT_ID, d.RISK_FACTOR_CLASS, d.RISK_FACTOR_BUCKET, d.RISK_FACTOR_ID, d.SENSITIVITY_TYPE");
 
         try {
             return engineResultDbJdbcTemplate.queryForList(sql.toString(), params.toArray());
@@ -182,73 +198,128 @@ public class FrtbSbaInputQueryService {
     }
 
     private static String resolveRuleColumn(String field) {
-        String safeField = trimToNull(field);
+        String safeField = normalizeField(field);
         if (safeField == null) {
             return null;
         }
-        if ("PORTFOLIO".equalsIgnoreCase(safeField)) {
-            return "r.PORTFOLIO";
-        }
-        if ("DESK".equalsIgnoreCase(safeField)) {
-            return "r.DESK";
-        }
-        if ("TRADER".equalsIgnoreCase(safeField)) {
-            return "r.TRADER";
-        }
-        if ("INSTRUMENT_ID".equalsIgnoreCase(safeField)) {
-            return "d.INSTRUMENT_ID";
-        }
-        if ("PRODUCT_CODE".equalsIgnoreCase(safeField)) {
-            return "d.PRODUCT_CODE";
-        }
-        if ("RISK_FACTOR_ID".equalsIgnoreCase(safeField)) {
-            return "d.RISK_FACTOR_ID";
-        }
-        if ("RISK_FACTOR_VERTEX_1".equalsIgnoreCase(safeField)) {
-            return "d.RISK_FACTOR_VERTEX_1";
-        }
-        if ("RISK_FACTOR_VERTEX_2".equalsIgnoreCase(safeField)) {
-            return "d.RISK_FACTOR_VERTEX_2";
-        }
-        if ("RISK_FACTOR_CLASS".equalsIgnoreCase(safeField)) {
-            return "d.RISK_FACTOR_CLASS";
-        }
-        if ("RISK_FACTOR_BUCKET".equalsIgnoreCase(safeField)) {
-            return "d.RISK_FACTOR_BUCKET";
-        }
-        if ("RISK_FACTOR_TYPE".equalsIgnoreCase(safeField)) {
-            return "d.RISK_FACTOR_TYPE";
-        }
-        if ("SENSITIVITY_TYPE".equalsIgnoreCase(safeField)) {
-            return "d.SENSITIVITY_TYPE";
-        }
-        if ("SENSITIVITY_VAL_INST_CURR_CNY".equalsIgnoreCase(safeField)) {
-            return "d.SENSITIVITY_VAL_INST_CURR_CNY";
-        }
-        if ("DATA_DATE".equalsIgnoreCase(safeField)) {
-            return "d.DATA_DATE";
-        }
-        if ("BATCH_ID".equalsIgnoreCase(safeField)) {
-            return "d.BATCH_ID";
-        }
-        return null;
+        return resolveColumnFromMaps(safeField);
     }
 
-    private static boolean isBaseSelectedField(String field) {
-        String safeField = trimToNull(field);
+    private static boolean isRequiredSelectedField(String field) {
+        String safeField = normalizeField(field);
         if (safeField == null) {
             return false;
         }
-        return "INSTRUMENT_ID".equalsIgnoreCase(safeField)
-                || "PRODUCT_CODE".equalsIgnoreCase(safeField)
-                || "RISK_FACTOR_ID".equalsIgnoreCase(safeField)
-                || "RISK_FACTOR_VERTEX_1".equalsIgnoreCase(safeField)
-                || "RISK_FACTOR_VERTEX_2".equalsIgnoreCase(safeField)
-                || "RISK_FACTOR_CLASS".equalsIgnoreCase(safeField)
-                || "RISK_FACTOR_BUCKET".equalsIgnoreCase(safeField)
-                || "RISK_FACTOR_TYPE".equalsIgnoreCase(safeField)
-                || "SENSITIVITY_TYPE".equalsIgnoreCase(safeField)
-                || "SENSITIVITY_VAL_INST_CURR_CNY".equalsIgnoreCase(safeField);
+        for (String requiredField : REQUIRED_SELECT_FIELDS) {
+            if (requiredField.equals(safeField)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void collectFilterTreeFields(AggregationRule.FilterExpression node, Set<String> fields) {
+        if (node == null || fields == null) {
+            return;
+        }
+        String field = trimToNull(node.getField());
+        if (field != null) {
+            fields.add(field);
+        }
+        if (node.getChildren() == null) {
+            return;
+        }
+        for (AggregationRule.FilterExpression child : node.getChildren()) {
+            collectFilterTreeFields(child, fields);
+        }
+    }
+
+    private static boolean requiresPortfolioFlatView(Set<String> fields) {
+        if (fields == null) {
+            return false;
+        }
+        for (String field : fields) {
+            String safeField = trimToNull(field);
+            if (safeField == null) {
+                continue;
+            }
+            for (int i = 1; i <= PORTFOLIO_LEVEL_MAX; i++) {
+                if (("PORTFOLIO_CODE_" + i).equalsIgnoreCase(safeField)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static void appendSelectFields(StringBuilder sql, String[] fields, boolean appendCommaPrefix) {
+        boolean appended = false;
+        for (String field : fields) {
+            String safeField = normalizeField(field);
+            String expression = resolveColumnFromMaps(safeField);
+            if (safeField == null || expression == null) {
+                throw new IllegalArgumentException("FRTB SBA 必选字段未配置 SQL 映射: " + field);
+            }
+            if (appendCommaPrefix || appended) {
+                sql.append(", ");
+            }
+            sql.append(expression).append(" AS ").append(safeField);
+            appended = true;
+        }
+    }
+
+    private static String resolveColumnFromMaps(String safeField) {
+        if (safeField == null) {
+            return null;
+        }
+        String expression = TRADE_FIELD_SQL.get(safeField);
+        if (expression != null) {
+            return expression;
+        }
+        expression = PORTFOLIO_FIELD_SQL.get(safeField);
+        if (expression != null) {
+            return expression;
+        }
+        return FRTB_RESULT_FIELD_SQL.get(safeField);
+    }
+
+    private static Map<String, String> buildTradeFieldSqlMap() {
+        Map<String, String> map = new LinkedHashMap<String, String>();
+        map.put("INSTRUMENT_ID", "r.INSTRUMENT_ID");
+        map.put("PRODUCT_CODE", "r.PRODUCT_CODE");
+        map.put("PORTFOLIO", "r.PORTFOLIO");
+        map.put("DESK", "r.DESK");
+        map.put("TRADER", "r.TRADER");
+        map.put("VALUATION_CCY", "r.VALUATION_CCY");
+        return map;
+    }
+
+    private static Map<String, String> buildPortfolioFieldSqlMap() {
+        Map<String, String> map = new LinkedHashMap<String, String>();
+        for (int i = 1; i <= PORTFOLIO_LEVEL_MAX; i++) {
+            map.put("PORTFOLIO_CODE_" + i, "p.PORTFOLIO_CODE_" + i);
+        }
+        return map;
+    }
+
+    private static Map<String, String> buildFrtbResultFieldSqlMap() {
+        Map<String, String> map = new LinkedHashMap<String, String>();
+        map.put("RISK_FACTOR_ID", "d.RISK_FACTOR_ID");
+        map.put("RISK_FACTOR_VERTEX_1", "d.RISK_FACTOR_VERTEX_1");
+        map.put("RISK_FACTOR_VERTEX_2", "d.RISK_FACTOR_VERTEX_2");
+        map.put("RISK_FACTOR_CLASS", "d.RISK_FACTOR_CLASS");
+        map.put("RISK_FACTOR_BUCKET", "d.RISK_FACTOR_BUCKET");
+        map.put("RISK_FACTOR_TYPE", "d.RISK_FACTOR_TYPE");
+        map.put("SENSITIVITY_TYPE", "d.SENSITIVITY_TYPE");
+        map.put("SENSITIVITY_VAL_INST_CURR_CNY", "d.SENSITIVITY_VAL_INST_CURR_CNY");
+        map.put("DATA_DATE", "d.DATA_DATE");
+        map.put("BATCH_ID", "d.BATCH_ID");
+        return map;
+    }
+
+    private static String normalizeField(String field) {
+        String safeField = trimToNull(field);
+        return safeField == null ? null : safeField.toUpperCase(java.util.Locale.ROOT);
     }
 
     private static String stringValue(Object value) {

@@ -97,11 +97,7 @@ public class VarInputQueryService {
         params.add(safeBatchId);
         params.add(safeDataDate);
 
-        if (rule.getFilters() != null) {
-            for (AggregationRule.FilterCondition filter : rule.getFilters()) {
-                appendFilterClause(sql, params, filter);
-            }
-        }
+        AggregationFilterSqlBuilder.appendWhereClause(sql, params, rule, VarInputQueryService::resolveRuleColumn);
 
         sql.append(" GROUP BY d.SCENARIO_ID, d.SUBSCENARIO_ID, d.SCENARIO_NAME");
         for (String expr : dimensionExprList) {
@@ -226,72 +222,6 @@ public class VarInputQueryService {
         return value == null ? BigDecimal.ZERO : value;
     }
 
-    private static void appendFilterClause(StringBuilder sql,
-                                           List<Object> params,
-                                           AggregationRule.FilterCondition filter) {
-        if (filter == null) {
-            return;
-        }
-        String field = trimToNull(filter.getField());
-        String operator = trimToNull(filter.getOperator());
-        String column = resolveRuleColumn(field);
-        if (column == null || operator == null) {
-            throw new IllegalArgumentException("不支持的过滤字段或操作符: " + field + " / " + operator);
-        }
-        if ("=".equals(operator)) {
-            sql.append(" AND ").append(column).append(" = ?");
-            params.add(filter.getValue());
-            return;
-        }
-        if ("!=".equals(operator)) {
-            sql.append(" AND ").append(column).append(" <> ?");
-            params.add(filter.getValue());
-            return;
-        }
-        if (">".equals(operator) || ">=".equals(operator) || "<".equals(operator) || "<=".equals(operator)) {
-            sql.append(" AND ").append(column).append(" ").append(operator).append(" ?");
-            params.add(filter.getValue());
-            return;
-        }
-        if ("contains".equalsIgnoreCase(operator) || "not_contains".equalsIgnoreCase(operator)) {
-            sql.append(" AND ").append(column);
-            sql.append("contains".equalsIgnoreCase(operator) ? " LIKE ?" : " NOT LIKE ?");
-            params.add("%" + String.valueOf(filter.getValue()) + "%");
-            return;
-        }
-        if ("in".equalsIgnoreCase(operator) || "not_in".equalsIgnoreCase(operator)) {
-            List<Object> values = asList(filter.getValue());
-            if (values.isEmpty()) {
-                throw new IllegalArgumentException("过滤条件 " + field + " 的取值不能为空");
-            }
-            sql.append(" AND ").append(column).append(" ")
-                    .append("in".equalsIgnoreCase(operator) ? "IN (" : "NOT IN (");
-            for (int i = 0; i < values.size(); i++) {
-                if (i > 0) {
-                    sql.append(", ");
-                }
-                sql.append("?");
-                params.add(values.get(i));
-            }
-            sql.append(")");
-            return;
-        }
-        throw new IllegalArgumentException("不支持的过滤操作符: " + operator);
-    }
-
-    private static List<Object> asList(Object value) {
-        List<Object> values = new ArrayList<Object>();
-        if (value == null) {
-            return values;
-        }
-        if (value instanceof List) {
-            values.addAll((List<?>) value);
-            return values;
-        }
-        values.add(value);
-        return values;
-    }
-
     private static String resolveRuleColumn(String field) {
         String safeField = trimToNull(field);
         if (safeField == null) {
@@ -310,10 +240,13 @@ public class VarInputQueryService {
             return "r.TRADER";
         }
         if ("PRODUCT_CODE".equalsIgnoreCase(safeField)) {
-            return "d.PRODUCT_CODE";
+            return "r.PRODUCT_CODE";
         }
         if ("INSTRUMENT_ID".equalsIgnoreCase(safeField)) {
-            return "d.INSTRUMENT_ID";
+            return "r.INSTRUMENT_ID";
+        }
+        if ("VALUATION_CCY".equalsIgnoreCase(safeField)) {
+            return "r.VALUATION_CCY";
         }
         if ("SCENARIO_ID".equalsIgnoreCase(safeField)) {
             return "d.SCENARIO_ID";
@@ -337,28 +270,44 @@ public class VarInputQueryService {
             if (("PORTFOLIO_CODE_" + i).equalsIgnoreCase(safeField)) {
                 return "p.PORTFOLIO_CODE_" + i;
             }
-            if (("PORTFOLIO_NAME_" + i).equalsIgnoreCase(safeField)) {
-                return "p.PORTFOLIO_NAME_" + i;
-            }
         }
         return null;
     }
 
     private static Set<String> collectFilterFields(AggregationRule rule) {
         Set<String> fields = new LinkedHashSet<String>();
-        if (rule == null || rule.getFilters() == null) {
+        if (rule == null) {
             return fields;
         }
-        for (AggregationRule.FilterCondition filter : rule.getFilters()) {
-            if (filter == null) {
-                continue;
-            }
-            String field = trimToNull(filter.getField());
-            if (field != null) {
-                fields.add(field.toUpperCase());
+        if (rule.getFilters() != null) {
+            for (AggregationRule.FilterCondition filter : rule.getFilters()) {
+                if (filter == null) {
+                    continue;
+                }
+                String field = trimToNull(filter.getField());
+                if (field != null) {
+                    fields.add(field.toUpperCase());
+                }
             }
         }
+        collectFilterTreeFields(rule.getFilterTree(), fields);
         return fields;
+    }
+
+    private static void collectFilterTreeFields(AggregationRule.FilterExpression node, Set<String> fields) {
+        if (node == null || fields == null) {
+            return;
+        }
+        String field = trimToNull(node.getField());
+        if (field != null) {
+            fields.add(field.toUpperCase());
+        }
+        if (node.getChildren() == null) {
+            return;
+        }
+        for (AggregationRule.FilterExpression child : node.getChildren()) {
+            collectFilterTreeFields(child, fields);
+        }
     }
 
     private static boolean requiresPortfolioFlatView(Set<String> dimensionFields, Set<String> filterFields) {
@@ -385,8 +334,7 @@ public class VarInputQueryService {
             return false;
         }
         for (int i = 1; i <= PORTFOLIO_LEVEL_MAX; i++) {
-            if (("PORTFOLIO_CODE_" + i).equalsIgnoreCase(safeField)
-                    || ("PORTFOLIO_NAME_" + i).equalsIgnoreCase(safeField)) {
+            if (("PORTFOLIO_CODE_" + i).equalsIgnoreCase(safeField)) {
                 return true;
             }
         }

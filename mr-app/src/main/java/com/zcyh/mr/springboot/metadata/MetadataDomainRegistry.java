@@ -15,9 +15,12 @@ import java.util.Set;
 public final class MetadataDomainRegistry {
 
     private static final List<MetadataDomainDef> DOMAIN_DEFS = Collections.unmodifiableList(Arrays.asList(
+            new MetadataDomainDef("TB_OUT_TRADE_RESULT_DETAIL", "PRODUCT_CODE", "产品类型"),
+            new MetadataDomainDef("TB_OUT_TRADE_RESULT_DETAIL", "INSTRUMENT_ID", "交易编号"),
             new MetadataDomainDef("TB_OUT_TRADE_RESULT_DETAIL", "PORTFOLIO", "组合"),
             new MetadataDomainDef("TB_OUT_TRADE_RESULT_DETAIL", "DESK", "交易台"),
-            new MetadataDomainDef("TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL", "PRODUCT_CODE", "产品类型"),
+            new MetadataDomainDef("TB_OUT_TRADE_RESULT_DETAIL", "TRADER", "交易员"),
+            new MetadataDomainDef("TB_OUT_TRADE_RESULT_DETAIL", "VALUATION_CCY", "估值币种"),
             new MetadataDomainDef("TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL", "RISK_FACTOR_CLASS", "风险类别"),
             new MetadataDomainDef("TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL", "RISK_FACTOR_TYPE", "风险因子类型"),
             new MetadataDomainDef("TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL", "SENSITIVITY_TYPE", "敏感性类型")

@@ -5,9 +5,9 @@ import com.zcyh.mr.scenario.model.ScenarioGenerationRequest;
 import com.zcyh.mr.scenario.model.ScenarioMarketSeries;
 import com.zcyh.mr.scenario.model.ScenarioTaskRequest;
 import com.zcyh.mr.springboot.scenario.mapper.ScenarioMapper;
+import com.zcyh.mr.springboot.service.AlertService;
 
 import java.math.BigDecimal;
-import java.sql.Date;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -15,39 +15,48 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 /**
  * 情景请求装配器。
- *
- * <p>
- * 该类负责把数据库原始结果转换成 core 可直接消费的标准化场景请求对象。
  */
 public class ScenarioRequestAssembler {
 
+    private static final String FX_SPOT = "FX_SPOT";
+
     private final ScenarioMapper scenarioMapper;
-    private final ScenarioHistoricalMarketLoader historicalMarketLoader;
+    private final MarketInputScenarioLoader marketInputScenarioLoader;
     private final String defaultHolidayCalendarCode;
 
     public ScenarioRequestAssembler(
             ScenarioMapper scenarioMapper,
             com.zcyh.mr.core.Calendar holidayCalendar,
             String defaultHolidayCalendarCode) {
+        this(scenarioMapper, holidayCalendar, null, defaultHolidayCalendarCode, "USD");
+    }
+
+    public ScenarioRequestAssembler(
+            ScenarioMapper scenarioMapper,
+            com.zcyh.mr.core.Calendar holidayCalendar,
+            AlertService alertService,
+            String defaultHolidayCalendarCode) {
+        this(scenarioMapper, holidayCalendar, alertService, defaultHolidayCalendarCode, "USD");
+    }
+
+    public ScenarioRequestAssembler(
+            ScenarioMapper scenarioMapper,
+            com.zcyh.mr.core.Calendar holidayCalendar,
+            AlertService alertService,
+            String defaultHolidayCalendarCode,
+            String fxSpotBaseCurrency) {
         if (scenarioMapper == null) {
             throw new IllegalArgumentException("scenarioMapper 不能为空");
         }
         this.scenarioMapper = scenarioMapper;
-        com.zcyh.mr.core.Calendar sharedCalendar = holidayCalendar == null
-                ? new com.zcyh.mr.core.Calendar()
-                : holidayCalendar;
-        this.historicalMarketLoader = new ScenarioHistoricalMarketLoader(scenarioMapper, sharedCalendar);
+        this.marketInputScenarioLoader = new MarketInputScenarioLoader(scenarioMapper, holidayCalendar, alertService, fxSpotBaseCurrency);
         this.defaultHolidayCalendarCode = normalize(defaultHolidayCalendarCode);
     }
 
-    /**
-     * 构建标准化场景请求。
-     */
     public ScenarioGenerationRequest build(String scenarioIdList, LocalDate valuationDate, String user, String source) {
         ScenarioGenerationRequest request = new ScenarioGenerationRequest();
         request.setScenarioIdList(scenarioIdList);
@@ -65,7 +74,7 @@ public class ScenarioRequestAssembler {
         for (Map<String, Object> scenarioRow : scenarioRows) {
             String scenarioId = toStringValue(scenarioRow.get("SCENARIO_ID"));
             String scenarioType = toStringValue(scenarioRow.get("SCENARIO_TYPE"));
-            if (scenarioId == null || scenarioId.isEmpty() || scenarioType == null || scenarioType.isEmpty()) {
+            if (scenarioId == null || scenarioType == null) {
                 continue;
             }
 
@@ -74,14 +83,25 @@ public class ScenarioRequestAssembler {
                 continue;
             }
 
-            List<ScenarioDefinition> definitions = convertDefinitions(scenarioId, scenarioType, definitionRows);
+            List<ScenarioDefinition> baseDefinitions = convertDefinitions(scenarioId, scenarioType, definitionRows);
+            List<ScenarioDefinition> expandedDefinitions = expandRiskGroupDefinitions(baseDefinitions);
+            MarketInputScenarioLoader.CurrentLoadResult fxSeedLoadResult =
+                    marketInputScenarioLoader.loadCurrent(scenarioId, valuationDate, expandedDefinitions);
+            List<ScenarioDefinition> finalDefinitions =
+                    expandFxSpotContainerDefinitions(expandedDefinitions, fxSeedLoadResult.getMarketData());
+            List<ScenarioDefinition> marketLoadDefinitions =
+                    buildMarketLoadDefinitions(expandedDefinitions, finalDefinitions);
+            MarketInputScenarioLoader.CurrentLoadResult currentLoadResult =
+                    marketInputScenarioLoader.loadCurrent(scenarioId, valuationDate, marketLoadDefinitions);
+
             ScenarioTaskRequest task = new ScenarioTaskRequest();
             task.setScenarioId(scenarioId);
             task.setScenarioType(scenarioType);
             task.setValuationDate(valuationDate);
-            task.setDefinitions(definitions);
-            task.setCurrentMarketData(loadCurrentMarketData(scenarioId, valuationDate, definitions));
-            task.setHistoricalMarketData(historicalMarketLoader.load(scenarioId, valuationDate, definitions));
+            task.setDefinitions(finalDefinitions);
+            task.setWarnings(currentLoadResult.getWarnings());
+            task.setCurrentMarketData(currentLoadResult.getMarketData());
+            task.setHistoricalMarketData(marketInputScenarioLoader.loadHistorical(valuationDate, marketLoadDefinitions));
             tasks.add(task);
         }
 
@@ -130,84 +150,154 @@ public class ScenarioRequestAssembler {
             definition.setIncreaseDays(toInteger(row.get("INCREASE_DAYS")));
             definition.setHolidayCalendarCode(defaultHolidayCalendarCode);
             definition.setStartDate(toLocalDate(row.get("START_DATE")));
+            definition.setEndDate(toLocalDate(firstNonBlank(row.get("END_DATE"), row.get("CAL_END_DATE"))));
             result.add(definition);
         }
         return result;
     }
 
-    private Map<String, List<ScenarioMarketSeries>> loadCurrentMarketData(
-            String scenarioId,
-            LocalDate valuationDate,
-            List<ScenarioDefinition> definitions) {
-        Map<String, List<ScenarioMarketSeries>> result = new LinkedHashMap<String, List<ScenarioMarketSeries>>();
-        Date currentDate = Date.valueOf(valuationDate);
-        for (MarketQueryKey key : collectCurrentMarketKeys(definitions)) {
-            List<Map<String, Object>> rows = queryMarketData(scenarioId, key.getCurveType(), key.getCurveCode(), currentDate, null);
-            if (rows.isEmpty()) {
+    private List<ScenarioDefinition> expandRiskGroupDefinitions(List<ScenarioDefinition> definitions) {
+        Map<String, List<RiskGroupMember>> membersByGroup = loadRiskGroupMembers(definitions);
+        List<ScenarioDefinition> result = new ArrayList<ScenarioDefinition>();
+        for (ScenarioDefinition definition : definitions) {
+            String riskGroupId = normalize(definition.getRiskGroupId());
+            if (riskGroupId == null) {
+                result.add(definition);
                 continue;
             }
-            result.computeIfAbsent(key.getCurveType(), ignore -> new ArrayList<ScenarioMarketSeries>())
-                    .addAll(convertSeries(rows));
+            List<RiskGroupMember> members = membersByGroup.get(riskGroupId);
+            boolean expanded = false;
+            if (members != null) {
+                for (RiskGroupMember member : members) {
+                    if (!matchCurveType(definition.getCurveType(), member.riskFactorType)) {
+                        continue;
+                    }
+                    ScenarioDefinition copied = copyDefinition(definition);
+                    copied.setCurveType(member.riskFactorType);
+                    copied.setCurveCode(member.riskFactorId);
+                    result.add(copied);
+                    expanded = true;
+                }
+            }
+            if (!expanded && normalize(definition.getCurveCode()) != null) {
+                result.add(definition);
+            }
         }
         return result;
     }
 
-    private List<Map<String, Object>> queryMarketData(String scenarioId, String curveType, String curveCode, Date startDate, Date endDate) {
-        if (curveType == null || curveType.trim().isEmpty()) {
-            return Collections.emptyList();
+    private Map<String, List<RiskGroupMember>> loadRiskGroupMembers(List<ScenarioDefinition> definitions) {
+        Set<String> groupIds = new LinkedHashSet<String>();
+        for (ScenarioDefinition definition : definitions) {
+            String riskGroupId = normalize(definition.getRiskGroupId());
+            if (riskGroupId != null) {
+                groupIds.add(riskGroupId);
+            }
         }
-        switch (curveType.trim()) {
-            case "IR_SPOT":
-                return emptyIfNull(scenarioMapper.selectIrData(scenarioId, curveCode, startDate, endDate));
-            case "FX_SPOT":
-                return emptyIfNull(scenarioMapper.selectFxData(scenarioId, curveCode, startDate, endDate));
-            case "COMM_SPOT":
-                return emptyIfNull(scenarioMapper.selectCommData(scenarioId, curveCode, startDate, endDate));
-            case "EQ_SPOT":
-                return emptyIfNull(scenarioMapper.selectEqData(scenarioId, curveCode, startDate, endDate));
-            case "FX_VOL":
-                return emptyIfNull(scenarioMapper.selectFxVolData(scenarioId, curveCode, startDate, endDate));
-            case "IR_VOL":
-                return emptyIfNull(scenarioMapper.selectIrVolData(scenarioId, curveCode, startDate, endDate));
-            case "COMM_VOL":
-                return emptyIfNull(scenarioMapper.selectCommVolData(scenarioId, curveCode, startDate, endDate));
-            case "EQ_VOL":
-                return emptyIfNull(scenarioMapper.selectEqVolData(scenarioId, curveCode, startDate, endDate));
-            default:
-                return Collections.emptyList();
+        if (groupIds.isEmpty()) {
+            return Collections.emptyMap();
         }
+        List<Map<String, Object>> rows = scenarioMapper.selectRiskGroupMembers(new ArrayList<String>(groupIds));
+        Map<String, List<RiskGroupMember>> result = new LinkedHashMap<String, List<RiskGroupMember>>();
+        for (Map<String, Object> row : rows) {
+            String riskGroupId = normalize(toStringValue(row.get("RISKGROUP_ID")));
+            String riskFactorType = normalize(toStringValue(row.get("RISKFACTOR_TYPE")));
+            String riskFactorId = normalize(toStringValue(row.get("RISKFACTOR_ID")));
+            if (riskGroupId == null || riskFactorType == null || riskFactorId == null) {
+                continue;
+            }
+            result.computeIfAbsent(riskGroupId, key -> new ArrayList<RiskGroupMember>())
+                    .add(new RiskGroupMember(riskFactorType, riskFactorId));
+        }
+        return result;
     }
 
-    private Set<MarketQueryKey> collectCurrentMarketKeys(List<ScenarioDefinition> definitions) {
-        Set<MarketQueryKey> keys = new LinkedHashSet<MarketQueryKey>();
+    private List<ScenarioDefinition> expandFxSpotContainerDefinitions(
+            List<ScenarioDefinition> definitions,
+            Map<String, List<ScenarioMarketSeries>> currentMarketData) {
+        List<ScenarioMarketSeries> fxSeries = currentMarketData == null ? null : currentMarketData.get(FX_SPOT);
+        if (fxSeries == null || fxSeries.isEmpty()) {
+            return definitions;
+        }
+        LinkedHashSet<String> fxPairs = new LinkedHashSet<String>();
+        for (ScenarioMarketSeries series : fxSeries) {
+            String curveCode = normalize(series.getCurveCode());
+            if (curveCode != null) {
+                fxPairs.add(curveCode);
+            }
+        }
+        if (fxPairs.isEmpty()) {
+            return definitions;
+        }
+        List<ScenarioDefinition> result = new ArrayList<ScenarioDefinition>();
         for (ScenarioDefinition definition : definitions) {
             String curveType = normalize(definition.getCurveType());
             String curveCode = normalize(definition.getCurveCode());
-            if (curveType != null && curveCode != null) {
-                keys.add(new MarketQueryKey(curveType, curveCode));
+            String riskGroupId = normalize(definition.getRiskGroupId());
+            if (!FX_SPOT.equals(curveType) || riskGroupId != null || curveCode == null || curveCode.contains("/")) {
+                result.add(definition);
+                continue;
             }
-        }
-        return keys;
-    }
-
-    private List<ScenarioMarketSeries> convertSeries(List<Map<String, Object>> rows) {
-        List<ScenarioMarketSeries> result = new ArrayList<ScenarioMarketSeries>();
-        for (Map<String, Object> row : rows) {
-            result.add(convertSeriesRow(row));
+            for (String fxPair : fxPairs) {
+                ScenarioDefinition copied = copyDefinition(definition);
+                copied.setCurveCode(fxPair);
+                result.add(copied);
+            }
         }
         return result;
     }
 
-    private ScenarioMarketSeries convertSeriesRow(Map<String, Object> row) {
-        ScenarioMarketSeries series = new ScenarioMarketSeries();
-        series.setCurveType(toStringValue(row.get("CURVE_TYPE")));
-        series.setCurveCode(toStringValue(row.get("CURVE_CODE")));
-        series.setDataDate(toLocalDate(row.get("DATA_DATE")));
-        series.setTermCode(toStringValue(row.get("TERM_CODE")));
-        series.setTermDays(toInteger(row.get("TERM_DAYS")));
-        series.setDimension2(firstNonBlank(row.get("VERTEX2"), row.get("UNDERLYING_TERM"), row.get("VOLATILITY_TERM")));
-        series.setValue(toBigDecimal(row.get("RISKFACTOR_VALUE")));
-        return series;
+    private List<ScenarioDefinition> buildMarketLoadDefinitions(
+            List<ScenarioDefinition> expandedDefinitions,
+            List<ScenarioDefinition> finalDefinitions) {
+        List<ScenarioDefinition> result = new ArrayList<ScenarioDefinition>();
+        if (finalDefinitions != null && !finalDefinitions.isEmpty()) {
+            result.addAll(finalDefinitions);
+        }
+        if (expandedDefinitions == null || expandedDefinitions.isEmpty()) {
+            return result;
+        }
+        for (ScenarioDefinition definition : expandedDefinitions) {
+            String curveType = normalize(definition.getCurveType());
+            String curveCode = normalize(definition.getCurveCode());
+            if (!FX_SPOT.equals(curveType) || curveCode == null || curveCode.contains("/")) {
+                continue;
+            }
+            result.add(copyDefinition(definition));
+        }
+        return result;
+    }
+
+    private ScenarioDefinition copyDefinition(ScenarioDefinition source) {
+        ScenarioDefinition copied = new ScenarioDefinition();
+        copied.setScenarioId(source.getScenarioId());
+        copied.setScenarioCode(source.getScenarioCode());
+        copied.setScenarioName(source.getScenarioName());
+        copied.setScenarioType(source.getScenarioType());
+        copied.setCurveType(source.getCurveType());
+        copied.setCurveCode(source.getCurveCode());
+        copied.setRiskGroupId(source.getRiskGroupId());
+        copied.setTermCode(source.getTermCode());
+        copied.setTermDays(source.getTermDays());
+        copied.setShockValue(source.getShockValue());
+        copied.setScenarioShiftRule(source.getScenarioShiftRule());
+        copied.setScenarioNo(source.getScenarioNo());
+        copied.setHoldingPeriod(source.getHoldingPeriod());
+        copied.setJumpDayNo(source.getJumpDayNo());
+        copied.setIncreaseDays(source.getIncreaseDays());
+        copied.setHolidayCalendarCode(source.getHolidayCalendarCode());
+        copied.setStartDate(source.getStartDate());
+        copied.setEndDate(source.getEndDate());
+        return copied;
+    }
+
+    private boolean matchCurveType(String definitionCurveType, String riskFactorType) {
+        String normalizedCurveType = normalize(definitionCurveType);
+        String normalizedRiskFactorType = normalize(riskFactorType);
+        if (normalizedCurveType == null) {
+            return normalizedRiskFactorType == null;
+        }
+        return normalizedCurveType.equals(normalizedRiskFactorType);
     }
 
     private List<Map<String, Object>> emptyIfNull(List<Map<String, Object>> rows) {
@@ -224,7 +314,7 @@ public class ScenarioRequestAssembler {
 
     private String firstNonBlank(Object... values) {
         for (Object value : values) {
-            String text = toStringValue(value);
+            String text = value == null ? null : value.toString().trim();
             if (text != null && !text.isEmpty()) {
                 return text;
             }
@@ -270,12 +360,12 @@ public class ScenarioRequestAssembler {
         if (value instanceof LocalDate) {
             return (LocalDate) value;
         }
-        if (value instanceof Date) {
-            return ((Date) value).toLocalDate();
+        if (value instanceof java.sql.Date) {
+            return ((java.sql.Date) value).toLocalDate();
         }
         if (value instanceof java.util.Date) {
             java.util.Date date = (java.util.Date) value;
-            return new Date(date.getTime()).toLocalDate();
+            return new java.sql.Date(date.getTime()).toLocalDate();
         }
         String text = value.toString().trim();
         if (text.isEmpty()) {
@@ -335,42 +425,13 @@ public class ScenarioRequestAssembler {
         return resolveDefaultScenarioShiftRule(scenarioType);
     }
 
-    /**
-     * 当前市场查询键。
-     */
-    private static class MarketQueryKey {
-        private final String curveType;
-        private final String curveCode;
+    private static class RiskGroupMember {
+        private final String riskFactorType;
+        private final String riskFactorId;
 
-        private MarketQueryKey(String curveType, String curveCode) {
-            this.curveType = curveType;
-            this.curveCode = curveCode;
-        }
-
-        public String getCurveType() {
-            return curveType;
-        }
-
-        public String getCurveCode() {
-            return curveCode;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (!(obj instanceof MarketQueryKey)) {
-                return false;
-            }
-            MarketQueryKey other = (MarketQueryKey) obj;
-            return Objects.equals(curveType, other.curveType)
-                    && Objects.equals(curveCode, other.curveCode);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(curveType, curveCode);
+        private RiskGroupMember(String riskFactorType, String riskFactorId) {
+            this.riskFactorType = riskFactorType;
+            this.riskFactorId = riskFactorId;
         }
     }
 }
