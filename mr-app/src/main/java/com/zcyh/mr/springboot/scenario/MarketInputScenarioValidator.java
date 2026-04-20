@@ -2,6 +2,8 @@ package com.zcyh.mr.springboot.scenario;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.zcyh.mr.basic.util.Configure;
+import com.zcyh.mr.core.Constants;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -21,7 +23,7 @@ public class MarketInputScenarioValidator {
     private final String fxSpotBaseCurrency;
 
     public MarketInputScenarioValidator() {
-        this("USD");
+        this(resolveDefaultFxSpotBaseCurrency());
     }
 
     public MarketInputScenarioValidator(String fxSpotBaseCurrency) {
@@ -160,6 +162,14 @@ public class MarketInputScenarioValidator {
             return defaultCurrency;
         }
         return currency.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static String resolveDefaultFxSpotBaseCurrency() {
+        String value = Configure.getInstance().getValue(Constants.CFG.FX_SPOT_BASE_CODE);
+        if (value == null || value.trim().isEmpty()) {
+            return "USD";
+        }
+        return value.trim().toUpperCase(Locale.ROOT);
     }
 
     private static class FxSpotDateState {
