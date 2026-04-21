@@ -20,11 +20,13 @@ CREATE TABLE IF NOT EXISTS TB_OUT_SCENARIO_FILE_DETAIL (
     RISKFACTOR_TYPE     VARCHAR(64),
     RISKFACTOR_ID       VARCHAR(256),
     RISKFACTOR_VERTEX1  VARCHAR(128),
+    TERM_DAYS           INT,
     RISKFACTOR_VERTEX2  VARCHAR(128),
     CHANGE_VALUE        DECIMAL(38, 10),
     RISKFACTOR_TERM     VARCHAR(64),
     ORI_VALUE           DECIMAL(38, 10),
     SCENARIO_RESULT     DECIMAL(38, 10),
+    SHIFT_RULE          VARCHAR(64),
     MODIFIER            VARCHAR(128),
     CREATED_AT          VARCHAR(32),
     UPDATED_AT          VARCHAR(32)
@@ -172,6 +174,37 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL (
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
+-- FRTB SBA Class 汇总结果表
+CREATE TABLE IF NOT EXISTS TB_OUT_FRTB_SBA_CLASS_RESULT (
+    BATCH_ID                        VARCHAR(64),
+    DATA_DATE                       VARCHAR(16),
+    RULE_ID                         VARCHAR(128),
+    TREE_ID                         VARCHAR(128),
+    GROUP_TYPE                      VARCHAR(64),
+    GROUP_VALUE                     VARCHAR(512),
+    RISK_FACTOR_CLASS               VARCHAR(64),
+    CAPITAL_TYPE                    VARCHAR(32),
+    MAX_SIGN                        VARCHAR(16),
+    RISK_CHARGE                     DECIMAL(38, 10),
+    NORMAL_DELTA                    DECIMAL(38, 10),
+    HIGH_DELTA                      DECIMAL(38, 10),
+    LOW_DELTA                       DECIMAL(38, 10),
+    NORMAL_VEGA                     DECIMAL(38, 10),
+    HIGH_VEGA                       DECIMAL(38, 10),
+    LOW_VEGA                        DECIMAL(38, 10),
+    NORMAL_CURVATURE                DECIMAL(38, 10),
+    HIGH_CURVATURE                  DECIMAL(38, 10),
+    LOW_CURVATURE                   DECIMAL(38, 10),
+    CREATED_AT                      VARCHAR(32),
+    UPDATED_AT                      VARCHAR(32)
+)
+UNIQUE KEY(BATCH_ID, DATA_DATE, RULE_ID, TREE_ID, GROUP_TYPE, GROUP_VALUE, RISK_FACTOR_CLASS, CAPITAL_TYPE)
+DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
 PROPERTIES (
     "replication_allocation" = "tag.location.default: 1",
     "enable_unique_key_merge_on_write" = "true"

@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
@@ -56,6 +57,16 @@ public class BatchJobService {
     private static final String JOB_API_BASE_PATH = "/api/jobs";
     private static final Pattern DATE_8_PATTERN = Pattern.compile("^(20\\d{6})$");
     private static final Pattern BATCH_ID_PATTERN = Pattern.compile("^[A-Za-z0-9._-]+$");
+    private static final int RESULT_DB_CLEAR_MAX_ATTEMPTS = 5;
+    private static final long RESULT_DB_CLEAR_RETRY_INTERVAL_MILLIS = 1000L;
+    private static final String[] RESULT_DB_TRANSIENT_ERROR_KEYWORDS = {
+            "no queryable replicas",
+            "not alive",
+            "no backend available",
+            "backend is down",
+            "connection refused",
+            "communications link failure"
+    };
     private static final List<String> SUPPORTED_BATCH_OP_CODES = buildSupportedBatchOpCodes();
 
     private static final RowMapper<BatchJobRow> BATCH_JOB_ROW_MAPPER = new RowMapper<BatchJobRow>() {
@@ -555,14 +566,72 @@ public class BatchJobService {
     }
 
     private void clearExistingResultData(String batchId) {
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_RESULT_DETAIL WHERE BATCH_ID=?", batchId);
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_SCENARIO_RESULT_DETAIL WHERE BATCH_ID=?", batchId);
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL WHERE BATCH_ID=?", batchId);
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL WHERE BATCH_ID=?", batchId);
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_DRC_DETAIL WHERE BATCH_ID=?", batchId);
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_TRADE_DRC_RESULT WHERE BATCH_ID=?", batchId);
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_MARKET_DATA_DETAIL WHERE BATCH_ID=?", batchId);
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_PORTFOLIO_HIERARCHY WHERE BATCH_ID=?", batchId);
+        clearExistingResultTableWithRetry("TB_OUT_TRADE_RESULT_DETAIL", batchId);
+        clearExistingResultTableWithRetry("TB_OUT_TRADE_SCENARIO_RESULT_DETAIL", batchId);
+        clearExistingResultTableWithRetry("TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL", batchId);
+        clearExistingResultTableWithRetry("TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL", batchId);
+        clearExistingResultTableWithRetry("TB_OUT_TRADE_DRC_DETAIL", batchId);
+        clearExistingResultTableWithRetry("TB_OUT_TRADE_DRC_RESULT", batchId);
+        clearExistingResultTableWithRetry("TB_OUT_MARKET_DATA_DETAIL", batchId);
+        clearExistingResultTableWithRetry("TB_OUT_PORTFOLIO_HIERARCHY", batchId);
+    }
+
+    private void clearExistingResultTableWithRetry(String tableName, String batchId) {
+        String sql = "DELETE FROM " + tableName + " WHERE BATCH_ID=?";
+        for (int attempt = 1; attempt <= RESULT_DB_CLEAR_MAX_ATTEMPTS; attempt++) {
+            try {
+                engineResultDbJdbcTemplate.update(sql, batchId);
+                return;
+            } catch (DataAccessException ex) {
+                if (!isTransientResultDbUnavailable(ex) || attempt >= RESULT_DB_CLEAR_MAX_ATTEMPTS) {
+                    throw ex;
+                }
+                long delayMillis = RESULT_DB_CLEAR_RETRY_INTERVAL_MILLIS * attempt;
+                log.warn("Doris结果表清理失败，准备重试，batchId={}, table={}, attempt={}, delayMillis={}, error={}",
+                        batchId, tableName, attempt, delayMillis, rootMessage(ex));
+                sleepBeforeResultDbRetry(delayMillis);
+            }
+        }
+    }
+
+    private boolean isTransientResultDbUnavailable(Throwable ex) {
+        Throwable current = ex;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null) {
+                String normalized = message.toLowerCase(Locale.ROOT);
+                for (String keyword : RESULT_DB_TRANSIENT_ERROR_KEYWORDS) {
+                    if (normalized.contains(keyword)) {
+                        return true;
+                    }
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private String rootMessage(Throwable ex) {
+        Throwable current = ex;
+        Throwable root = ex;
+        while (current != null) {
+            root = current;
+            current = current.getCause();
+        }
+        String message = root == null ? null : root.getMessage();
+        if (message == null || message.trim().isEmpty()) {
+            return ex.getClass().getSimpleName();
+        }
+        return message;
+    }
+
+    private void sleepBeforeResultDbRetry(long delayMillis) {
+        try {
+            Thread.sleep(delayMillis);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Doris结果表清理重试被中断", ex);
+        }
     }
 
     void syncPortfolioHierarchySnapshot(String batchId, LocalDate dataDate) {

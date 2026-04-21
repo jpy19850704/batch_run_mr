@@ -42,9 +42,9 @@ public class ScenarioGeneratedPersistService {
 
         String sql = "INSERT INTO TB_OUT_SCENARIO_FILE_DETAIL ("
                 + "BATCH_ID, DATA_DATE, SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, SCENARIO_TYPE, "
-                + "RISKFACTOR_TYPE, RISKFACTOR_ID, RISKFACTOR_VERTEX1, RISKFACTOR_VERTEX2, "
-                + "CHANGE_VALUE, RISKFACTOR_TERM, ORI_VALUE, SCENARIO_RESULT, MODIFIER, CREATED_AT, UPDATED_AT"
-                + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                + "RISKFACTOR_TYPE, RISKFACTOR_ID, RISKFACTOR_VERTEX1, TERM_DAYS, RISKFACTOR_VERTEX2, "
+                + "CHANGE_VALUE, RISKFACTOR_TERM, ORI_VALUE, SCENARIO_RESULT, SHIFT_RULE, MODIFIER, CREATED_AT, UPDATED_AT"
+                + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         List<Object[]> batchArgs = new ArrayList<Object[]>(records.size());
         for (ScenarioGeneratedRecord record : records) {
@@ -52,25 +52,27 @@ public class ScenarioGeneratedPersistService {
                 continue;
             }
             String rowDataDate = normalizeDataDate(record.getDataDate(), dataDate);
-            batchArgs.add(new Object[]{
-                    safeBatchId,
-                    rowDataDate,
-                    trimToNull(record.getScenarioId()),
-                    trimToNull(record.getSubScenarioId()),
-                    trimToNull(record.getScenarioName()),
-                    trimToNull(record.getScenarioType()),
-                    trimToNull(record.getCurveType()),
-                    trimToNull(record.getCurveCode()),
-                    trimToNull(record.getTermCode()),
-                    trimToNull(record.getDimension2()),
-                    toBigDecimal(record.getShiftValue()),
-                    trimToNull(resolveRiskFactorTerm(record)),
-                    toBigDecimal(record.getOriginalValue()),
-                    toBigDecimal(record.getChangedValue()),
-                    trimToNull(record.getModifier()),
-                    now,
-                    now
-            });
+            List<Object> values = new ArrayList<Object>();
+            values.add(safeBatchId);
+            values.add(rowDataDate);
+            values.add(trimToNull(record.getScenarioId()));
+            values.add(trimToNull(record.getSubScenarioId()));
+            values.add(trimToNull(record.getScenarioName()));
+            values.add(trimToNull(record.getScenarioType()));
+            values.add(trimToNull(record.getCurveType()));
+            values.add(trimToNull(record.getCurveCode()));
+            values.add(trimToNull(record.getTermCode()));
+            values.add(record.getTermDays());
+            values.add(trimToNull(record.getDimension2()));
+            values.add(toBigDecimal(record.getShiftValue()));
+            values.add(trimToNull(resolveRiskFactorTerm(record)));
+            values.add(toBigDecimal(record.getOriginalValue()));
+            values.add(toBigDecimal(record.getChangedValue()));
+            values.add(trimToNull(record.getShiftRule()));
+            values.add(trimToNull(record.getModifier()));
+            values.add(now);
+            values.add(now);
+            batchArgs.add(values.toArray());
         }
         if (!batchArgs.isEmpty()) {
             jdbcTemplate.batchUpdate(sql, batchArgs);

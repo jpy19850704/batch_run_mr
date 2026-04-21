@@ -304,7 +304,7 @@ public class PricingResultPersistService {
                         toBigDecimal(trade.get("PNL")),
                         null,
                         toTextValue(trade.get("DETAIL")),
-                        buildErrorResultJson(errorText, trade.getJSONArray("ERRORS")),
+                        null,
                         context.createdAt,
                         context.updatedAt
                 });
@@ -365,7 +365,7 @@ public class PricingResultPersistService {
                     toBigDecimal(trade.get("COMM_PNL")),
                     toBigDecimal(trade.get("ALL_VALUATION")),
                     toBigDecimal(trade.get("ALL_PNL")),
-                    buildErrorResultJson(errorText, trade.getJSONArray("ERRORS")),
+                    null,
                     context.createdAt,
                     context.updatedAt
             });
@@ -427,7 +427,7 @@ public class PricingResultPersistService {
                         toBigDecimal(sensitivity.get("SENSITIVITY_VAL_INST_CURR")),
                         trimToNull(sensitivity.getString("INSTRUMENT_CURRENCY")),
                         toBigDecimal(sensitivity.get("SENSITIVITY_VAL_INST_CURR_CNY")),
-                        toJsonString(sensitivity),
+                        null,
                         context.createdAt,
                         context.updatedAt
                 });
@@ -506,7 +506,7 @@ public class PricingResultPersistService {
                     toBigDecimal(drc.get("INSTRUMENT_VALUE")),
                     toBigDecimal(drc.get("FRTB_LGD")),
                     toBigDecimal(drc.get("NOTIONAL")),
-                    toJsonString(drc),
+                    null,
                     context.createdAt,
                     context.updatedAt
             });
