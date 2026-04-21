@@ -10,8 +10,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-
 /**
  * IMA 最终资本结果落库服务。
  * 将 ImaCapitalResult 写入 TB_OUT_IMA_CAPITAL_RESULT（Doris，待建表）。
@@ -24,18 +22,18 @@ public class ImaCapitalResultPersistService {
 
     private static final Logger log = LoggerFactory.getLogger(ImaCapitalResultPersistService.class);
 
-    private static final String INSERT_SQL =
-            "INSERT INTO TB_OUT_IMA_CAPITAL_RESULT ("
-            + "BATCH_ID, DATA_DATE, "
-            + "IMCC, SES, AMBER_SURCHARGE_RATIO, ACR_TOTAL, "
-            + "RESULT_JSON, CREATED_AT, UPDATED_AT"
-            + ") VALUES (?,?,?,?,?,?,?,?,?)";
+    private static final String TARGET_TABLE = "TB_OUT_IMA_CAPITAL_RESULT";
+    private static final String STREAM_LOAD_COLUMNS =
+            "BATCH_ID,DATA_DATE,IMCC,SES,AMBER_SURCHARGE_RATIO,ACR_TOTAL,RESULT_JSON,CREATED_AT,UPDATED_AT";
 
     private final JdbcTemplate jdbcTemplate;
+    private final DorisStreamLoadService dorisStreamLoadService;
 
     public ImaCapitalResultPersistService(
-            @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate) {
+            @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate,
+            DorisStreamLoadService dorisStreamLoadService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.dorisStreamLoadService = dorisStreamLoadService;
     }
 
     /**
@@ -51,18 +49,23 @@ public class ImaCapitalResultPersistService {
         }
         String now = ResultPersistTime.nowText();
         String resultJson = JSON.toJSONString(result, JSONWriter.Feature.WriteBigDecimalAsPlain);
-
-        Object[] row = new Object[]{
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                TARGET_TABLE,
+                STREAM_LOAD_COLUMNS,
+                "ima_capital_" + result.getBatchId(),
+                1);
+        buffer.appendRow(
                 result.getBatchId(),
                 result.getDataDate(),
-                result.getImccResult() != null ? result.getImccResult().getImcc() : null,
-                result.getSesResult() != null ? result.getSesResult().getSes() : null,
-                result.getAmberSurchargeRatio(),
-                result.getAcrTotal(),
+                DorisCsvStreamLoadBuffer.decimalText(result.getImccResult() != null ? result.getImccResult().getImcc() : null),
+                DorisCsvStreamLoadBuffer.decimalText(result.getSesResult() != null ? result.getSesResult().getSes() : null),
+                DorisCsvStreamLoadBuffer.decimalText(result.getAmberSurchargeRatio()),
+                DorisCsvStreamLoadBuffer.decimalText(result.getAcrTotal()),
                 resultJson,
-                now, now
-        };
-        jdbcTemplate.batchUpdate(INSERT_SQL, Collections.singletonList(row));
+                now,
+                now);
+        buffer.flush();
 
         log.info("IMA 资本结果落库完成: batchId={}, acrTotal={}",
                 result.getBatchId(), result.getAcrTotal());

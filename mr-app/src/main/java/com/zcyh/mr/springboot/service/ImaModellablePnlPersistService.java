@@ -8,7 +8,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -19,24 +18,21 @@ import java.util.List;
 public class ImaModellablePnlPersistService {
 
     private static final Logger log = LoggerFactory.getLogger(ImaModellablePnlPersistService.class);
-    private static final int DEFAULT_BATCH_SIZE = 500;
-
-    private static final String INSERT_SQL =
-            "INSERT INTO TB_OUT_IMA_MODELLABLE_SCENARIO_PNL ("
-            + "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
-            + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, SCENARIO_TYPE, "
-            + "INSTRUMENT_ID, PRODUCT_CODE, LH_DAYS, "
-            + "BASE_VALUATION_CNY, "
-            + "IR_VALUATION, IR_PNL, FX_VALUATION, FX_PNL, "
-            + "EQ_VALUATION, EQ_PNL, COMM_VALUATION, COMM_PNL, "
-            + "ALL_VALUATION, ALL_PNL, CREATED_AT, UPDATED_AT"
-            + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    private static final int DEFAULT_BATCH_SIZE = 10000;
+    private static final String TARGET_TABLE = "TB_OUT_IMA_MODELLABLE_SCENARIO_PNL";
+    private static final String STREAM_LOAD_COLUMNS =
+            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,"
+                    + "INSTRUMENT_ID,PRODUCT_CODE,LH_DAYS,BASE_VALUATION_CNY,IR_VALUATION,IR_PNL,FX_VALUATION,FX_PNL,"
+                    + "EQ_VALUATION,EQ_PNL,COMM_VALUATION,COMM_PNL,ALL_VALUATION,ALL_PNL,CREATED_AT,UPDATED_AT";
 
     private final JdbcTemplate jdbcTemplate;
+    private final DorisStreamLoadService dorisStreamLoadService;
 
     public ImaModellablePnlPersistService(
-            @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate) {
+            @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate,
+            DorisStreamLoadService dorisStreamLoadService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.dorisStreamLoadService = dorisStreamLoadService;
     }
 
     /**
@@ -52,31 +48,30 @@ public class ImaModellablePnlPersistService {
             return;
         }
         String now = ResultPersistTime.nowText();
-        List<Object[]> batchArgs = new ArrayList<Object[]>();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                TARGET_TABLE,
+                STREAM_LOAD_COLUMNS,
+                "ima_modellable_" + records.get(0).getBatchId(),
+                DEFAULT_BATCH_SIZE);
 
         for (SubsetPnlRecord r : records) {
             String createdAt = r.getCreatedAt() > 0 ? ResultPersistTime.formatEpochMillis(r.getCreatedAt()) : now;
-            batchArgs.add(new Object[]{
+            buffer.appendRow(
                     r.getRequestId(), r.getJobId(), r.getBatchId(),
                     r.getSeqNo(), r.getDataDate(), opCode,
                     r.getScenarioId(), r.getSubscenarioId(), r.getScenarioName(),
                     r.getScenarioType(),
                     r.getInstrumentId(), r.getProductCode(), r.getLhDays(),
-                    r.getBaseValuationCny(),
-                    r.getIrValuation(), r.getIrPnl(),
-                    r.getFxValuation(), r.getFxPnl(),
-                    r.getEqValuation(), r.getEqPnl(),
-                    r.getCommValuation(), r.getCommPnl(),
-                    r.getAllValuation(), r.getAllPnl(),
-                    createdAt, now});
-            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
-                jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
-                batchArgs.clear();
-            }
+                    DorisCsvStreamLoadBuffer.decimalText(r.getBaseValuationCny()),
+                    DorisCsvStreamLoadBuffer.decimalText(r.getIrValuation()), DorisCsvStreamLoadBuffer.decimalText(r.getIrPnl()),
+                    DorisCsvStreamLoadBuffer.decimalText(r.getFxValuation()), DorisCsvStreamLoadBuffer.decimalText(r.getFxPnl()),
+                    DorisCsvStreamLoadBuffer.decimalText(r.getEqValuation()), DorisCsvStreamLoadBuffer.decimalText(r.getEqPnl()),
+                    DorisCsvStreamLoadBuffer.decimalText(r.getCommValuation()), DorisCsvStreamLoadBuffer.decimalText(r.getCommPnl()),
+                    DorisCsvStreamLoadBuffer.decimalText(r.getAllValuation()), DorisCsvStreamLoadBuffer.decimalText(r.getAllPnl()),
+                    createdAt, now);
         }
-        if (!batchArgs.isEmpty()) {
-            jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
-        }
+        buffer.flush();
 
         log.info("IMA 可建模 PnL 落库完成: batchId={}, rows={}",
                 records.isEmpty() ? null : records.get(0).getBatchId(), records.size());

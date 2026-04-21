@@ -21,21 +21,21 @@ import java.util.List;
 public class FrtbDrcResultPersistService {
     private static final Logger log = LoggerFactory.getLogger(FrtbDrcResultPersistService.class);
     private static final int MAX_INVALID_ROW_LOG = 10;
-    private static final int DEFAULT_BATCH_SIZE = 500;
+    private static final int DEFAULT_BATCH_SIZE = 5000;
 
     private static final String FLAG_DRC_VALUE = "DRC_VALUE";
     private static final String FLAG_DECOMP_LEGAL_ENTITY = "DECOMP_LEGALENTITY";
-
-    private static final String INSERT_SQL =
-            "INSERT INTO TB_OUT_TRADE_DRC_RESULT ("
-                    + "REQUEST_ID, JOB_ID, BATCH_ID, DATA_DATE, "
-                    + "DECOMP_FLAG, AGG_LEVEL, DRC_TYPE, DRC_BUCKET, LEGAL_ENTITY, DRC_VALUE, CREATED_AT"
-                    + ") VALUES (?,?,?,?,?,?,?,?,?,?,?)";
+    private static final String TARGET_TABLE = "TB_OUT_TRADE_DRC_RESULT";
+    private static final String STREAM_LOAD_COLUMNS =
+            "REQUEST_ID,JOB_ID,BATCH_ID,DATA_DATE,DECOMP_FLAG,AGG_LEVEL,DRC_TYPE,DRC_BUCKET,LEGAL_ENTITY,DRC_VALUE,CREATED_AT";
 
     private final JdbcTemplate jdbcTemplate;
+    private final DorisStreamLoadService dorisStreamLoadService;
 
-    public FrtbDrcResultPersistService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate) {
+    public FrtbDrcResultPersistService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate,
+                                       DorisStreamLoadService dorisStreamLoadService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.dorisStreamLoadService = dorisStreamLoadService;
     }
 
     /**
@@ -90,9 +90,14 @@ public class FrtbDrcResultPersistService {
         }
 
         String now = ResultPersistTime.nowText();
-        List<Object[]> batchArgs = new ArrayList<Object[]>();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                TARGET_TABLE,
+                STREAM_LOAD_COLUMNS,
+                "frtb_drc_" + safeBatchId + "_" + safeDataDate,
+                DEFAULT_BATCH_SIZE);
         for (ResultRow row : rows) {
-            batchArgs.add(new Object[]{
+            buffer.appendRow(
                     trimToNull(requestId),
                     trimToNull(jobId),
                     row.batchId,
@@ -102,17 +107,11 @@ public class FrtbDrcResultPersistService {
                     row.drcType,
                     row.drcBucket,
                     row.legalEntity,
-                    row.drcValue,
+                    DorisCsvStreamLoadBuffer.decimalText(row.drcValue),
                     now
-            });
-            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
-                jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
-                batchArgs.clear();
-            }
+            );
         }
-        if (!batchArgs.isEmpty()) {
-            jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
-        }
+        buffer.flush();
         log.info("DRC 汇总结果落库完成: batchId={}, dataDate={}, rows={}", safeBatchId, safeDataDate, rows.size());
     }
 

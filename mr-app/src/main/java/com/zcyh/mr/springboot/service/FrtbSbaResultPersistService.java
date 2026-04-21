@@ -8,7 +8,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -20,22 +19,23 @@ import java.util.List;
 public class FrtbSbaResultPersistService {
 
     private static final Logger log = LoggerFactory.getLogger(FrtbSbaResultPersistService.class);
-    private static final int DEFAULT_BATCH_SIZE = 500;
-
-    private static final String INSERT_SQL =
-            "INSERT INTO TB_OUT_FRTB_SBA_CLASS_RESULT ("
-            + "BATCH_ID, DATA_DATE, RULE_ID, TREE_ID, GROUP_TYPE, GROUP_VALUE, "
-            + "RISK_FACTOR_CLASS, MAX_SIGN, CAPITAL_TYPE, RISK_CHARGE, "
-            + "NORMAL_DELTA, HIGH_DELTA, LOW_DELTA, "
-            + "NORMAL_VEGA, HIGH_VEGA, LOW_VEGA, "
-            + "NORMAL_CURVATURE, HIGH_CURVATURE, LOW_CURVATURE, "
-            + "CREATED_AT, UPDATED_AT"
-            + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    private static final int DEFAULT_BATCH_SIZE = 5000;
+    private static final String TARGET_TABLE = "TB_OUT_FRTB_SBA_CLASS_RESULT";
+    private static final String STREAM_LOAD_COLUMNS =
+            "BATCH_ID,DATA_DATE,RULE_ID,TREE_ID,GROUP_TYPE,GROUP_VALUE,"
+                    + "RISK_FACTOR_CLASS,MAX_SIGN,CAPITAL_TYPE,RISK_CHARGE,"
+                    + "NORMAL_DELTA,HIGH_DELTA,LOW_DELTA,"
+                    + "NORMAL_VEGA,HIGH_VEGA,LOW_VEGA,"
+                    + "NORMAL_CURVATURE,HIGH_CURVATURE,LOW_CURVATURE,"
+                    + "CREATED_AT,UPDATED_AT";
 
     private final JdbcTemplate jdbcTemplate;
+    private final DorisStreamLoadService dorisStreamLoadService;
 
-    public FrtbSbaResultPersistService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate) {
+    public FrtbSbaResultPersistService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate,
+                                       DorisStreamLoadService dorisStreamLoadService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.dorisStreamLoadService = dorisStreamLoadService;
     }
 
     /**
@@ -55,40 +55,50 @@ public class FrtbSbaResultPersistService {
         }
 
         String now = ResultPersistTime.nowText();
-        List<Object[]> batchArgs = new ArrayList<Object[]>();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                TARGET_TABLE,
+                STREAM_LOAD_COLUMNS,
+                "frtb_sba_" + batchId,
+                DEFAULT_BATCH_SIZE);
 
         for (FRTBClassResult cr : classResults) {
             // NONADDITIVE：SBA 独立计算资本（含相关性矩阵）
-            batchArgs.add(new Object[]{
+            buffer.appendRow(
                     batchId, dataDate, ruleId,
                     cr.getTreeId(), cr.getGroupType(), cr.getGroupValue(),
                     cr.getRiskFactorClass(), cr.getMaxSign(),
-                    "NONADDITIVE", decVal(cr.getRiskCharge()),
-                    decVal(cr.getNormalDelta()), decVal(cr.getHighDelta()), decVal(cr.getLowDelta()),
-                    decVal(cr.getNormalVega()), decVal(cr.getHighVega()), decVal(cr.getLowVega()),
-                    decVal(cr.getNormalCurvature()), decVal(cr.getHighCurvature()), decVal(cr.getLowCurvature()),
-                    now, now});
+                    "NONADDITIVE", DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getRiskCharge())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getNormalDelta())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getHighDelta())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getLowDelta())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getNormalVega())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getHighVega())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getLowVega())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getNormalCurvature())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getHighCurvature())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getLowCurvature())),
+                    now, now);
 
             // ADDITIVE：Euler 分摊资本（按 sensType × scenario）
             BigDecimal allocCharge = computeAllocRiskCharge(cr);
-            batchArgs.add(new Object[]{
+            buffer.appendRow(
                     batchId, dataDate, ruleId,
                     cr.getTreeId(), cr.getGroupType(), cr.getGroupValue(),
                     cr.getRiskFactorClass(), cr.getMaxSign(),
-                    "ADDITIVE", decVal(allocCharge),
-                    decVal(cr.getAllocDeltaNormal()), decVal(cr.getAllocDeltaHigh()), decVal(cr.getAllocDeltaLow()),
-                    decVal(cr.getAllocVegaNormal()), decVal(cr.getAllocVegaHigh()), decVal(cr.getAllocVegaLow()),
-                    decVal(cr.getAllocCurvatureNormal()), decVal(cr.getAllocCurvatureHigh()), decVal(cr.getAllocCurvatureLow()),
-                    now, now});
-
-            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
-                jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
-                batchArgs.clear();
-            }
+                    "ADDITIVE", DorisCsvStreamLoadBuffer.decimalText(decVal(allocCharge)),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getAllocDeltaNormal())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getAllocDeltaHigh())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getAllocDeltaLow())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getAllocVegaNormal())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getAllocVegaHigh())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getAllocVegaLow())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getAllocCurvatureNormal())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getAllocCurvatureHigh())),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getAllocCurvatureLow())),
+                    now, now);
         }
-        if (!batchArgs.isEmpty()) {
-            jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
-        }
+        buffer.flush();
 
         log.info("FRTB SBA Class 结果落库完成: batchId={}, classCount={}, rows={}",
                 batchId, classResults.size(), classResults.size() * 2);

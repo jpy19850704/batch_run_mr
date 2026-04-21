@@ -120,6 +120,7 @@ public class BatchJobService {
     private final AsyncJobService asyncJobService;
     private final JdbcTemplate jdbcTemplate;
     private final JdbcTemplate engineResultDbJdbcTemplate;
+    private final DorisStreamLoadService dorisStreamLoadService;
     private final MrMarketDataSliceService marketDataSliceService;
     private final AlertService alertService;
     private final BatchTradeDataLoader dataLoader;
@@ -133,6 +134,7 @@ public class BatchJobService {
             AsyncJobService asyncJobService,
             @Qualifier("engineDbJdbcTemplate") JdbcTemplate jdbcTemplate,
             @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate,
+            DorisStreamLoadService dorisStreamLoadService,
             MrMarketDataSliceService marketDataSliceService,
             AlertService alertService,
             BatchTradeDataLoader dataLoader,
@@ -145,6 +147,7 @@ public class BatchJobService {
         this.asyncJobService = asyncJobService;
         this.jdbcTemplate = jdbcTemplate;
         this.engineResultDbJdbcTemplate = engineResultDbJdbcTemplate;
+        this.dorisStreamLoadService = dorisStreamLoadService;
         this.marketDataSliceService = marketDataSliceService;
         this.alertService = alertService;
         this.dataLoader = dataLoader;
@@ -642,13 +645,15 @@ public class BatchJobService {
             return;
         }
 
-        String insertSql = "INSERT INTO TB_OUT_PORTFOLIO_HIERARCHY ("
-                + "BATCH_ID, DATA_DATE, PORTFOLIO_CODE, PORTFOLIO_NAME, UPPER_LEVEL_PORTFOLIO, LEVEL_CODE, CREATED_AT, UPDATED_AT"
-                + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         String normalizedDataDate = dataDate == null ? null : dataDate.format(DateTimeFormatter.BASIC_ISO_DATE);
         String now = ResultPersistTime.nowText();
         Set<String> uniqueKeys = new java.util.LinkedHashSet<String>();
-        List<Object[]> batchArgs = new ArrayList<Object[]>();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                "TB_OUT_PORTFOLIO_HIERARCHY",
+                "BATCH_ID,DATA_DATE,PORTFOLIO_CODE,PORTFOLIO_NAME,UPPER_LEVEL_PORTFOLIO,LEVEL_CODE,CREATED_AT,UPDATED_AT",
+                "portfolio_hierarchy_" + batchId,
+                5000);
 
         for (Map<String, Object> row : hierarchyRows) {
             String portfolioCode = trimToNull(stringValue(row.get("PORTFOLIO_CODE")));
@@ -661,7 +666,7 @@ public class BatchJobService {
             if (!uniqueKeys.add(uniqueKey)) {
                 continue;
             }
-            batchArgs.add(new Object[]{
+            buffer.appendRow(
                     batchId,
                     normalizedDataDate,
                     portfolioCode,
@@ -670,15 +675,9 @@ public class BatchJobService {
                     levelCode,
                     now,
                     now
-            });
-            if (batchArgs.size() >= 500) {
-                engineResultDbJdbcTemplate.batchUpdate(insertSql, batchArgs);
-                batchArgs.clear();
-            }
+            );
         }
-        if (!batchArgs.isEmpty()) {
-            engineResultDbJdbcTemplate.batchUpdate(insertSql, batchArgs);
-        }
+        buffer.flush();
     }
 
     private static String stringValue(Object value) {

@@ -9,6 +9,7 @@ import com.zcyh.mr.springboot.service.AlertService;
 import com.zcyh.mr.springboot.service.AsyncJobService;
 import com.zcyh.mr.springboot.service.AuditLogService;
 import com.zcyh.mr.springboot.service.EngineOrchestratorService;
+import com.zcyh.mr.springboot.service.ScenarioResultCacheService;
 import com.zcyh.mr.springboot.service.VarDetailCacheService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.slf4j.Logger;
@@ -35,6 +36,7 @@ public class MrEngineController {
     private final AuditLogService auditLogService;
     private final AlertService alertService;
     private final VarDetailCacheService varDetailCacheService;
+    private final ScenarioResultCacheService scenarioResultCacheService;
 
     @Value("${spring.application.name:mr-springboot-app}")
     private String appName;
@@ -44,13 +46,15 @@ public class MrEngineController {
             AsyncJobService asyncJobService,
             AuditLogService auditLogService,
             AlertService alertService,
-            ObjectProvider<VarDetailCacheService> varDetailCacheServiceProvider
+            ObjectProvider<VarDetailCacheService> varDetailCacheServiceProvider,
+            ObjectProvider<ScenarioResultCacheService> scenarioResultCacheServiceProvider
     ) {
         this.orchestratorService = orchestratorService;
         this.asyncJobService = asyncJobService;
         this.auditLogService = auditLogService;
         this.alertService = alertService;
         this.varDetailCacheService = varDetailCacheServiceProvider.getIfAvailable();
+        this.scenarioResultCacheService = scenarioResultCacheServiceProvider.getIfAvailable();
     }
 
     @GetMapping("/healthz")
@@ -134,6 +138,57 @@ public class MrEngineController {
         return ApiResponse.ok(detail);
     }
 
+    /**
+     * 读取 Scenario 结果缓存的维度列表。
+     */
+    @PostMapping("/api/engine/scenario/list")
+    public ApiResponse<Object> scenarioList(@RequestBody JSONObject request) {
+        if (scenarioResultCacheService == null) {
+            return ApiResponse.fail("CACHE_DISABLED", "Scenario Redis 缓存服务未启用");
+        }
+        String runId = readRequiredField(request, "run_id", "runId");
+        String scenarioId = readOptionalField(request, "scenario_id", "scenarioId");
+        String subScenarioId = readOptionalField(request, "sub_scenario_id", "subScenarioId");
+        String curveType = readOptionalField(request, "curve_type", "curveType");
+
+        try {
+            return ApiResponse.ok(scenarioResultCacheService.listDimensions(runId, scenarioId, subScenarioId, curveType));
+        } catch (IllegalArgumentException ex) {
+            return ApiResponse.fail("INVALID_ARGUMENT", ex.getMessage());
+        } catch (Exception ex) {
+            log.warn("读取 Scenario Redis 维度列表失败: {}", ex.getMessage());
+            return ApiResponse.fail("CACHE_UNAVAILABLE", "Scenario 结果缓存暂不可用，请稍后重试");
+        }
+    }
+
+    /**
+     * 按维度读取 Scenario 结果缓存明细。
+     */
+    @PostMapping("/api/engine/scenario/detail")
+    public ApiResponse<Object> scenarioDetail(@RequestBody JSONObject request) {
+        if (scenarioResultCacheService == null) {
+            return ApiResponse.fail("CACHE_DISABLED", "Scenario Redis 缓存服务未启用");
+        }
+        String runId = readRequiredField(request, "run_id", "runId");
+        String scenarioId = readRequiredField(request, "scenario_id", "scenarioId");
+        String subScenarioId = readRequiredField(request, "sub_scenario_id", "subScenarioId");
+        String curveType = readRequiredField(request, "curve_type", "curveType");
+        String curveId = readRequiredField(request, "curve_id", "curveId");
+
+        try {
+            JSONObject detail = scenarioResultCacheService.getDetail(runId, scenarioId, subScenarioId, curveType, curveId);
+            if (detail == null) {
+                return ApiResponse.fail("NOT_FOUND", "未找到对应 Scenario 结果缓存，请重新执行情景计算");
+            }
+            return ApiResponse.ok(detail);
+        } catch (IllegalArgumentException ex) {
+            return ApiResponse.fail("INVALID_ARGUMENT", ex.getMessage());
+        } catch (Exception ex) {
+            log.warn("读取 Scenario Redis 明细失败: {}", ex.getMessage());
+            return ApiResponse.fail("CACHE_UNAVAILABLE", "Scenario 结果缓存暂不可用，请稍后重试");
+        }
+    }
+
     private static String readRequiredField(JSONObject obj, String... keys) {
         if (obj == null || keys == null || keys.length == 0) {
             throw new IllegalArgumentException("请求参数不能为空");
@@ -148,6 +203,22 @@ public class MrEngineController {
             }
         }
         throw new IllegalArgumentException("参数缺失: " + keys[0]);
+    }
+
+    private static String readOptionalField(JSONObject obj, String... keys) {
+        if (obj == null || keys == null || keys.length == 0) {
+            return null;
+        }
+        for (String key : keys) {
+            if (key == null) {
+                continue;
+            }
+            String value = trimToNull(obj.getString(key));
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private static String trimToNull(String text) {

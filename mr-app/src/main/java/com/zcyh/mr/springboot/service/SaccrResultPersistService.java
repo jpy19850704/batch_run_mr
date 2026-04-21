@@ -8,7 +8,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -22,27 +21,24 @@ public class SaccrResultPersistService {
 
     private static final Logger log = LoggerFactory.getLogger(SaccrResultPersistService.class);
 
-    private static final int BATCH_SIZE = 500;
+    private static final int BATCH_SIZE = 5000;
 
     private static final String DELETE_SQL =
             "DELETE FROM TB_OUT_SACCR_RESULT WHERE JOB_ID = ?";
-
-    private static final String INSERT_SQL =
-            "INSERT INTO TB_OUT_SACCR_RESULT ("
-            + " JOB_ID, DATA_DATE, NETTING_SET_ID, COUNTERPARTY_ID,"
-            + " IS_MARGINED, IS_CLEARED, IS_QCCP,"
-            + " SUM_MTM, COLLATERAL_C,"
-            + " RC, ADDON_IR, ADDON_FX, ADDON_CREDIT, ADDON_EQUITY, ADDON_COMMODITY,"
-            + " ADDON_AGGREGATE, MULTIPLIER, PFE, EAD,"
-            + " RISK_WEIGHT, RWA_CCR, CAPITAL_CCR,"
-            + " CREATE_TIME"
-            + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    private static final String TARGET_TABLE = "TB_OUT_SACCR_RESULT";
+    private static final String STREAM_LOAD_COLUMNS =
+            "JOB_ID,DATA_DATE,NETTING_SET_ID,COUNTERPARTY_ID,IS_MARGINED,IS_CLEARED,IS_QCCP,SUM_MTM,COLLATERAL_C,"
+                    + "RC,ADDON_IR,ADDON_FX,ADDON_CREDIT,ADDON_EQUITY,ADDON_COMMODITY,ADDON_AGGREGATE,MULTIPLIER,PFE,EAD,"
+                    + "RISK_WEIGHT,RWA_CCR,CAPITAL_CCR,CREATE_TIME";
 
     private final JdbcTemplate engineResultJdbc;
+    private final DorisStreamLoadService dorisStreamLoadService;
 
     public SaccrResultPersistService(
-            @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultJdbc) {
+            @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultJdbc,
+            DorisStreamLoadService dorisStreamLoadService) {
         this.engineResultJdbc = engineResultJdbc;
+        this.dorisStreamLoadService = dorisStreamLoadService;
     }
 
     /**
@@ -61,14 +57,19 @@ public class SaccrResultPersistService {
 
         // 2. 批量插入
         String now = ResultPersistTime.nowText();
-        List<Object[]> batchArgs = new ArrayList<>();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                TARGET_TABLE,
+                STREAM_LOAD_COLUMNS,
+                "saccr_" + jobId,
+                BATCH_SIZE);
 
         for (SaccrResult r : results) {
             NettingSetMeta meta = nsMetaMap != null
                     ? nsMetaMap.getOrDefault(r.nettingSetId, new NettingSetMeta())
                     : new NettingSetMeta();
 
-            batchArgs.add(new Object[]{
+            buffer.appendRow(
                     jobId,
                     dataDate.toString(),
                     r.nettingSetId,
@@ -92,17 +93,9 @@ public class SaccrResultPersistService {
                     r.rwaCcr,
                     r.capitalCcr,
                     now
-            });
-
-            if (batchArgs.size() >= BATCH_SIZE) {
-                engineResultJdbc.batchUpdate(INSERT_SQL, batchArgs);
-                batchArgs.clear();
-            }
+            );
         }
-
-        if (!batchArgs.isEmpty()) {
-            engineResultJdbc.batchUpdate(INSERT_SQL, batchArgs);
-        }
+        buffer.flush();
 
         log.info("SA-CCR 结果落库完成：jobId={}，共 {} 条", jobId, results.size());
     }

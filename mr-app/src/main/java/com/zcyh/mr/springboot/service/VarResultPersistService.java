@@ -19,20 +19,18 @@ import java.util.List;
 @Service
 public class VarResultPersistService {
     private static final Logger log = LoggerFactory.getLogger(VarResultPersistService.class);
-    private static final int DEFAULT_BATCH_SIZE = 500;
-
-    private static final String INSERT_SQL =
-            "INSERT INTO TB_OUT_VAR_RESULT ("
-                    + "BATCH_ID, DATA_DATE, QUANTILE, "
-                    + "RULE_ID, RULE_NAME, MODE, SCENARIO_ID, "
-                    + "GROUP_TYPE, GROUP_VALUE, RISK_CLASS, "
-                    + "VAR, ES, SELECTED_METHOD, CREATED_AT"
-                    + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    private static final int DEFAULT_BATCH_SIZE = 5000;
+    private static final String TARGET_TABLE = "TB_OUT_VAR_RESULT";
+    private static final String STREAM_LOAD_COLUMNS =
+            "BATCH_ID,DATA_DATE,QUANTILE,RULE_ID,RULE_NAME,MODE,SCENARIO_ID,GROUP_TYPE,GROUP_VALUE,RISK_CLASS,VAR,ES,SELECTED_METHOD,CREATED_AT";
 
     private final JdbcTemplate jdbcTemplate;
+    private final DorisStreamLoadService dorisStreamLoadService;
 
-    public VarResultPersistService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate) {
+    public VarResultPersistService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate,
+                                   DorisStreamLoadService dorisStreamLoadService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.dorisStreamLoadService = dorisStreamLoadService;
     }
 
     /**
@@ -147,9 +145,14 @@ public class VarResultPersistService {
         }
 
         String now = ResultPersistTime.nowText();
-        List<Object[]> batchArgs = new ArrayList<Object[]>();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                TARGET_TABLE,
+                STREAM_LOAD_COLUMNS,
+                "var_result_" + safeBatchId + "_" + safeDataDate,
+                DEFAULT_BATCH_SIZE);
         for (ResultRow row : rows) {
-            batchArgs.add(new Object[]{
+            buffer.appendRow(
                     row.batchId,
                     row.dataDate,
                     row.quantile,
@@ -160,19 +163,13 @@ public class VarResultPersistService {
                     row.groupType,
                     row.groupValue,
                     row.riskClass,
-                    row.varValue,
-                    row.esValue,
+                    DorisCsvStreamLoadBuffer.decimalText(row.varValue),
+                    DorisCsvStreamLoadBuffer.decimalText(row.esValue),
                     row.selectedMethod,
                     now
-            });
-            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
-                jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
-                batchArgs.clear();
-            }
+            );
         }
-        if (!batchArgs.isEmpty()) {
-            jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
-        }
+        buffer.flush();
         log.info("VaR 汇总结果落库完成: batchId={}, dataDate={}, rows={}", safeBatchId, safeDataDate, rows.size());
     }
 

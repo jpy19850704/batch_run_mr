@@ -34,20 +34,47 @@ public class PricingResultPersistService {
     private static final Logger log = LoggerFactory.getLogger(PricingResultPersistService.class);
     private static final DateTimeFormatter DATE_8_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter DATE_10_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
-    private static final int DEFAULT_BATCH_SIZE = 500;
+    private static final int DEFAULT_BATCH_SIZE = 20000;
     private static final int MAX_INVALID_DRC_LOG = 10;
     private static final int ERROR_TEXT_MAX_LEN = 1000;
     private static final String DECOMP_TABLE = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
+    private static final String TRADE_RESULT_TABLE = "TB_OUT_TRADE_RESULT_DETAIL";
+    private static final String TRADE_RESULT_COLUMNS =
+            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,INSTRUMENT_ID,PRODUCT_CODE,PORTFOLIO,DESK,TRADER,"
+                    + "POSITION,VALUATION_UNIT,VALUATION,VALUATION_CCY,VALUATION_CNY,PV01,DELTA,GAMMA,VEGA,THETA,RHO,"
+                    + "STATUS,ERROR,DETAIL,ERRORS_JSON,CASHFLOW_JSON,RESULT_JSON,TRADE_INPUT_JSON,MARKET_DATA_KEYS_JSON,CREATED_AT,UPDATED_AT";
+    private static final String SCENARIO_RESULT_TABLE = "TB_OUT_TRADE_SCENARIO_RESULT_DETAIL";
+    private static final String SCENARIO_RESULT_COLUMNS =
+            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,INSTRUMENT_ID,PRODUCT_CODE,"
+                    + "BASE_VALUATION_CNY,SCENARIO_VALUATION_CNY,PNL,ERROR,DETAIL,RESULT_JSON,CREATED_AT,UPDATED_AT";
+    private static final String DECOMP_RESULT_COLUMNS =
+            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,INSTRUMENT_ID,PRODUCT_CODE,"
+                    + "BASE_VALUATION_CNY,IR_VALUATION,IR_PNL,FX_VALUATION,FX_PNL,EQ_VALUATION,EQ_PNL,COMM_VALUATION,COMM_PNL,ALL_VALUATION,ALL_PNL,"
+                    + "RESULT_JSON,CREATED_AT,UPDATED_AT";
+    private static final String FRTB_SENSITIVITY_TABLE = "TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL";
+    private static final String FRTB_SENSITIVITY_COLUMNS =
+            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,INSTRUMENT_ID,PRODUCT_CODE,RISK_FACTOR_ID,RISK_FACTOR_VERTEX_1,RISK_FACTOR_VERTEX_2,"
+                    + "RISK_FACTOR_CLASS,RISK_FACTOR_BUCKET,RISK_FACTOR_TYPE,SENSITIVITY_TYPE,SENSITIVITY_VAL_INST_CURR,INSTRUMENT_CURRENCY,SENSITIVITY_VAL_INST_CURR_CNY,DETAIL_JSON,CREATED_AT,UPDATED_AT";
+    private static final String DRC_DETAIL_TABLE = "TB_OUT_TRADE_DRC_DETAIL";
+    private static final String DRC_DETAIL_COLUMNS =
+            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,INSTRUMENT_ID,PRODUCT_CODE,PORTFOLIO_CODE,SECURITY_ID,SECURITY_TYPE,LEGAL_ENTITY,"
+                    + "DRC_BUCKET,JTD_TYPE,SENIORITY,TERM_TO_MATURITY,MODIFIED_REMAIN_TERM,RISK_WEIGHT,JTD,JTD_CNY,INSTRUMENT_VALUE,FRTB_LGD,NOTIONAL,DETAIL_JSON,CREATED_AT,UPDATED_AT";
+    private static final String MARKET_DATA_TABLE = "TB_OUT_MARKET_DATA_DETAIL";
+    private static final String MARKET_DATA_COLUMNS =
+            "BATCH_ID,DATA_DATE,OP_CODE,CURVE_TYPE,CURVE_ID,CURVE_DATA_JSON,CREATED_AT,UPDATED_AT";
     private static final String RESULT_KIND_SCENARIO = "SCENARIO";
     private static final String RESULT_KIND_RISK_CLASS_DECOMP = "RISK_CLASS_DECOMP";
     private static final String SYNTHETIC_ERROR_TRADE_FLAG = "_SYNTHETIC_ERROR_TRADE";
 
     private final JdbcTemplate jdbcTemplate;
+    private final DorisStreamLoadService dorisStreamLoadService;
     private final Object schemaVerifyLock = new Object();
     private volatile boolean requiredSchemaVerified = false;
 
-    public PricingResultPersistService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate) {
+    public PricingResultPersistService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate,
+                                       DorisStreamLoadService dorisStreamLoadService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.dorisStreamLoadService = dorisStreamLoadService;
     }
 
     /**
@@ -190,16 +217,12 @@ public class PricingResultPersistService {
         if (trades == null || trades.isEmpty()) {
             return;
         }
-        String sql = "INSERT INTO TB_OUT_TRADE_RESULT_DETAIL ("
-                + "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
-                + "INSTRUMENT_ID, PRODUCT_CODE, PORTFOLIO, DESK, TRADER, "
-                + "POSITION, VALUATION_UNIT, VALUATION, VALUATION_CCY, VALUATION_CNY, "
-                + "PV01, DELTA, GAMMA, VEGA, THETA, RHO, STATUS, ERROR, DETAIL, ERRORS_JSON, CASHFLOW_JSON, RESULT_JSON, "
-                + "TRADE_INPUT_JSON, MARKET_DATA_KEYS_JSON, "
-                + "CREATED_AT, UPDATED_AT) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        List<Object[]> batchArgs = new ArrayList<Object[]>();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                TRADE_RESULT_TABLE,
+                TRADE_RESULT_COLUMNS,
+                "trade_result_" + context.batchId + "_" + context.jobId,
+                DEFAULT_BATCH_SIZE);
         for (int i = 0; i < trades.size(); i++) {
             JSONObject trade = trades.getJSONObject(i);
             if (trade == null) {
@@ -209,7 +232,7 @@ public class PricingResultPersistService {
             // 从输入侧 payload 提取原始交易和市场数据依赖（沿用 tradeDimension 的设计模式）
             JSONObject inputTrade = (instrumentId == null || inputTradeIndex == null)
                     ? null : inputTradeIndex.get(instrumentId);
-            batchArgs.add(new Object[]{
+            buffer.appendRow(
                     context.requestId,
                     context.jobId,
                     context.batchId,
@@ -221,17 +244,17 @@ public class PricingResultPersistService {
                     resolveDimensionField(context.tradeDimension, instrumentId, "PORTFOLIO", trade, "PORTFOLIO", "PORTFOLIO_CODE"),
                     resolveDimensionField(context.tradeDimension, instrumentId, "DESK", trade, "DESK", "DESK_CODE"),
                     resolveDimensionField(context.tradeDimension, instrumentId, "TRADER", trade, "TRADER", "TRADER_CODE"),
-                    toBigDecimal(trade.get("POSITION")),
-                    toBigDecimal(trade.get("VALUATION_UNIT")),
-                    toBigDecimal(trade.get("VALUATION")),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("POSITION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VALUATION_UNIT"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VALUATION"))),
                     trimToNull(trade.getString("VALUATION_CCY")),
-                    toBigDecimal(trade.get("VALUATION_CNY")),
-                    toBigDecimal(trade.get("PV01")),
-                    toBigDecimal(trade.get("DELTA")),
-                    toBigDecimal(trade.get("GAMMA")),
-                    toBigDecimal(trade.get("VEGA")),
-                    toBigDecimal(trade.get("THETA")),
-                    toBigDecimal(trade.get("RHO")),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VALUATION_CNY"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("PV01"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("DELTA"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("GAMMA"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VEGA"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("THETA"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("RHO"))),
                     trimToNull(trade.getString("STATUS")),
                     resolveErrorText(trade),
                     toTextValue(trade.get("DETAIL")),
@@ -242,28 +265,21 @@ public class PricingResultPersistService {
                     inputTrade == null ? null : toJsonString(inputTrade.get("_MARKET_DATA_KEYS")),
                     context.createdAt,
                     context.updatedAt
-            });
-            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
-                jdbcTemplate.batchUpdate(sql, batchArgs);
-                batchArgs.clear();
-            }
+            );
         }
-        if (!batchArgs.isEmpty()) {
-            jdbcTemplate.batchUpdate(sql, batchArgs);
-        }
+        buffer.flush();
     }
 
     private void insertScenarioResults(PersistContext context, JSONArray scenarioResults, Map<String, JSONObject> baseTradeIndex, boolean decompTableExists) {
         if (scenarioResults == null || scenarioResults.isEmpty()) {
             return;
         }
-        String sql = "INSERT INTO TB_OUT_TRADE_SCENARIO_RESULT_DETAIL ("
-                + "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
-                + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, INSTRUMENT_ID, PRODUCT_CODE, "
-                + "BASE_VALUATION_CNY, SCENARIO_VALUATION_CNY, PNL, ERROR, DETAIL, RESULT_JSON, CREATED_AT, UPDATED_AT) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        List<Object[]> batchArgs = new ArrayList<Object[]>();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                SCENARIO_RESULT_TABLE,
+                SCENARIO_RESULT_COLUMNS,
+                "scenario_result_" + context.batchId + "_" + context.jobId,
+                DEFAULT_BATCH_SIZE);
         for (int i = 0; i < scenarioResults.size(); i++) {
             JSONObject scenario = scenarioResults.getJSONObject(i);
             if (scenario == null) {
@@ -287,7 +303,7 @@ public class PricingResultPersistService {
                 String instrumentId = trimToNull(trade.getString("INSTRUMENT_ID"));
                 JSONObject baseTrade = instrumentId == null ? null : baseTradeIndex.get(instrumentId);
                 String errorText = resolveErrorText(trade);
-                batchArgs.add(new Object[]{
+                buffer.appendRow(
                         context.requestId,
                         context.jobId,
                         context.batchId,
@@ -299,24 +315,18 @@ public class PricingResultPersistService {
                         trimToNull(scenario.getString("SCENARIO_NAME")),
                         instrumentId,
                         baseTrade == null ? null : trimToNull(baseTrade.getString("PRODUCT_CODE")),
-                        toBigDecimal(trade.get("BASE_VALUATION_CNY")),
-                        toBigDecimal(trade.get("SCENARIO_VALUATION_CNY")),
-                        toBigDecimal(trade.get("PNL")),
+                        DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("BASE_VALUATION_CNY"))),
+                        DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("SCENARIO_VALUATION_CNY"))),
+                        DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("PNL"))),
                         null,
                         toTextValue(trade.get("DETAIL")),
                         null,
                         context.createdAt,
                         context.updatedAt
-                });
-                if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
-                    jdbcTemplate.batchUpdate(sql, batchArgs);
-                    batchArgs.clear();
-                }
+                );
             }
         }
-        if (!batchArgs.isEmpty()) {
-            jdbcTemplate.batchUpdate(sql, batchArgs);
-        }
+        buffer.flush();
     }
 
     private void insertScenarioDecompResults(PersistContext context, JSONObject scenario, Map<String, JSONObject> baseTradeIndex) {
@@ -324,15 +334,12 @@ public class PricingResultPersistService {
         if (tradeData == null || tradeData.isEmpty()) {
             return;
         }
-        String sql = "INSERT INTO " + DECOMP_TABLE + " ("
-                + "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
-                + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, INSTRUMENT_ID, PRODUCT_CODE, "
-                + "BASE_VALUATION_CNY, "
-                + "IR_VALUATION, IR_PNL, FX_VALUATION, FX_PNL, EQ_VALUATION, EQ_PNL, COMM_VALUATION, COMM_PNL, ALL_VALUATION, ALL_PNL, "
-                + "RESULT_JSON, CREATED_AT, UPDATED_AT) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        List<Object[]> batchArgs = new ArrayList<Object[]>();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                DECOMP_TABLE,
+                DECOMP_RESULT_COLUMNS,
+                "scenario_decomp_" + context.batchId + "_" + context.jobId,
+                DEFAULT_BATCH_SIZE);
         for (int i = 0; i < tradeData.size(); i++) {
             JSONObject trade = tradeData.getJSONObject(i);
             if (trade == null) {
@@ -341,7 +348,7 @@ public class PricingResultPersistService {
             String instrumentId = trimToNull(trade.getString("INSTRUMENT_ID"));
             JSONObject baseTrade = instrumentId == null ? null : baseTradeIndex.get(instrumentId);
             String errorText = resolveErrorText(trade);
-            batchArgs.add(new Object[]{
+            buffer.appendRow(
                     context.requestId,
                     context.jobId,
                     context.batchId,
@@ -354,29 +361,23 @@ public class PricingResultPersistService {
                     instrumentId,
                     firstNonBlank(trimToNull(trade.getString("PRODUCT_CODE")),
                             baseTrade == null ? null : trimToNull(baseTrade.getString("PRODUCT_CODE"))),
-                    toBigDecimal(trade.get("BASE_VALUATION_CNY")),
-                    toBigDecimal(trade.get("IR_VALUATION")),
-                    toBigDecimal(trade.get("IR_PNL")),
-                    toBigDecimal(trade.get("FX_VALUATION")),
-                    toBigDecimal(trade.get("FX_PNL")),
-                    toBigDecimal(trade.get("EQ_VALUATION")),
-                    toBigDecimal(trade.get("EQ_PNL")),
-                    toBigDecimal(trade.get("COMM_VALUATION")),
-                    toBigDecimal(trade.get("COMM_PNL")),
-                    toBigDecimal(trade.get("ALL_VALUATION")),
-                    toBigDecimal(trade.get("ALL_PNL")),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("BASE_VALUATION_CNY"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("IR_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("IR_PNL"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("FX_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("FX_PNL"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("EQ_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("EQ_PNL"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("COMM_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("COMM_PNL"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("ALL_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("ALL_PNL"))),
                     null,
                     context.createdAt,
                     context.updatedAt
-            });
-            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
-                jdbcTemplate.batchUpdate(sql, batchArgs);
-                batchArgs.clear();
-            }
+            );
         }
-        if (!batchArgs.isEmpty()) {
-            jdbcTemplate.batchUpdate(sql, batchArgs);
-        }
+        buffer.flush();
     }
 
 
@@ -384,14 +385,12 @@ public class PricingResultPersistService {
         if (trades == null || trades.isEmpty()) {
             return;
         }
-        String sql = "INSERT INTO TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL ("
-                + "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
-                + "INSTRUMENT_ID, PRODUCT_CODE, RISK_FACTOR_ID, RISK_FACTOR_VERTEX_1, RISK_FACTOR_VERTEX_2, "
-                + "RISK_FACTOR_CLASS, RISK_FACTOR_BUCKET, RISK_FACTOR_TYPE, SENSITIVITY_TYPE, "
-                + "SENSITIVITY_VAL_INST_CURR, INSTRUMENT_CURRENCY, SENSITIVITY_VAL_INST_CURR_CNY, DETAIL_JSON, CREATED_AT, UPDATED_AT) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        List<Object[]> batchArgs = new ArrayList<Object[]>();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                FRTB_SENSITIVITY_TABLE,
+                FRTB_SENSITIVITY_COLUMNS,
+                "frtb_sensitivity_" + context.batchId + "_" + context.jobId,
+                DEFAULT_BATCH_SIZE);
         for (int i = 0; i < trades.size(); i++) {
             JSONObject trade = trades.getJSONObject(i);
             if (trade == null) {
@@ -408,7 +407,7 @@ public class PricingResultPersistService {
                 if (sensitivity == null) {
                     continue;
                 }
-                batchArgs.add(new Object[]{
+                buffer.appendRow(
                         context.requestId,
                         context.jobId,
                         context.batchId,
@@ -424,38 +423,30 @@ public class PricingResultPersistService {
                         trimToNull(sensitivity.getString("RISK_FACTOR_BUCKET")),
                         trimToNull(sensitivity.getString("RISK_FACTOR_TYPE")),
                         trimToNull(sensitivity.getString("SENSITIVITY_TYPE")),
-                        toBigDecimal(sensitivity.get("SENSITIVITY_VAL_INST_CURR")),
+                        DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(sensitivity.get("SENSITIVITY_VAL_INST_CURR"))),
                         trimToNull(sensitivity.getString("INSTRUMENT_CURRENCY")),
-                        toBigDecimal(sensitivity.get("SENSITIVITY_VAL_INST_CURR_CNY")),
+                        DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(sensitivity.get("SENSITIVITY_VAL_INST_CURR_CNY"))),
                         null,
                         context.createdAt,
                         context.updatedAt
-                });
-                if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
-                    jdbcTemplate.batchUpdate(sql, batchArgs);
-                    batchArgs.clear();
-                }
+                );
             }
         }
-        if (!batchArgs.isEmpty()) {
-            jdbcTemplate.batchUpdate(sql, batchArgs);
-        }
+        buffer.flush();
     }
 
     private void insertDrcDetails(PersistContext context, JSONArray trades) {
         if (trades == null || trades.isEmpty()) {
             return;
         }
-        String sql = "INSERT INTO TB_OUT_TRADE_DRC_DETAIL ("
-                + "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
-                + "INSTRUMENT_ID, PRODUCT_CODE, PORTFOLIO_CODE, SECURITY_ID, SECURITY_TYPE, LEGAL_ENTITY, "
-                + "DRC_BUCKET, JTD_TYPE, SENIORITY, TERM_TO_MATURITY, MODIFIED_REMAIN_TERM, "
-                + "RISK_WEIGHT, JTD, JTD_CNY, INSTRUMENT_VALUE, FRTB_LGD, NOTIONAL, DETAIL_JSON, CREATED_AT, UPDATED_AT) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
         int skippedNullJtdCny = 0;
         int logged = 0;
-        List<Object[]> batchArgs = new ArrayList<Object[]>();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                DRC_DETAIL_TABLE,
+                DRC_DETAIL_COLUMNS,
+                "drc_detail_" + context.batchId + "_" + context.jobId,
+                DEFAULT_BATCH_SIZE);
         for (int i = 0; i < trades.size(); i++) {
             JSONObject trade = trades.getJSONObject(i);
             if (trade == null) {
@@ -482,7 +473,7 @@ public class PricingResultPersistService {
                 }
                 continue;
             }
-            batchArgs.add(new Object[]{
+            buffer.appendRow(
                     context.requestId,
                     context.jobId,
                     context.batchId,
@@ -498,26 +489,20 @@ public class PricingResultPersistService {
                     trimToNull(drc.getString("DRC_BUCKET")),
                     trimToNull(drc.getString("JTD_TYPE")),
                     toInteger(drc.get("SENIORITY")),
-                    toBigDecimal(drc.get("TERM_TO_MATURITY")),
-                    toBigDecimal(drc.get("MODIFIED_REMAIN_TERM")),
-                    toBigDecimal(drc.get("RISK_WEIGHT")),
-                    jtd,
-                    jtdCny,
-                    toBigDecimal(drc.get("INSTRUMENT_VALUE")),
-                    toBigDecimal(drc.get("FRTB_LGD")),
-                    toBigDecimal(drc.get("NOTIONAL")),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(drc.get("TERM_TO_MATURITY"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(drc.get("MODIFIED_REMAIN_TERM"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(drc.get("RISK_WEIGHT"))),
+                    DorisCsvStreamLoadBuffer.decimalText(jtd),
+                    DorisCsvStreamLoadBuffer.decimalText(jtdCny),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(drc.get("INSTRUMENT_VALUE"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(drc.get("FRTB_LGD"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(drc.get("NOTIONAL"))),
                     null,
                     context.createdAt,
                     context.updatedAt
-            });
-            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
-                jdbcTemplate.batchUpdate(sql, batchArgs);
-                batchArgs.clear();
-            }
+            );
         }
-        if (!batchArgs.isEmpty()) {
-            jdbcTemplate.batchUpdate(sql, batchArgs);
-        }
+        buffer.flush();
         if (skippedNullJtdCny > 0) {
             log.warn("DRC明细落库跳过记录: batchId={}, skippedNullJtdCny={}, loggedRows={}",
                     context.batchId, skippedNullJtdCny, Math.min(skippedNullJtdCny, MAX_INVALID_DRC_LOG));
@@ -688,17 +673,17 @@ public class PricingResultPersistService {
         if (merged.isEmpty()) {
             return;
         }
-        String sql = "INSERT INTO TB_OUT_MARKET_DATA_DETAIL ("
-                + "BATCH_ID, DATA_DATE, OP_CODE, CURVE_TYPE, CURVE_ID, CURVE_DATA_JSON, "
-                + "CREATED_AT, UPDATED_AT) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-
-        List<Object[]> batchArgs = new ArrayList<Object[]>();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                MARKET_DATA_TABLE,
+                MARKET_DATA_COLUMNS,
+                "market_data_" + context.batchId + "_" + context.jobId,
+                DEFAULT_BATCH_SIZE);
         for (JSONObject curve : merged.values()) {
             if (curve == null) {
                 continue;
             }
-            batchArgs.add(new Object[]{
+            buffer.appendRow(
                     context.batchId,
                     normalizeDataDate(context.dataDate),
                     context.opCode,
@@ -707,15 +692,9 @@ public class PricingResultPersistService {
                     toJsonString(curve),
                     context.createdAt,
                     context.updatedAt
-            });
-            if (batchArgs.size() >= DEFAULT_BATCH_SIZE) {
-                jdbcTemplate.batchUpdate(sql, batchArgs);
-                batchArgs.clear();
-            }
+            );
         }
-        if (!batchArgs.isEmpty()) {
-            jdbcTemplate.batchUpdate(sql, batchArgs);
-        }
+        buffer.flush();
     }
 
     /**
