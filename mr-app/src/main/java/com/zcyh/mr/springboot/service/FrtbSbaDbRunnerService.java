@@ -76,8 +76,9 @@ public class FrtbSbaDbRunnerService {
         if (tasks.isEmpty()) {
             throw new IllegalArgumentException("规则汇总后未生成有效的 frtb_sba 组批任务");
         }
+        Map<String, Map<String, Object>> batchResult = aggregator.calculateBatch(tasks, needDecompose, threadCount);
         return JSON.toJSONString(
-                aggregator.calculateBatch(tasks, needDecompose, threadCount),
+                buildOutputWithRawDetails(tasks, batchResult),
                 JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
 
@@ -123,8 +124,82 @@ public class FrtbSbaDbRunnerService {
         if (tasks.isEmpty()) {
             throw new IllegalArgumentException("规则汇总后未生成有效的 frtb_sba 组批任务");
         }
-        Object output = aggregator.calculateBatch(tasks, needDecompose, threadCount);
+        Object output = buildOutputWithRawDetails(
+                tasks,
+                aggregator.calculateBatch(tasks, needDecompose, threadCount));
         return JSON.toJSONString(output, JSONWriter.Feature.WriteBigDecimalAsPlain);
+    }
+
+    /**
+     * 在原有 SBA 汇总树之外，补充头寸级原始结果，供前端下钻复用。
+     */
+    private Map<String, Object> buildOutputWithRawDetails(Map<String, List<FrtbInput>> tasks,
+                                                          Map<String, Map<String, Object>> batchResult) {
+        Map<String, Object> output = new LinkedHashMap<String, Object>();
+        if (batchResult != null && !batchResult.isEmpty()) {
+            output.putAll(batchResult);
+        }
+        output.put("__raw_details", buildRawDetails(tasks, batchResult));
+        return output;
+    }
+
+    /**
+     * 基于引擎已生成的 posResults/classResults/bucketResults 回填原始下钻结果。
+     */
+    private Map<String, Object> buildRawDetails(Map<String, List<FrtbInput>> tasks,
+                                                Map<String, Map<String, Object>> batchResult) {
+        Map<String, Object> rawDetails = new LinkedHashMap<String, Object>();
+        if (tasks == null || tasks.isEmpty() || batchResult == null || batchResult.isEmpty()) {
+            return rawDetails;
+        }
+
+        for (Map.Entry<String, List<FrtbInput>> taskEntry : tasks.entrySet()) {
+            String taskKey = taskEntry.getKey();
+            Map<String, Object> calcResult = batchResult.get(taskKey);
+            List<FrtbInput> taskInputs = taskEntry.getValue();
+            if (calcResult == null || taskInputs == null || taskInputs.isEmpty()) {
+                continue;
+            }
+
+            FrtbInput sample = taskInputs.get(0);
+            String treeId = trimToNull(sample.getTreeId());
+            String groupType = normalizeGroupType(sample.getGroupType(), sample.getGroupValue());
+            String groupValue = normalizeGroupValue(sample.getGroupValue());
+
+            Map<String, List<?>> pojoResult = aggregator.buildResults(calcResult, treeId, groupType, groupValue);
+            Map<String, Object> detailEntry = new LinkedHashMap<String, Object>();
+            detailEntry.put("treeId", treeId);
+            detailEntry.put("groupType", groupType);
+            detailEntry.put("groupValue", groupValue);
+            detailEntry.put("classResults", pojoResult.get("classResults"));
+            detailEntry.put("bucketResults", pojoResult.get("bucketResults"));
+            detailEntry.put("posResults", pojoResult.get("posResults"));
+            rawDetails.put(taskKey, detailEntry);
+        }
+        return rawDetails;
+    }
+
+    /**
+     * 对齐前端树根节点口径，避免空值组被写成 null。
+     */
+    private static String normalizeGroupValue(String groupValue) {
+        String safeGroupValue = trimToNull(groupValue);
+        return safeGroupValue == null ? "__EMPTY_GROUP__" : safeGroupValue;
+    }
+
+    /**
+     * 若上游未显式传 groupType，则按 TOTAL/普通维度做兜底。
+     */
+    private static String normalizeGroupType(String groupType, String groupValue) {
+        String safeGroupType = trimToNull(groupType);
+        if (safeGroupType != null) {
+            return safeGroupType;
+        }
+        String safeGroupValue = trimToNull(groupValue);
+        if (safeGroupValue == null || TOTAL.equalsIgnoreCase(safeGroupValue) || "__EMPTY_GROUP__".equals(safeGroupValue)) {
+            return TOTAL;
+        }
+        return "PORTFOLIO";
     }
 
     private static boolean parseNeedDecompose(JSONObject req) {
