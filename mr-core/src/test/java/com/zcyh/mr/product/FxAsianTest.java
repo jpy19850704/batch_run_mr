@@ -83,7 +83,7 @@ public class FxAsianTest {
         info.baseDiscountCurve = "IR_USD";
         info.underlyingDiscountCurve = "IR_EUR";
         info.volatilitySurface = "FXVOL_EURUSD";
-        info.instrumentCurrency = "USD";
+        info.currencyCode = "USD";
         return info;
     }
 
@@ -163,4 +163,3 @@ public class FxAsianTest {
         return info;
     }
 }
-

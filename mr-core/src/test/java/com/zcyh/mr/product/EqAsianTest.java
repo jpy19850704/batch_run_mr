@@ -55,7 +55,6 @@ public class EqAsianTest {
         info.maturityDate = dataDate.plusMonths(6);
         info.settleDate = dataDate.plusMonths(6).plusDays(2);
         info.currencyCode = "CNY";
-        info.instrumentCurrency = "CNY";
         info.discountCurve = "IR_CNY";
         info.referenceCurve = "EQ_IDX";
         info.volatilitySurface = "EQVOL_IDX";

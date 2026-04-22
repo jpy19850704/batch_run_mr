@@ -55,7 +55,6 @@ public class CommAsianTest {
         info.maturityDate = dataDate.plusMonths(6);
         info.settleDate = dataDate.plusMonths(6).plusDays(2);
         info.currencyCode = "CNY";
-        info.instrumentCurrency = "CNY";
         info.discountCurve = "IR_CNY";
         info.referenceCurve = "COMM_OIL";
         info.volatilitySurface = "COMMVOL_OIL";

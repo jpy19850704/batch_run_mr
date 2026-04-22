@@ -57,7 +57,6 @@ public class FxSharkFinDoubleBarrierRegressionTest {
 
     private FxSharkFin.FxSharkFinInfo buildInfo() {
         FxSharkFin.FxSharkFinInfo info = new FxSharkFin.FxSharkFinInfo();
-        info.instrumentCurrency = "USD";
         info.productCode = "FX_SHARKFIN";
         info.buyOrSell = "B";
         info.contractSize = 1.0;
@@ -70,7 +69,6 @@ public class FxSharkFinDoubleBarrierRegressionTest {
         info.maturityDate = LocalDate.of(2027, 1, 1);
         info.settleType = "CASH";
         info.volatilitySurface = "FXVOL_EURUSD";
-        info.settleCcyCode = "USD";
         info.downBarrierPrice = 1.00;
         info.upBarrierPrice = 1.22;
         info.settleDate = LocalDate.of(2027, 1, 3);
