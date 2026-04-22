@@ -25,9 +25,9 @@ public class VarDetailCacheService {
     private final long ttlSeconds;
 
     public VarDetailCacheService(StringRedisTemplate redisTemplate,
-                                 @Value("${mr.var.detail.redis.ttl-seconds:1800}") long ttlSeconds) {
+                                 @Value("${mr.var.detail.redis.ttl-seconds:${mr.result.redis.ttl-seconds:3600}}") long ttlSeconds) {
         this.redisTemplate = redisTemplate;
-        this.ttlSeconds = ttlSeconds <= 0 ? 1800L : ttlSeconds;
+        this.ttlSeconds = ttlSeconds <= 0 ? 3600L : ttlSeconds;
     }
 
     public long getTtlSeconds() {
