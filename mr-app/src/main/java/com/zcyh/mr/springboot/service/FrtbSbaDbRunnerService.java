@@ -98,7 +98,7 @@ public class FrtbSbaDbRunnerService {
 
         JSONObject ruleJson = req.getJSONObject("rule");
         if (ruleJson == null) {
-            throw new IllegalArgumentException("rule 不能为空，需要包含 buildOrder/dimensions/filters 等");
+            throw new IllegalArgumentException("rule 不能为空，需要包含 buildOrder/dimensions/filter_tree 等");
         }
         AggregationRule rule = parseInlineRule(ruleJson);
         if (rule == null) {
@@ -230,8 +230,11 @@ public class FrtbSbaDbRunnerService {
         rule.setGroupByFields(toStringList(ruleJson.get("groupByFields")));
         rule.setSumFields(toStringList(ruleJson.get("sumFields")));
         rule.setDimensions(toStringMap(ruleJson.get("dimensions")));
-        rule.setFilters(toFilterConditions(ruleJson.get("filters")));
-        rule.setFilterTree(toFilterExpression(firstNonNull(ruleJson.get("filter_tree"), ruleJson.get("filterTree"))));
+        List<AggregationRule.FilterCondition> filters = toFilterConditions(ruleJson.get("filters"));
+        if (!filters.isEmpty()) {
+            throw new IllegalArgumentException("filters 已停用，请使用 filter_tree");
+        }
+        rule.setFilterTree(toFilterExpression(ruleJson.get("filter_tree")));
         return rule;
     }
 

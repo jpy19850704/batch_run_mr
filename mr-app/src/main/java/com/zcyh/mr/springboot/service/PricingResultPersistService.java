@@ -237,13 +237,13 @@ public class PricingResultPersistService {
                     context.jobId,
                     context.batchId,
                     context.seqNo,
-                    normalizeDataDate(firstNonBlank(trade.getString("DATA_DATE"), context.dataDate)),
+                    normalizeDataDate(context.dataDate),
                     context.opCode,
                     instrumentId,
                     trimToNull(trade.getString("PRODUCT_CODE")),
-                    resolveDimensionField(context.tradeDimension, instrumentId, "PORTFOLIO", trade, "PORTFOLIO", "PORTFOLIO_CODE"),
-                    resolveDimensionField(context.tradeDimension, instrumentId, "DESK", trade, "DESK", "DESK_CODE"),
-                    resolveDimensionField(context.tradeDimension, instrumentId, "TRADER", trade, "TRADER", "TRADER_CODE"),
+                    resolveDimensionField(context.tradeDimension, instrumentId, "PORTFOLIO"),
+                    resolveDimensionField(context.tradeDimension, instrumentId, "DESK"),
+                    resolveDimensionField(context.tradeDimension, instrumentId, "TRADER"),
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("POSITION"))),
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VALUATION_UNIT"))),
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VALUATION"))),
@@ -359,8 +359,7 @@ public class PricingResultPersistService {
                     trimToNull(scenario.getString("SUBSCENARIO_ID")),
                     trimToNull(scenario.getString("SCENARIO_NAME")),
                     instrumentId,
-                    firstNonBlank(trimToNull(trade.getString("PRODUCT_CODE")),
-                            baseTrade == null ? null : trimToNull(baseTrade.getString("PRODUCT_CODE"))),
+                    baseTrade == null ? null : trimToNull(baseTrade.getString("PRODUCT_CODE")),
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("BASE_VALUATION_CNY"))),
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("IR_VALUATION"))),
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("IR_PNL"))),
@@ -545,9 +544,7 @@ public class PricingResultPersistService {
             if (instrumentId == null || existedInstrumentIds.contains(instrumentId)) {
                 continue;
             }
-            String message = firstNonBlank(
-                    logItem.getString("ERROR"),
-                    firstNonBlank(logItem.getString("info"), logItem.getString("INFO")));
+            String message = trimToNull(logItem.getString("ERROR"));
             if (message == null) {
                 message = "计算异常";
             }
@@ -557,9 +554,7 @@ public class PricingResultPersistService {
                 JSONObject inputTrade = inputTradeIndex == null ? null : inputTradeIndex.get(instrumentId);
                 errorTrade = new JSONObject();
                 errorTrade.put("INSTRUMENT_ID", instrumentId);
-                errorTrade.put("PRODUCT_CODE", firstNonBlank(
-                        logItem.getString("PRODUCT_CODE"),
-                        inputTrade == null ? null : inputTrade.getString("PRODUCT_CODE")));
+                errorTrade.put("PRODUCT_CODE", trimToNull(logItem.getString("PRODUCT_CODE")));
                 errorTrade.put("DATA_DATE", context == null ? null : context.dataDate);
                 errorTrade.put("STATUS", "ERROR");
                 errorTrade.put(SYNTHETIC_ERROR_TRADE_FLAG, true);
@@ -736,7 +731,7 @@ public class PricingResultPersistService {
         if (curveType == null && curveId == null) {
             return sourceTag + "#" + index;
         }
-        return firstNonBlank(curveType, "") + "|" + firstNonBlank(curveId, "");
+        return defaultEmpty(curveType) + "|" + defaultEmpty(curveId);
     }
 
     private static String resolveCurveType(JSONObject curve) {
@@ -915,30 +910,23 @@ public class PricingResultPersistService {
         return JSON.toJSONString(value, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
 
-    private static String firstNonBlank(String first, String second) {
-        String left = trimToNull(first);
-        return left != null ? left : trimToNull(second);
-    }
-
     /**
-     * 维度优先级解析：dimension 映射表 > trade JSON 主字段 > trade JSON 备选字段。
+     * 维度字段只读取批次构建阶段生成的 trade_dimension。
      */
     private static String resolveDimensionField(JSONObject tradeDimension, String instrumentId,
-                                                String dimKey, JSONObject trade,
-                                                String tradeKey, String tradeFallbackKey) {
+                                                String dimKey) {
         if (tradeDimension != null && instrumentId != null) {
             JSONObject dim = tradeDimension.getJSONObject(instrumentId);
             if (dim != null) {
-                String value = trimToNull(dim.getString(dimKey));
-                if (value != null) {
-                    return value;
-                }
+                return trimToNull(dim.getString(dimKey));
             }
         }
-        return firstNonBlank(
-                trade == null ? null : trade.getString(tradeKey),
-                trade == null ? null : trade.getString(tradeFallbackKey)
-        );
+        return null;
+    }
+
+    private static String defaultEmpty(String value) {
+        String text = trimToNull(value);
+        return text == null ? "" : text;
     }
 
     private static String normalizeDataDate(String dataDateText) {

@@ -26,30 +26,12 @@ public class AggregationFilterSqlBuilder {
         if (rule == null) {
             return;
         }
-        appendLegacyFilters(sql, params, rule.getFilters(), columnResolver);
+        if (rule.getFilters() != null && !rule.getFilters().isEmpty()) {
+            throw new IllegalArgumentException("filters 已停用，请使用 filter_tree");
+        }
         AggregationRule.FilterExpression filterTree = rule.getFilterTree();
         if (filterTree != null) {
             sql.append(" AND ").append(buildExpression(filterTree, params, columnResolver));
-        }
-    }
-
-    private static void appendLegacyFilters(StringBuilder sql,
-                                            List<Object> params,
-                                            List<AggregationRule.FilterCondition> filters,
-                                            ColumnResolver columnResolver) {
-        if (filters == null || filters.isEmpty()) {
-            return;
-        }
-        for (AggregationRule.FilterCondition filter : filters) {
-            if (filter == null) {
-                continue;
-            }
-            sql.append(" AND ").append(buildCondition(
-                    filter.getField(),
-                    filter.getOperator(),
-                    filter.getValue(),
-                    params,
-                    columnResolver));
         }
     }
 

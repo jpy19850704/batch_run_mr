@@ -106,10 +106,6 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
         // Phase1-A: 可建模因子情景重定价
         String scenarioCacheKey = req.getString("scenario_cache_key");
         String modellableIndexCacheKey = req.getString("modellable_index_cache_key");
-        // 兼容旧字段名
-        if (modellableIndexCacheKey == null) {
-            modellableIndexCacheKey = req.getString("modellable_tenors_cache_key");
-        }
 
         int modellableCount = 0;
         if (scenarioCacheKey != null && modellableIndexCacheKey != null) {
@@ -123,33 +119,22 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
             if (ImaConstants.SCENARIO_TYPE_NORMAL_REDUCED.equals(effectiveScenType)
                     && modellableIndex.isAllReducedSet()) {
                 // 从 NORMAL_FULL 缓存中加载结果并复制为 NORMAL_REDUCED
-                String fullResultsCacheKey = req.getString("normal_full_results_cache_key");
-                // 自动推导缓存键：编排层未显式传入时，使用 NORMAL_FULL 的标准缓存键
-                if (fullResultsCacheKey == null || fullResultsCacheKey.isEmpty()) {
-                    fullResultsCacheKey = "ima-full-results-" + batchId;
-                }
+                String fullResultsCacheKey = required(req, "normal_full_results_cache_key");
                 List<SubsetPnlRecord> fullRecords = loadPnlRecords(fullResultsCacheKey);
 
-                if (!fullRecords.isEmpty()) {
-                    List<SubsetPnlRecord> reducedRecords = new ArrayList<>(fullRecords.size());
-                    for (SubsetPnlRecord rec : fullRecords) {
-                        reducedRecords.add(rec.copyWithScenarioType(ImaConstants.SCENARIO_TYPE_NORMAL_REDUCED));
-                    }
-                    modellablePersistService.persist(reducedRecords, opCode);
-                    modellableCount = reducedRecords.size();
-                    // 释放 NORMAL_FULL 结果缓存，避免内存泄漏
-                    com.zcyh.mr.scenario.ScenarioCache.evictObject(fullResultsCacheKey);
-                    log.info("IMA Phase1-A 完成（Reduced Set 优化）: batchId={}, 跳过重定价, "
-                            + "从 NORMAL_FULL 复制 {} 条记录, 缓存已释放", batchId, modellableCount);
-                } else {
-                    // 缓存中未找到 NORMAL_FULL 结果，回退到标准重定价
-                    log.warn("Reduced Set 优化: NORMAL_FULL 结果缓存为空, 回退到标准重定价流程");
-                    List<SubsetPnlRecord> modellableRecords = runSubsetScenario(
-                            baseCalcJson, baseMarketData, scenEntries, modellableIndex,
-                            effectiveScenType, scenId, batchId, jobId, requestId, dataDate);
-                    modellablePersistService.persist(modellableRecords, opCode);
-                    modellableCount = modellableRecords.size();
+                if (fullRecords.isEmpty()) {
+                    throw new IllegalStateException("NORMAL_REDUCED 缺少 NORMAL_FULL 缓存结果: " + fullResultsCacheKey);
                 }
+                List<SubsetPnlRecord> reducedRecords = new ArrayList<>(fullRecords.size());
+                for (SubsetPnlRecord rec : fullRecords) {
+                    reducedRecords.add(rec.copyWithScenarioType(ImaConstants.SCENARIO_TYPE_NORMAL_REDUCED));
+                }
+                modellablePersistService.persist(reducedRecords, opCode);
+                modellableCount = reducedRecords.size();
+                // 释放 NORMAL_FULL 结果缓存，避免内存泄漏
+                com.zcyh.mr.scenario.ScenarioCache.evictObject(fullResultsCacheKey);
+                log.info("IMA Phase1-A 完成（Reduced Set 优化）: batchId={}, 跳过重定价, "
+                        + "从 NORMAL_FULL 复制 {} 条记录, 缓存已释放", batchId, modellableCount);
             } else {
                 // 标准路径：执行实际重定价
                 List<SubsetPnlRecord> modellableRecords = runSubsetScenario(
@@ -161,7 +146,7 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
                 // NORMAL_FULL 完成后，如果所有桶均在 Reduced Set，缓存结果供后续 NORMAL_REDUCED 复用
                 if (ImaConstants.SCENARIO_TYPE_NORMAL_FULL.equals(effectiveScenType)
                         && modellableIndex.isAllReducedSet()) {
-                    String cacheKey = "ima-full-results-" + batchId;
+                    String cacheKey = required(req, "normal_full_results_cache_key");
                     com.zcyh.mr.scenario.ScenarioCache.putObject(cacheKey, modellableRecords);
                     log.info("IMA Phase1-A: 所有桶均在 Reduced Set, "
                             + "NORMAL_FULL 结果已缓存 (key={}), 后续 NORMAL_REDUCED 可直接复制",

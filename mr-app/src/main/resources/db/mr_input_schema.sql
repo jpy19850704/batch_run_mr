@@ -164,7 +164,7 @@ INSERT INTO MR_AGG_RULE (
     'BATCH_FRTB_DEFAULT',
     'FRTB',
     '默认 FRTB 批次汇总规则',
-    '{"buildOrder":["TRADER","DESK","PORTFOLIO","TOTAL"],"dimensions":{"TRADER":"TRADER","DESK":"DESK","PORTFOLIO":"PORTFOLIO"},"groupByFields":["PORTFOLIO","DESK","TRADER"],"sumFields":["SENSITIVITY_VAL_INST_CURR_CNY"],"filters":[]}',
+    '{"buildOrder":["TRADER","DESK","PORTFOLIO","TOTAL"],"dimensions":{"TRADER":"TRADER","DESK":"DESK","PORTFOLIO":"PORTFOLIO"},"groupByFields":["PORTFOLIO","DESK","TRADER"],"sumFields":["SENSITIVITY_VAL_INST_CURR_CNY"]}',
     'system',
     0,
     0
