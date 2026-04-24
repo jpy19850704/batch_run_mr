@@ -474,9 +474,14 @@ public class MarketInputScenarioLoader {
             if (termDays == null || value == null) {
                 continue;
             }
+            String dimension2 = resolveVolDimension2(curveType, point);
+            if (dimension2 == null) {
+                throw new IllegalArgumentException("历史市场波动率点缺少第二维: curveType="
+                        + curveType + ", curveId=" + curveId + ", termDays=" + termDays);
+            }
             String termCode = resolveTermCode(point, termDays);
             ScenarioMarketSeries series = buildSeries(curveType, curveId, dataDate, termDays, termCode, value);
-            series.setDimension2(termCode);
+            series.setDimension2(dimension2);
             result.add(series);
         }
         return result;
@@ -534,6 +539,25 @@ public class MarketInputScenarioLoader {
             return termCode;
         }
         return termDays == null ? null : termDays + "D";
+    }
+
+    /**
+     * 波动率曲面第二维统一沿用原始业务字段，不能退化成期限。
+     */
+    private String resolveVolDimension2(String curveType, JSONObject point) {
+        if (point == null) {
+            return null;
+        }
+        switch (curveType) {
+            case IR_VOL:
+                return normalize(toStringValue(point.get("UNDERLYING_TERM")));
+            case FX_VOL:
+            case COMM_VOL:
+            case EQ_VOL:
+                return normalize(toStringValue(point.get("DELTA")));
+            default:
+                return null;
+        }
     }
 
     private LocalDate toLocalDate(Object value) {

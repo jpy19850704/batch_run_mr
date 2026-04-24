@@ -133,24 +133,23 @@ public class ScenarioRequestAssembler {
         for (Map<String, Object> row : rows) {
             ScenarioDefinition definition = new ScenarioDefinition();
             definition.setScenarioId(scenarioId);
-            definition.setScenarioCode(scenarioId);
             definition.setScenarioName(toStringValue(row.get("SCENARIO_NAME")));
             String resolvedScenarioType = firstNonBlank(row.get("SCENARIO_TYPE"), scenarioType);
             definition.setScenarioType(resolvedScenarioType);
-            definition.setCurveType(firstNonBlank(row.get("CURVE_TYPE"), row.get("RISKFACTOR_TYPE")));
+            definition.setCurveType(toStringValue(row.get("CURVE_TYPE")));
             definition.setCurveCode(toStringValue(row.get("CURVE_CODE")));
-            definition.setRiskGroupId(firstNonBlank(row.get("RISKGROUP_ID"), row.get("RISK_GROUP_ID")));
+            definition.setRiskGroupId(toStringValue(row.get("RISKGROUP_ID")));
             definition.setTermDays(toInteger(row.get("TERM_DAYS")));
             definition.setTermCode(resolveDefinitionTermCode(resolvedScenarioType, row));
             definition.setShockValue(toBigDecimal(row.get("SCENARIO_SHIFT_VALUE")));
             definition.setScenarioShiftRule(resolveScenarioShiftRule(resolvedScenarioType, row));
             definition.setScenarioNo(toInteger(row.get("SCENARIO_NO")));
             definition.setHoldingPeriod(toInteger(row.get("HOLDING_PERIOD")));
-            definition.setJumpDayNo(toInteger(firstNonBlank(row.get("JUNP_DAY_NO"), row.get("JUMP_DAY_NO"))));
+            definition.setJumpDayNo(toInteger(row.get("JUMP_DAY_NO")));
             definition.setIncreaseDays(toInteger(row.get("INCREASE_DAYS")));
             definition.setHolidayCalendarCode(defaultHolidayCalendarCode);
             definition.setStartDate(toLocalDate(row.get("START_DATE")));
-            definition.setEndDate(toLocalDate(firstNonBlank(row.get("END_DATE"), row.get("CAL_END_DATE"))));
+            definition.setEndDate(toLocalDate(row.get("END_DATE")));
             result.add(definition);
         }
         return result;
@@ -271,7 +270,6 @@ public class ScenarioRequestAssembler {
     private ScenarioDefinition copyDefinition(ScenarioDefinition source) {
         ScenarioDefinition copied = new ScenarioDefinition();
         copied.setScenarioId(source.getScenarioId());
-        copied.setScenarioCode(source.getScenarioCode());
         copied.setScenarioName(source.getScenarioName());
         copied.setScenarioType(source.getScenarioType());
         copied.setCurveType(source.getCurveType());

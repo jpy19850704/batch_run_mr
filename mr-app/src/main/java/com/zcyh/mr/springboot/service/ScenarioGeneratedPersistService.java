@@ -69,7 +69,7 @@ public class ScenarioGeneratedPersistService {
                     trimToNull(record.getScenarioType()),
                     trimToNull(record.getCurveType()),
                     trimToNull(record.getCurveCode()),
-                    trimToNull(record.getTermCode()),
+                    trimToNull(resolveRiskFactorVertex1(record)),
                     record.getTermDays(),
                     trimToNull(record.getDimension2()),
                     toPlainString(record.getShiftValue()),
@@ -83,6 +83,21 @@ public class ScenarioGeneratedPersistService {
             );
         }
         buffer.flush();
+    }
+
+    /**
+     * Doris 保留旧字段名，但内容语义统一为：
+     * RISKFACTOR_VERTEX1 = 第一维（与 TERM_DAYS 对应）
+     */
+    private static String resolveRiskFactorVertex1(ScenarioGeneratedRecord record) {
+        if (record == null) {
+            return null;
+        }
+        Integer termDays = record.getTermDays();
+        if (termDays == null || termDays <= 0) {
+            return null;
+        }
+        return String.valueOf(termDays);
     }
 
     private static String resolveRiskFactorTerm(ScenarioGeneratedRecord record) {
