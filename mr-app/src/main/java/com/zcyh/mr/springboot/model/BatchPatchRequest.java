@@ -1,6 +1,6 @@
 package com.zcyh.mr.springboot.model;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
@@ -8,13 +8,13 @@ import java.util.List;
  * 批次局部重跑请求。
  */
 public class BatchPatchRequest {
-    @JsonAlias("batch_id")
+    @JsonProperty("batch_id")
     private String batchId;
-    @JsonAlias("request_id")
+    @JsonProperty("request_id")
     private String requestId;
-    @JsonAlias("data_date")
+    @JsonProperty("data_date")
     private String dataDate;
-    @JsonAlias("instrument_id_list")
+    @JsonProperty("instrument_id_list")
     private List<String> instrumentIdList;
 
     public String getBatchId() {

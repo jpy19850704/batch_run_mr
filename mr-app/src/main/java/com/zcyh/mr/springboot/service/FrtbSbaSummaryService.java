@@ -37,11 +37,11 @@ public class FrtbSbaSummaryService {
         if (request == null) {
             throw new IllegalArgumentException("request 不能为空");
         }
-        String batchId = readRequiredString(request, "batch_id", "batchId");
-        String dataDate = readRequiredString(request, "data_date", "dataDate");
-        boolean needDecompose = readBoolean(request, true, "need_decompose", "needDecompose");
-        int threadCount = readInteger(request, 0, "thread_count", "threadCount");
-        boolean persistResult = readBoolean(request, true, "persist_result", "persistResult");
+        String batchId = readRequiredString(request, "batch_id");
+        String dataDate = readRequiredString(request, "data_date");
+        boolean needDecompose = readBoolean(request, true, "need_decompose");
+        int threadCount = readInteger(request, 0, "thread_count");
+        boolean persistResult = readBoolean(request, true, "persist_result");
         JSONArray ruleList = resolveRuleList(request);
 
         if (persistResult) {
@@ -131,7 +131,7 @@ public class FrtbSbaSummaryService {
         }
         JSONArray single = new JSONArray();
         JSONObject item = new JSONObject();
-        String ruleId = readString(request, "rule_id", "ruleId");
+        String ruleId = readString(request, "rule_id");
         JSONObject rule = request.getJSONObject("rule");
         if (ruleId != null) {
             item.put("rule_id", ruleId);
@@ -150,7 +150,7 @@ public class FrtbSbaSummaryService {
 
     private static RuleExecution resolveRuleExecution(JSONObject ruleItem, AtomicInteger inlineCounter) {
         JSONObject rule = ruleItem.getJSONObject("rule");
-        String ruleId = readString(ruleItem, "rule_id", "ruleId");
+        String ruleId = readString(ruleItem, "rule_id");
         if (rule == null) {
             if (ruleId == null) {
                 throw new IllegalArgumentException("rule_list 项必须提供 rule_id 或 rule");
@@ -158,23 +158,19 @@ public class FrtbSbaSummaryService {
             return RuleExecution.db(ruleId);
         }
         if (ruleId == null) {
-            ruleId = readString(rule, "ruleId", "rule_id");
+            ruleId = readString(rule, "rule_id");
         }
         if (ruleId == null) {
             ruleId = "INLINE_FRTB_SBA_" + inlineCounter.getAndIncrement();
         }
         rule.put("ruleId", ruleId);
-        if (readString(rule, "ruleType", "rule_type") == null) {
-            rule.put("ruleType", "FRTB");
-        }
+        String ruleType = readString(rule, "rule_type");
+        rule.put("ruleType", ruleType == null ? "FRTB" : ruleType);
         return RuleExecution.inline(ruleId, rule);
     }
 
-    private static boolean readBoolean(JSONObject request, boolean defaultValue, String... keys) {
-        for (String key : keys) {
-            if (key == null || !request.containsKey(key)) {
-                continue;
-            }
+    private static boolean readBoolean(JSONObject request, boolean defaultValue, String key) {
+        if (key != null && request.containsKey(key)) {
             Boolean value = request.getBoolean(key);
             if (value != null) {
                 return value;
@@ -183,11 +179,8 @@ public class FrtbSbaSummaryService {
         return defaultValue;
     }
 
-    private static int readInteger(JSONObject request, int defaultValue, String... keys) {
-        for (String key : keys) {
-            if (key == null || !request.containsKey(key)) {
-                continue;
-            }
+    private static int readInteger(JSONObject request, int defaultValue, String key) {
+        if (key != null && request.containsKey(key)) {
             Integer value = request.getInteger(key);
             if (value != null) {
                 return value;
@@ -196,28 +189,19 @@ public class FrtbSbaSummaryService {
         return defaultValue;
     }
 
-    private static String readRequiredString(JSONObject request, String... keys) {
-        String value = readString(request, keys);
+    private static String readRequiredString(JSONObject request, String key) {
+        String value = readString(request, key);
         if (value == null) {
-            throw new IllegalArgumentException("参数缺失: " + keys[0]);
+            throw new IllegalArgumentException("参数缺失: " + key);
         }
         return value;
     }
 
-    private static String readString(JSONObject request, String... keys) {
-        if (request == null || keys == null) {
+    private static String readString(JSONObject request, String key) {
+        if (request == null || key == null) {
             return null;
         }
-        for (String key : keys) {
-            if (key == null) {
-                continue;
-            }
-            String value = trimToNull(request.getString(key));
-            if (value != null) {
-                return value;
-            }
-        }
-        return null;
+        return trimToNull(request.getString(key));
     }
 
     private static String trimToNull(String text) {

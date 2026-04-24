@@ -28,12 +28,12 @@ public class VarSummaryService {
         if (request == null) {
             throw new IllegalArgumentException("request 不能为空");
         }
-        String batchId = readRequiredString(request, "batch_id", "batchId");
-        String dataDate = readRequiredString(request, "data_date", "dataDate");
-        boolean persistResult = readBoolean(request, true, "persist_result", "persistResult");
+        String batchId = readRequiredString(request, "batch_id");
+        String dataDate = readRequiredString(request, "data_date");
+        boolean persistResult = readBoolean(request, true, "persist_result");
 
         JSONObject runnerRequest = copyRequest(request);
-        if (readString(runnerRequest, "source_type", "sourceType") == null) {
+        if (readString(runnerRequest, "source_type") == null) {
             runnerRequest.put("source_type", "db_inline");
         }
         if (runnerRequest.get("quantiles") == null) {
@@ -60,7 +60,6 @@ public class VarSummaryService {
     private static JSONObject copyRequest(JSONObject request) {
         JSONObject copy = JSON.parseObject(request.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
         copy.remove("persist_result");
-        copy.remove("persistResult");
         return copy;
     }
 
@@ -81,11 +80,8 @@ public class VarSummaryService {
         return rules;
     }
 
-    private static boolean readBoolean(JSONObject request, boolean defaultValue, String... keys) {
-        for (String key : keys) {
-            if (key == null || !request.containsKey(key)) {
-                continue;
-            }
+    private static boolean readBoolean(JSONObject request, boolean defaultValue, String key) {
+        if (key != null && request.containsKey(key)) {
             Boolean value = request.getBoolean(key);
             if (value != null) {
                 return value;
@@ -94,28 +90,19 @@ public class VarSummaryService {
         return defaultValue;
     }
 
-    private static String readRequiredString(JSONObject request, String... keys) {
-        String value = readString(request, keys);
+    private static String readRequiredString(JSONObject request, String key) {
+        String value = readString(request, key);
         if (value == null) {
-            throw new IllegalArgumentException("参数缺失: " + keys[0]);
+            throw new IllegalArgumentException("参数缺失: " + key);
         }
         return value;
     }
 
-    private static String readString(JSONObject request, String... keys) {
-        if (request == null || keys == null) {
+    private static String readString(JSONObject request, String key) {
+        if (request == null || key == null) {
             return null;
         }
-        for (String key : keys) {
-            if (key == null) {
-                continue;
-            }
-            String value = trimToNull(request.getString(key));
-            if (value != null) {
-                return value;
-            }
-        }
-        return null;
+        return trimToNull(request.getString(key));
     }
 
     private static String trimToNull(String text) {

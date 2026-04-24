@@ -57,7 +57,7 @@ public class ScenarioEngineAdapter implements EngineAdapter {
         }
         String scenarioIdList = requiredString(req, "scenario_id_list");
         String dataDate = requiredString(req, "data_date");
-        String batchId = trimToNull(firstNonBlank(req.getString("batch_id"), req.getString("batchId")));
+        String batchId = trimToNull(req.getString("batch_id"));
         List<ScenarioGeneratedRecord> records = generateRecords(req);
         String runId = resolveRunId(batchId, scenarioIdList, dataDate);
         JSONObject summary = buildSummary(runId, scenarioIdList, dataDate, batchId, records);
@@ -78,8 +78,8 @@ public class ScenarioEngineAdapter implements EngineAdapter {
         if (user == null || user.trim().isEmpty()) {
             user = "outer_service";
         }
-        String batchId = trimToNull(firstNonBlank(req.getString("batch_id"), req.getString("batchId")));
-        Boolean persistScenario = readBoolean(req, "persist_scenario", "persistScenario");
+        String batchId = trimToNull(req.getString("batch_id"));
+        Boolean persistScenario = readBoolean(req, "persist_scenario");
 
         ScenarioGenerationRequest request = scenarioRequestAssembler.build(
                 scenarioIdList,
@@ -101,44 +101,26 @@ public class ScenarioEngineAdapter implements EngineAdapter {
         return value.trim();
     }
 
-    private static Boolean readBoolean(JSONObject obj, String... keys) {
-        if (obj == null || keys == null) {
+    private static Boolean readBoolean(JSONObject obj, String key) {
+        if (obj == null || key == null) {
             return null;
         }
-        for (String key : keys) {
-            if (key == null) {
-                continue;
-            }
-            Object raw = obj.get(key);
-            if (raw == null) {
-                continue;
-            }
-            if (raw instanceof Boolean) {
-                return (Boolean) raw;
-            }
-            String text = trimToNull(String.valueOf(raw));
-            if (text == null) {
-                continue;
-            }
-            if ("true".equalsIgnoreCase(text) || "1".equals(text) || "y".equalsIgnoreCase(text)) {
-                return true;
-            }
-            if ("false".equalsIgnoreCase(text) || "0".equals(text) || "n".equalsIgnoreCase(text)) {
-                return false;
-            }
-        }
-        return null;
-    }
-
-    private static String firstNonBlank(String... values) {
-        if (values == null) {
+        Object raw = obj.get(key);
+        if (raw == null) {
             return null;
         }
-        for (String value : values) {
-            String safe = trimToNull(value);
-            if (safe != null) {
-                return safe;
-            }
+        if (raw instanceof Boolean) {
+            return (Boolean) raw;
+        }
+        String text = trimToNull(String.valueOf(raw));
+        if (text == null) {
+            return null;
+        }
+        if ("true".equalsIgnoreCase(text) || "1".equals(text) || "y".equalsIgnoreCase(text)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(text) || "0".equals(text) || "n".equalsIgnoreCase(text)) {
+            return false;
         }
         return null;
     }

@@ -1121,34 +1121,32 @@ public class AsyncJobService {
             if (payload == null) {
                 return true;
             }
-            return readBoolean(payload, true, "persist_result", "persistResult");
+            return readBoolean(payload, true, "persist_result");
         } catch (Exception ex) {
             return true;
         }
     }
 
-    private static boolean readBoolean(JSONObject payload, boolean defaultValue, String... fieldNames) {
-        if (payload == null || fieldNames == null) {
+    private static boolean readBoolean(JSONObject payload, boolean defaultValue, String fieldName) {
+        if (payload == null || fieldName == null) {
             return defaultValue;
         }
-        for (String fieldName : fieldNames) {
-            Object raw = payload.get(fieldName);
-            if (raw == null) {
-                continue;
-            }
-            if (raw instanceof Boolean) {
-                return (Boolean) raw;
-            }
-            String text = trimToNull(String.valueOf(raw));
-            if (text == null) {
-                continue;
-            }
-            if ("true".equalsIgnoreCase(text) || "1".equals(text) || "Y".equalsIgnoreCase(text)) {
-                return true;
-            }
-            if ("false".equalsIgnoreCase(text) || "0".equals(text) || "N".equalsIgnoreCase(text)) {
-                return false;
-            }
+        Object raw = payload.get(fieldName);
+        if (raw == null) {
+            return defaultValue;
+        }
+        if (raw instanceof Boolean) {
+            return (Boolean) raw;
+        }
+        String text = trimToNull(String.valueOf(raw));
+        if (text == null) {
+            return defaultValue;
+        }
+        if ("true".equalsIgnoreCase(text) || "1".equals(text) || "Y".equalsIgnoreCase(text)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(text) || "0".equals(text) || "N".equalsIgnoreCase(text)) {
+            return false;
         }
         return defaultValue;
     }

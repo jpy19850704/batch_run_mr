@@ -1,25 +1,25 @@
 package com.zcyh.mr.springboot.model;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * 批次总编排运行请求。
  */
 public class BatchRunRequest {
-    @JsonAlias("batch_id")
+    @JsonProperty("batch_id")
     private String batchId;
-    @JsonAlias("data_date")
+    @JsonProperty("data_date")
     private String dataDate;
     private String user;
-    @JsonAlias("regular_scenario_id_list")
+    @JsonProperty("regular_scenario_id_list")
     private String regularScenarioIdList;
-    @JsonAlias({"riskclassdecomp_scenario_id_list", "risk_class_decomp_scenario_id_list"})
+    @JsonProperty("risk_class_decomp_scenario_id_list")
     private String riskClassDecompScenarioIdList;
-    @JsonAlias("run_mode")
+    @JsonProperty("run_mode")
     private String runMode;
-    @JsonAlias("persist_scenario")
+    @JsonProperty("persist_scenario")
     private Boolean persistScenario;
-    @JsonAlias("persist_result")
+    @JsonProperty("persist_result")
     private Boolean persistResult;
 
     public String getBatchId() {
