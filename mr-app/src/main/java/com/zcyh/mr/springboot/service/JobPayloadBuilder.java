@@ -195,9 +195,9 @@ public class JobPayloadBuilder {
             return;
         }
         Set<String> keys = tradeMarketDataKeys.get(safeId);
-        if (keys != null && !keys.isEmpty()) {
-            ((JSONObject) tradeJson).put("_MARKET_DATA_KEYS", new JSONArray(new ArrayList<String>(keys)));
-        }
+        // 批量链路必须稳定写入字段，空数组表示该交易无有效风险因子。
+        ((JSONObject) tradeJson).put("_MARKET_DATA_KEYS",
+                new JSONArray(keys == null ? new ArrayList<String>() : new ArrayList<String>(keys)));
     }
 
     static Object parseJsonSafely(String text) {
