@@ -66,9 +66,9 @@ public class VarDbRunnerService {
         String dataDate = requireTopLevelString(req, "data_date");
         List<BigDecimal> quantiles = parseQuantiles(req.get("quantiles"));
         List<VarRuleConfig> rules = parseRules(req);
-        boolean includeDetailRequested = readBoolean(req, "include_detail", "includeDetail");
+        boolean includeDetailRequested = readBoolean(req, "include_detail", false);
         boolean includeDetail = includeDetailRequested;
-        String requestId = readString(req, "request_id", "requestId");
+        String requestId = readString(req, "request_id");
         if (requestId == null) {
             requestId = UUID.randomUUID().toString().replace("-", "");
         }
@@ -76,8 +76,7 @@ public class VarDbRunnerService {
             throw new IllegalArgumentException("rules is required");
         }
         if (includeDetail && varDetailCacheService == null) {
-            includeDetail = false;
-            log.warn("include_detail=true 但 Redis 缓存服务未启用，自动降级为 include_detail=false");
+            throw new IllegalStateException("include_detail=true 但 Redis 缓存服务未启用");
         }
 
         int[] detailCacheCount = new int[]{0};
@@ -551,23 +550,26 @@ public class VarDbRunnerService {
 
     private VarRuleConfig parseSingleRule(JSONObject ruleJson, int index) {
         AggregationRule rule = new AggregationRule();
-        rule.setRuleId(requireString(ruleJson, "rule_id", "ruleId"));
-        rule.setRuleName(readString(ruleJson, "rule_name", "ruleName"));
-        rule.setRuleType(readString(ruleJson, "rule_type", "ruleType"));
+        rule.setRuleId(requireString(ruleJson, "rule_id"));
+        rule.setRuleName(readString(ruleJson, "rule_name"));
+        rule.setRuleType(readString(ruleJson, "rule_type"));
 
-        List<String> buildOrder = readStringList(ruleJson, "build_order", "buildOrder");
+        List<String> buildOrder = readStringList(ruleJson, "build_order");
         rule.setBuildOrder(buildOrder);
         rule.setDimensions(readStringMap(ruleJson.getJSONObject("dimensions")));
-        rule.setGroupByFields(readStringList(ruleJson, "group_by_fields", "groupByFields"));
-        rule.setSumFields(readStringList(ruleJson, "sum_fields", "sumFields"));
-        rule.setFilters(readFilters(ruleJson.getJSONArray("filters")));
+        rule.setGroupByFields(readStringList(ruleJson, "group_by_fields"));
+        rule.setSumFields(readStringList(ruleJson, "sum_fields"));
+        if (ruleJson.containsKey("filters")) {
+            throw new IllegalArgumentException("filters 已停用，请使用 filter_tree");
+        }
+        rule.setFilterTree(toFilterExpression(ruleJson.get("filter_tree")));
         applyVarRuleDefaults(rule);
         dimensionAggregationService.validateRule(rule);
 
         JSONObject calcJson = ruleJson.getJSONObject("calc");
-        String decompType = readString(calcJson, "decomp_type", "decompType");
-        String riskClassRaw = readString(calcJson, "risk_class", "riskClass");
-        String varPick = parseVarPick(readString(calcJson, "var_pick", "varPick"));
+        String decompType = readString(calcJson, "decomp_type");
+        String riskClassRaw = readString(calcJson, "risk_class");
+        String varPick = parseVarPick(readString(calcJson, "var_pick"));
 
         boolean decompMode = isRiskClassDecomp(decompType, riskClassRaw);
         List<String> riskClasses = parseRiskClassesOptional(riskClassRaw);
@@ -579,7 +581,7 @@ public class VarDbRunnerService {
         }
 
         boolean enabled = readBoolean(ruleJson, "enabled", true);
-        Integer outputOrder = readInteger(ruleJson, "output_order", "outputOrder");
+        Integer outputOrder = readInteger(ruleJson, "output_order");
         return new VarRuleConfig(
                 rule,
                 decompMode,
@@ -634,23 +636,52 @@ public class VarDbRunnerService {
         rule.setSumFields(sumFields);
     }
 
-    private static List<AggregationRule.FilterCondition> readFilters(JSONArray filters) {
-        List<AggregationRule.FilterCondition> list = new ArrayList<AggregationRule.FilterCondition>();
-        if (filters == null || filters.isEmpty()) {
-            return list;
+    private static AggregationRule.FilterExpression toFilterExpression(Object rawExpression) {
+        if (!(rawExpression instanceof Map)) {
+            return null;
         }
-        for (int i = 0; i < filters.size(); i++) {
-            JSONObject item = filters.getJSONObject(i);
-            if (item == null) {
-                continue;
+        Map<?, ?> row = (Map<?, ?>) rawExpression;
+        AggregationRule.FilterExpression expression = new AggregationRule.FilterExpression();
+        expression.setOp(asTrimmedString(row.get("op")));
+        expression.setField(asTrimmedString(row.get("field")));
+        String operator = asTrimmedString(row.get("operator"));
+        expression.setOperator(operator);
+        expression.setValue(normalizeFilterValue(operator, row.get("value")));
+
+        Object rawChildren = row.get("children");
+        if (rawChildren instanceof List) {
+            List<AggregationRule.FilterExpression> children = new ArrayList<AggregationRule.FilterExpression>();
+            for (Object child : (List<?>) rawChildren) {
+                AggregationRule.FilterExpression childExpression = toFilterExpression(child);
+                if (childExpression != null) {
+                    children.add(childExpression);
+                }
             }
-            AggregationRule.FilterCondition condition = new AggregationRule.FilterCondition();
-            condition.setField(readString(item, "field"));
-            condition.setOperator(readString(item, "operator"));
-            condition.setValue(item.get("value"));
-            list.add(condition);
+            expression.setChildren(children);
         }
-        return list;
+        return expression;
+    }
+
+    /**
+     * 过滤值归一化：in/not_in 保留数组，其它操作符按单值处理。
+     */
+    private static Object normalizeFilterValue(String operator, Object rawValue) {
+        if (rawValue == null) {
+            return null;
+        }
+        if (rawValue instanceof List) {
+            List<?> values = (List<?>) rawValue;
+            if ("in".equalsIgnoreCase(operator) || "not_in".equalsIgnoreCase(operator)) {
+                return new ArrayList<Object>(values);
+            }
+            for (Object item : values) {
+                if (item != null) {
+                    return item;
+                }
+            }
+            return null;
+        }
+        return rawValue;
     }
 
     private static Map<String, String> normalizeDimensionMap(Map<String, String> rawMap) {
@@ -875,45 +906,27 @@ public class VarDbRunnerService {
         return value;
     }
 
-    private static String requireString(JSONObject obj, String... keys) {
-        String value = readString(obj, keys);
+    private static String requireString(JSONObject obj, String key) {
+        String value = readString(obj, key);
         if (value == null) {
-            throw new IllegalArgumentException((keys == null || keys.length == 0 ? "field" : keys[0]) + " is required");
+            throw new IllegalArgumentException((key == null ? "field" : key) + " is required");
         }
         return value;
     }
 
-    private static String readString(JSONObject obj, String... keys) {
-        if (obj == null || keys == null) {
+    private static String readString(JSONObject obj, String key) {
+        if (obj == null || key == null) {
             return null;
         }
-        for (String key : keys) {
-            if (key == null) {
-                continue;
-            }
-            String value = trimToNull(obj.getString(key));
-            if (value != null) {
-                return value;
-            }
-        }
-        return null;
+        return trimToNull(obj.getString(key));
     }
 
-    private static List<String> readStringList(JSONObject obj, String... keys) {
+    private static List<String> readStringList(JSONObject obj, String key) {
         List<String> list = new ArrayList<String>();
-        if (obj == null || keys == null) {
+        if (obj == null || key == null) {
             return list;
         }
-        JSONArray array = null;
-        for (String key : keys) {
-            if (key == null) {
-                continue;
-            }
-            array = obj.getJSONArray(key);
-            if (array != null) {
-                break;
-            }
-        }
+        JSONArray array = obj.getJSONArray(key);
         if (array == null) {
             return list;
         }
@@ -954,36 +967,11 @@ public class VarDbRunnerService {
         return value == null ? defaultValue : value;
     }
 
-    private static boolean readBoolean(JSONObject obj, String... keys) {
-        if (obj == null || keys == null) {
-            return false;
-        }
-        for (String key : keys) {
-            if (key == null) {
-                continue;
-            }
-            Boolean value = obj.getBoolean(key);
-            if (value != null) {
-                return value;
-            }
-        }
-        return false;
-    }
-
-    private static Integer readInteger(JSONObject obj, String... keys) {
-        if (obj == null || keys == null) {
+    private static Integer readInteger(JSONObject obj, String key) {
+        if (obj == null || key == null) {
             return null;
         }
-        for (String key : keys) {
-            if (key == null) {
-                continue;
-            }
-            Integer value = obj.getInteger(key);
-            if (value != null) {
-                return value;
-            }
-        }
-        return null;
+        return obj.getInteger(key);
     }
 
     private static boolean containsIgnoreCase(List<String> values, String target) {
@@ -1004,6 +992,13 @@ public class VarDbRunnerService {
 
     private static String nullSafe(String value) {
         return value == null ? "" : value;
+    }
+
+    private static String asTrimmedString(Object value) {
+        if (value == null) {
+            return null;
+        }
+        return trimToNull(String.valueOf(value));
     }
 
     private static String trimToNull(String value) {

@@ -98,7 +98,7 @@ public class FrtbSbaDbRunnerService {
 
         JSONObject ruleJson = req.getJSONObject("rule");
         if (ruleJson == null) {
-            throw new IllegalArgumentException("rule 不能为空，需要包含 buildOrder/dimensions/filter_tree 等");
+            throw new IllegalArgumentException("rule 不能为空，需要包含 build_order/dimensions/filter_tree 等");
         }
         AggregationRule rule = parseInlineRule(ruleJson);
         if (rule == null) {
@@ -223,15 +223,14 @@ public class FrtbSbaDbRunnerService {
             return null;
         }
         AggregationRule rule = new AggregationRule();
-        rule.setRuleId(trimToNull(ruleJson.getString("ruleId")));
-        rule.setRuleType(trimToNull(ruleJson.getString("ruleType")));
-        rule.setRuleName(trimToNull(ruleJson.getString("ruleName")));
-        rule.setBuildOrder(toStringList(ruleJson.get("buildOrder")));
-        rule.setGroupByFields(toStringList(ruleJson.get("groupByFields")));
-        rule.setSumFields(toStringList(ruleJson.get("sumFields")));
+        rule.setRuleId(trimToNull(ruleJson.getString("rule_id")));
+        rule.setRuleType(trimToNull(ruleJson.getString("rule_type")));
+        rule.setRuleName(trimToNull(ruleJson.getString("rule_name")));
+        rule.setBuildOrder(toStringList(ruleJson.get("build_order")));
+        rule.setGroupByFields(toStringList(ruleJson.get("group_by_fields")));
+        rule.setSumFields(toStringList(ruleJson.get("sum_fields")));
         rule.setDimensions(toStringMap(ruleJson.get("dimensions")));
-        List<AggregationRule.FilterCondition> filters = toFilterConditions(ruleJson.get("filters"));
-        if (!filters.isEmpty()) {
+        if (ruleJson.containsKey("filters")) {
             throw new IllegalArgumentException("filters 已停用，请使用 filter_tree");
         }
         rule.setFilterTree(toFilterExpression(ruleJson.get("filter_tree")));
@@ -286,40 +285,17 @@ public class FrtbSbaDbRunnerService {
         rule.setSumFields(sumFields);
     }
 
-    private static List<AggregationRule.FilterCondition> toFilterConditions(Object rawFilters) {
-        List<AggregationRule.FilterCondition> result = new ArrayList<AggregationRule.FilterCondition>();
-        if (!(rawFilters instanceof List)) {
-            return result;
-        }
-        List<?> rows = (List<?>) rawFilters;
-        for (Object item : rows) {
-            if (!(item instanceof Map)) {
-                continue;
-            }
-            Map<?, ?> row = (Map<?, ?>) item;
-            AggregationRule.FilterCondition condition = new AggregationRule.FilterCondition();
-            String operator = asTrimmedString(row.get("operator"));
-            condition.setField(asTrimmedString(row.get("field")));
-            condition.setOperator(operator);
-            Object rawValue = row.containsKey("value") ? row.get("value") : row.get("values");
-            condition.setValue(normalizeFilterValue(operator, rawValue));
-            result.add(condition);
-        }
-        return result;
-    }
-
     private static AggregationRule.FilterExpression toFilterExpression(Object rawExpression) {
         if (!(rawExpression instanceof Map)) {
             return null;
         }
         Map<?, ?> row = (Map<?, ?>) rawExpression;
         AggregationRule.FilterExpression expression = new AggregationRule.FilterExpression();
-        expression.setOp(asTrimmedString(firstNonNull(row.get("op"), row.get("logic"))));
+        expression.setOp(asTrimmedString(row.get("op")));
         expression.setField(asTrimmedString(row.get("field")));
         String operator = asTrimmedString(row.get("operator"));
         expression.setOperator(operator);
-        Object rawValue = row.containsKey("value") ? row.get("value") : row.get("values");
-        expression.setValue(normalizeFilterValue(operator, rawValue));
+        expression.setValue(normalizeFilterValue(operator, row.get("value")));
 
         Object rawChildren = row.get("children");
         if (rawChildren instanceof List) {
@@ -451,10 +427,6 @@ public class FrtbSbaDbRunnerService {
             return null;
         }
         return trimToNull(String.valueOf(value));
-    }
-
-    private static Object firstNonNull(Object first, Object second) {
-        return first == null ? second : first;
     }
 
     private static String requireTopLevelString(JSONObject obj, String key) {

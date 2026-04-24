@@ -105,12 +105,6 @@ public class FrtbSbaInputQueryService {
             }
         }
         selectedFields.addAll(rule.getSumFields());
-        for (AggregationRule.FilterCondition filter : rule.getFilters()) {
-            String safeField = trimToNull(filter.getField());
-            if (safeField != null) {
-                selectedFields.add(safeField);
-            }
-        }
         collectFilterTreeFields(rule.getFilterTree(), selectedFields);
         boolean usePortfolioFlatView = requiresPortfolioFlatView(selectedFields);
 

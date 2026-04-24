@@ -81,25 +81,6 @@ public class DimensionAggregationService {
         rule.setSumFields(normalizedSumFields);
         rule.setDimensions(normalizedDimensions);
 
-        List<AggregationRule.FilterCondition> filters = rule.getFilters();
-        if (filters == null) {
-            return;
-        }
-        for (int i = 0; i < filters.size(); i++) {
-            AggregationRule.FilterCondition condition = filters.get(i);
-            if (condition == null) {
-                throw new IllegalArgumentException("AggregationRule.filters[" + i + "] 不能为空");
-            }
-            if (trimToNull(condition.getField()) == null) {
-                throw new IllegalArgumentException("AggregationRule.filters[" + i + "].field 不能为空");
-            }
-            condition.setField(trimToNull(condition.getField()).toUpperCase());
-            String operator = normalizeOperator(condition.getOperator());
-            if (operator == null) {
-                throw new IllegalArgumentException("AggregationRule.filters[" + i + "].operator 不支持: " + condition.getOperator());
-            }
-            condition.setOperator(operator);
-        }
         if (rule.getFilterTree() != null) {
             validateFilterExpression(rule.getFilterTree(), "AggregationRule.filterTree", 1, new int[]{0});
         }

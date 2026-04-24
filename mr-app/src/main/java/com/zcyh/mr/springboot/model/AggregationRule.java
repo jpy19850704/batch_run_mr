@@ -11,14 +11,19 @@ import java.util.Map;
  * 公共维度汇总规则模型。
  */
 public class AggregationRule {
+    @JSONField(name = "rule_id")
     private String ruleId;
+    @JSONField(name = "rule_type")
     private String ruleType;
+    @JSONField(name = "rule_name")
     private String ruleName;
+    @JSONField(name = "build_order")
     private List<String> buildOrder = new ArrayList<String>();
     private Map<String, String> dimensions = new LinkedHashMap<String, String>();
+    @JSONField(name = "group_by_fields")
     private List<String> groupByFields = new ArrayList<String>();
+    @JSONField(name = "sum_fields")
     private List<String> sumFields = new ArrayList<String>();
-    private List<FilterCondition> filters = new ArrayList<FilterCondition>();
     @JSONField(name = "filter_tree")
     private FilterExpression filterTree;
 
@@ -78,53 +83,12 @@ public class AggregationRule {
         this.sumFields = sumFields == null ? new ArrayList<String>() : sumFields;
     }
 
-    public List<FilterCondition> getFilters() {
-        return filters;
-    }
-
-    public void setFilters(List<FilterCondition> filters) {
-        this.filters = filters == null ? new ArrayList<FilterCondition>() : filters;
-    }
-
     public FilterExpression getFilterTree() {
         return filterTree;
     }
 
     public void setFilterTree(FilterExpression filterTree) {
         this.filterTree = filterTree;
-    }
-
-    /**
-     * 统一过滤条件定义。
-     */
-    public static class FilterCondition {
-        private String field;
-        private String operator;
-        private Object value;
-
-        public String getField() {
-            return field;
-        }
-
-        public void setField(String field) {
-            this.field = field;
-        }
-
-        public String getOperator() {
-            return operator;
-        }
-
-        public void setOperator(String operator) {
-            this.operator = operator;
-        }
-
-        public Object getValue() {
-            return value;
-        }
-
-        public void setValue(Object value) {
-            this.value = value;
-        }
     }
 
     /**

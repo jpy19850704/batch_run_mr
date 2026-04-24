@@ -68,7 +68,6 @@ public class VarSummaryService {
         rule.put("rule_id", DEFAULT_VAR_RULE_ID);
         rule.put("rule_name", "默认 VaR 批次汇总规则");
         rule.put("build_order", JSON.parseArray("[\"TRADER\",\"DESK\",\"PORTFOLIO\"]"));
-        rule.put("filters", new JSONArray());
 
         JSONObject calc = new JSONObject();
         calc.put("risk_class", "ALL");

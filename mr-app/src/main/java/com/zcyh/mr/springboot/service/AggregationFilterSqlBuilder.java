@@ -26,9 +26,6 @@ public class AggregationFilterSqlBuilder {
         if (rule == null) {
             return;
         }
-        if (rule.getFilters() != null && !rule.getFilters().isEmpty()) {
-            throw new IllegalArgumentException("filters 已停用，请使用 filter_tree");
-        }
         AggregationRule.FilterExpression filterTree = rule.getFilterTree();
         if (filterTree != null) {
             sql.append(" AND ").append(buildExpression(filterTree, params, columnResolver));

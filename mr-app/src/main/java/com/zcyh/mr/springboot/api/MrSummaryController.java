@@ -136,7 +136,7 @@ public class MrSummaryController {
         if (batchId != null) {
             return batchId;
         }
-        return trimToNull(request.getString("batchId"));
+        return null;
     }
 
     private static String trimToNull(String text) {

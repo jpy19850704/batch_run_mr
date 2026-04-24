@@ -279,17 +279,6 @@ public class VarInputQueryService {
         if (rule == null) {
             return fields;
         }
-        if (rule.getFilters() != null) {
-            for (AggregationRule.FilterCondition filter : rule.getFilters()) {
-                if (filter == null) {
-                    continue;
-                }
-                String field = trimToNull(filter.getField());
-                if (field != null) {
-                    fields.add(field.toUpperCase());
-                }
-            }
-        }
         collectFilterTreeFields(rule.getFilterTree(), fields);
         return fields;
     }
