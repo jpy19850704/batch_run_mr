@@ -108,7 +108,6 @@ public class CommAsianTest {
         CommVol.CommVolInfo info = new CommVol.CommVolInfo();
         info.curveType = "COMM_VOL";
         info.curveCode = "COMMVOL_OIL";
-        info.termType = "days";
         info.dataDate = dataDate;
         info.pDataDate = dataDate;
         info.curveData = new ArrayList<>();

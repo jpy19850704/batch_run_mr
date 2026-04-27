@@ -104,7 +104,6 @@ public class EqAsianTest {
         EqVol.EqVolInfo info = new EqVol.EqVolInfo();
         info.curveType = "EQ_VOL";
         info.curveCode = "EQVOL_IDX";
-        info.termType = "days";
         info.dataDate = dataDate;
         info.pDataDate = dataDate;
         info.curveData = new ArrayList<>();

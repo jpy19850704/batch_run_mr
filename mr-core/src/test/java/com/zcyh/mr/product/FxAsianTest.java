@@ -127,7 +127,6 @@ public class FxAsianTest {
         FxVol.FxVolInfo info = new FxVol.FxVolInfo();
         info.curveType = "FX_VOL";
         info.curveCode = "FXVOL_EURUSD";
-        info.termType = "days";
         info.dataDate = dataDate;
         info.pDataDate = dataDate;
         info.curveData = new ArrayList<>();

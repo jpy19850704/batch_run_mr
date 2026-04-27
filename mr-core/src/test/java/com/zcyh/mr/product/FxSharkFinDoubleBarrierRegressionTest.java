@@ -123,7 +123,6 @@ public class FxSharkFinDoubleBarrierRegressionTest {
         FxVol.FxVolInfo volInfo = new FxVol.FxVolInfo();
         volInfo.curveType = "FX_VOL";
         volInfo.curveCode = "FXVOL_EURUSD";
-        volInfo.termType = "days";
         volInfo.dataDate = dataDate;
         volInfo.pDataDate = dataDate;
         volInfo.curveData = buildVolSurface();
