@@ -1,4 +1,4 @@
-﻿-- =====================================================================
+-- =====================================================================
 -- Doris 输出表 DDL（Unique Key 模型）
 -- 对应 Engine 结果表结构，定义与 PricingResultPersistService 对齐。
 -- 切换步骤：在 Doris FE 执行本文件后，修改环境变量指向 Doris 即可。
@@ -282,6 +282,9 @@ CREATE TABLE IF NOT EXISTS TB_OUT_VAR_RESULT (
     RISK_CLASS          VARCHAR(64),
     VAR                 DECIMAL(38, 10),
     ES                  DECIMAL(38, 10),
+    COMPONENT_VAR       DECIMAL(38, 10) DEFAULT "0",
+    MARGINAL_VAR        DECIMAL(38, 10) DEFAULT "0",
+    INCREMENTAL_VAR     DECIMAL(38, 10) DEFAULT "0",
     SELECTED_METHOD     VARCHAR(32),
     CREATED_AT          VARCHAR(32)
 )
@@ -619,5 +622,20 @@ LEFT JOIN TB_OUT_PORTFOLIO_HIERARCHY h6
     AND h6.DATA_DATE = h0.DATA_DATE
     AND h6.PORTFOLIO_CODE = h5.UPPER_LEVEL_PORTFOLIO;
 
+-- 计算规则元数据表（计算时规则快照，用于从结果反查 filter_tree 等配置）
+CREATE TABLE IF NOT EXISTS TB_OUT_CALC_RULE_META (
+    BATCH_ID    VARCHAR(64)     COMMENT '批次ID',
+    DATA_DATE   VARCHAR(16)     COMMENT '数据日期',
+    CALC_TYPE   VARCHAR(32)     COMMENT '计算类型：VAR / FRTB_SBA / IMA',
+    RULE_ID     VARCHAR(128)    COMMENT '规则ID',
+    RULE_JSON   TEXT            COMMENT '完整规则原始 JSON（含 filter_tree、build_order、dimensions 等）',
+    CREATED_AT  VARCHAR(32)     COMMENT '创建时间'
+)
+UNIQUE KEY(BATCH_ID, DATA_DATE, CALC_TYPE, RULE_ID)
+DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 4
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
 
 

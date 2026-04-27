@@ -6,6 +6,8 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
 import com.zcyh.mr.frtbsa.sba.pojo.FRTBClassResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,18 +20,23 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @Service
 public class FrtbSbaSummaryService {
+    private static final Logger log = LoggerFactory.getLogger(FrtbSbaSummaryService.class);
     private static final String DEFAULT_RULE_ID = "BATCH_FRTB_DEFAULT";
+    private static final String CALC_TYPE_FRTB_SBA = "FRTB_SBA";
 
     private final FrtbSbaDbRunnerService frtbSbaDbRunnerService;
     private final FrtbSbaResultPersistService frtbSbaResultPersistService;
     private final FrtbAggregator frtbAggregator;
+    private final CalcRuleMetaPersistService calcRuleMetaPersistService;
 
     public FrtbSbaSummaryService(FrtbSbaDbRunnerService frtbSbaDbRunnerService,
                                  FrtbSbaResultPersistService frtbSbaResultPersistService,
-                                 FrtbAggregator frtbAggregator) {
+                                 FrtbAggregator frtbAggregator,
+                                 CalcRuleMetaPersistService calcRuleMetaPersistService) {
         this.frtbSbaDbRunnerService = frtbSbaDbRunnerService;
         this.frtbSbaResultPersistService = frtbSbaResultPersistService;
         this.frtbAggregator = frtbAggregator;
+        this.calcRuleMetaPersistService = calcRuleMetaPersistService;
     }
 
     @SuppressWarnings("unchecked")
@@ -46,6 +53,7 @@ public class FrtbSbaSummaryService {
 
         if (persistResult) {
             frtbSbaResultPersistService.deleteByBatch(batchId);
+            calcRuleMetaPersistService.deleteByBatchAndCalcType(batchId, dataDate, CALC_TYPE_FRTB_SBA);
         }
 
         JSONArray results = new JSONArray();
@@ -62,6 +70,7 @@ public class FrtbSbaSummaryService {
             if (persistResult) {
                 Map<String, Map<String, Object>> batchResult = JSON.parseObject(raw, Map.class);
                 persistRuleResult(batchId, dataDate, execution.ruleId, batchResult);
+                persistRuleMeta(batchId, dataDate, execution);
             }
 
             JSONObject resultItem = new JSONObject();
@@ -121,6 +130,27 @@ public class FrtbSbaSummaryService {
             }
             frtbSbaResultPersistService.persist(
                     (List<FRTBClassResult>) classResults, batchId, dataDate, ruleId);
+        }
+    }
+
+    /**
+     * 将 FRTB SBA 规则的完整 JSON 写入规则元数据表。
+     */
+    private void persistRuleMeta(String batchId, String dataDate, RuleExecution execution) {
+        try {
+            String ruleJsonStr;
+            if (execution.ruleJson != null) {
+                ruleJsonStr = execution.ruleJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
+            } else {
+                // db 模式下没有内联 ruleJson，记录 ruleId 即可
+                JSONObject minimal = new JSONObject();
+                minimal.put("rule_id", execution.ruleId);
+                minimal.put("source_type", execution.sourceType);
+                ruleJsonStr = minimal.toJSONString();
+            }
+            calcRuleMetaPersistService.persist(batchId, dataDate, CALC_TYPE_FRTB_SBA, execution.ruleId, ruleJsonStr);
+        } catch (Exception e) {
+            log.warn("FRTB SBA 规则元数据落库失败（不影响主流程）: {}", e.getMessage(), e);
         }
     }
 

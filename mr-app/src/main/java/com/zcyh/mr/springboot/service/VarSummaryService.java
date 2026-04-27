@@ -4,6 +4,8 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
@@ -12,16 +14,21 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class VarSummaryService {
+    private static final Logger log = LoggerFactory.getLogger(VarSummaryService.class);
     private static final String DEFAULT_VAR_RULE_ID = "BATCH_VAR_DEFAULT";
     private static final String DEFAULT_VAR_QUANTILES = "0.95,0.99";
+    private static final String CALC_TYPE_VAR = "VAR";
 
     private final VarDbRunnerService varDbRunnerService;
     private final VarResultPersistService varResultPersistService;
+    private final CalcRuleMetaPersistService calcRuleMetaPersistService;
 
     public VarSummaryService(VarDbRunnerService varDbRunnerService,
-                             VarResultPersistService varResultPersistService) {
+                             VarResultPersistService varResultPersistService,
+                             CalcRuleMetaPersistService calcRuleMetaPersistService) {
         this.varDbRunnerService = varDbRunnerService;
         this.varResultPersistService = varResultPersistService;
+        this.calcRuleMetaPersistService = calcRuleMetaPersistService;
     }
 
     public JSONObject summarize(JSONObject request) {
@@ -48,6 +55,7 @@ public class VarSummaryService {
         JSONObject summary = JSON.parseObject(raw);
         if (persistResult) {
             varResultPersistService.persist(batchId, dataDate, summary);
+            persistRuleMeta(batchId, dataDate, runnerRequest);
         }
 
         JSONObject response = new JSONObject();
@@ -55,6 +63,33 @@ public class VarSummaryService {
         response.put("data_date", dataDate);
         response.put("summary", summary);
         return response;
+    }
+
+    /**
+     * 将 VaR 计算请求中每条规则的完整 JSON 写入规则元数据表。
+     */
+    private void persistRuleMeta(String batchId, String dataDate, JSONObject runnerRequest) {
+        try {
+            JSONArray rules = runnerRequest.getJSONArray("rules");
+            if (rules == null || rules.isEmpty()) {
+                return;
+            }
+            calcRuleMetaPersistService.deleteByBatchAndCalcType(batchId, dataDate, CALC_TYPE_VAR);
+            for (int i = 0; i < rules.size(); i++) {
+                JSONObject ruleJson = rules.getJSONObject(i);
+                if (ruleJson == null) {
+                    continue;
+                }
+                String ruleId = readString(ruleJson, "rule_id");
+                if (ruleId == null) {
+                    ruleId = "VAR_RULE_" + (i + 1);
+                }
+                String ruleJsonStr = ruleJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
+                calcRuleMetaPersistService.persist(batchId, dataDate, CALC_TYPE_VAR, ruleId, ruleJsonStr);
+            }
+        } catch (Exception e) {
+            log.warn("VaR 规则元数据落库失败（不影响主流程）: {}", e.getMessage(), e);
+        }
     }
 
     private static JSONObject copyRequest(JSONObject request) {

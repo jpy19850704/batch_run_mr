@@ -22,7 +22,7 @@ public class VarResultPersistService {
     private static final int DEFAULT_BATCH_SIZE = 5000;
     private static final String TARGET_TABLE = "TB_OUT_VAR_RESULT";
     private static final String STREAM_LOAD_COLUMNS =
-            "BATCH_ID,DATA_DATE,QUANTILE,RULE_ID,RULE_NAME,MODE,SCENARIO_ID,GROUP_TYPE,GROUP_VALUE,RISK_CLASS,VAR,ES,SELECTED_METHOD,CREATED_AT";
+            "BATCH_ID,DATA_DATE,QUANTILE,RULE_ID,RULE_NAME,MODE,SCENARIO_ID,GROUP_TYPE,GROUP_VALUE,RISK_CLASS,VAR,ES,COMPONENT_VAR,MARGINAL_VAR,INCREMENTAL_VAR,SELECTED_METHOD,CREATED_AT";
 
     private final JdbcTemplate jdbcTemplate;
     private final DorisStreamLoadService dorisStreamLoadService;
@@ -117,6 +117,9 @@ public class VarResultPersistService {
                             String riskClass = trimToNull(riskResult.getString("risk_class"));
                             BigDecimal varValue = toBigDecimal(riskResult.get("var"));
                             BigDecimal esValue = toBigDecimal(riskResult.get("es"));
+                            BigDecimal componentVar = toBigDecimal(riskResult.get("component_var"));
+                            BigDecimal marginalVar = toBigDecimal(riskResult.get("marginal_var"));
+                            BigDecimal incrementalVar = toBigDecimal(riskResult.get("incremental_var"));
 
                             rows.add(ResultRow.of(
                                     safeBatchId,
@@ -131,6 +134,9 @@ public class VarResultPersistService {
                                     riskClass,
                                     varValue,
                                     esValue,
+                                    componentVar,
+                                    marginalVar,
+                                    incrementalVar,
                                     selectedMethod
                             ));
                         }
@@ -165,6 +171,9 @@ public class VarResultPersistService {
                     row.riskClass,
                     DorisCsvStreamLoadBuffer.decimalText(row.varValue),
                     DorisCsvStreamLoadBuffer.decimalText(row.esValue),
+                    DorisCsvStreamLoadBuffer.decimalText(row.componentVar),
+                    DorisCsvStreamLoadBuffer.decimalText(row.marginalVar),
+                    DorisCsvStreamLoadBuffer.decimalText(row.incrementalVar),
                     row.selectedMethod,
                     now
             );
@@ -211,6 +220,9 @@ public class VarResultPersistService {
         private String riskClass;
         private BigDecimal varValue;
         private BigDecimal esValue;
+        private BigDecimal componentVar;
+        private BigDecimal marginalVar;
+        private BigDecimal incrementalVar;
         private String selectedMethod;
 
         static ResultRow of(String batchId,
@@ -225,6 +237,9 @@ public class VarResultPersistService {
                             String riskClass,
                             BigDecimal varValue,
                             BigDecimal esValue,
+                            BigDecimal componentVar,
+                            BigDecimal marginalVar,
+                            BigDecimal incrementalVar,
                             String selectedMethod) {
             ResultRow row = new ResultRow();
             row.batchId = batchId;
@@ -237,8 +252,11 @@ public class VarResultPersistService {
             row.groupType = groupType;
             row.groupValue = groupValue;
             row.riskClass = riskClass;
-            row.varValue = varValue;
-            row.esValue = esValue;
+            row.varValue = varValue == null ? BigDecimal.ZERO : varValue;
+            row.esValue = esValue == null ? BigDecimal.ZERO : esValue;
+            row.componentVar = componentVar == null ? BigDecimal.ZERO : componentVar;
+            row.marginalVar = marginalVar == null ? BigDecimal.ZERO : marginalVar;
+            row.incrementalVar = incrementalVar == null ? BigDecimal.ZERO : incrementalVar;
             row.selectedMethod = selectedMethod;
             return row;
         }

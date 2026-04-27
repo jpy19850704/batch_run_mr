@@ -698,7 +698,7 @@ public class PricingResultPersistService {
      * @param merged            合并结果（保持插入顺序）
      * @param marketData        待合并的曲线数组
      * @param overrideOnConflict 是否允许覆盖同键
-     * @param sourceTag         来源标记（仅用于缺少业务键时生成稳定兜底键）
+     * @param sourceTag         来源标记（仅用于错误定位）
      */
     private void appendMarketDataByPriority(LinkedHashMap<String, JSONObject> merged, JSONArray marketData,
                                             boolean overrideOnConflict, String sourceTag) {
@@ -718,20 +718,19 @@ public class PricingResultPersistService {
     }
 
     /**
-     * 构建曲线合并键：
-     * 优先使用 CURVE_TYPE + CURVE_ID（或 FIXING_ID）；
-     * 若业务键缺失，则退化为来源+序号，避免不同来源无键数据互相覆盖。
+     * 构建曲线合并键，业务键必须完整提供。
      */
     private String buildCurveMergeKey(JSONObject curve, String sourceTag, int index) {
         if (curve == null) {
-            return sourceTag + "#" + index;
+            throw new IllegalArgumentException("市场数据为空，无法构建合并键: source=" + sourceTag + ", index=" + index);
         }
         String curveType = resolveCurveType(curve);
         String curveId = resolveCurveId(curve);
-        if (curveType == null && curveId == null) {
-            return sourceTag + "#" + index;
+        if (curveType == null || curveId == null) {
+            throw new IllegalArgumentException("市场数据缺少 CURVE_TYPE 或 CURVE_ID/FIXING_ID，无法构建合并键: source="
+                    + sourceTag + ", index=" + index);
         }
-        return defaultEmpty(curveType) + "|" + defaultEmpty(curveId);
+        return curveType + "|" + curveId;
     }
 
     private static String resolveCurveType(JSONObject curve) {
@@ -922,11 +921,6 @@ public class PricingResultPersistService {
             }
         }
         return null;
-    }
-
-    private static String defaultEmpty(String value) {
-        String text = trimToNull(value);
-        return text == null ? "" : text;
     }
 
     private static String normalizeDataDate(String dataDateText) {
