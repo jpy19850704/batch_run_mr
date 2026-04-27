@@ -577,6 +577,7 @@ public class BatchJobService {
         clearExistingResultTableWithRetry("TB_OUT_TRADE_DRC_RESULT", batchId);
         clearExistingResultTableWithRetry("TB_OUT_MARKET_DATA_DETAIL", batchId);
         clearExistingResultTableWithRetry("TB_OUT_PORTFOLIO_HIERARCHY", batchId);
+        clearExistingResultTableWithRetry("TB_OUT_CALC_RULE_META", batchId);
     }
 
     private void clearExistingResultTableWithRetry(String tableName, String batchId) {

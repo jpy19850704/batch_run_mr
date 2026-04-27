@@ -135,6 +135,11 @@ public class BatchResultFileService {
                 batchId,
                 engineResultDbJdbcTemplate
         ));
+        snapshot.put("calc_rule_meta", queryForList(
+                "SELECT * FROM TB_OUT_CALC_RULE_META WHERE batch_id=? ORDER BY data_date, calc_type, rule_id",
+                batchId,
+                engineResultDbJdbcTemplate
+        ));
 
         String fileName = batchId + "_" + FILE_TS_FORMAT.format(LocalDateTime.now()) + ".json";
         Path directory = Paths.get(batchResultDir).toAbsolutePath().normalize();
@@ -190,6 +195,8 @@ public class BatchResultFileService {
                 "SELECT batch_id, seq_no, id FROM TB_OUT_TRADE_DRC_DETAIL WHERE 1=0");
         verifyQuery(engineResultDbJdbcTemplate, "engine_result_db", "TB_OUT_TRADE_DRC_RESULT",
                 "SELECT batch_id, data_date, decomp_flag, agg_level FROM TB_OUT_TRADE_DRC_RESULT WHERE 1=0");
+        verifyQuery(engineResultDbJdbcTemplate, "engine_result_db", "TB_OUT_CALC_RULE_META",
+                "SELECT batch_id, data_date, calc_type, rule_id FROM TB_OUT_CALC_RULE_META WHERE 1=0");
     }
 
     private void verifyQuery(JdbcTemplate jdbcTemplate, String dataSourceName, String tableName, String sql) {
