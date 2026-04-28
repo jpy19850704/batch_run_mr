@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_RESULT_DETAIL (
     STATUS          VARCHAR(16),
     ERROR           TEXT,
     DETAIL          TEXT,
-    ERRORS_JSON     TEXT,
+    LOGS_JSON       TEXT,
     CASHFLOW_JSON   TEXT,
     RESULT_JSON             TEXT,
     TRADE_INPUT_JSON        TEXT            COMMENT '原始交易输入 JSON',
@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_RESULT_DETAIL (
     PNL                     DECIMAL(38, 10),
     ERROR                   TEXT,
     DETAIL                  TEXT,
+    LOGS_JSON               TEXT,
     RESULT_JSON             TEXT,
     CREATED_AT              VARCHAR(32),
     UPDATED_AT              VARCHAR(32)
@@ -136,6 +137,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL (
     COMM_PNL            DECIMAL(38, 10),
     ALL_VALUATION       DECIMAL(38, 10),
     ALL_PNL             DECIMAL(38, 10),
+    LOGS_JSON           TEXT,
     RESULT_JSON         TEXT,
     CREATED_AT          VARCHAR(32),
     UPDATED_AT          VARCHAR(32)

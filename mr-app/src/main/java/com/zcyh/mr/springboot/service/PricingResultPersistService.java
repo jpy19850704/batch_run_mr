@@ -18,7 +18,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -36,21 +35,20 @@ public class PricingResultPersistService {
     private static final DateTimeFormatter DATE_10_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final int DEFAULT_BATCH_SIZE = 20000;
     private static final int MAX_INVALID_DRC_LOG = 10;
-    private static final int ERROR_TEXT_MAX_LEN = 1000;
     private static final String DECOMP_TABLE = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
     private static final String TRADE_RESULT_TABLE = "TB_OUT_TRADE_RESULT_DETAIL";
     private static final String TRADE_RESULT_COLUMNS =
             "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,INSTRUMENT_ID,PRODUCT_CODE,PORTFOLIO,DESK,TRADER,"
                     + "POSITION,VALUATION_UNIT,VALUATION,VALUATION_CCY,VALUATION_CNY,PV01,DELTA,GAMMA,VEGA,THETA,RHO,"
-                    + "STATUS,ERROR,DETAIL,ERRORS_JSON,CASHFLOW_JSON,RESULT_JSON,TRADE_INPUT_JSON,MARKET_DATA_KEYS_JSON,CREATED_AT,UPDATED_AT";
+                    + "STATUS,ERROR,DETAIL,LOGS_JSON,CASHFLOW_JSON,RESULT_JSON,TRADE_INPUT_JSON,MARKET_DATA_KEYS_JSON,CREATED_AT,UPDATED_AT";
     private static final String SCENARIO_RESULT_TABLE = "TB_OUT_TRADE_SCENARIO_RESULT_DETAIL";
     private static final String SCENARIO_RESULT_COLUMNS =
             "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,INSTRUMENT_ID,PRODUCT_CODE,"
-                    + "BASE_VALUATION_CNY,SCENARIO_VALUATION_CNY,PNL,ERROR,DETAIL,RESULT_JSON,CREATED_AT,UPDATED_AT";
+                    + "BASE_VALUATION_CNY,SCENARIO_VALUATION_CNY,PNL,ERROR,DETAIL,LOGS_JSON,RESULT_JSON,CREATED_AT,UPDATED_AT";
     private static final String DECOMP_RESULT_COLUMNS =
             "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,INSTRUMENT_ID,PRODUCT_CODE,"
                     + "BASE_VALUATION_CNY,IR_VALUATION,IR_PNL,FX_VALUATION,FX_PNL,EQ_VALUATION,EQ_PNL,COMM_VALUATION,COMM_PNL,ALL_VALUATION,ALL_PNL,"
-                    + "RESULT_JSON,CREATED_AT,UPDATED_AT";
+                    + "LOGS_JSON,RESULT_JSON,CREATED_AT,UPDATED_AT";
     private static final String FRTB_SENSITIVITY_TABLE = "TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL";
     private static final String FRTB_SENSITIVITY_COLUMNS =
             "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,INSTRUMENT_ID,PRODUCT_CODE,RISK_FACTOR_ID,RISK_FACTOR_VERTEX_1,RISK_FACTOR_VERTEX_2,"
@@ -144,17 +142,17 @@ public class PricingResultPersistService {
                     "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
                             + "INSTRUMENT_ID, PRODUCT_CODE, PORTFOLIO, DESK, TRADER, "
                             + "POSITION, VALUATION_UNIT, VALUATION, VALUATION_CCY, VALUATION_CNY, "
-                            + "PV01, DELTA, GAMMA, VEGA, THETA, RHO, STATUS, ERROR, DETAIL, ERRORS_JSON, CASHFLOW_JSON, RESULT_JSON, "
+                            + "PV01, DELTA, GAMMA, VEGA, THETA, RHO, STATUS, ERROR, DETAIL, LOGS_JSON, CASHFLOW_JSON, RESULT_JSON, "
                             + "TRADE_INPUT_JSON, MARKET_DATA_KEYS_JSON, CREATED_AT, UPDATED_AT");
             verifyTableColumns("TB_OUT_TRADE_SCENARIO_RESULT_DETAIL",
                     "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
                             + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, INSTRUMENT_ID, PRODUCT_CODE, "
-                            + "BASE_VALUATION_CNY, SCENARIO_VALUATION_CNY, PNL, ERROR, DETAIL, RESULT_JSON, CREATED_AT, UPDATED_AT");
+                            + "BASE_VALUATION_CNY, SCENARIO_VALUATION_CNY, PNL, ERROR, DETAIL, LOGS_JSON, RESULT_JSON, CREATED_AT, UPDATED_AT");
             verifyTableColumns(DECOMP_TABLE,
                     "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
                             + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, INSTRUMENT_ID, PRODUCT_CODE, "
                             + "BASE_VALUATION_CNY, IR_VALUATION, IR_PNL, FX_VALUATION, FX_PNL, EQ_VALUATION, EQ_PNL, COMM_VALUATION, COMM_PNL, "
-                            + "ALL_VALUATION, ALL_PNL, RESULT_JSON, CREATED_AT, UPDATED_AT");
+                            + "ALL_VALUATION, ALL_PNL, LOGS_JSON, RESULT_JSON, CREATED_AT, UPDATED_AT");
             verifyTableColumns("TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL",
                     "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
                             + "INSTRUMENT_ID, PRODUCT_CODE, RISK_FACTOR_ID, RISK_FACTOR_VERTEX_1, RISK_FACTOR_VERTEX_2, "
@@ -256,9 +254,9 @@ public class PricingResultPersistService {
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("THETA"))),
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("RHO"))),
                     trimToNull(trade.getString("STATUS")),
-                    resolveErrorText(trade),
+                    null,
                     toTextValue(trade.get("DETAIL")),
-                    toJsonString(trade.get("ERRORS")),
+                    toJsonString(trade.get("LOGS")),
                     toJsonString(trade.get("CASH_FLOW")),
                     isSyntheticErrorTrade(trade) ? null : toJsonString(trade),
                     toJsonString(inputTrade),
@@ -302,7 +300,6 @@ public class PricingResultPersistService {
                 }
                 String instrumentId = trimToNull(trade.getString("INSTRUMENT_ID"));
                 JSONObject baseTrade = instrumentId == null ? null : baseTradeIndex.get(instrumentId);
-                String errorText = resolveErrorText(trade);
                 buffer.appendRow(
                         context.requestId,
                         context.jobId,
@@ -320,7 +317,8 @@ public class PricingResultPersistService {
                         DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("PNL"))),
                         null,
                         toTextValue(trade.get("DETAIL")),
-                        null,
+                        toJsonString(trade.get("LOGS")),
+                        toJsonString(trade),
                         context.createdAt,
                         context.updatedAt
                 );
@@ -347,7 +345,6 @@ public class PricingResultPersistService {
             }
             String instrumentId = trimToNull(trade.getString("INSTRUMENT_ID"));
             JSONObject baseTrade = instrumentId == null ? null : baseTradeIndex.get(instrumentId);
-            String errorText = resolveErrorText(trade);
             buffer.appendRow(
                     context.requestId,
                     context.jobId,
@@ -371,7 +368,8 @@ public class PricingResultPersistService {
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("COMM_PNL"))),
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("ALL_VALUATION"))),
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("ALL_PNL"))),
-                    null,
+                    toJsonString(trade.get("LOGS")),
+                    toJsonString(trade),
                     context.createdAt,
                     context.updatedAt
             );
@@ -530,38 +528,49 @@ public class PricingResultPersistService {
                 }
             }
         }
-        if (logData == null || logData.isEmpty()) {
+        if ((logData == null || logData.isEmpty()) && (inputTradeIndex == null || inputTradeIndex.isEmpty())) {
             return result;
         }
 
         LinkedHashMap<String, JSONObject> missingErrorTrades = new LinkedHashMap<String, JSONObject>();
-        for (int i = 0; i < logData.size(); i++) {
-            JSONObject logItem = logData.getJSONObject(i);
-            if (logItem == null) {
-                continue;
-            }
-            String instrumentId = trimToNull(logItem.getString("INSTRUMENT_ID"));
-            if (instrumentId == null || existedInstrumentIds.contains(instrumentId)) {
-                continue;
-            }
-            String message = trimToNull(logItem.getString("ERROR"));
-            if (message == null) {
-                message = "计算异常";
-            }
+        if (logData != null) {
+            for (int i = 0; i < logData.size(); i++) {
+                JSONObject logItem = logData.getJSONObject(i);
+                if (logItem == null) {
+                    continue;
+                }
+                String instrumentId = trimToNull(logItem.getString("INSTRUMENT_ID"));
+                if (instrumentId == null || existedInstrumentIds.contains(instrumentId)) {
+                    continue;
+                }
+                String message = resolveLogMessage(logItem);
+                if (message == null) {
+                    message = "计算异常";
+                }
 
-            JSONObject errorTrade = missingErrorTrades.get(instrumentId);
-            if (errorTrade == null) {
-                JSONObject inputTrade = inputTradeIndex == null ? null : inputTradeIndex.get(instrumentId);
-                errorTrade = new JSONObject();
-                errorTrade.put("INSTRUMENT_ID", instrumentId);
-                errorTrade.put("PRODUCT_CODE", trimToNull(logItem.getString("PRODUCT_CODE")));
-                errorTrade.put("DATA_DATE", context == null ? null : context.dataDate);
-                errorTrade.put("STATUS", "ERROR");
-                errorTrade.put(SYNTHETIC_ERROR_TRADE_FLAG, true);
-                errorTrade.put("ERRORS", new JSONArray());
+                JSONObject errorTrade = missingErrorTrades.get(instrumentId);
+                if (errorTrade == null) {
+                    JSONObject inputTrade = inputTradeIndex == null ? null : inputTradeIndex.get(instrumentId);
+                    errorTrade = buildSyntheticErrorTrade(instrumentId,
+                            trimToNull(logItem.getString("PRODUCT_CODE")),
+                            inputTrade,
+                            context);
+                    missingErrorTrades.put(instrumentId, errorTrade);
+                }
+                appendTradeLog(errorTrade, "ERROR", message);
+            }
+        }
+        if (inputTradeIndex != null) {
+            for (Map.Entry<String, JSONObject> entry : inputTradeIndex.entrySet()) {
+                String instrumentId = trimToNull(entry.getKey());
+                if (instrumentId == null || existedInstrumentIds.contains(instrumentId)
+                        || missingErrorTrades.containsKey(instrumentId)) {
+                    continue;
+                }
+                JSONObject errorTrade = buildSyntheticErrorTrade(instrumentId, null, entry.getValue(), context);
+                appendTradeLog(errorTrade, "ERROR", "输入交易未生成计量结果");
                 missingErrorTrades.put(instrumentId, errorTrade);
             }
-            appendErrorMessage(errorTrade, message);
         }
 
         for (JSONObject errorTrade : missingErrorTrades.values()) {
@@ -570,40 +579,57 @@ public class PricingResultPersistService {
         return result;
     }
 
-    private static void appendErrorMessage(JSONObject errorTrade, String message) {
+    private static JSONObject buildSyntheticErrorTrade(String instrumentId, String productCode,
+                                                       JSONObject inputTrade, PersistContext context) {
+        JSONObject errorTrade = new JSONObject();
+        errorTrade.put("INSTRUMENT_ID", instrumentId);
+        errorTrade.put("PRODUCT_CODE", productCode != null ? productCode
+                : inputTrade == null ? null : trimToNull(inputTrade.getString("PRODUCT_CODE")));
+        errorTrade.put("DATA_DATE", context == null ? null : context.dataDate);
+        errorTrade.put("STATUS", "ERROR");
+        errorTrade.put(SYNTHETIC_ERROR_TRADE_FLAG, true);
+        errorTrade.put("LOGS", new JSONArray());
+        return errorTrade;
+    }
+
+    private static String resolveLogMessage(JSONObject logItem) {
+        String message = trimToNull(logItem.getString("info"));
+        if (message != null) {
+            return message;
+        }
+        message = trimToNull(logItem.getString("ERROR"));
+        if (message != null) {
+            return message;
+        }
+        return trimToNull(logItem.getString("message"));
+    }
+
+    private static void appendTradeLog(JSONObject errorTrade, String level, String message) {
         if (errorTrade == null) {
             return;
         }
-        String safeMessage = normalizeErrorText(message);
+        String safeMessage = trimToNull(message);
         if (safeMessage == null) {
             return;
         }
-        JSONArray errors = errorTrade.getJSONArray("ERRORS");
-        if (errors == null) {
-            errors = new JSONArray();
-            errorTrade.put("ERRORS", errors);
+        JSONArray logs = errorTrade.getJSONArray("LOGS");
+        if (logs == null) {
+            logs = new JSONArray();
+            errorTrade.put("LOGS", logs);
         }
-        for (int i = 0; i < errors.size(); i++) {
-            if (safeMessage.equals(String.valueOf(errors.get(i)))) {
+        String safeLevel = trimToNull(level) == null ? "ERROR" : level;
+        for (int i = 0; i < logs.size(); i++) {
+            JSONObject item = logs.getJSONObject(i);
+            if (item != null
+                    && safeMessage.equals(String.valueOf(item.get("message")))
+                    && safeLevel.equalsIgnoreCase(String.valueOf(item.get("level")))) {
                 return;
             }
         }
-        errors.add(safeMessage);
-        errorTrade.put("ERROR", String.join(" | ", toStringList(errors)));
-    }
-
-    private static List<String> toStringList(JSONArray array) {
-        List<String> values = new ArrayList<String>();
-        if (array == null) {
-            return values;
-        }
-        for (int i = 0; i < array.size(); i++) {
-            String value = trimToNull(String.valueOf(array.get(i)));
-            if (value != null) {
-                values.add(value);
-            }
-        }
-        return values;
+        JSONObject log = new JSONObject();
+        log.put("level", safeLevel);
+        log.put("message", safeMessage);
+        logs.add(log);
     }
 
     private static boolean isSyntheticErrorTrade(JSONObject trade) {
@@ -788,80 +814,6 @@ public class PricingResultPersistService {
         } catch (Exception ex) {
             return null;
         }
-    }
-
-    private static String resolveErrorText(JSONObject trade) {
-        String explicit = normalizeErrorText(trade.getString("ERROR"));
-        if (explicit != null) {
-            return explicit;
-        }
-        JSONArray errors = trade.getJSONArray("ERRORS");
-        if (errors == null || errors.isEmpty()) {
-            return null;
-        }
-        List<String> messages = new ArrayList<String>();
-        for (int i = 0; i < errors.size(); i++) {
-            Object item = errors.get(i);
-            String text = item == null ? null : normalizeErrorText(String.valueOf(item));
-            if (text != null) {
-                messages.add(text);
-            }
-        }
-        if (messages.isEmpty()) {
-            return null;
-        }
-        return normalizeErrorText(String.join(" | ", messages));
-    }
-
-    private static String buildErrorResultJson(String errorText, JSONArray rawErrors) {
-        String safeError = normalizeErrorText(errorText);
-        if (safeError == null && (rawErrors == null || rawErrors.isEmpty())) {
-            return null;
-        }
-        JSONArray errors = new JSONArray();
-        appendUniqueError(errors, safeError);
-        if (rawErrors != null) {
-            for (int i = 0; i < rawErrors.size(); i++) {
-                Object item = rawErrors.get(i);
-                appendUniqueError(errors, item == null ? null : String.valueOf(item));
-            }
-        }
-        if (errors.isEmpty()) {
-            return null;
-        }
-        JSONObject errorJson = new JSONObject();
-        errorJson.put("STATUS", "ERROR");
-        errorJson.put("ERROR", String.join(" | ", toStringList(errors)));
-        errorJson.put("ERRORS", errors);
-        return toJsonString(errorJson);
-    }
-
-    private static void appendUniqueError(JSONArray errors, String message) {
-        if (errors == null) {
-            return;
-        }
-        String safeMessage = normalizeErrorText(message);
-        if (safeMessage == null) {
-            return;
-        }
-        for (int i = 0; i < errors.size(); i++) {
-            if (safeMessage.equals(String.valueOf(errors.get(i)))) {
-                return;
-            }
-        }
-        errors.add(safeMessage);
-    }
-
-    private static String normalizeErrorText(String message) {
-        String safeMessage = trimToNull(message);
-        if (safeMessage == null) {
-            return null;
-        }
-        safeMessage = safeMessage.replace('\r', ' ').replace('\n', ' ').trim();
-        if (safeMessage.length() <= ERROR_TEXT_MAX_LEN) {
-            return safeMessage;
-        }
-        return safeMessage.substring(0, ERROR_TEXT_MAX_LEN) + "...";
     }
 
     private static BigDecimal toBigDecimal(Object value) {
