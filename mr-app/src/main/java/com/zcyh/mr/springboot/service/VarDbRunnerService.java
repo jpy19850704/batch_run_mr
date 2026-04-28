@@ -78,7 +78,7 @@ public class VarDbRunnerService {
         String batchId = requireTopLevelString(req, "batch_id");
         String dataDate = requireTopLevelString(req, "data_date");
         List<BigDecimal> quantiles = parseQuantiles(req.get("quantiles"));
-        List<String> metrics = parseMetrics(req.get("metrics"));
+        List<String> metrics = parseMeasures(req.get("measure"));
         List<VarRuleConfig> rules = parseRules(req);
         boolean includeDetailRequested = readBoolean(req, "include_detail", false);
         boolean includeDetail = includeDetailRequested;
@@ -130,7 +130,7 @@ public class VarDbRunnerService {
         summaryFile.put("batch_id", batchId);
         summaryFile.put("data_date", dataDate);
         summaryFile.put("quantiles", toQuantileArray(quantiles));
-        summaryFile.put("metrics", toStringArray(metrics));
+        summaryFile.put("measure", toStringArray(metrics));
         summaryFile.put("quantile_groups", toJsonArray(quantileGroups));
 
         JSONObject detailFile = new JSONObject();
@@ -1068,7 +1068,7 @@ public class VarDbRunnerService {
         return deduped;
     }
 
-    static List<String> parseMetrics(Object value) {
+    static List<String> parseMeasures(Object value) {
         List<String> metrics = new ArrayList<String>();
         if (value instanceof JSONArray) {
             JSONArray array = (JSONArray) value;
@@ -1107,7 +1107,7 @@ public class VarDbRunnerService {
                 && !METRIC_COMPONENT_VAR.equals(upper)
                 && !METRIC_MARGINAL_VAR.equals(upper)
                 && !METRIC_INCREMENTAL_VAR.equals(upper)) {
-            throw new IllegalArgumentException("不支持的 metrics 取值: " + rawMetric);
+            throw new IllegalArgumentException("不支持的 measure 取值: " + rawMetric);
         }
         if (!containsIgnoreCase(metrics, upper)) {
             metrics.add(upper);
