@@ -5,18 +5,21 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.springboot.model.AggregationRule;
-import com.zcyh.mr.var.VarCalculator;
+import com.zcyh.mr.var.VarDimensionGroup;
+import com.zcyh.mr.var.VarDimensionMeasureResult;
+import com.zcyh.mr.var.VarMeasure;
+import com.zcyh.mr.var.VarNonDecompCalculator;
 import com.zcyh.mr.var.VarPickMethod;
-import com.zcyh.mr.var.VarQuantileResult;
-import com.zcyh.mr.var.VarScenarioPnl;
+import com.zcyh.mr.var.VarPnlColumns;
+import com.zcyh.mr.var.VarRiskClassDecompCalculator;
+import com.zcyh.mr.var.VarRiskClassMeasureResult;
+import com.zcyh.mr.var.VarScenarioKey;
+import com.zcyh.mr.var.VarScenarioPnlAggregate;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -30,34 +33,27 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * VaR 数据库输入执行服务。
  */
 @Service
 public class VarDbRunnerService {
-    private static final Logger log = LoggerFactory.getLogger(VarDbRunnerService.class);
     private static final String VAR_PICK_IN = "in";
     private static final String VAR_PICK_OUT = "out";
     private static final String VAR_PICK_AVERAGE = "average";
-    private static final BigDecimal TWO = BigDecimal.valueOf(2L);
-    private static final int DEFAULT_SCALE = 10;
     private static final String TOTAL = "TOTAL";
     private static final String DEFAULT_RULE_TYPE = "VAR";
-    private static final String DEFAULT_SUM_FIELD = "ALL_PNL";
+    private static final String DEFAULT_SUM_FIELD = VarPnlColumns.ALL_PNL;
     private static final String VAR_DETAIL_FETCH_API = "/api/engine/var/detail";
-    private static final String METRIC_VAR = "VAR";
-    private static final String METRIC_ES = "ES";
-    private static final String METRIC_COMPONENT_VAR = "COMPONENT_VAR";
-    private static final String METRIC_MARGINAL_VAR = "MARGINAL_VAR";
-    private static final String METRIC_INCREMENTAL_VAR = "INCREMENTAL_VAR";
-    private static final BigDecimal ONE_PERCENT = new BigDecimal("0.01");
 
     private final VarInputQueryService inputQueryService;
     private final DimensionAggregationService dimensionAggregationService;
     private final VarDetailCacheService varDetailCacheService;
     private final ExecutorService batchExecutor;
-    private final VarCalculator varCalculator = new VarCalculator();
+    private final VarNonDecompCalculator nonDecompCalculator = new VarNonDecompCalculator();
+    private final VarRiskClassDecompCalculator riskClassDecompCalculator = new VarRiskClassDecompCalculator();
 
     public VarDbRunnerService(VarInputQueryService inputQueryService,
                               DimensionAggregationService dimensionAggregationService,
@@ -78,7 +74,7 @@ public class VarDbRunnerService {
         String batchId = requireTopLevelString(req, "batch_id");
         String dataDate = requireTopLevelString(req, "data_date");
         List<BigDecimal> quantiles = parseQuantiles(req.get("quantiles"));
-        List<String> metrics = parseMeasures(req.get("measure"));
+        List<VarMeasure> measures = parseMeasures(req.get("measure"));
         List<VarRuleConfig> rules = parseRules(req);
         boolean includeDetailRequested = readBoolean(req, "include_detail", false);
         boolean includeDetail = includeDetailRequested;
@@ -93,7 +89,7 @@ public class VarDbRunnerService {
             throw new IllegalStateException("include_detail=true 但 Redis 缓存服务未启用");
         }
 
-        int[] detailCacheCount = new int[]{0};
+        AtomicInteger detailCacheCount = new AtomicInteger(0);
 
         List<JSONObject> quantileGroups = initQuantileGroups(quantiles);
         for (VarRuleConfig ruleConfig : rules) {
@@ -103,24 +99,32 @@ public class VarDbRunnerService {
 
             List<VarInputQueryService.RuleScenarioPnlRow> rows =
                     inputQueryService.queryRuleScenarioPnlRows(batchId, dataDate, ruleConfig.rule);
-            Map<String, List<DimensionGroupData>> scenarioDimensionGroups = buildScenarioDimensionGroups(ruleConfig.rule, rows);
+            Map<String, List<VarDimensionGroup>> scenarioDimensionGroups = buildScenarioDimensionGroups(ruleConfig.rule, rows);
             if (scenarioDimensionGroups.isEmpty()) {
                 continue;
             }
 
-            for (int qIndex = 0; qIndex < quantiles.size(); qIndex++) {
-                BigDecimal quantile = quantiles.get(qIndex);
-                JSONObject quantileGroup = quantileGroups.get(qIndex);
+            List<QuantileRuleResults> ruleResultsByQuantile = ruleConfig.decompMode
+                    ? calculateDecompRuleResultsForQuantiles(
+                            ruleConfig,
+                            scenarioDimensionGroups,
+                            quantiles,
+                            measures,
+                            includeDetail,
+                            requestId,
+                            detailCacheCount)
+                    : calculateNormalRuleResultsForQuantiles(
+                            ruleConfig,
+                            scenarioDimensionGroups,
+                            quantiles,
+                            measures,
+                            includeDetail,
+                            requestId,
+                            detailCacheCount);
+            for (QuantileRuleResults quantileResult : ruleResultsByQuantile) {
+                JSONObject quantileGroup = quantileGroups.get(quantileResult.quantileIndex);
                 JSONArray ruleResults = quantileGroup.getJSONArray("rule_results");
-                List<JSONObject> ruleResultItems = buildRuleResultsForQuantile(
-                        ruleConfig,
-                        scenarioDimensionGroups,
-                        quantile,
-                        metrics,
-                        includeDetail,
-                        requestId,
-                        detailCacheCount);
-                for (JSONObject item : ruleResultItems) {
+                for (JSONObject item : quantileResult.ruleResults) {
                     ruleResults.add(item);
                 }
             }
@@ -130,7 +134,7 @@ public class VarDbRunnerService {
         summaryFile.put("batch_id", batchId);
         summaryFile.put("data_date", dataDate);
         summaryFile.put("quantiles", toQuantileArray(quantiles));
-        summaryFile.put("measure", toStringArray(metrics));
+        summaryFile.put("measure", toMeasureArray(measures));
         summaryFile.put("quantile_groups", toJsonArray(quantileGroups));
 
         JSONObject detailFile = new JSONObject();
@@ -138,7 +142,7 @@ public class VarDbRunnerService {
         detailFile.put("requested", includeDetailRequested);
         detailFile.put("request_id", requestId);
         detailFile.put("fetch_api", VAR_DETAIL_FETCH_API);
-        detailFile.put("cache_entries", detailCacheCount[0]);
+        detailFile.put("cache_entries", detailCacheCount.get());
         if (varDetailCacheService != null) {
             detailFile.put("ttl_seconds", varDetailCacheService.getTtlSeconds());
         }
@@ -161,17 +165,42 @@ public class VarDbRunnerService {
         return groups;
     }
 
-    private List<JSONObject> buildRuleResultsForQuantile(VarRuleConfig ruleConfig,
-                                                         Map<String, List<DimensionGroupData>> scenarioDimensionGroups,
-                                                         BigDecimal quantile,
-                                                         List<String> metrics,
-                                                         boolean includeDetail,
-                                                         String requestId,
-                                                         int[] detailCacheCount) {
+    private List<QuantileRuleResults> calculateDecompRuleResultsForQuantiles(VarRuleConfig ruleConfig,
+                                                                             Map<String, List<VarDimensionGroup>> scenarioDimensionGroups,
+                                                                             List<BigDecimal> quantiles,
+                                                                             List<VarMeasure> measures,
+                                                                             boolean includeDetail,
+                                                                             String requestId,
+                                                                             AtomicInteger detailCacheCount) {
+        List<Future<QuantileRuleResults>> futures = new ArrayList<Future<QuantileRuleResults>>();
+        for (int qIndex = 0; qIndex < quantiles.size(); qIndex++) {
+            final int quantileIndex = qIndex;
+            final BigDecimal quantile = quantiles.get(qIndex);
+            futures.add(batchExecutor.submit(() -> new QuantileRuleResults(
+                    quantileIndex,
+                    buildDecompRuleResultsForQuantile(
+                            ruleConfig,
+                            scenarioDimensionGroups,
+                            quantile,
+                            measures,
+                            includeDetail,
+                            requestId,
+                            detailCacheCount))));
+        }
+        return awaitQuantileRuleResults(futures);
+    }
+
+    private List<JSONObject> buildDecompRuleResultsForQuantile(VarRuleConfig ruleConfig,
+                                                               Map<String, List<VarDimensionGroup>> scenarioDimensionGroups,
+                                                               BigDecimal quantile,
+                                                               List<VarMeasure> measures,
+                                                               boolean includeDetail,
+                                                               String requestId,
+                                                               AtomicInteger detailCacheCount) {
         List<JSONObject> ruleResults = new ArrayList<JSONObject>();
-        for (Map.Entry<String, List<DimensionGroupData>> entry : scenarioDimensionGroups.entrySet()) {
+        for (Map.Entry<String, List<VarDimensionGroup>> entry : scenarioDimensionGroups.entrySet()) {
             String scenarioId = entry.getKey();
-            List<DimensionGroupData> dimensionGroups = entry.getValue();
+            List<VarDimensionGroup> dimensionGroups = entry.getValue();
             if (dimensionGroups == null || dimensionGroups.isEmpty()) {
                 continue;
             }
@@ -184,344 +213,288 @@ public class VarDbRunnerService {
             ruleResult.put("selected_method", ruleConfig.pickMethod.code());
             ruleResult.put("sample_size", deriveSampleSize(dimensionGroups));
 
-            JSONArray dimensionResults = new JSONArray();
-            List<Future<DimensionComputeResult>> futures = new ArrayList<Future<DimensionComputeResult>>();
-            for (DimensionGroupData dimensionGroup : dimensionGroups) {
-                futures.add(batchExecutor.submit(() -> computeDimensionResult(
-                        ruleConfig,
-                        dimensionGroup,
-                        metrics,
-                        quantile,
-                        includeDetail,
-                        requestId,
-                        scenarioId)));
-            }
-            for (Future<DimensionComputeResult> future : futures) {
-                DimensionComputeResult computed = awaitDimensionResult(future);
-                if (computed == null) {
-                    continue;
-                }
-                if (includeDetail && computed.detailPayload != null) {
-                    boolean cached = cacheDimensionDetailPayload(
-                            requestId,
-                            quantile,
-                            ruleConfig.rule.getRuleId(),
-                            scenarioId,
-                            computed.groupType,
-                            computed.groupValue,
-                            computed.detailPayload);
-                    if (cached) {
-                        detailCacheCount[0] = detailCacheCount[0] + 1;
-                    }
-                }
-                dimensionResults.add(computed.dimensionResult);
-            }
+            List<VarDimensionMeasureResult> measureResults = riskClassDecompCalculator.calculate(
+                    dimensionGroups,
+                    ruleConfig.riskClasses,
+                    quantile,
+                    ruleConfig.pickMethod,
+                    measures);
+            JSONArray dimensionResults = toDimensionResultArray(
+                    measureResults,
+                    dimensionGroups,
+                    includeDetail,
+                    requestId,
+                    quantile,
+                    ruleConfig.rule.getRuleId(),
+                    scenarioId,
+                    detailCacheCount);
             ruleResult.put("dimension_results", dimensionResults);
             ruleResults.add(ruleResult);
         }
         return ruleResults;
     }
 
-    private DimensionComputeResult computeDimensionResult(VarRuleConfig ruleConfig,
-                                                          DimensionGroupData dimensionGroup,
-                                                          List<String> metrics,
-                                                          BigDecimal quantile,
-                                                          boolean includeDetail,
-                                                          String requestId,
-                                                          String scenarioId) {
-        JSONObject dimensionResult = new JSONObject();
-        dimensionResult.put("group_type", dimensionGroup.groupType);
-        dimensionResult.put("group_value", dimensionGroup.groupValue);
-        dimensionResult.put("base_valuation_cny", dimensionGroup.baseValuationCny != null
-                ? dimensionGroup.baseValuationCny.stripTrailingZeros().toPlainString() : "0");
+    private List<QuantileRuleResults> calculateNormalRuleResultsForQuantiles(VarRuleConfig ruleConfig,
+                                                                             Map<String, List<VarDimensionGroup>> scenarioDimensionGroups,
+                                                                             List<BigDecimal> quantiles,
+                                                                             List<VarMeasure> measures,
+                                                                             boolean includeDetail,
+                                                                             String requestId,
+                                                                             AtomicInteger detailCacheCount) {
+        List<Future<NormalRiskClassResults>> futures = new ArrayList<Future<NormalRiskClassResults>>();
+        for (int qIndex = 0; qIndex < quantiles.size(); qIndex++) {
+            final int quantileIndex = qIndex;
+            final BigDecimal quantile = quantiles.get(qIndex);
+            for (String riskClass : ruleConfig.riskClasses) {
+                final String currentRiskClass = riskClass;
+                futures.add(batchExecutor.submit(() -> calculateNormalRiskClassResults(
+                        quantileIndex,
+                        quantile,
+                        currentRiskClass,
+                        ruleConfig.pickMethod,
+                        measures,
+                        scenarioDimensionGroups)));
+            }
+        }
 
-        JSONArray riskClassResults = new JSONArray();
-        if (ruleConfig.decompMode) {
-            VarQuantileResult allQuantile = calcSingleQuantile(
-                    toScenarioRows(dimensionGroup.scenarioPnls, DEFAULT_SUM_FIELD),
-                    quantile,
-                    ruleConfig.pickMethod);
-            for (String riskClass : ruleConfig.riskClasses) {
-                JSONObject item = buildDecompRiskClassResult(dimensionGroup, allQuantile, riskClass, ruleConfig.pickMethod);
-                fillExtendedMetricsByAllScenario(
-                        item,
-                        metrics,
-                        dimensionGroup,
-                        allQuantile,
-                        riskClass,
-                        ruleConfig.pickMethod);
-                applySelectedMetrics(item, metrics);
-                riskClassResults.add(item);
-            }
-        } else {
-            for (String riskClass : ruleConfig.riskClasses) {
-                String pnlColumn = riskClassToPnlColumn(riskClass);
-                List<VarScenarioPnl> scenarioRows = toScenarioRows(dimensionGroup.scenarioPnls, pnlColumn);
-                VarQuantileResult quantileResult = calcSingleQuantile(
-                        scenarioRows,
-                        quantile,
-                        ruleConfig.pickMethod);
-                BigDecimal es = varCalculator.calculateEsByOut(scenarioRows, quantile);
-                JSONObject item = buildIndependentRiskClassResult(
-                        quantileResult,
-                        riskClass,
-                        es,
-                        pnlColumn);
-                fillExtendedMetrics(
-                        item,
-                        metrics,
-                        dimensionGroup,
-                        quantile,
-                        riskClass,
-                        ruleConfig.pickMethod);
-                applySelectedMetrics(item, metrics);
-                riskClassResults.add(item);
+        Map<Integer, Map<String, Map<String, List<VarRiskClassMeasureResult>>>> riskResultsByQuantile =
+                initNormalRiskResultBuckets(quantiles, scenarioDimensionGroups);
+        for (Future<NormalRiskClassResults> future : futures) {
+            NormalRiskClassResults taskResult = awaitNormalRiskClassResults(future);
+            Map<String, Map<String, List<VarRiskClassMeasureResult>>> riskResultsByScenario =
+                    riskResultsByQuantile.get(taskResult.quantileIndex);
+            for (ScenarioDimensionMeasureResults scenarioResult : taskResult.scenarioResults) {
+                Map<String, List<VarRiskClassMeasureResult>> riskResultsByGroup =
+                        riskResultsByScenario.get(scenarioResult.scenarioId);
+                if (riskResultsByGroup == null) {
+                    throw new IllegalStateException("VaR 情景结果不在输入情景中: " + scenarioResult.scenarioId);
+                }
+                for (VarDimensionMeasureResult dimensionResult : scenarioResult.dimensionResults) {
+                    String key = dimensionKey(dimensionResult.getGroupType(), dimensionResult.getGroupValue());
+                    List<VarRiskClassMeasureResult> riskResults = riskResultsByGroup.get(key);
+                    if (riskResults == null) {
+                        throw new IllegalStateException("VaR 维度结果不在输入维度中: " + key);
+                    }
+                    riskResults.addAll(dimensionResult.getRiskClassResults());
+                }
             }
         }
-        dimensionResult.put("risk_class_results", riskClassResults);
-        JSONObject detailPayload = null;
-        if (includeDetail) {
-            detailPayload = buildDimensionDetailFile(
-                    requestId,
-                    quantile,
-                    ruleConfig.rule.getRuleId(),
-                    scenarioId,
-                    dimensionGroup);
+
+        List<QuantileRuleResults> quantileResults = new ArrayList<QuantileRuleResults>();
+        for (int qIndex = 0; qIndex < quantiles.size(); qIndex++) {
+            BigDecimal quantile = quantiles.get(qIndex);
+            List<JSONObject> ruleResults = new ArrayList<JSONObject>();
+            Map<String, Map<String, List<VarRiskClassMeasureResult>>> riskResultsByScenario =
+                    riskResultsByQuantile.get(qIndex);
+            for (Map.Entry<String, List<VarDimensionGroup>> entry : scenarioDimensionGroups.entrySet()) {
+                String scenarioId = entry.getKey();
+                List<VarDimensionGroup> dimensionGroups = entry.getValue();
+                if (dimensionGroups == null || dimensionGroups.isEmpty()) {
+                    continue;
+                }
+                List<VarDimensionMeasureResult> measureResults = buildNormalDimensionMeasureResults(
+                        dimensionGroups,
+                        riskResultsByScenario.get(scenarioId));
+                JSONObject ruleResult = buildRuleResultHeader(ruleConfig, scenarioId, dimensionGroups);
+                ruleResult.put("dimension_results", toDimensionResultArray(
+                        measureResults,
+                        dimensionGroups,
+                        includeDetail,
+                        requestId,
+                        quantile,
+                        ruleConfig.rule.getRuleId(),
+                        scenarioId,
+                        detailCacheCount));
+                ruleResults.add(ruleResult);
+            }
+            quantileResults.add(new QuantileRuleResults(qIndex, ruleResults));
         }
-        return new DimensionComputeResult(
-                dimensionResult,
-                detailPayload,
-                dimensionGroup.groupType,
-                dimensionGroup.groupValue);
+        return quantileResults;
     }
 
-    private DimensionComputeResult awaitDimensionResult(Future<DimensionComputeResult> future) {
+    private NormalRiskClassResults calculateNormalRiskClassResults(int quantileIndex,
+                                                                   BigDecimal quantile,
+                                                                   String riskClass,
+                                                                   VarPickMethod pickMethod,
+                                                                   List<VarMeasure> measures,
+                                                                   Map<String, List<VarDimensionGroup>> scenarioDimensionGroups) {
+        List<ScenarioDimensionMeasureResults> scenarioResults = new ArrayList<ScenarioDimensionMeasureResults>();
+        for (Map.Entry<String, List<VarDimensionGroup>> entry : scenarioDimensionGroups.entrySet()) {
+            List<VarDimensionGroup> dimensionGroups = entry.getValue();
+            if (dimensionGroups == null || dimensionGroups.isEmpty()) {
+                continue;
+            }
+            scenarioResults.add(new ScenarioDimensionMeasureResults(
+                    entry.getKey(),
+                    nonDecompCalculator.calculateRiskClass(
+                            dimensionGroups,
+                            riskClass,
+                            quantile,
+                            pickMethod,
+                            measures)));
+        }
+        return new NormalRiskClassResults(quantileIndex, scenarioResults);
+    }
+
+    private Map<Integer, Map<String, Map<String, List<VarRiskClassMeasureResult>>>> initNormalRiskResultBuckets(
+            List<BigDecimal> quantiles,
+            Map<String, List<VarDimensionGroup>> scenarioDimensionGroups) {
+        Map<Integer, Map<String, Map<String, List<VarRiskClassMeasureResult>>>> riskResultsByQuantile =
+                new LinkedHashMap<Integer, Map<String, Map<String, List<VarRiskClassMeasureResult>>>>();
+        for (int qIndex = 0; qIndex < quantiles.size(); qIndex++) {
+            Map<String, Map<String, List<VarRiskClassMeasureResult>>> riskResultsByScenario =
+                    new LinkedHashMap<String, Map<String, List<VarRiskClassMeasureResult>>>();
+            for (Map.Entry<String, List<VarDimensionGroup>> entry : scenarioDimensionGroups.entrySet()) {
+                Map<String, List<VarRiskClassMeasureResult>> riskResultsByGroup =
+                        new LinkedHashMap<String, List<VarRiskClassMeasureResult>>();
+                List<VarDimensionGroup> dimensionGroups = entry.getValue();
+                if (dimensionGroups != null) {
+                    for (VarDimensionGroup dimensionGroup : dimensionGroups) {
+                        riskResultsByGroup.put(dimensionKey(dimensionGroup.getGroupType(), dimensionGroup.getGroupValue()),
+                                new ArrayList<VarRiskClassMeasureResult>());
+                    }
+                }
+                riskResultsByScenario.put(entry.getKey(), riskResultsByGroup);
+            }
+            riskResultsByQuantile.put(qIndex, riskResultsByScenario);
+        }
+        return riskResultsByQuantile;
+    }
+
+    private List<VarDimensionMeasureResult> buildNormalDimensionMeasureResults(
+            List<VarDimensionGroup> dimensionGroups,
+            Map<String, List<VarRiskClassMeasureResult>> riskResultsByGroup) {
+        List<VarDimensionMeasureResult> results = new ArrayList<VarDimensionMeasureResult>();
+        for (VarDimensionGroup dimensionGroup : dimensionGroups) {
+            String key = dimensionKey(dimensionGroup.getGroupType(), dimensionGroup.getGroupValue());
+            results.add(new VarDimensionMeasureResult(
+                    dimensionGroup.getGroupType(),
+                    dimensionGroup.getGroupValue(),
+                    dimensionGroup.getBaseValuationCny(),
+                    riskResultsByGroup.get(key)));
+        }
+        return results;
+    }
+
+    private List<QuantileRuleResults> awaitQuantileRuleResults(List<Future<QuantileRuleResults>> futures) {
+        List<QuantileRuleResults> results = new ArrayList<QuantileRuleResults>();
+        for (Future<QuantileRuleResults> future : futures) {
+            try {
+                results.add(future.get());
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("VaR 分位点并行计算被中断", ex);
+            } catch (ExecutionException ex) {
+                throw new IllegalStateException("VaR 分位点并行计算失败", ex.getCause());
+            }
+        }
+        results.sort(Comparator.comparingInt(item -> item.quantileIndex));
+        return results;
+    }
+
+    private NormalRiskClassResults awaitNormalRiskClassResults(Future<NormalRiskClassResults> future) {
         try {
             return future.get();
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("VaR 维度并行计算被中断", ex);
+            throw new IllegalStateException("VaR 风险大类并行计算被中断", ex);
         } catch (ExecutionException ex) {
-            throw new IllegalStateException("VaR 维度并行计算失败", ex.getCause());
+            throw new IllegalStateException("VaR 风险大类并行计算失败", ex.getCause());
         }
     }
 
-    private JSONObject buildDecompRiskClassResult(DimensionGroupData dimensionGroup,
-                                                  VarQuantileResult allQuantile,
-                                                  String riskClass,
-                                                  VarPickMethod pickMethod) {
-        String pnlColumn = riskClassToPnlColumn(riskClass);
-        VarScenarioPnl inScenario = allQuantile.getInScenario();
-        VarScenarioPnl outScenario = allQuantile.getOutScenario();
-        List<VarScenarioPnl> rows = toScenarioRows(dimensionGroup.scenarioPnls, pnlColumn);
-        BigDecimal es = varCalculator.calculateEsByOut(rows, allQuantile.getQuantile());
-        ScenarioPnlAggregate inAgg = dimensionGroup.scenarioPnls.get(ScenarioKey.fromScenario(inScenario));
-        ScenarioPnlAggregate outAgg = dimensionGroup.scenarioPnls.get(ScenarioKey.fromScenario(outScenario));
-
-        BigDecimal pnlIn = readAggregatePnl(inAgg, pnlColumn);
-        BigDecimal pnlOut = readAggregatePnl(outAgg, pnlColumn);
-        BigDecimal varIn = pnlIn;
-        BigDecimal varOut = pnlOut;
-        int rankIn = allQuantile.getRankIn();
-        int rankOut = allQuantile.getRankOut();
-        String subIn = inScenario == null ? null : inScenario.getSubScenarioId();
-        String subOut = outScenario == null ? null : outScenario.getSubScenarioId();
-        if (sameSubScenario(subIn, subOut)) {
-            rankOut = rankIn;
-            pnlOut = pnlIn;
-            varOut = varIn;
-            subOut = subIn;
-        }
-
-        BigDecimal selectedPnl;
-        BigDecimal selectedVar;
-        String selectedScenarioId = null;
-        if (pickMethod == VarPickMethod.IN) {
-            selectedPnl = pnlIn;
-            selectedVar = varIn;
-            selectedScenarioId = inScenario == null ? null : inScenario.getScenarioId();
-        } else if (pickMethod == VarPickMethod.OUT) {
-            selectedPnl = pnlOut;
-            selectedVar = varOut;
-            selectedScenarioId = outScenario == null ? null : outScenario.getScenarioId();
-        } else {
-            selectedPnl = pnlOut.add(pnlIn).divide(TWO, DEFAULT_SCALE, RoundingMode.HALF_UP);
-            selectedVar = varOut.add(varIn).divide(TWO, DEFAULT_SCALE, RoundingMode.HALF_UP);
-        }
-
-        JSONObject item = new JSONObject();
-        item.put("risk_class", normalizeRiskClassToken(riskClass));
-        item.put("rank_in", rankIn);
-        item.put("rank_out", rankOut);
-        item.put("subscenario_id_in", subIn);
-        item.put("pnl_in", pnlIn);
-        item.put("var_in", varIn);
-        item.put("subscenario_id_out", subOut);
-        item.put("pnl_out", pnlOut);
-        item.put("var_out", varOut);
-        item.put("sort_pnl_field", "ALL_PNL");
-        if (!allQuantile.isSingleSample() && pickMethod != VarPickMethod.AVERAGE) {
-            item.put("selected_scenario_id", selectedScenarioId);
-        }
-        item.put("var", selectedVar);
-        item.put("es", es);
-        return item;
+    private JSONObject buildRuleResultHeader(VarRuleConfig ruleConfig,
+                                             String scenarioId,
+                                             List<VarDimensionGroup> dimensionGroups) {
+        JSONObject ruleResult = new JSONObject();
+        ruleResult.put("rule_id", ruleConfig.rule.getRuleId());
+        ruleResult.put("rule_name", ruleConfig.rule.getRuleName());
+        ruleResult.put("mode", ruleConfig.decompMode ? "decomp_risk_class" : "normal");
+        ruleResult.put("scenario_id", scenarioId);
+        ruleResult.put("selected_method", ruleConfig.pickMethod.code());
+        ruleResult.put("sample_size", deriveSampleSize(dimensionGroups));
+        return ruleResult;
     }
 
-    private JSONObject buildIndependentRiskClassResult(VarQuantileResult quantileResult,
-                                                       String riskClass,
-                                                       BigDecimal es,
-                                                       String sortPnlField) {
-        JSONObject item = toQuantileDetail(quantileResult);
-        item.put("risk_class", normalizeRiskClassToken(riskClass));
-        item.put("es", es);
-        item.put("sort_pnl_field", sortPnlField);
-        return item;
-    }
-
-    private void fillExtendedMetrics(JSONObject item,
-                                     List<String> metrics,
-                                     DimensionGroupData currentGroup,
-                                     BigDecimal quantile,
-                                     String riskClass,
-                                     VarPickMethod pickMethod) {
-        BigDecimal componentVar = BigDecimal.ZERO;
-        BigDecimal marginalVar = BigDecimal.ZERO;
-        BigDecimal incrementalVar = BigDecimal.ZERO;
-        String pnlColumn = riskClassToPnlColumn(riskClass);
-        if (currentGroup != null) {
-            if (containsIgnoreCase(metrics, METRIC_COMPONENT_VAR)) {
-                componentVar = calculateComponentVar(currentGroup, quantile, pnlColumn, pickMethod);
-            }
-            if (containsIgnoreCase(metrics, METRIC_MARGINAL_VAR)) {
-                marginalVar = calculateMarginalVar(currentGroup, quantile, pnlColumn, pnlColumn, pickMethod);
-            }
-            if (containsIgnoreCase(metrics, METRIC_INCREMENTAL_VAR)) {
-                incrementalVar = calculateIncrementalVar(currentGroup, quantile, pnlColumn, pnlColumn, pickMethod);
-            }
-        }
-        item.put("component_var", componentVar);
-        item.put("marginal_var", marginalVar);
-        item.put("incremental_var", incrementalVar);
-    }
-
-    private void fillExtendedMetricsByAllScenario(JSONObject item,
-                                                  List<String> metrics,
-                                                  DimensionGroupData currentGroup,
-                                                  VarQuantileResult allQuantile,
-                                                  String riskClass,
-                                                  VarPickMethod pickMethod) {
-        BigDecimal componentVar = BigDecimal.ZERO;
-        BigDecimal marginalVar = BigDecimal.ZERO;
-        BigDecimal incrementalVar = BigDecimal.ZERO;
-        String pnlColumn = riskClassToPnlColumn(riskClass);
-        if (currentGroup != null && allQuantile != null) {
-            if (containsIgnoreCase(metrics, METRIC_COMPONENT_VAR)) {
-                componentVar = calculateComponentVar(allQuantile, currentGroup, pnlColumn, pickMethod);
-            }
-            if (containsIgnoreCase(metrics, METRIC_MARGINAL_VAR)) {
-                marginalVar = calculateMarginalVar(currentGroup, allQuantile.getQuantile(), DEFAULT_SUM_FIELD, pnlColumn, pickMethod);
-            }
-            if (containsIgnoreCase(metrics, METRIC_INCREMENTAL_VAR)) {
-                incrementalVar = calculateIncrementalVar(currentGroup, allQuantile.getQuantile(), DEFAULT_SUM_FIELD, pnlColumn, pickMethod);
-            }
-        }
-        item.put("component_var", componentVar);
-        item.put("marginal_var", marginalVar);
-        item.put("incremental_var", incrementalVar);
-    }
-
-    private void applySelectedMetrics(JSONObject item, List<String> metrics) {
-        if (!containsIgnoreCase(metrics, METRIC_VAR)) {
-            item.put("var", BigDecimal.ZERO);
-        }
-        if (!containsIgnoreCase(metrics, METRIC_ES)) {
-            item.put("es", BigDecimal.ZERO);
-        }
-    }
-
-    private BigDecimal calculateComponentVar(DimensionGroupData currentGroup,
+    private JSONArray toDimensionResultArray(List<VarDimensionMeasureResult> measureResults,
+                                             List<VarDimensionGroup> dimensionGroups,
+                                             boolean includeDetail,
+                                             String requestId,
                                              BigDecimal quantile,
-                                             String pnlColumn,
-                                             VarPickMethod pickMethod) {
-        VarQuantileResult totalQuantile = calcSingleQuantile(
-                toScenarioRows(currentGroup.scenarioPnls, pnlColumn),
-                quantile,
-                pickMethod);
-        return calculateComponentVar(totalQuantile, currentGroup, pnlColumn, pickMethod);
-    }
-
-    private BigDecimal calculateComponentVar(VarQuantileResult totalQuantile,
-                                             DimensionGroupData currentGroup,
-                                             String pnlColumn,
-                                             VarPickMethod pickMethod) {
-        BigDecimal pnlIn = readGroupScenarioPnl(currentGroup, ScenarioKey.fromScenario(totalQuantile.getInScenario()), pnlColumn);
-        BigDecimal pnlOut = readGroupScenarioPnl(currentGroup, ScenarioKey.fromScenario(totalQuantile.getOutScenario()), pnlColumn);
-        if (pickMethod == VarPickMethod.IN) {
-            return pnlIn;
+                                             String ruleId,
+                                             String scenarioId,
+                                             AtomicInteger detailCacheCount) {
+        Map<String, VarDimensionGroup> dimensionGroupByKey = new LinkedHashMap<String, VarDimensionGroup>();
+        for (VarDimensionGroup dimensionGroup : dimensionGroups) {
+            dimensionGroupByKey.put(dimensionKey(dimensionGroup.getGroupType(), dimensionGroup.getGroupValue()), dimensionGroup);
         }
-        if (pickMethod == VarPickMethod.OUT) {
-            return pnlOut;
+
+        JSONArray dimensionResults = new JSONArray();
+        for (VarDimensionMeasureResult measureResult : measureResults) {
+            String key = dimensionKey(measureResult.getGroupType(), measureResult.getGroupValue());
+            VarDimensionGroup dimensionGroup = dimensionGroupByKey.get(key);
+            if (dimensionGroup == null) {
+                throw new IllegalStateException("VaR 维度结果不在输入维度中: " + key);
+            }
+            if (includeDetail) {
+                JSONObject detailPayload = buildDimensionDetailFile(
+                        requestId,
+                        quantile,
+                        ruleId,
+                        scenarioId,
+                        dimensionGroup);
+                boolean cached = cacheDimensionDetailPayload(
+                        requestId,
+                        quantile,
+                        ruleId,
+                        scenarioId,
+                        measureResult.getGroupType(),
+                        measureResult.getGroupValue(),
+                        detailPayload);
+                if (cached) {
+                    detailCacheCount.incrementAndGet();
+                }
+            }
+            dimensionResults.add(toDimensionResultJson(measureResult));
         }
-        return pnlIn.add(pnlOut).divide(TWO, DEFAULT_SCALE, RoundingMode.HALF_UP);
+        return dimensionResults;
     }
 
-    private BigDecimal calculateMarginalVar(DimensionGroupData currentGroup,
-                                            BigDecimal quantile,
-                                            String totalPnlColumn,
-                                            String adjustmentPnlColumn,
-                                            VarPickMethod pickMethod) {
-        VarQuantileResult baseQuantile = calcSingleQuantile(
-                toScenarioRows(currentGroup.scenarioPnls, totalPnlColumn),
-                quantile,
-                pickMethod);
-        VarQuantileResult bumpedQuantile = calcSingleQuantile(
-                toAdjustedScenarioRows(currentGroup.scenarioPnls, currentGroup.scenarioPnls, totalPnlColumn, adjustmentPnlColumn, ONE_PERCENT),
-                quantile,
-                pickMethod);
-        return bumpedQuantile.getSelectedPnl()
-                .subtract(baseQuantile.getSelectedPnl())
-                .divide(ONE_PERCENT, DEFAULT_SCALE, RoundingMode.HALF_UP);
-    }
+    private JSONObject toDimensionResultJson(VarDimensionMeasureResult measureResult) {
+        JSONObject dimensionResult = new JSONObject();
+        dimensionResult.put("group_type", measureResult.getGroupType());
+        dimensionResult.put("group_value", measureResult.getGroupValue());
+        dimensionResult.put("base_valuation_cny", measureResult.getBaseValuationCny().stripTrailingZeros().toPlainString());
 
-    private BigDecimal calculateIncrementalVar(DimensionGroupData currentGroup,
-                                               BigDecimal quantile,
-                                               String totalPnlColumn,
-                                               String adjustmentPnlColumn,
-                                               VarPickMethod pickMethod) {
-        VarQuantileResult baseQuantile = calcSingleQuantile(
-                toScenarioRows(currentGroup.scenarioPnls, totalPnlColumn),
-                quantile,
-                pickMethod);
-        VarQuantileResult withoutCurrent = calcSingleQuantile(
-                toAdjustedScenarioRows(currentGroup.scenarioPnls, currentGroup.scenarioPnls, totalPnlColumn, adjustmentPnlColumn, BigDecimal.ONE.negate()),
-                quantile,
-                pickMethod);
-        return baseQuantile.getSelectedPnl().subtract(withoutCurrent.getSelectedPnl());
-    }
-
-    private boolean cacheDimensionDetail(String requestId,
-                                         BigDecimal quantile,
-                                         String ruleId,
-                                         String scenarioId,
-                                         DimensionGroupData dimensionGroup) {
-        if (varDetailCacheService == null) {
-            return false;
+        JSONArray riskClassResults = new JSONArray();
+        for (VarRiskClassMeasureResult riskClassResult : measureResult.getRiskClassResults()) {
+            riskClassResults.add(toRiskClassResultJson(riskClassResult));
         }
-        JSONObject detail = buildDimensionDetailFile(
-                requestId,
-                quantile,
-                ruleId,
-                scenarioId,
-                dimensionGroup);
-        return varDetailCacheService.putDimensionDetail(
-                requestId,
-                quantile.stripTrailingZeros().toPlainString(),
-                ruleId,
-                scenarioId,
-                dimensionGroup.groupType,
-                dimensionGroup.groupValue,
-                detail);
+        dimensionResult.put("risk_class_results", riskClassResults);
+        return dimensionResult;
+    }
+
+    private JSONObject toRiskClassResultJson(VarRiskClassMeasureResult result) {
+        JSONObject item = new JSONObject();
+        item.put("risk_class", result.getRiskClass());
+        item.put("rank_in", result.getRankIn());
+        item.put("rank_out", result.getRankOut());
+        item.put("subscenario_id_in", result.getSubScenarioIdIn());
+        item.put("pnl_in", result.getPnlIn());
+        item.put("var_in", result.getVarIn());
+        item.put("subscenario_id_out", result.getSubScenarioIdOut());
+        item.put("pnl_out", result.getPnlOut());
+        item.put("var_out", result.getVarOut());
+        item.put("sort_pnl_field", result.getSortPnlField());
+        if (result.isIncludeSelectedScenarioId()) {
+            item.put("selected_scenario_id", result.getSelectedScenarioId());
+        }
+        item.put("var", result.getVar());
+        item.put("es", result.getEs());
+        item.put("component_var", result.getComponentVar());
+        item.put("marginal_var", result.getMarginalVar());
+        item.put("incremental_var", result.getIncrementalVar());
+        return item;
     }
 
     private boolean cacheDimensionDetailPayload(String requestId,
@@ -548,36 +521,36 @@ public class VarDbRunnerService {
                                                 BigDecimal quantile,
                                                 String ruleId,
                                                 String scenarioId,
-                                                DimensionGroupData dimensionGroup) {
-        if (dimensionGroup == null || dimensionGroup.scenarioPnls == null) {
+                                                VarDimensionGroup dimensionGroup) {
+        if (dimensionGroup == null || dimensionGroup.getScenarioPnls() == null) {
             throw new IllegalArgumentException("维度明细为空，无法构建 detail_file");
         }
-        int totalRows = dimensionGroup.scenarioPnls.size();
+        int totalRows = dimensionGroup.getScenarioPnls().size();
 
-        List<ScenarioDetailRow> detailRows = toScenarioDetailRows(dimensionGroup.scenarioPnls);
-        Map<ScenarioKey, Integer> rankAll = rankByPnlColumn(detailRows, "ALL_PNL");
-        Map<ScenarioKey, Integer> rankIr = rankByPnlColumn(detailRows, "IR_PNL");
-        Map<ScenarioKey, Integer> rankFx = rankByPnlColumn(detailRows, "FX_PNL");
-        Map<ScenarioKey, Integer> rankEq = rankByPnlColumn(detailRows, "EQ_PNL");
-        Map<ScenarioKey, Integer> rankComm = rankByPnlColumn(detailRows, "COMM_PNL");
+        List<ScenarioDetailRow> detailRows = toScenarioDetailRows(dimensionGroup.getScenarioPnls());
+        Map<VarScenarioKey, Integer> rankAll = rankByPnlColumn(detailRows, VarPnlColumns.ALL_PNL);
+        Map<VarScenarioKey, Integer> rankIr = rankByPnlColumn(detailRows, VarPnlColumns.IR_PNL);
+        Map<VarScenarioKey, Integer> rankFx = rankByPnlColumn(detailRows, VarPnlColumns.FX_PNL);
+        Map<VarScenarioKey, Integer> rankEq = rankByPnlColumn(detailRows, VarPnlColumns.EQ_PNL);
+        Map<VarScenarioKey, Integer> rankComm = rankByPnlColumn(detailRows, VarPnlColumns.COMM_PNL);
 
         detailRows.sort(Comparator
-                .comparing((ScenarioDetailRow row) -> safePnl(row.aggregate.readByColumn("ALL_PNL")))
-                .thenComparing(row -> nullSafe(row.scenarioKey.scenarioId))
-                .thenComparing(row -> nullSafe(row.scenarioKey.subScenarioId))
-                .thenComparing(row -> nullSafe(row.scenarioKey.scenarioName)));
+                .comparing((ScenarioDetailRow row) -> safePnl(row.aggregate.readByColumn(VarPnlColumns.ALL_PNL)))
+                .thenComparing(row -> nullSafe(row.scenarioKey.getScenarioId()))
+                .thenComparing(row -> nullSafe(row.scenarioKey.getSubScenarioId()))
+                .thenComparing(row -> nullSafe(row.scenarioKey.getScenarioName())));
 
         JSONArray rows = new JSONArray();
         for (ScenarioDetailRow row : detailRows) {
             JSONObject item = new JSONObject();
-            item.put("scenario_id", row.scenarioKey.scenarioId);
-            item.put("subscenario_id", row.scenarioKey.subScenarioId);
-            item.put("scenario_name", row.scenarioKey.scenarioName);
-            item.put("all_pnl", row.aggregate.readByColumn("ALL_PNL"));
-            item.put("ir_pnl", row.aggregate.readByColumn("IR_PNL"));
-            item.put("fx_pnl", row.aggregate.readByColumn("FX_PNL"));
-            item.put("eq_pnl", row.aggregate.readByColumn("EQ_PNL"));
-            item.put("comm_pnl", row.aggregate.readByColumn("COMM_PNL"));
+            item.put("scenario_id", row.scenarioKey.getScenarioId());
+            item.put("subscenario_id", row.scenarioKey.getSubScenarioId());
+            item.put("scenario_name", row.scenarioKey.getScenarioName());
+            item.put("all_pnl", row.aggregate.readByColumn(VarPnlColumns.ALL_PNL));
+            item.put("ir_pnl", row.aggregate.readByColumn(VarPnlColumns.IR_PNL));
+            item.put("fx_pnl", row.aggregate.readByColumn(VarPnlColumns.FX_PNL));
+            item.put("eq_pnl", row.aggregate.readByColumn(VarPnlColumns.EQ_PNL));
+            item.put("comm_pnl", row.aggregate.readByColumn(VarPnlColumns.COMM_PNL));
             item.put("rank_all", rankAll.get(row.scenarioKey));
             item.put("rank_ir", rankIr.get(row.scenarioKey));
             item.put("rank_fx", rankFx.get(row.scenarioKey));
@@ -591,60 +564,46 @@ public class VarDbRunnerService {
         detail.put("quantile", quantile.stripTrailingZeros().toPlainString());
         detail.put("rule_id", ruleId);
         detail.put("scenario_id", scenarioId);
-        detail.put("group_type", dimensionGroup.groupType);
-        detail.put("group_value", dimensionGroup.groupValue);
+        detail.put("group_type", dimensionGroup.getGroupType());
+        detail.put("group_value", dimensionGroup.getGroupValue());
         detail.put("total_rows", totalRows);
         detail.put("rows", rows);
         return detail;
     }
 
-    private List<ScenarioDetailRow> toScenarioDetailRows(Map<ScenarioKey, ScenarioPnlAggregate> scenarioPnls) {
+    private List<ScenarioDetailRow> toScenarioDetailRows(Map<VarScenarioKey, VarScenarioPnlAggregate> scenarioPnls) {
         List<ScenarioDetailRow> rows = new ArrayList<ScenarioDetailRow>();
-        for (Map.Entry<ScenarioKey, ScenarioPnlAggregate> entry : scenarioPnls.entrySet()) {
+        for (Map.Entry<VarScenarioKey, VarScenarioPnlAggregate> entry : scenarioPnls.entrySet()) {
             rows.add(new ScenarioDetailRow(entry.getKey(), entry.getValue()));
         }
         return rows;
     }
 
-    private Map<ScenarioKey, Integer> rankByPnlColumn(List<ScenarioDetailRow> rows, String pnlColumn) {
+    private Map<VarScenarioKey, Integer> rankByPnlColumn(List<ScenarioDetailRow> rows, String pnlColumn) {
         List<ScenarioDetailRow> sorted = new ArrayList<ScenarioDetailRow>(rows);
         sorted.sort(Comparator
                 .comparing((ScenarioDetailRow row) -> safePnl(row.aggregate.readByColumn(pnlColumn)))
-                .thenComparing(row -> nullSafe(row.scenarioKey.scenarioId))
-                .thenComparing(row -> nullSafe(row.scenarioKey.subScenarioId))
-                .thenComparing(row -> nullSafe(row.scenarioKey.scenarioName)));
-        Map<ScenarioKey, Integer> rank = new LinkedHashMap<ScenarioKey, Integer>();
+                .thenComparing(row -> nullSafe(row.scenarioKey.getScenarioId()))
+                .thenComparing(row -> nullSafe(row.scenarioKey.getSubScenarioId()))
+                .thenComparing(row -> nullSafe(row.scenarioKey.getScenarioName())));
+        Map<VarScenarioKey, Integer> rank = new LinkedHashMap<VarScenarioKey, Integer>();
         for (int i = 0; i < sorted.size(); i++) {
             rank.put(sorted.get(i).scenarioKey, i + 1);
         }
         return rank;
     }
 
-    private static BigDecimal readAggregatePnl(ScenarioPnlAggregate aggregate, String pnlColumn) {
-        if (aggregate == null) {
-            return BigDecimal.ZERO;
-        }
-        return aggregate.readByColumn(pnlColumn);
-    }
-
-    private VarQuantileResult calcSingleQuantile(List<VarScenarioPnl> rows,
-                                                 BigDecimal quantile,
-                                                 VarPickMethod pickMethod) {
-        List<VarQuantileResult> results = varCalculator.calculate(rows, Collections.singletonList(quantile), pickMethod);
-        return results.get(0);
-    }
-
-    private Map<String, List<DimensionGroupData>> buildScenarioDimensionGroups(AggregationRule rule,
-                                                                               List<VarInputQueryService.RuleScenarioPnlRow> rows) {
-        Map<String, Map<String, DimensionGroupData>> groupedByScenario = new LinkedHashMap<String, Map<String, DimensionGroupData>>();
+    private Map<String, List<VarDimensionGroup>> buildScenarioDimensionGroups(AggregationRule rule,
+                                                                              List<VarInputQueryService.RuleScenarioPnlRow> rows) {
+        Map<String, Map<String, VarDimensionGroup>> groupedByScenario = new LinkedHashMap<String, Map<String, VarDimensionGroup>>();
         for (VarInputQueryService.RuleScenarioPnlRow row : rows) {
             String scenarioId = trimToNull(row.getScenarioId());
             if (scenarioId == null) {
                 scenarioId = "__NULL_SCENARIO__";
             }
-            Map<String, DimensionGroupData> groups = groupedByScenario.get(scenarioId);
+            Map<String, VarDimensionGroup> groups = groupedByScenario.get(scenarioId);
             if (groups == null) {
-                groups = new LinkedHashMap<String, DimensionGroupData>();
+                groups = new LinkedHashMap<String, VarDimensionGroup>();
                 groupedByScenario.put(scenarioId, groups);
             }
             List<String> pathValues = new ArrayList<String>();
@@ -663,109 +622,41 @@ public class VarDbRunnerService {
                 }
 
                 String key = groupType + "|" + groupValue;
-                DimensionGroupData groupData = groups.get(key);
+                VarDimensionGroup groupData = groups.get(key);
                 if (groupData == null) {
-                    groupData = new DimensionGroupData(groupType, groupValue);
+                    groupData = new VarDimensionGroup(groupType, groupValue);
                     groups.put(key, groupData);
                 }
-                groupData.accumulate(row);
+                groupData.accumulate(
+                        new VarScenarioKey(row.getScenarioId(), row.getSubScenarioId(), row.getScenarioName()),
+                        row.getAllPnl(),
+                        row.getIrPnl(),
+                        row.getFxPnl(),
+                        row.getEqPnl(),
+                        row.getCommPnl(),
+                        row.getBaseValuationCny());
             }
         }
-        Map<String, List<DimensionGroupData>> result = new LinkedHashMap<String, List<DimensionGroupData>>();
-        for (Map.Entry<String, Map<String, DimensionGroupData>> entry : groupedByScenario.entrySet()) {
-            result.put(entry.getKey(), new ArrayList<DimensionGroupData>(entry.getValue().values()));
+        Map<String, List<VarDimensionGroup>> result = new LinkedHashMap<String, List<VarDimensionGroup>>();
+        for (Map.Entry<String, Map<String, VarDimensionGroup>> entry : groupedByScenario.entrySet()) {
+            result.put(entry.getKey(), new ArrayList<VarDimensionGroup>(entry.getValue().values()));
         }
         return result;
     }
 
-    private static int deriveSampleSize(List<DimensionGroupData> dimensionGroups) {
+    private static int deriveSampleSize(List<VarDimensionGroup> dimensionGroups) {
         int max = 0;
-        for (DimensionGroupData group : dimensionGroups) {
-            if (group == null || group.scenarioPnls == null) {
+        for (VarDimensionGroup group : dimensionGroups) {
+            if (group == null || group.getScenarioPnls() == null) {
                 continue;
             }
-            max = Math.max(max, group.scenarioPnls.size());
+            max = Math.max(max, group.getScenarioPnls().size());
         }
         return max;
     }
 
-    private List<VarScenarioPnl> toScenarioRows(Map<ScenarioKey, ScenarioPnlAggregate> scenarioPnls,
-                                                String pnlColumn) {
-        List<VarScenarioPnl> rows = new ArrayList<VarScenarioPnl>();
-        for (Map.Entry<ScenarioKey, ScenarioPnlAggregate> entry : scenarioPnls.entrySet()) {
-            ScenarioKey scenarioKey = entry.getKey();
-            ScenarioPnlAggregate aggregate = entry.getValue();
-            rows.add(new VarScenarioPnl(
-                    scenarioKey.scenarioId,
-                    scenarioKey.subScenarioId,
-                    scenarioKey.scenarioName,
-                    aggregate.readByColumn(pnlColumn)));
-        }
-        return rows;
-    }
-
-    private List<VarScenarioPnl> toAdjustedScenarioRows(Map<ScenarioKey, ScenarioPnlAggregate> totalScenarioPnls,
-                                                        Map<ScenarioKey, ScenarioPnlAggregate> groupScenarioPnls,
-                                                        String totalPnlColumn,
-                                                        String adjustmentPnlColumn,
-                                                        BigDecimal groupFactorDelta) {
-        List<VarScenarioPnl> rows = new ArrayList<VarScenarioPnl>();
-        for (Map.Entry<ScenarioKey, ScenarioPnlAggregate> entry : totalScenarioPnls.entrySet()) {
-            ScenarioKey scenarioKey = entry.getKey();
-            BigDecimal totalValue = entry.getValue().readByColumn(totalPnlColumn);
-            BigDecimal groupValue = readAggregatePnl(groupScenarioPnls.get(scenarioKey), adjustmentPnlColumn);
-            BigDecimal adjusted = totalValue.add(groupValue.multiply(groupFactorDelta));
-            rows.add(new VarScenarioPnl(
-                    scenarioKey.scenarioId,
-                    scenarioKey.subScenarioId,
-                    scenarioKey.scenarioName,
-                    adjusted));
-        }
-        return rows;
-    }
-
-    private static BigDecimal readGroupScenarioPnl(DimensionGroupData groupData,
-                                                   ScenarioKey scenarioKey,
-                                                   String pnlColumn) {
-        if (groupData == null || scenarioKey == null) {
-            return BigDecimal.ZERO;
-        }
-        return readAggregatePnl(groupData.scenarioPnls.get(scenarioKey), pnlColumn);
-    }
-
-    private JSONObject toQuantileDetail(VarQuantileResult calcResult) {
-        VarScenarioPnl inScenario = calcResult.getInScenario();
-        VarScenarioPnl outScenario = calcResult.getOutScenario();
-        BigDecimal pnlIn = calcResult.getPnlIn();
-        BigDecimal pnlOut = calcResult.getPnlOut();
-        BigDecimal varIn = pnlIn;
-        BigDecimal varOut = pnlOut;
-        int rankIn = calcResult.getRankIn();
-        int rankOut = calcResult.getRankOut();
-        String subIn = inScenario == null ? null : inScenario.getSubScenarioId();
-        String subOut = outScenario == null ? null : outScenario.getSubScenarioId();
-        if (sameSubScenario(subIn, subOut)) {
-            rankOut = rankIn;
-            pnlOut = pnlIn;
-            varOut = varIn;
-            subOut = subIn;
-        }
-        JSONObject item = new JSONObject();
-        item.put("rank_in", rankIn);
-        item.put("rank_out", rankOut);
-        item.put("subscenario_id_in", subIn);
-        item.put("pnl_in", pnlIn);
-        item.put("var_in", varIn);
-        item.put("subscenario_id_out", subOut);
-        item.put("pnl_out", pnlOut);
-        item.put("var_out", varOut);
-        if (!calcResult.isSingleSample()) {
-            VarScenarioPnl selectedScenario = calcResult.getSelectedScenario();
-            item.put("selected_scenario_id", selectedScenario == null ? null : selectedScenario.getScenarioId());
-        }
-        BigDecimal selectedPnl = calcResult.getSelectedPnl();
-        item.put("var", selectedPnl);
-        return item;
+    private static String dimensionKey(String groupType, String groupValue) {
+        return nullSafe(groupType) + "|" + nullSafe(groupValue);
     }
 
     private static JSONArray toQuantileArray(List<BigDecimal> quantiles) {
@@ -776,15 +667,14 @@ public class VarDbRunnerService {
         return array;
     }
 
-    private static JSONArray toStringArray(List<String> values) {
+    private static JSONArray toMeasureArray(List<VarMeasure> values) {
         JSONArray array = new JSONArray();
         if (values == null) {
             return array;
         }
-        for (String value : values) {
-            String safe = trimToNull(value);
-            if (safe != null) {
-                array.add(safe);
+        for (VarMeasure value : values) {
+            if (value != null) {
+                array.add(value.code());
             }
         }
         return array;
@@ -1068,49 +958,41 @@ public class VarDbRunnerService {
         return deduped;
     }
 
-    static List<String> parseMeasures(Object value) {
-        List<String> metrics = new ArrayList<String>();
+    static List<VarMeasure> parseMeasures(Object value) {
+        List<VarMeasure> measures = new ArrayList<VarMeasure>();
         if (value instanceof JSONArray) {
             JSONArray array = (JSONArray) value;
             for (int i = 0; i < array.size(); i++) {
-                addMetric(metrics, array.getString(i));
+                addMeasure(measures, array.getString(i));
             }
         } else if (value instanceof List) {
             List<?> list = (List<?>) value;
             for (Object item : list) {
-                addMetric(metrics, item == null ? null : String.valueOf(item));
+                addMeasure(measures, item == null ? null : String.valueOf(item));
             }
         } else {
             String text = trimToNull(value == null ? null : String.valueOf(value));
             if (text != null) {
                 String[] parts = text.split(",");
                 for (String part : parts) {
-                    addMetric(metrics, part);
+                    addMeasure(measures, part);
                 }
             }
         }
-        if (metrics.isEmpty()) {
-            metrics.add(METRIC_VAR);
-            metrics.add(METRIC_ES);
+        if (measures.isEmpty()) {
+            measures.addAll(VarMeasure.defaultMeasures());
         }
-        return metrics;
+        return measures;
     }
 
-    private static void addMetric(List<String> metrics, String rawMetric) {
-        String metric = trimToNull(rawMetric);
-        if (metric == null) {
+    private static void addMeasure(List<VarMeasure> measures, String rawMeasure) {
+        String measureText = trimToNull(rawMeasure);
+        if (measureText == null) {
             return;
         }
-        String upper = metric.toUpperCase(Locale.ROOT);
-        if (!METRIC_VAR.equals(upper)
-                && !METRIC_ES.equals(upper)
-                && !METRIC_COMPONENT_VAR.equals(upper)
-                && !METRIC_MARGINAL_VAR.equals(upper)
-                && !METRIC_INCREMENTAL_VAR.equals(upper)) {
-            throw new IllegalArgumentException("不支持的 measure 取值: " + rawMetric);
-        }
-        if (!containsIgnoreCase(metrics, upper)) {
-            metrics.add(upper);
+        VarMeasure measure = VarMeasure.parse(measureText);
+        if (!measures.contains(measure)) {
+            measures.add(measure);
         }
     }
 
@@ -1168,7 +1050,7 @@ public class VarDbRunnerService {
             if (token == null) {
                 continue;
             }
-            String normalized = normalizeRiskClassToken(token);
+            String normalized = VarPnlColumns.normalizeRiskClassToken(token);
             riskClassToPnlColumn(normalized);
             if (seen.add(normalized)) {
                 riskClasses.add(normalized);
@@ -1178,41 +1060,7 @@ public class VarDbRunnerService {
     }
 
     static String riskClassToPnlColumn(String riskClass) {
-        String safe = trimToNull(riskClass);
-        if (safe == null) {
-            throw new IllegalArgumentException("risk_class 不能为空");
-        }
-        String upper = safe.toUpperCase(Locale.ROOT);
-        if ("IR".equals(upper)) {
-            return "IR_PNL";
-        }
-        if ("FX".equals(upper)) {
-            return "FX_PNL";
-        }
-        if ("EQ".equals(upper)) {
-            return "EQ_PNL";
-        }
-        if ("COMM".equals(upper) || "CMTY".equals(upper)) {
-            return "COMM_PNL";
-        }
-        if ("ALL".equals(upper)) {
-            return "ALL_PNL";
-        }
-        throw new IllegalArgumentException("不支持的 risk_class: " + riskClass + "，仅支持 IR/FX/EQ/COMM/ALL");
-    }
-
-    private static String normalizeRiskClassToken(String token) {
-        String upper = token.toUpperCase(Locale.ROOT);
-        if ("CMTY".equals(upper)) {
-            return "COMM";
-        }
-        return upper;
-    }
-
-    private static boolean sameSubScenario(String left, String right) {
-        String l = trimToNull(left);
-        String r = trimToNull(right);
-        return l != null && l.equals(r);
+        return VarPnlColumns.riskClassToPnlColumn(riskClass);
     }
 
     private static String requireTopLevelString(JSONObject obj, String key) {
@@ -1291,18 +1139,6 @@ public class VarDbRunnerService {
         return obj.getInteger(key);
     }
 
-    private static boolean containsIgnoreCase(List<String> values, String target) {
-        if (values == null || values.isEmpty() || trimToNull(target) == null) {
-            return false;
-        }
-        for (String value : values) {
-            if (target.equalsIgnoreCase(value)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private static BigDecimal safePnl(BigDecimal pnl) {
         return pnl == null ? BigDecimal.ZERO : pnl;
     }
@@ -1349,129 +1185,49 @@ public class VarDbRunnerService {
         }
     }
 
-    private static class DimensionGroupData {
-        private final String groupType;
-        private final String groupValue;
-        private final Map<ScenarioKey, ScenarioPnlAggregate> scenarioPnls = new LinkedHashMap<ScenarioKey, ScenarioPnlAggregate>();
-        /** 基准估值（取任一场景的值，因同一维度下各场景的基准估值等价） */
-        private BigDecimal baseValuationCny;
+    private static class QuantileRuleResults {
+        private final int quantileIndex;
+        private final List<JSONObject> ruleResults;
 
-        private DimensionGroupData(String groupType, String groupValue) {
-            this.groupType = groupType;
-            this.groupValue = groupValue;
-        }
-
-        private void accumulate(VarInputQueryService.RuleScenarioPnlRow row) {
-            ScenarioKey scenarioKey = new ScenarioKey(row.getScenarioId(), row.getSubScenarioId(), row.getScenarioName());
-            ScenarioPnlAggregate aggregate = scenarioPnls.get(scenarioKey);
-            if (aggregate == null) {
-                aggregate = new ScenarioPnlAggregate();
-                scenarioPnls.put(scenarioKey, aggregate);
-            }
-            aggregate.allPnl = aggregate.allPnl.add(safePnl(row.getAllPnl()));
-            aggregate.irPnl = aggregate.irPnl.add(safePnl(row.getIrPnl()));
-            aggregate.fxPnl = aggregate.fxPnl.add(safePnl(row.getFxPnl()));
-            aggregate.eqPnl = aggregate.eqPnl.add(safePnl(row.getEqPnl()));
-            aggregate.commPnl = aggregate.commPnl.add(safePnl(row.getCommPnl()));
-            // 基准估值仅取首次设置，避免跨场景重复累加
-            if (baseValuationCny == null && row.getBaseValuationCny() != null) {
-                baseValuationCny = row.getBaseValuationCny();
-            }
+        private QuantileRuleResults(int quantileIndex, List<JSONObject> ruleResults) {
+            this.quantileIndex = quantileIndex;
+            this.ruleResults = ruleResults == null ? new ArrayList<JSONObject>() : ruleResults;
         }
     }
 
-    private static class ScenarioPnlAggregate {
-        private BigDecimal allPnl = BigDecimal.ZERO;
-        private BigDecimal irPnl = BigDecimal.ZERO;
-        private BigDecimal fxPnl = BigDecimal.ZERO;
-        private BigDecimal eqPnl = BigDecimal.ZERO;
-        private BigDecimal commPnl = BigDecimal.ZERO;
+    private static class NormalRiskClassResults {
+        private final int quantileIndex;
+        private final List<ScenarioDimensionMeasureResults> scenarioResults;
 
-        private BigDecimal readByColumn(String pnlColumn) {
-            if ("ALL_PNL".equalsIgnoreCase(pnlColumn)) {
-                return allPnl;
-            }
-            if ("IR_PNL".equalsIgnoreCase(pnlColumn)) {
-                return irPnl;
-            }
-            if ("FX_PNL".equalsIgnoreCase(pnlColumn)) {
-                return fxPnl;
-            }
-            if ("EQ_PNL".equalsIgnoreCase(pnlColumn)) {
-                return eqPnl;
-            }
-            if ("COMM_PNL".equalsIgnoreCase(pnlColumn)) {
-                return commPnl;
-            }
-            return BigDecimal.ZERO;
+        private NormalRiskClassResults(int quantileIndex,
+                                       List<ScenarioDimensionMeasureResults> scenarioResults) {
+            this.quantileIndex = quantileIndex;
+            this.scenarioResults = scenarioResults == null
+                    ? new ArrayList<ScenarioDimensionMeasureResults>()
+                    : scenarioResults;
         }
     }
 
-    private static class DimensionComputeResult {
-        private final JSONObject dimensionResult;
-        private final JSONObject detailPayload;
-        private final String groupType;
-        private final String groupValue;
+    private static class ScenarioDimensionMeasureResults {
+        private final String scenarioId;
+        private final List<VarDimensionMeasureResult> dimensionResults;
 
-        private DimensionComputeResult(JSONObject dimensionResult,
-                                       JSONObject detailPayload,
-                                       String groupType,
-                                       String groupValue) {
-            this.dimensionResult = dimensionResult;
-            this.detailPayload = detailPayload;
-            this.groupType = groupType;
-            this.groupValue = groupValue;
+        private ScenarioDimensionMeasureResults(String scenarioId,
+                                                List<VarDimensionMeasureResult> dimensionResults) {
+            this.scenarioId = scenarioId;
+            this.dimensionResults = dimensionResults == null
+                    ? new ArrayList<VarDimensionMeasureResult>()
+                    : dimensionResults;
         }
     }
 
     private static class ScenarioDetailRow {
-        private final ScenarioKey scenarioKey;
-        private final ScenarioPnlAggregate aggregate;
+        private final VarScenarioKey scenarioKey;
+        private final VarScenarioPnlAggregate aggregate;
 
-        private ScenarioDetailRow(ScenarioKey scenarioKey, ScenarioPnlAggregate aggregate) {
+        private ScenarioDetailRow(VarScenarioKey scenarioKey, VarScenarioPnlAggregate aggregate) {
             this.scenarioKey = scenarioKey;
             this.aggregate = aggregate;
-        }
-    }
-
-    private static class ScenarioKey {
-        private final String scenarioId;
-        private final String subScenarioId;
-        private final String scenarioName;
-
-        private ScenarioKey(String scenarioId, String subScenarioId, String scenarioName) {
-            this.scenarioId = scenarioId;
-            this.subScenarioId = subScenarioId;
-            this.scenarioName = scenarioName;
-        }
-
-        private static ScenarioKey fromScenario(VarScenarioPnl scenario) {
-            if (scenario == null) {
-                return new ScenarioKey(null, null, null);
-            }
-            return new ScenarioKey(scenario.getScenarioId(), scenario.getSubScenarioId(), scenario.getScenarioName());
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (!(o instanceof ScenarioKey)) {
-                return false;
-            }
-            ScenarioKey that = (ScenarioKey) o;
-            return nullSafe(scenarioId).equals(nullSafe(that.scenarioId))
-                    && nullSafe(subScenarioId).equals(nullSafe(that.subScenarioId))
-                    && nullSafe(scenarioName).equals(nullSafe(that.scenarioName));
-        }
-
-        @Override
-        public int hashCode() {
-            int result = nullSafe(scenarioId).hashCode();
-            result = 31 * result + nullSafe(subScenarioId).hashCode();
-            result = 31 * result + nullSafe(scenarioName).hashCode();
-            return result;
         }
     }
 }
