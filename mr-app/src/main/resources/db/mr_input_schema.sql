@@ -176,6 +176,24 @@ ON DUPLICATE KEY UPDATE
     modifier = VALUES(modifier),
     updated_at = VALUES(updated_at);
 
+INSERT INTO MR_AGG_RULE (
+    rule_id, rule_type, rule_name, rule_json, modifier, created_at, updated_at
+) VALUES (
+    'BATCH_VAR_DEFAULT',
+    'VAR',
+    '默认 VaR 批次汇总规则',
+    '{"quantiles":["0.95","0.99"],"measure":["VAR","ES"],"build_order":["TOTAL","TRADER","DESK","PORTFOLIO"],"dimensions":{"TRADER":"TRADER","DESK":"DESK","PORTFOLIO":"PORTFOLIO"},"filter_tree":null,"calc":{"risk_class":"ALL","var_pick":"average"}}',
+    'system',
+    0,
+    0
+)
+ON DUPLICATE KEY UPDATE
+    rule_type = VALUES(rule_type),
+    rule_name = VALUES(rule_name),
+    rule_json = VALUES(rule_json),
+    modifier = VALUES(modifier),
+    updated_at = VALUES(updated_at);
+
 DROP VIEW IF EXISTS V_PORTFOLIO_HIERARCHY_FLAT;
 CREATE VIEW V_PORTFOLIO_HIERARCHY_FLAT AS
 SELECT

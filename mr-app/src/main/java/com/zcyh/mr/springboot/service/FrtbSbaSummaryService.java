@@ -118,11 +118,16 @@ public class FrtbSbaSummaryService {
         if (batchResult == null || batchResult.isEmpty()) {
             return;
         }
+        Map<String, Object> rawDetails = batchResult.get("__raw_details");
         for (Map.Entry<String, Map<String, Object>> entry : batchResult.entrySet()) {
-            String[] parts = entry.getKey().split("\\|", 2);
-            String treeId = parts.length > 0 ? parts[0] : null;
-            String groupValue = parts.length > 1 ? parts[1] : null;
-            String groupType = inferGroupType(groupValue);
+            String taskKey = entry.getKey();
+            if ("__raw_details".equals(taskKey)) {
+                continue;
+            }
+            Map<String, Object> rawDetail = requireRawDetail(rawDetails, taskKey);
+            String treeId = requireRawDetailText(rawDetail, "treeId", taskKey);
+            String groupType = requireRawDetailText(rawDetail, "groupType", taskKey);
+            String groupValue = requireRawDetailText(rawDetail, "groupValue", taskKey);
             Map<String, List<?>> pojoResult = frtbAggregator.buildResults(
                     entry.getValue(), treeId, groupType, groupValue);
             List<?> classResults = pojoResult.get("classResults");
@@ -132,6 +137,27 @@ public class FrtbSbaSummaryService {
             frtbSbaResultPersistService.persist(
                     (List<FRTBClassResult>) classResults, batchId, dataDate, ruleId);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> requireRawDetail(Map<String, Object> rawDetails, String taskKey) {
+        if (rawDetails == null || rawDetails.isEmpty()) {
+            throw new IllegalArgumentException("FRTB SBA 结果缺少 __raw_details，无法确定真实维度类型");
+        }
+        Object detail = rawDetails.get(taskKey);
+        if (!(detail instanceof Map)) {
+            throw new IllegalArgumentException("FRTB SBA 结果缺少任务维度信息: taskKey=" + taskKey);
+        }
+        return (Map<String, Object>) detail;
+    }
+
+    private static String requireRawDetailText(Map<String, Object> rawDetail, String field, String taskKey) {
+        Object value = rawDetail.get(field);
+        String text = value == null ? null : trimToNull(String.valueOf(value));
+        if (text == null) {
+            throw new IllegalArgumentException("FRTB SBA 任务维度字段缺失: taskKey=" + taskKey + ", field=" + field);
+        }
+        return text;
     }
 
     /**
@@ -238,14 +264,6 @@ public class FrtbSbaSummaryService {
         }
         String value = text.trim();
         return value.isEmpty() ? null : value;
-    }
-
-    private static String inferGroupType(String groupValue) {
-        if (groupValue == null || "TOTAL".equalsIgnoreCase(groupValue)
-                || "__EMPTY_GROUP__".equals(groupValue)) {
-            return "TOTAL";
-        }
-        return "PORTFOLIO";
     }
 
     /**

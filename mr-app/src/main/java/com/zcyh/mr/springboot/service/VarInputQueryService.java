@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.model.AggregationRule;
 import com.zcyh.mr.var.VarScenarioPnl;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -23,10 +25,48 @@ public class VarInputQueryService {
     private static final String TABLE = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
     private static final String PORTFOLIO_FLAT_VIEW = "V_TB_OUT_PORTFOLIO_HIERARCHY_FLAT";
     private static final int PORTFOLIO_LEVEL_MAX = 7;
+    private final JdbcTemplate engineDbJdbcTemplate;
     private final JdbcTemplate engineResultDbJdbcTemplate;
 
-    public VarInputQueryService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate) {
+    public VarInputQueryService(@Qualifier("engineDbJdbcTemplate") JdbcTemplate engineDbJdbcTemplate,
+                                @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate) {
+        this.engineDbJdbcTemplate = engineDbJdbcTemplate;
         this.engineResultDbJdbcTemplate = engineResultDbJdbcTemplate;
+    }
+
+    /**
+     * 按 rule_id 读取 VAR 汇总规则 JSON。
+     */
+    public JSONObject loadVarRuleJson(String ruleId) {
+        String safeRuleId = trimToNull(ruleId);
+        if (safeRuleId == null) {
+            throw new IllegalArgumentException("ruleId 不能为空");
+        }
+        try {
+            List<Map<String, Object>> rows = engineDbJdbcTemplate.queryForList(
+                    "SELECT RULE_ID, RULE_TYPE, RULE_NAME, RULE_JSON "
+                            + "FROM MR_AGG_RULE WHERE RULE_TYPE=? AND RULE_ID=?",
+                    "VAR", safeRuleId);
+            if (rows.isEmpty()) {
+                throw new IllegalArgumentException("未找到 VAR 汇总规则: " + safeRuleId);
+            }
+            Map<String, Object> row = rows.get(0);
+            String ruleJson = trimToNull(stringValue(row.get("RULE_JSON")));
+            if (ruleJson == null) {
+                throw new IllegalArgumentException("VAR 汇总规则内容为空: " + safeRuleId);
+            }
+            JSONObject json = JSON.parseObject(ruleJson);
+            if (json == null) {
+                throw new IllegalArgumentException("VAR 汇总规则解析失败: " + safeRuleId);
+            }
+            json.put("rule_id", safeRuleId);
+            json.put("rule_type", trimToNull(stringValue(row.get("RULE_TYPE"))));
+            json.put("rule_name", trimToNull(stringValue(row.get("RULE_NAME"))));
+            return json;
+        } catch (DataAccessException ex) {
+            throw new IllegalStateException("读取 MR_AGG_RULE 中 VAR 规则失败，请确认规则表已创建且可访问: "
+                    + ex.getMessage(), ex);
+        }
     }
 
     /**
@@ -338,7 +378,11 @@ public class VarInputQueryService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    /**
+    private static String stringValue(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    /** 
      * 规则维度聚合后的场景损益行。
      */
     public static class RuleScenarioPnlRow {

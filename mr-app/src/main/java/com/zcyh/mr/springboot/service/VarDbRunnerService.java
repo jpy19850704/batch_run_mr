@@ -71,6 +71,7 @@ public class VarDbRunnerService {
             throw new IllegalArgumentException("payload must be a json object");
         }
 
+        normalizeRuleIdRequest(req);
         String batchId = requireTopLevelString(req, "batch_id");
         String dataDate = requireTopLevelString(req, "data_date");
         List<BigDecimal> quantiles = parseQuantiles(req.get("quantiles"));
@@ -707,6 +708,77 @@ public class VarDbRunnerService {
                 .comparingInt((VarRuleConfig c) -> c.outputOrder)
                 .thenComparing(c -> nullSafe(c.rule.getRuleId())));
         return configs;
+    }
+
+    /**
+     * 支持通过 rule_id 从 MR_AGG_RULE 读取 VAR 规则，并将规则内的 quantiles / measure 提升为本次运行参数。
+     */
+    private void normalizeRuleIdRequest(JSONObject req) {
+        JSONArray rawRules = req.getJSONArray("rules");
+        String topRuleId = readString(req, "rule_id");
+        if ((rawRules == null || rawRules.isEmpty()) && topRuleId != null) {
+            rawRules = new JSONArray();
+            JSONObject item = new JSONObject();
+            item.put("rule_id", topRuleId);
+            rawRules.add(item);
+            req.put("rules", rawRules);
+        }
+        if (rawRules == null || rawRules.isEmpty()) {
+            return;
+        }
+
+        JSONArray normalizedRules = new JSONArray();
+        Object ruleQuantiles = null;
+        Object ruleMeasure = null;
+        for (int i = 0; i < rawRules.size(); i++) {
+            JSONObject ruleItem = rawRules.getJSONObject(i);
+            if (ruleItem == null) {
+                throw new IllegalArgumentException("rules[" + i + "] 不能为空");
+            }
+            JSONObject resolvedRule = resolveVarRuleJson(ruleItem);
+            normalizedRules.add(resolvedRule);
+            ruleQuantiles = mergeRuntimeField(ruleQuantiles, resolvedRule.get("quantiles"), "quantiles");
+            ruleMeasure = mergeRuntimeField(ruleMeasure, resolvedRule.get("measure"), "measure");
+        }
+        req.put("rules", normalizedRules);
+        if (req.get("quantiles") == null && ruleQuantiles != null) {
+            req.put("quantiles", ruleQuantiles);
+        }
+        if (req.get("measure") == null && ruleMeasure != null) {
+            req.put("measure", ruleMeasure);
+        }
+    }
+
+    private JSONObject resolveVarRuleJson(JSONObject ruleItem) {
+        String ruleId = readString(ruleItem, "rule_id");
+        if (ruleId != null && ruleItem.get("build_order") == null) {
+            JSONObject loadedRule = inputQueryService.loadVarRuleJson(ruleId);
+            copyOptional(ruleItem, loadedRule, "enabled");
+            copyOptional(ruleItem, loadedRule, "output_order");
+            return loadedRule;
+        }
+        return JSON.parseObject(ruleItem.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
+    }
+
+    private static void copyOptional(JSONObject source, JSONObject target, String key) {
+        if (source != null && target != null && source.containsKey(key)) {
+            target.put(key, source.get(key));
+        }
+    }
+
+    private static Object mergeRuntimeField(Object current, Object next, String fieldName) {
+        if (next == null) {
+            return current;
+        }
+        if (current == null) {
+            return next;
+        }
+        String left = JSON.toJSONString(current, JSONWriter.Feature.WriteBigDecimalAsPlain);
+        String right = JSON.toJSONString(next, JSONWriter.Feature.WriteBigDecimalAsPlain);
+        if (!left.equals(right)) {
+            throw new IllegalArgumentException("多个 VAR rule 的 " + fieldName + " 不一致，不能在同一次请求中混用");
+        }
+        return current;
     }
 
     private VarRuleConfig parseSingleRule(JSONObject ruleJson, int index) {
