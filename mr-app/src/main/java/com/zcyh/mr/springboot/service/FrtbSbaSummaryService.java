@@ -100,8 +100,9 @@ public class FrtbSbaSummaryService {
             payload.put("thread_count", threadCount);
         }
         if ("db".equals(execution.sourceType)) {
-            payload.put("rule_id", execution.ruleId);
-            return frtbSbaDbRunnerService.calculateByRule(
+            execution.ruleJson = frtbSbaDbRunnerService.loadRuleSnapshot(execution.ruleId);
+            payload.put("rule", execution.ruleJson);
+            return frtbSbaDbRunnerService.calculateByInlineRule(
                     payload.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
         }
         payload.put("rule", execution.ruleJson);
@@ -142,11 +143,8 @@ public class FrtbSbaSummaryService {
             if (execution.ruleJson != null) {
                 ruleJsonStr = execution.ruleJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
             } else {
-                // db 模式下没有内联 ruleJson，记录 ruleId 即可
-                JSONObject minimal = new JSONObject();
-                minimal.put("rule_id", execution.ruleId);
-                minimal.put("source_type", execution.sourceType);
-                ruleJsonStr = minimal.toJSONString();
+                JSONObject ruleSnapshot = frtbSbaDbRunnerService.loadRuleSnapshot(execution.ruleId);
+                ruleJsonStr = ruleSnapshot.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
             }
             calcRuleMetaPersistService.persist(batchId, dataDate, CALC_TYPE_FRTB_SBA, execution.ruleId, ruleJsonStr);
         } catch (Exception e) {

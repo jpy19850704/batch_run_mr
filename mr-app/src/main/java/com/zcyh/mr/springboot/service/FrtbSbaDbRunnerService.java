@@ -59,9 +59,7 @@ public class FrtbSbaDbRunnerService {
         String dataDate = requireTopLevelString(req, "data_date");
         String ruleId = requireTopLevelString(req, "rule_id");
 
-        AggregationRule rule = inputQueryService.loadAggregationRule(ruleId);
-        applySbaRuleDefaults(rule);
-        dimensionAggregationService.validateRule(rule);
+        AggregationRule rule = loadExecutableRule(ruleId);
 
         List<Map<String, Object>> rows = inputQueryService.queryRuleDetailRows(batchId, dataDate, rule);
         if (rows == null || rows.isEmpty()) {
@@ -80,6 +78,14 @@ public class FrtbSbaDbRunnerService {
         return JSON.toJSONString(
                 buildOutputWithRawDetails(tasks, batchResult),
                 JSONWriter.Feature.WriteBigDecimalAsPlain);
+    }
+
+    /**
+     * 读取并补齐实际参与 SBA 计算的规则快照，供结果元数据落库复用。
+     */
+    public JSONObject loadRuleSnapshot(String ruleId) {
+        AggregationRule rule = loadExecutableRule(ruleId);
+        return JSON.parseObject(JSON.toJSONString(rule, JSONWriter.Feature.WriteBigDecimalAsPlain));
     }
 
     /**
@@ -234,6 +240,13 @@ public class FrtbSbaDbRunnerService {
             throw new IllegalArgumentException("filters 已停用，请使用 filter_tree");
         }
         rule.setFilterTree(toFilterExpression(ruleJson.get("filter_tree")));
+        return rule;
+    }
+
+    private AggregationRule loadExecutableRule(String ruleId) {
+        AggregationRule rule = inputQueryService.loadAggregationRule(ruleId);
+        applySbaRuleDefaults(rule);
+        dimensionAggregationService.validateRule(rule);
         return rule;
     }
 
