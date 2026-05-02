@@ -22,7 +22,7 @@ public class VarResultPersistService {
     private static final int DEFAULT_BATCH_SIZE = 5000;
     private static final String TARGET_TABLE = "TB_OUT_VAR_RESULT";
     private static final String STREAM_LOAD_COLUMNS =
-            "BATCH_ID,DATA_DATE,QUANTILE,RULE_ID,RULE_NAME,MODE,SCENARIO_ID,GROUP_TYPE,GROUP_VALUE,RISK_CLASS,VAR,ES,COMPONENT_VAR,MARGINAL_VAR,INCREMENTAL_VAR,SELECTED_METHOD,CREATED_AT";
+            "BATCH_ID,DATA_DATE,QUANTILE,RULE_ID,MODE,SCENARIO_ID,GROUP_TYPE,GROUP_VALUE,RISK_CLASS,RULE_NAME,VAR,ES,COMPONENT_VAR,MARGINAL_VAR,INCREMENTAL_VAR,SELECTED_METHOD,CREATED_AT";
 
     private final JdbcTemplate jdbcTemplate;
     private final DorisStreamLoadService dorisStreamLoadService;
@@ -163,12 +163,12 @@ public class VarResultPersistService {
                     row.dataDate,
                     row.quantile,
                     row.ruleId,
-                    row.ruleName,
                     row.mode,
                     row.scenarioId,
                     row.groupType,
                     row.groupValue,
                     row.riskClass,
+                    row.ruleName,
                     DorisCsvStreamLoadBuffer.decimalText(row.varValue),
                     DorisCsvStreamLoadBuffer.decimalText(row.esValue),
                     DorisCsvStreamLoadBuffer.decimalText(row.componentVar),

@@ -43,7 +43,7 @@ public class PricingResultPersistService {
                     + "STATUS,ERROR,DETAIL,LOGS_JSON,CASHFLOW_JSON,RESULT_JSON,TRADE_INPUT_JSON,MARKET_DATA_KEYS_JSON,CREATED_AT,UPDATED_AT";
     private static final String SCENARIO_RESULT_TABLE = "TB_OUT_TRADE_SCENARIO_RESULT_DETAIL";
     private static final String SCENARIO_RESULT_COLUMNS =
-            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,INSTRUMENT_ID,PRODUCT_CODE,"
+            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,INSTRUMENT_ID,PRODUCT_CODE,"
                     + "BASE_VALUATION_CNY,SCENARIO_VALUATION_CNY,PNL,ERROR,DETAIL,LOGS_JSON,RESULT_JSON,CREATED_AT,UPDATED_AT";
     private static final String DECOMP_RESULT_COLUMNS =
             "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,INSTRUMENT_ID,PRODUCT_CODE,"
@@ -146,7 +146,7 @@ public class PricingResultPersistService {
                             + "TRADE_INPUT_JSON, MARKET_DATA_KEYS_JSON, CREATED_AT, UPDATED_AT");
             verifyTableColumns("TB_OUT_TRADE_SCENARIO_RESULT_DETAIL",
                     "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
-                            + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, INSTRUMENT_ID, PRODUCT_CODE, "
+                            + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, SCENARIO_TYPE, INSTRUMENT_ID, PRODUCT_CODE, "
                             + "BASE_VALUATION_CNY, SCENARIO_VALUATION_CNY, PNL, ERROR, DETAIL, LOGS_JSON, RESULT_JSON, CREATED_AT, UPDATED_AT");
             verifyTableColumns(DECOMP_TABLE,
                     "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
@@ -310,6 +310,7 @@ public class PricingResultPersistService {
                         trimToNull(scenario.getString("SCENARIO_ID")),
                         trimToNull(scenario.getString("SUBSCENARIO_ID")),
                         trimToNull(scenario.getString("SCENARIO_NAME")),
+                        trimToNull(scenario.getString("SCENARIO_TYPE")),
                         instrumentId,
                         baseTrade == null ? null : trimToNull(baseTrade.getString("PRODUCT_CODE")),
                         DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("BASE_VALUATION_CNY"))),
