@@ -456,7 +456,7 @@ public class BatchJobService {
         BatchJobRow batchRow = requireBatchRow(safeBatchId);
         List<BatchItemRow> itemRows = loadBatchItems(safeBatchId);
         if (batchRow.totalJobs <= 0 && itemRows.isEmpty()) {
-            return buildBatchDetail(batchRow, itemRows, false, false);
+            return buildBatchDetail(batchRow, itemRows, isBatchTerminal(batchRow.status), false);
         }
         AggregatedCount aggregated = aggregate(itemRows, batchRow.totalJobs);
         String mergedStatus = deriveBatchStatus(aggregated, batchRow.totalJobs);
@@ -879,6 +879,13 @@ public class BatchJobService {
             return BATCH_FAILED;
         }
         return BATCH_PARTIAL_FAILED;
+    }
+
+    private boolean isBatchTerminal(String status) {
+        return BATCH_SUCCESS.equalsIgnoreCase(status)
+                || BATCH_FAILED.equalsIgnoreCase(status)
+                || BATCH_PARTIAL_FAILED.equalsIgnoreCase(status)
+                || BATCH_CANCELLED.equalsIgnoreCase(status);
     }
 
     // ==================== 工具方法 ====================
