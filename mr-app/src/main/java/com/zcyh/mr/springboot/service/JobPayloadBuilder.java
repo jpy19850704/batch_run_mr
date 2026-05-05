@@ -35,6 +35,7 @@ public class JobPayloadBuilder {
      * @param regularScenarioIdList 普通情景集 ID（仅 SCENARIO 模式）
      * @param riskClassDecompScenarioIdList 风险类别分解情景集 ID（仅 SCENARIO 模式）
      * @param persistResult     是否写入结果库
+     * @param frtbDisabled      是否关闭 FRTB 计量
      * @return 组装好的 payload JSON
      */
     public JSONObject buildPayload(
@@ -47,7 +48,8 @@ public class JobPayloadBuilder {
             int seqNo,
             String regularScenarioIdList,
             String riskClassDecompScenarioIdList,
-            boolean persistResult
+            boolean persistResult,
+            boolean frtbDisabled
     ) {
         // 组装 trade_data
         JSONArray tradeData = new JSONArray();
@@ -85,6 +87,7 @@ public class JobPayloadBuilder {
         payload.put("trade_data", tradeData);
         payload.put("market_data", marketData);
         payload.put("persist_result", persistResult);
+        payload.put("frtb_disable", frtbDisabled);
 
         // batch_meta
         JSONObject batchMeta = new JSONObject();

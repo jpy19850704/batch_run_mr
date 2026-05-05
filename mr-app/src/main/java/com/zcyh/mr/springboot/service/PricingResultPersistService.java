@@ -859,6 +859,12 @@ public class PricingResultPersistService {
         if (value == null) {
             return null;
         }
+        if (value instanceof CharSequence && trimToNull(String.valueOf(value)) == null) {
+            return null;
+        }
+        if (value instanceof JSONObject && ((JSONObject) value).isEmpty()) {
+            return null;
+        }
         return JSON.toJSONString(value, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
 

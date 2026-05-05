@@ -21,6 +21,8 @@ public class BatchRunRequest {
     private Boolean persistScenario;
     @JsonProperty("persist_result")
     private Boolean persistResult;
+    @JsonProperty("frtb_disable")
+    private Boolean frtbDisable;
 
     public String getBatchId() {
         return batchId;
@@ -84,5 +86,13 @@ public class BatchRunRequest {
 
     public void setPersistResult(Boolean persistResult) {
         this.persistResult = persistResult;
+    }
+
+    public Boolean getFrtbDisable() {
+        return frtbDisable;
+    }
+
+    public void setFrtbDisable(Boolean frtbDisable) {
+        this.frtbDisable = frtbDisable;
     }
 }

@@ -23,6 +23,7 @@ public class BatchRunWorkflowContext {
     private boolean whatifMode;
     private boolean externalBatchIdProvided;
     private boolean persistResult;
+    private boolean frtbDisabled;
     private List<ScenarioGeneratedRecord> scenarioRecords = new ArrayList<ScenarioGeneratedRecord>();
     private List<BatchTradeDataLoader.TradeRow> loadedTrades = new ArrayList<BatchTradeDataLoader.TradeRow>();
     private List<BatchTradeDataLoader.CurveRow> loadedMarketData = new ArrayList<BatchTradeDataLoader.CurveRow>();
@@ -117,6 +118,14 @@ public class BatchRunWorkflowContext {
 
     public void setPersistResult(boolean persistResult) {
         this.persistResult = persistResult;
+    }
+
+    public boolean isFrtbDisabled() {
+        return frtbDisabled;
+    }
+
+    public void setFrtbDisabled(boolean frtbDisabled) {
+        this.frtbDisabled = frtbDisabled;
     }
 
     public List<ScenarioGeneratedRecord> getScenarioRecords() {

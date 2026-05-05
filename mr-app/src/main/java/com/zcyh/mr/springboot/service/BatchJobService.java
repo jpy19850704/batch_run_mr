@@ -312,7 +312,7 @@ public class BatchJobService {
                         JobPayloadBuilder.toTradeSliceSources(chunkTrades),
                         curveSources);
                 JSONObject payload = payloadBuilder.buildPayload(opCode, dataDate, chunkTrades, sliceResult.getCurves(),
-                        sliceResult.getTradeMarketDataKeys(), batchId, seqNo, scenarioIdList, null, true);
+                        sliceResult.getTradeMarketDataKeys(), batchId, seqNo, scenarioIdList, null, true, false);
                 if (runMode != null) {
                     payload.put("run_mode", runMode);
                 }
@@ -400,6 +400,7 @@ public class BatchJobService {
             requestId = batchId;
         }
         int nextSeqNo = nextSeqNo(batchId);
+        boolean frtbDisabled = Boolean.TRUE.equals(request.getFrtbDisable());
 
         try {
             syncPortfolioHierarchySnapshot(batchId, dataDate);
@@ -411,7 +412,7 @@ public class BatchJobService {
                         curveSources
                 );
                 JSONObject payload = payloadBuilder.buildPayload(batchRow.opCode, dataDate, chunkTrades, sliceResult.getCurves(),
-                        sliceResult.getTradeMarketDataKeys(), batchId, seqNo, null, null, true);
+                        sliceResult.getTradeMarketDataKeys(), batchId, seqNo, null, null, true, frtbDisabled);
 
                 JobSubmitRequest jobRequest = new JobSubmitRequest();
                 String jobId = buildJobId(batchId, seqNo);

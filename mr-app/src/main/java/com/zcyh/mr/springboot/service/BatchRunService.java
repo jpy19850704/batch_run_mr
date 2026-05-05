@@ -111,6 +111,7 @@ public class BatchRunService {
         boolean persistResult = request.getPersistResult() == null
                 ? externalBatchId != null
                 : Boolean.TRUE.equals(request.getPersistResult());
+        boolean frtbDisabled = Boolean.TRUE.equals(request.getFrtbDisable());
 
         BatchRunWorkflowContext context = new BatchRunWorkflowContext();
         context.setRequest(request);
@@ -124,6 +125,7 @@ public class BatchRunService {
         context.setWhatifMode(RUN_MODE_WHATIF.equals(runMode));
         context.setExternalBatchIdProvided(externalBatchId != null);
         context.setPersistResult(persistResult);
+        context.setFrtbDisabled(frtbDisabled);
         return context;
     }
 

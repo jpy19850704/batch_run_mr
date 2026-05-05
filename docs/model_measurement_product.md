@@ -108,7 +108,7 @@
   V=(F-K)\cdot DF\cdot Position
   \]
 - PV外计量方法：PV01（折现曲线 +1bp）。
-- 计量输出：CommFwdMeasure。
+- 计量输出：Measure。
 
 ### COMMSWAP（商品掉期）
 - 金融介绍：固定价与浮动商品价交换，常用于能源和大宗商品套保。
@@ -198,7 +198,7 @@
 - 主要市场数据：标的曲线、波动率曲面、折现曲线、fixing。
 - 估值计量方法：区间累计修正公式，校准 \(\sigma\) 与 smile 斜率 \(\sigma_1\)。
 - PV外计量方法：按资产类别口径进行 Delta/Gamma/Theta/Vega/Rho 差分。
-- 计量输出：OptionMeasure 扩展字段（DOMESTIC_RATE、FOREIGN_RATE、SIGMABYGOALSEEK）。
+- 计量输出：OptionMeasure，产品明细保留在 DETAIL。
 
 ### 阶梯结构（FX_STEP_UP / IR_STEP_UP / EQ_STEP_UP / COMM_STEP_UP）
 - 金融介绍：收益按触发区间分级（低/中/高）提升，用于分情景收益优化。
@@ -206,4 +206,4 @@
 - 主要市场数据：标的曲线、波动率、折现曲线、fixing。
 - 估值计量方法：分段收益函数拆解并合成总价值。
 - PV外计量方法：差分 Greeks。
-- 计量输出：OptionMeasure 扩展字段。
+- 计量输出：OptionMeasure，产品明细保留在 DETAIL。

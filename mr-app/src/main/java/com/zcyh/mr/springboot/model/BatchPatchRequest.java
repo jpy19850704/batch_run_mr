@@ -16,6 +16,8 @@ public class BatchPatchRequest {
     private String dataDate;
     @JsonProperty("instrument_id_list")
     private List<String> instrumentIdList;
+    @JsonProperty("frtb_disable")
+    private Boolean frtbDisable;
 
     public String getBatchId() {
         return batchId;
@@ -47,5 +49,13 @@ public class BatchPatchRequest {
 
     public void setInstrumentIdList(List<String> instrumentIdList) {
         this.instrumentIdList = instrumentIdList;
+    }
+
+    public Boolean getFrtbDisable() {
+        return frtbDisable;
+    }
+
+    public void setFrtbDisable(Boolean frtbDisable) {
+        this.frtbDisable = frtbDisable;
     }
 }

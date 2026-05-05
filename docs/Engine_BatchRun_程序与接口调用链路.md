@@ -54,11 +54,14 @@
 - `dataDate`
 - `user`（可为空，默认 `outer_service`）
 - `scenarioIdList`（有值则走 SCENARIO 模式）
+- `persist_result` / `persistResult`（控制结果库写入）
+- `frtb_disable`（默认 `false`；仅显式为 `true` 时关闭 MR_CALC 内 FRTB 敏感性与 DRC 明细计量）
 
 返回体 `BatchRunResult`：
 
 - `batchDetail`：批次执行明细状态
-- `frtbSummary`、`drcSummary`、`varSummary`：汇总输出（并伴随 Doris 落库）
+- `scenarioData`、`persistResult`、`runMode`、`scenarioGenerated`、`scenarioCount` 等受理与工作流信息
+- FRTB SBA、DRC、VaR 汇总已拆为独立汇总接口，不再作为 `batch/run` 主链的必然输出
 
 ### 2.3 `POST /api/jobs/batch/patch`
 
@@ -70,6 +73,7 @@
 - `requestId`
 - `dataDate`
 - `instrumentIdList`（JSON 输入字段：`instrument_id_list`）
+- `frtb_disable`（可选；补跑不从主批次继承该值，如需关闭 FRTB 明细计量必须显式传 `true`）
 
 ### 2.4 `GET /api/jobs/batch/{batchId}`
 
@@ -125,10 +129,11 @@ sequenceDiagram
     API->>BR: run(request)
     BR->>BR: refreshForBatch(batchId)
     BR->>BR: generateScenarios(可选)
+    BR->>BR: context.frtbDisabled = request.frtb_disable == true
     BR->>BJ: submit(batchId,dataDate,opCode)
     BJ->>AJ: submit(jobRequest...按分片循环)
     AJ->>EO: run(runRequest)
-    EO->>MC: calculate(payload)
+    EO->>MC: calculate(payload 含 frtb_disable)
     MC-->>EO: runResult(JSON)
     EO-->>AJ: EngineRunResult
     AJ->>D: PricingResultPersistService.persistJobResult(明细表)
@@ -177,7 +182,8 @@ sequenceDiagram
 3. `syncPortfolioHierarchySnapshot(batchId, dataDate)` 快照层级到 Doris `TB_OUT_PORTFOLIO_HIERARCHY`。
 4. 遍历每个 chunk：
    - `sliceCurvesWithTradeKeys(...)` 生成交易相关市场数据切片
-   - `JobPayloadBuilder.buildPayload(...)` 组装 payload（含 `batch_meta`、`trade_dimension`、`scenario_ref`）
+   - `JobPayloadBuilder.buildPayload(...)` 组装 payload（含 `batch_meta`、`trade_dimension`、`scenario_ref`、`persist_result`、`frtb_disable`）
+   - `frtb_disable=true` 时，`Calc -> FrtbCalcControl` 控制产品侧跳过 FRTB 敏感性与 DRC 明细生成
    - `AsyncJobService.submit(jobRequest)` 提交子任务
    - 写 `MR_ASYNC_BATCH_ITEM`
 5. 更新批次状态为 `SUBMITTED`。
@@ -202,8 +208,9 @@ sequenceDiagram
 2. `ensureBatchNotRunning`，避免与正在跑的批次冲突。
 3. 按 `instrumentIdList` 读取交易与市场数据，重新分片。
 4. `nextSeqNo(batchId)` 获取新子任务起始序号。
-5. 逐片提交到 `AsyncJobService.submit`，写入 `MR_ASYNC_BATCH_ITEM`。
-6. `refreshBatchSummary` 刷新批次聚合状态。
+5. 按补跑请求中的 `frtb_disable` 组装 payload；缺省为 `false`，不从主批次继承。
+6. 逐片提交到 `AsyncJobService.submit`，写入 `MR_ASYNC_BATCH_ITEM`。
+7. `refreshBatchSummary` 刷新批次聚合状态。
 
 ---
 
@@ -425,10 +432,10 @@ Controller：
 
 ## 13. 结论
 
-在当前实现中，BatchRun 的“最终结果写入 Doris”由两条链路共同完成：
+在当前实现中，BatchRun 的结果写入 Doris 以子任务明细落库为主：
 
-1. 子任务执行成功后立即写明细（交易/情景/敏感性/DRC/市场数据）。
-2. 批次全部成功后写汇总（FRTB SBA、DRC 汇总、VaR 汇总）。
+1. 子任务执行成功后立即写明细（交易/情景/敏感性/DRC/市场数据）；`frtb_disable=true` 时不生成 FRTB 敏感性与 DRC 明细内容，空字符串或空 JSON 对象按空值处理。
+2. FRTB SBA、DRC、VaR 汇总通过独立汇总接口触发，不作为 `batch/run` 主链的必然步骤。
 
 因此，核对 BatchRun 是否“真正完成”不能只看接口成功，必须同时核对：
 
