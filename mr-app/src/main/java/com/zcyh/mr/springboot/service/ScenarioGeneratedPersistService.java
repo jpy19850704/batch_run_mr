@@ -1,6 +1,8 @@
 package com.zcyh.mr.springboot.service;
 
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -17,6 +19,7 @@ import java.util.List;
  */
 @Service
 public class ScenarioGeneratedPersistService {
+    private static final Logger log = LoggerFactory.getLogger(ScenarioGeneratedPersistService.class);
     private static final DateTimeFormatter DATE_8_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
     private static final String TARGET_TABLE = "TB_OUT_SCENARIO_FILE_DETAIL";
     private static final String STREAM_LOAD_COLUMNS = "BATCH_ID,DATA_DATE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,"
@@ -40,15 +43,22 @@ public class ScenarioGeneratedPersistService {
      */
     public void persist(String batchId, String dataDate, Boolean persistScenario, List<ScenarioGeneratedRecord> records) {
         if (!Boolean.TRUE.equals(persistScenario)) {
+            log.info("情景生成结果落库跳过: batchId={}, dataDate={}, reason=persist_scenario未开启", batchId, dataDate);
             return;
         }
         String safeBatchId = trimToNull(batchId);
-        if (safeBatchId == null || records == null || records.isEmpty()) {
+        if (safeBatchId == null) {
+            log.warn("情景生成结果落库跳过: batchId={}, dataDate={}, reason=batchId为空", batchId, dataDate);
+            return;
+        }
+        if (records == null || records.isEmpty()) {
+            log.warn("情景生成结果落库跳过: batchId={}, dataDate={}, reason=records为空", safeBatchId, dataDate);
             return;
         }
 
         String now = ResultPersistTime.nowText();
-        jdbcTemplate.update("DELETE FROM TB_OUT_SCENARIO_FILE_DETAIL WHERE BATCH_ID=?", safeBatchId);
+        int deleted = jdbcTemplate.update("DELETE FROM TB_OUT_SCENARIO_FILE_DETAIL WHERE BATCH_ID=?", safeBatchId);
+        log.info("清理情景生成历史结果: batchId={}, deleted={}", safeBatchId, deleted);
 
         DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
                 dorisStreamLoadService,
@@ -83,6 +93,8 @@ public class ScenarioGeneratedPersistService {
             );
         }
         buffer.flush();
+        log.info("情景生成结果落库完成: batchId={}, dataDate={}, rows={}",
+                safeBatchId, dataDate, records.size());
     }
 
     /**
