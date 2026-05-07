@@ -3,9 +3,7 @@ package com.zcyh.mr.springboot.model;
 import com.alibaba.fastjson2.annotation.JSONField;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 公共维度汇总规则模型。
@@ -19,7 +17,6 @@ public class AggregationRule {
     private String ruleName;
     @JSONField(name = "build_order")
     private List<String> buildOrder = new ArrayList<String>();
-    private Map<String, String> dimensions = new LinkedHashMap<String, String>();
     @JSONField(name = "group_by_fields")
     private List<String> groupByFields = new ArrayList<String>();
     @JSONField(name = "sum_fields")
@@ -57,14 +54,6 @@ public class AggregationRule {
 
     public void setBuildOrder(List<String> buildOrder) {
         this.buildOrder = buildOrder == null ? new ArrayList<String>() : buildOrder;
-    }
-
-    public Map<String, String> getDimensions() {
-        return dimensions;
-    }
-
-    public void setDimensions(Map<String, String> dimensions) {
-        this.dimensions = dimensions == null ? new LinkedHashMap<String, String>() : dimensions;
     }
 
     public List<String> getGroupByFields() {

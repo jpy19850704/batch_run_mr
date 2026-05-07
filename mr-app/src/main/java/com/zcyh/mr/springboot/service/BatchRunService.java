@@ -38,6 +38,7 @@ public class BatchRunService {
     private final List<BatchRunTask> scenarioTasks;
     private final List<BatchRunTask> payloadTasks;
     private final List<BatchRunTask> calcTasks;
+    private final List<BatchRunTask> summaryTasks;
     private final BatchJobService batchJobService;
     private final AlertService alertService;
     private final ExecutorService batchRunWorkflowExecutor;
@@ -52,6 +53,7 @@ public class BatchRunService {
             BatchPayloadBuildTask payloadBuildTask,
             BatchCalcSubmitTask calcSubmitTask,
             BatchCalcWaitTask calcWaitTask,
+            BatchSummaryTask summaryTask,
             BatchJobService batchJobService,
             AlertService alertService,
             @Qualifier("batchRunWorkflowExecutor") ExecutorService batchRunWorkflowExecutor) {
@@ -67,6 +69,7 @@ public class BatchRunService {
         this.calcTasks = Arrays.<BatchRunTask>asList(
                 calcSubmitTask,
                 calcWaitTask);
+        this.summaryTasks = Arrays.<BatchRunTask>asList(summaryTask);
         this.batchJobService = batchJobService;
         this.alertService = alertService;
         this.batchRunWorkflowExecutor = batchRunWorkflowExecutor;
@@ -126,6 +129,9 @@ public class BatchRunService {
         context.setExternalBatchIdProvided(externalBatchId != null);
         context.setPersistResult(persistResult);
         context.setFrtbDisabled(frtbDisabled);
+        context.setFrtbSbaRuleIdList(trimToNull(request.getFrtbSbaRuleIdList()));
+        context.setVarRuleIdList(trimToNull(request.getVarRuleIdList()));
+        context.setDrcRuleIdList(trimToNull(request.getDrcRuleIdList()));
         return context;
     }
 
@@ -169,6 +175,7 @@ public class BatchRunService {
             executeTaskGroup("SCENARIO_RUNNING", scenarioTasks, context);
             executeTaskGroup("PAYLOAD_BUILDING", payloadTasks, context);
             executeTaskGroup("CALC_RUNNING", calcTasks, context);
+            executeTaskGroup("SUMMARY_RUNNING", summaryTasks, context);
             batchJobService.markWorkflowSuccess(context.getBatchId(), "批次工作流执行完成");
             log.info("批次工作流异步执行完成，batchId={}", context.getBatchId());
         } catch (Throwable ex) {

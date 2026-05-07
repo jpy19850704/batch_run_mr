@@ -12,8 +12,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-
 /**
  * FRTB SBA 汇总服务。
  * 从批次敏感性明细生成 SBA 汇总结果，并按需要执行结果落库。
@@ -21,7 +19,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Service
 public class FrtbSbaSummaryService {
     private static final Logger log = LoggerFactory.getLogger(FrtbSbaSummaryService.class);
-    private static final String DEFAULT_RULE_ID = "BATCH_FRTB_DEFAULT";
     private static final String CALC_TYPE_FRTB_SBA = "FRTB_SBA";
 
     private final FrtbSbaDbRunnerService frtbSbaDbRunnerService;
@@ -57,13 +54,12 @@ public class FrtbSbaSummaryService {
         }
 
         JSONArray results = new JSONArray();
-        AtomicInteger inlineCounter = new AtomicInteger(1);
         for (int i = 0; i < ruleList.size(); i++) {
             JSONObject ruleItem = ruleList.getJSONObject(i);
             if (ruleItem == null) {
                 throw new IllegalArgumentException("rule_list[" + i + "] 不能为空对象");
             }
-            RuleExecution execution = resolveRuleExecution(ruleItem, inlineCounter);
+            RuleExecution execution = resolveRuleExecution(ruleItem);
             String raw = executeOne(batchId, dataDate, needDecompose, threadCount, execution);
             Object parsed = JSON.parse(raw);
 
@@ -197,12 +193,10 @@ public class FrtbSbaSummaryService {
             single.add(item);
             return single;
         }
-        item.put("rule_id", DEFAULT_RULE_ID);
-        single.add(item);
-        return single;
+        throw new IllegalArgumentException("FRTB SBA 汇总必须显式提供 rule_id、rule 或 rule_list");
     }
 
-    private static RuleExecution resolveRuleExecution(JSONObject ruleItem, AtomicInteger inlineCounter) {
+    private static RuleExecution resolveRuleExecution(JSONObject ruleItem) {
         JSONObject rule = ruleItem.getJSONObject("rule");
         String ruleId = readString(ruleItem, "rule_id");
         if (rule == null) {
@@ -215,11 +209,9 @@ public class FrtbSbaSummaryService {
             ruleId = readString(rule, "rule_id");
         }
         if (ruleId == null) {
-            ruleId = "INLINE_FRTB_SBA_" + inlineCounter.getAndIncrement();
+            throw new IllegalArgumentException("FRTB SBA inline rule 必须显式提供 rule_id");
         }
-        rule.put("ruleId", ruleId);
-        String ruleType = readString(rule, "rule_type");
-        rule.put("ruleType", ruleType == null ? "FRTB" : ruleType);
+        rule.put("rule_id", ruleId);
         return RuleExecution.inline(ruleId, rule);
     }
 

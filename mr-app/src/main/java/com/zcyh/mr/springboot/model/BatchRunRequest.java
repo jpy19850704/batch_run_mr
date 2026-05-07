@@ -23,6 +23,12 @@ public class BatchRunRequest {
     private Boolean persistResult;
     @JsonProperty("frtb_disable")
     private Boolean frtbDisable;
+    @JsonProperty("frtb_sba_rule_id_list")
+    private String frtbSbaRuleIdList;
+    @JsonProperty("var_rule_id_list")
+    private String varRuleIdList;
+    @JsonProperty("drc_rule_id_list")
+    private String drcRuleIdList;
 
     public String getBatchId() {
         return batchId;
@@ -94,5 +100,29 @@ public class BatchRunRequest {
 
     public void setFrtbDisable(Boolean frtbDisable) {
         this.frtbDisable = frtbDisable;
+    }
+
+    public String getFrtbSbaRuleIdList() {
+        return frtbSbaRuleIdList;
+    }
+
+    public void setFrtbSbaRuleIdList(String frtbSbaRuleIdList) {
+        this.frtbSbaRuleIdList = frtbSbaRuleIdList;
+    }
+
+    public String getVarRuleIdList() {
+        return varRuleIdList;
+    }
+
+    public void setVarRuleIdList(String varRuleIdList) {
+        this.varRuleIdList = varRuleIdList;
+    }
+
+    public String getDrcRuleIdList() {
+        return drcRuleIdList;
+    }
+
+    public void setDrcRuleIdList(String drcRuleIdList) {
+        this.drcRuleIdList = drcRuleIdList;
     }
 }

@@ -27,7 +27,7 @@ public class FrtbDrcResultPersistService {
     private static final String FLAG_DECOMP_LEGAL_ENTITY = "DECOMP_LEGALENTITY";
     private static final String TARGET_TABLE = "TB_OUT_TRADE_DRC_RESULT";
     private static final String STREAM_LOAD_COLUMNS =
-            "REQUEST_ID,JOB_ID,BATCH_ID,DATA_DATE,DECOMP_FLAG,AGG_LEVEL,DRC_TYPE,DRC_BUCKET,LEGAL_ENTITY,DRC_VALUE,CREATED_AT";
+            "REQUEST_ID,JOB_ID,BATCH_ID,DATA_DATE,RULE_ID,GROUP_TYPE,GROUP_VALUE,DECOMP_FLAG,AGG_LEVEL,DRC_TYPE,DRC_BUCKET,LEGAL_ENTITY,DRC_VALUE,CREATED_AT";
 
     private final JdbcTemplate jdbcTemplate;
     private final DorisStreamLoadService dorisStreamLoadService;
@@ -41,12 +41,12 @@ public class FrtbDrcResultPersistService {
     /**
      * 删除指定批次与估值日的历史 DRC 汇总结果。
      */
-    public void deleteByBatchAndDataDate(String batchId, String dataDate) {
+    public void deleteByBatchDataDateAndRule(String batchId, String dataDate, String ruleId) {
         int deleted = jdbcTemplate.update(
-                "DELETE FROM TB_OUT_TRADE_DRC_RESULT WHERE BATCH_ID=? AND DATA_DATE=?",
-                batchId, dataDate);
+                "DELETE FROM TB_OUT_TRADE_DRC_RESULT WHERE BATCH_ID=? AND DATA_DATE=? AND RULE_ID=?",
+                batchId, dataDate, ruleId);
         if (deleted > 0) {
-            log.info("清理 DRC 汇总历史结果: batchId={}, dataDate={}, deleted={}", batchId, dataDate, deleted);
+            log.info("清理 DRC 汇总历史结果: batchId={}, dataDate={}, ruleId={}, deleted={}", batchId, dataDate, ruleId, deleted);
         }
     }
 
@@ -55,20 +55,24 @@ public class FrtbDrcResultPersistService {
      * 输入只使用 DRC_VALUE 与 DECOMP_LEGALENTITY 两类模块，聚合层级由核心模块输出。
      */
     @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
-    public void persist(String requestId, String jobId, String batchId, String dataDate, JSONObject drcResult) {
+    public void persist(String requestId, String jobId, String batchId, String dataDate, String ruleId, JSONObject drcResult) {
         String safeBatchId = trimToNull(batchId);
         String safeDataDate = trimToNull(dataDate);
+        String safeRuleId = trimToNull(ruleId);
         if (safeBatchId == null) {
             throw new IllegalArgumentException("batchId 不能为空");
         }
         if (safeDataDate == null) {
             throw new IllegalArgumentException("dataDate 不能为空");
         }
+        if (safeRuleId == null) {
+            throw new IllegalArgumentException("ruleId 不能为空");
+        }
         if (drcResult == null) {
             throw new IllegalArgumentException("drcResult 不能为空");
         }
 
-        deleteByBatchAndDataDate(safeBatchId, safeDataDate);
+        deleteByBatchDataDateAndRule(safeBatchId, safeDataDate, safeRuleId);
 
         List<ResultRow> rows = new ArrayList<ResultRow>();
         appendModuleRows(
@@ -76,13 +80,13 @@ public class FrtbDrcResultPersistService {
                 drcResult.getJSONArray(FLAG_DRC_VALUE),
                 FLAG_DRC_VALUE,
                 "DRC_VALUE",
-                safeBatchId, safeDataDate);
+                safeBatchId, safeDataDate, safeRuleId);
         appendModuleRows(
                 rows,
                 drcResult.getJSONArray(FLAG_DECOMP_LEGAL_ENTITY),
                 FLAG_DECOMP_LEGAL_ENTITY,
                 "CONTRIBUTION",
-                safeBatchId, safeDataDate);
+                safeBatchId, safeDataDate, safeRuleId);
 
         if (rows.isEmpty()) {
             log.warn("DRC 结果为空，跳过落库: batchId={}, dataDate={}", safeBatchId, safeDataDate);
@@ -102,6 +106,9 @@ public class FrtbDrcResultPersistService {
                     trimToNull(jobId),
                     row.batchId,
                     row.dataDate,
+                    row.ruleId,
+                    row.groupType,
+                    row.groupValue,
                     row.decompFlag,
                     row.aggLevel,
                     row.drcType,
@@ -120,7 +127,8 @@ public class FrtbDrcResultPersistService {
                                          String decompFlag,
                                          String valueField,
                                          String batchId,
-                                         String dataDate) {
+                                         String dataDate,
+                                         String ruleId) {
         if (moduleRows == null || moduleRows.isEmpty()) {
             return;
         }
@@ -137,11 +145,14 @@ public class FrtbDrcResultPersistService {
             String legalEntity = trimToNull(row.getString("LEGAL_ENTITY"));
             String drcBucket = trimToNull(row.getString("DRC_BUCKET"));
             String aggLevel = trimToNull(row.getString("AGG_LEVEL"));
+            String rowRuleId = trimToNull(row.getString("RULE_ID"));
+            String groupType = trimToNull(row.getString("GROUP_TYPE"));
+            String groupValue = trimToNull(row.getString("GROUP_VALUE"));
             if (aggLevel == null) {
                 aggLevel = "LEGAL_ENTITY";
             }
             BigDecimal value = toBigDecimal(row.get(valueField));
-            String missingFields = buildMissingFields(drcType, legalEntity, drcBucket, aggLevel, value);
+            String missingFields = buildMissingFields(rowRuleId, groupType, groupValue, drcType, legalEntity, drcBucket, aggLevel, value);
             if (missingFields != null) {
                 invalidRowCount++;
                 logInvalidRow(batchId, dataDate, decompFlag, i, missingFields, row, invalidRowCount);
@@ -150,6 +161,7 @@ public class FrtbDrcResultPersistService {
 
             output.add(ResultRow.of(
                     batchId, dataDate,
+                    rowRuleId, groupType, groupValue,
                     decompFlag, aggLevel,
                     drcType, drcBucket, legalEntity, value));
         }
@@ -161,12 +173,24 @@ public class FrtbDrcResultPersistService {
         }
     }
 
-    private static String buildMissingFields(String drcType,
+    private static String buildMissingFields(String ruleId,
+                                             String groupType,
+                                             String groupValue,
+                                             String drcType,
                                              String legalEntity,
                                              String drcBucket,
                                              String aggLevel,
                                              BigDecimal value) {
         List<String> missing = new ArrayList<String>();
+        if (ruleId == null) {
+            missing.add("RULE_ID");
+        }
+        if (groupType == null) {
+            missing.add("GROUP_TYPE");
+        }
+        if (groupValue == null) {
+            missing.add("GROUP_VALUE");
+        }
         if (drcType == null) {
             missing.add("DRC_TYPE");
         }
@@ -229,6 +253,9 @@ public class FrtbDrcResultPersistService {
     private static class ResultRow {
         String batchId;
         String dataDate;
+        String ruleId;
+        String groupType;
+        String groupValue;
         String decompFlag;
         String aggLevel;
         String drcType;
@@ -238,6 +265,9 @@ public class FrtbDrcResultPersistService {
 
         static ResultRow of(String batchId,
                             String dataDate,
+                            String ruleId,
+                            String groupType,
+                            String groupValue,
                             String decompFlag,
                             String aggLevel,
                             String drcType,
@@ -247,6 +277,9 @@ public class FrtbDrcResultPersistService {
             ResultRow row = new ResultRow();
             row.batchId = batchId;
             row.dataDate = dataDate;
+            row.ruleId = ruleId;
+            row.groupType = groupType;
+            row.groupValue = groupValue;
             row.decompFlag = decompFlag;
             row.aggLevel = aggLevel;
             row.drcType = drcType;

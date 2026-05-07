@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 @Service
 public class VarSummaryService {
     private static final Logger log = LoggerFactory.getLogger(VarSummaryService.class);
-    private static final String DEFAULT_VAR_RULE_ID = "BATCH_VAR_DEFAULT";
     private static final String DEFAULT_VAR_QUANTILES = "0.95,0.99";
     private static final String CALC_TYPE_VAR = "VAR";
 
@@ -45,9 +44,6 @@ public class VarSummaryService {
         }
         if (runnerRequest.get("quantiles") == null) {
             runnerRequest.put("quantiles", DEFAULT_VAR_QUANTILES);
-        }
-        if (runnerRequest.getJSONArray("rules") == null || runnerRequest.getJSONArray("rules").isEmpty()) {
-            runnerRequest.put("rules", buildDefaultRules());
         }
 
         String raw = varDbRunnerService.calculateByInline(
@@ -96,22 +92,6 @@ public class VarSummaryService {
         JSONObject copy = JSON.parseObject(request.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
         copy.remove("persist_result");
         return copy;
-    }
-
-    private static JSONArray buildDefaultRules() {
-        JSONObject rule = new JSONObject();
-        rule.put("rule_id", DEFAULT_VAR_RULE_ID);
-        rule.put("rule_name", "默认 VaR 批次汇总规则");
-        rule.put("build_order", JSON.parseArray("[\"TRADER\",\"DESK\",\"PORTFOLIO\"]"));
-
-        JSONObject calc = new JSONObject();
-        calc.put("risk_class", "ALL");
-        calc.put("var_pick", "average");
-        rule.put("calc", calc);
-
-        JSONArray rules = new JSONArray();
-        rules.add(rule);
-        return rules;
     }
 
     private static boolean readBoolean(JSONObject request, boolean defaultValue, String key) {

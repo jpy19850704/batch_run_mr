@@ -21,7 +21,7 @@ import java.util.Map;
 @Service
 public class FrtbSbaDbRunnerService {
     private static final String TOTAL = "TOTAL";
-    private static final String DEFAULT_RULE_TYPE = "FRTB";
+    private static final String SBA_RULE_TYPE = "FRTB";
     private static final String SBA_SUM_FIELD = "SENSITIVITY_VAL_INST_CURR_CNY";
     private static final String[] SBA_GROUP_BY_FIELDS = new String[]{
             "RISK_FACTOR_ID",
@@ -104,15 +104,14 @@ public class FrtbSbaDbRunnerService {
 
         JSONObject ruleJson = req.getJSONObject("rule");
         if (ruleJson == null) {
-            throw new IllegalArgumentException("rule 不能为空，需要包含 build_order/dimensions/filter_tree 等");
+            throw new IllegalArgumentException("rule 不能为空，需要包含 build_order/filter_tree 等");
         }
         AggregationRule rule = parseInlineRule(ruleJson);
         if (rule == null) {
             throw new IllegalArgumentException("rule 解析失败");
         }
-        // 设置内联规则的默认值
         if (rule.getRuleId() == null || rule.getRuleId().isEmpty()) {
-            rule.setRuleId("INLINE_" + System.currentTimeMillis());
+            throw new IllegalArgumentException("FRTB SBA inline rule 必须显式提供 rule_id");
         }
 
         applySbaRuleDefaults(rule);
@@ -235,10 +234,6 @@ public class FrtbSbaDbRunnerService {
         rule.setBuildOrder(toStringList(ruleJson.get("build_order")));
         rule.setGroupByFields(toStringList(ruleJson.get("group_by_fields")));
         rule.setSumFields(toStringList(ruleJson.get("sum_fields")));
-        rule.setDimensions(toStringMap(ruleJson.get("dimensions")));
-        if (ruleJson.containsKey("filters")) {
-            throw new IllegalArgumentException("filters 已停用，请使用 filter_tree");
-        }
         rule.setFilterTree(toFilterExpression(ruleJson.get("filter_tree")));
         return rule;
     }
@@ -251,15 +246,17 @@ public class FrtbSbaDbRunnerService {
     }
 
     /**
-     * 补齐 SBA 汇总规则默认项，接口只需要表达业务层级和过滤条件。
+     * 校验并规范 SBA 汇总规则，规则类型必须由输入明确给出。
      */
     private static void applySbaRuleDefaults(AggregationRule rule) {
         if (rule == null) {
             throw new IllegalArgumentException("AggregationRule 不能为空");
         }
-        if (trimToNull(rule.getRuleType()) == null) {
-            rule.setRuleType(DEFAULT_RULE_TYPE);
+        String ruleType = trimToNull(rule.getRuleType());
+        if (!SBA_RULE_TYPE.equalsIgnoreCase(ruleType)) {
+            throw new IllegalArgumentException("FRTB SBA 汇总规则 rule_type 必须为 FRTB");
         }
+        rule.setRuleType(SBA_RULE_TYPE);
 
         List<String> buildOrder = new ArrayList<String>();
         addUniqueIgnoreCase(buildOrder, TOTAL);
@@ -268,25 +265,11 @@ public class FrtbSbaDbRunnerService {
         }
         rule.setBuildOrder(buildOrder);
 
-        Map<String, String> dimensions = normalizeDimensionMap(rule.getDimensions());
-        if (dimensions.isEmpty()) {
-            for (String level : buildOrder) {
-                if (!TOTAL.equalsIgnoreCase(level)) {
-                    dimensions.put(level, level);
-                }
-            }
-        } else {
-            for (String level : buildOrder) {
-                if (!TOTAL.equalsIgnoreCase(level) && !containsKeyIgnoreCase(dimensions, level)) {
-                    dimensions.put(level, level);
-                }
-            }
-        }
-        rule.setDimensions(dimensions);
-
         List<String> groupByFields = normalizeFieldList(rule.getGroupByFields());
-        for (String mappedField : dimensions.values()) {
-            addUniqueIgnoreCase(groupByFields, normalizeFieldName(mappedField));
+        for (String level : buildOrder) {
+            if (!TOTAL.equalsIgnoreCase(level)) {
+                addUniqueIgnoreCase(groupByFields, normalizeFieldName(level));
+            }
         }
         for (String riskFactorField : SBA_GROUP_BY_FIELDS) {
             addUniqueIgnoreCase(groupByFields, riskFactorField);
@@ -346,21 +329,6 @@ public class FrtbSbaDbRunnerService {
         return rawValue;
     }
 
-    private static Map<String, String> normalizeDimensionMap(Map<String, String> rawMap) {
-        Map<String, String> result = new LinkedHashMap<String, String>();
-        if (rawMap == null || rawMap.isEmpty()) {
-            return result;
-        }
-        for (Map.Entry<String, String> entry : rawMap.entrySet()) {
-            String key = normalizeFieldName(entry.getKey());
-            String value = normalizeFieldName(entry.getValue());
-            if (key != null && value != null) {
-                result.put(key, value);
-            }
-        }
-        return result;
-    }
-
     private static List<String> normalizeFieldList(List<String> rawList) {
         List<String> result = new ArrayList<String>();
         if (rawList == null || rawList.isEmpty()) {
@@ -378,19 +346,6 @@ public class FrtbSbaDbRunnerService {
             return null;
         }
         return safe.toUpperCase(Locale.ROOT);
-    }
-
-    private static boolean containsKeyIgnoreCase(Map<String, String> values, String target) {
-        String safeTarget = trimToNull(target);
-        if (values == null || values.isEmpty() || safeTarget == null) {
-            return false;
-        }
-        for (String key : values.keySet()) {
-            if (safeTarget.equalsIgnoreCase(key)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static void addUniqueIgnoreCase(List<String> values, String value) {
@@ -415,21 +370,6 @@ public class FrtbSbaDbRunnerService {
             String value = asTrimmedString(item);
             if (value != null) {
                 result.add(value);
-            }
-        }
-        return result;
-    }
-
-    private static Map<String, String> toStringMap(Object rawMap) {
-        Map<String, String> result = new LinkedHashMap<String, String>();
-        if (!(rawMap instanceof Map)) {
-            return result;
-        }
-        for (Map.Entry<?, ?> entry : ((Map<?, ?>) rawMap).entrySet()) {
-            String key = asTrimmedString(entry.getKey());
-            String value = asTrimmedString(entry.getValue());
-            if (key != null && value != null) {
-                result.put(key, value);
             }
         }
         return result;
@@ -473,8 +413,7 @@ public class FrtbSbaDbRunnerService {
                     groupType = "TOTAL";
                     groupValue = "TOTAL";
                 } else {
-                    String fieldName = rule.getDimensions().get(level);
-                    String levelValue = dimensionAggregationService.normalizeDimensionValue(row.get(fieldName));
+                    String levelValue = dimensionAggregationService.normalizeDimensionValue(row.get(level));
                     pathValues.add(levelValue);
                     groupType = level;
                     groupValue = dimensionAggregationService.buildGroupValue(pathValues);

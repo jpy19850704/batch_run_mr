@@ -87,12 +87,10 @@ public class VarInputQueryService {
         }
 
         Set<String> dimensionFields = new LinkedHashSet<String>();
-        if (rule.getDimensions() != null) {
-            for (String mappedField : rule.getDimensions().values()) {
-                String safeField = trimToNull(mappedField);
-                if (safeField != null) {
-                    dimensionFields.add(safeField.toUpperCase());
-                }
+        for (String level : rule.getBuildOrder()) {
+            String safeField = trimToNull(level);
+            if (safeField != null && !"TOTAL".equalsIgnoreCase(safeField)) {
+                dimensionFields.add(safeField.toUpperCase());
             }
         }
         Set<String> filterFields = collectFilterFields(rule);
@@ -150,15 +148,15 @@ public class VarInputQueryService {
                     sql.toString(),
                     params.toArray(),
                     (rs, rowNum) -> {
-                        Map<String, String> dimensions = new LinkedHashMap<String, String>();
+                        Map<String, String> groupValues = new LinkedHashMap<String, String>();
                         for (String dimensionField : dimensionFields) {
-                            dimensions.put(dimensionField, trimToNull(rs.getString(dimensionField)));
+                            groupValues.put(dimensionField, trimToNull(rs.getString(dimensionField)));
                         }
                         return new RuleScenarioPnlRow(
                                 trimToNull(rs.getString("SCENARIO_ID")),
                                 trimToNull(rs.getString("SUBSCENARIO_ID")),
                                 trimToNull(rs.getString("SCENARIO_NAME")),
-                                dimensions,
+                                groupValues,
                                 rs.getBigDecimal("ALL_PNL"),
                                 rs.getBigDecimal("IR_PNL"),
                                 rs.getBigDecimal("FX_PNL"),
@@ -389,7 +387,7 @@ public class VarInputQueryService {
         private final String scenarioId;
         private final String subScenarioId;
         private final String scenarioName;
-        private final Map<String, String> dimensions;
+        private final Map<String, String> groupValues;
         private final BigDecimal allPnl;
         private final BigDecimal irPnl;
         private final BigDecimal fxPnl;
@@ -400,7 +398,7 @@ public class VarInputQueryService {
         public RuleScenarioPnlRow(String scenarioId,
                                   String subScenarioId,
                                   String scenarioName,
-                                  Map<String, String> dimensions,
+                                  Map<String, String> groupValues,
                                   BigDecimal allPnl,
                                   BigDecimal irPnl,
                                   BigDecimal fxPnl,
@@ -410,7 +408,7 @@ public class VarInputQueryService {
             this.scenarioId = scenarioId;
             this.subScenarioId = subScenarioId;
             this.scenarioName = scenarioName;
-            this.dimensions = dimensions == null ? new LinkedHashMap<String, String>() : dimensions;
+            this.groupValues = groupValues == null ? new LinkedHashMap<String, String>() : groupValues;
             this.allPnl = allPnl;
             this.irPnl = irPnl;
             this.fxPnl = fxPnl;
@@ -431,8 +429,8 @@ public class VarInputQueryService {
             return scenarioName;
         }
 
-        public Map<String, String> getDimensions() {
-            return dimensions;
+        public Map<String, String> getGroupValues() {
+            return groupValues;
         }
 
         public BigDecimal getAllPnl() {

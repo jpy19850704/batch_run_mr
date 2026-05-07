@@ -1,11 +1,22 @@
 package com.zcyh.mr.springboot.service;
 
+import com.alibaba.fastjson2.JSON;
+import com.zcyh.mr.springboot.model.AggregationRule;
 import com.zcyh.mr.product.basic.frtb.DrcDetail;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * FRTB DRC 输入查询服务。
@@ -13,10 +24,70 @@ import java.util.List;
  */
 @Service
 public class FrtbDrcInputQueryService {
+    private static final String PORTFOLIO_FLAT_VIEW = "V_TB_OUT_PORTFOLIO_HIERARCHY_FLAT";
+    private static final int PORTFOLIO_LEVEL_MAX = 7;
+    private static final Map<String, String> DRC_FIELD_SQL = buildDrcFieldSqlMap();
+    private static final Map<String, String> TRADE_FIELD_SQL = buildTradeFieldSqlMap();
+    private static final Map<String, String> PORTFOLIO_FIELD_SQL = buildPortfolioFieldSqlMap();
+    private static final String[] REQUIRED_SELECT_FIELDS = {
+            "DATA_DATE",
+            "PORTFOLIO_CODE",
+            "PRODUCT_CODE",
+            "INSTRUMENT_ID",
+            "SECURITY_ID",
+            "SECURITY_TYPE",
+            "LEGAL_ENTITY",
+            "DRC_BUCKET",
+            "JTD_TYPE",
+            "SENIORITY",
+            "TERM_TO_MATURITY",
+            "MODIFIED_REMAIN_TERM",
+            "RISK_WEIGHT",
+            "JTD",
+            "JTD_CNY",
+            "INSTRUMENT_VALUE",
+            "FRTB_LGD",
+            "NOTIONAL"
+    };
+
+    private final JdbcTemplate engineDbJdbcTemplate;
     private final JdbcTemplate engineResultDbJdbcTemplate;
 
-    public FrtbDrcInputQueryService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate) {
+    public FrtbDrcInputQueryService(@Qualifier("engineDbJdbcTemplate") JdbcTemplate engineDbJdbcTemplate,
+                                    @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate) {
+        this.engineDbJdbcTemplate = engineDbJdbcTemplate;
         this.engineResultDbJdbcTemplate = engineResultDbJdbcTemplate;
+    }
+
+    public AggregationRule loadAggregationRule(String ruleId) {
+        String safeRuleId = trimToNull(ruleId);
+        if (safeRuleId == null) {
+            throw new IllegalArgumentException("ruleId 不能为空");
+        }
+        try {
+            List<Map<String, Object>> rows = engineDbJdbcTemplate.queryForList(
+                    "SELECT RULE_ID, RULE_TYPE, RULE_NAME, RULE_JSON "
+                            + "FROM MR_AGG_RULE WHERE RULE_TYPE=? AND RULE_ID=?",
+                    "DRC", safeRuleId);
+            if (rows.isEmpty()) {
+                throw new IllegalArgumentException("未找到 DRC 汇总规则: " + safeRuleId);
+            }
+            Map<String, Object> row = rows.get(0);
+            String ruleJson = trimToNull(stringValue(row.get("RULE_JSON")));
+            if (ruleJson == null) {
+                throw new IllegalArgumentException("DRC 汇总规则内容为空: " + safeRuleId);
+            }
+            AggregationRule rule = JSON.parseObject(ruleJson, AggregationRule.class);
+            if (rule == null) {
+                throw new IllegalArgumentException("DRC 汇总规则解析失败: " + safeRuleId);
+            }
+            rule.setRuleId(safeRuleId);
+            rule.setRuleType(trimToNull(stringValue(row.get("RULE_TYPE"))));
+            rule.setRuleName(trimToNull(stringValue(row.get("RULE_NAME"))));
+            return rule;
+        } catch (DataAccessException ex) {
+            throw new IllegalStateException("读取 MR_AGG_RULE 中 DRC 规则失败，请确认规则表已创建且可访问: " + ex.getMessage(), ex);
+        }
     }
 
     /**
@@ -99,11 +170,289 @@ public class FrtbDrcInputQueryService {
         return rows;
     }
 
+    public List<RuleDrcDetailRow> queryRuleDetailRows(String batchId, String dataDate, AggregationRule rule) {
+        String safeBatchId = trimToNull(batchId);
+        String safeDataDate = trimToNull(dataDate);
+        if (safeBatchId == null) {
+            throw new IllegalArgumentException("batch_id 不能为空");
+        }
+        if (safeDataDate == null) {
+            throw new IllegalArgumentException("data_date 不能为空");
+        }
+        if (rule == null) {
+            throw new IllegalArgumentException("AggregationRule 不能为空");
+        }
+
+        List<Object> params = new ArrayList<Object>();
+        Set<String> selectedFields = new LinkedHashSet<String>();
+        for (String level : rule.getBuildOrder()) {
+            String safeField = trimToNull(level);
+            if (safeField != null && !"TOTAL".equalsIgnoreCase(safeField)) {
+                selectedFields.add(safeField);
+            }
+        }
+        collectFilterTreeFields(rule.getFilterTree(), selectedFields);
+        boolean usePortfolioFlatView = requiresPortfolioFlatView(selectedFields);
+
+        StringBuilder sql = new StringBuilder().append("SELECT ");
+        appendSelectFields(sql, REQUIRED_SELECT_FIELDS, false);
+        for (String field : selectedFields) {
+            String safeField = normalizeField(field);
+            if (safeField == null || isRequiredSelectedField(safeField)) {
+                continue;
+            }
+            String columnExpr = resolveRuleColumn(safeField);
+            if (columnExpr == null) {
+                throw new IllegalArgumentException("DRC 规则字段无法映射到结果明细: " + safeField);
+            }
+            sql.append(", ").append(columnExpr).append(" AS ").append(safeField);
+        }
+        sql.append(" FROM TB_OUT_TRADE_DRC_DETAIL d ")
+                .append("LEFT JOIN TB_OUT_TRADE_RESULT_DETAIL r ")
+                .append("ON r.BATCH_ID = d.BATCH_ID ")
+                .append("AND r.DATA_DATE = d.DATA_DATE ")
+                .append("AND r.INSTRUMENT_ID = d.INSTRUMENT_ID ")
+                .append(usePortfolioFlatView
+                        ? "LEFT JOIN " + PORTFOLIO_FLAT_VIEW + " p ON p.BATCH_ID = d.BATCH_ID AND p.DATA_DATE = d.DATA_DATE AND p.PORTFOLIO_CODE = COALESCE(r.PORTFOLIO, d.PORTFOLIO_CODE) "
+                        : "")
+                .append("WHERE d.BATCH_ID = ? AND d.DATA_DATE = ?");
+        params.add(safeBatchId);
+        params.add(safeDataDate);
+
+        AggregationFilterSqlBuilder.appendWhereClause(sql, params, rule, new AggregationFilterSqlBuilder.ColumnResolver() {
+            @Override
+            public String resolve(String field) {
+                return resolveRuleColumn(field);
+            }
+        });
+        sql.append(" ORDER BY d.SEQ_NO, d.ID");
+
+        try {
+            List<Map<String, Object>> rows = engineResultDbJdbcTemplate.queryForList(sql.toString(), params.toArray());
+            if (rows == null || rows.isEmpty()) {
+                throw new IllegalArgumentException("未查到可用于 DRC 规则汇总的明细输入: batch_id="
+                        + safeBatchId + ", data_date=" + safeDataDate + ", rule_id=" + rule.getRuleId());
+            }
+            List<RuleDrcDetailRow> output = new ArrayList<RuleDrcDetailRow>();
+            for (Map<String, Object> row : rows) {
+                output.add(new RuleDrcDetailRow(toDrcDetail(row), row));
+            }
+            return output;
+        } catch (DataAccessException ex) {
+            throw new IllegalStateException("读取 DRC 汇总底层明细失败，请确认明细表已生成且可访问: " + ex.getMessage(), ex);
+        }
+    }
+
+    private static DrcDetail toDrcDetail(Map<String, Object> row) {
+        DrcDetail detail = new DrcDetail();
+        detail.dataDate = parseDate(stringValue(row.get("DATA_DATE")));
+        detail.portfolioCode = trimToNull(stringValue(row.get("PORTFOLIO_CODE")));
+        detail.productCode = trimToNull(stringValue(row.get("PRODUCT_CODE")));
+        detail.instrumentId = trimToNull(stringValue(row.get("INSTRUMENT_ID")));
+        detail.securityId = trimToNull(stringValue(row.get("SECURITY_ID")));
+        detail.securityType = trimToNull(stringValue(row.get("SECURITY_TYPE")));
+        detail.legalEntity = trimToNull(stringValue(row.get("LEGAL_ENTITY")));
+        detail.drcBucket = trimToNull(stringValue(row.get("DRC_BUCKET")));
+        detail.jtdType = trimToNull(stringValue(row.get("JTD_TYPE")));
+        detail.seniority = toInteger(row.get("SENIORITY"));
+        detail.termToMaturity = toDouble(row.get("TERM_TO_MATURITY"));
+        detail.modifiedRemainTerm = toDouble(row.get("MODIFIED_REMAIN_TERM"));
+        detail.riskWeight = toDouble(row.get("RISK_WEIGHT"));
+        detail.jtd = toDouble(row.get("JTD"));
+        detail.jtdCny = toDouble(row.get("JTD_CNY"));
+        detail.instrumentValue = toDouble(row.get("INSTRUMENT_VALUE"));
+        detail.frtbLgd = toDouble(row.get("FRTB_LGD"));
+        detail.notional = toDouble(row.get("NOTIONAL"));
+        return detail;
+    }
+
+    private static void appendSelectFields(StringBuilder sql, String[] fields, boolean appendCommaPrefix) {
+        boolean appended = false;
+        for (String field : fields) {
+            String safeField = normalizeField(field);
+            String expression = resolveRuleColumn(safeField);
+            if (safeField == null || expression == null) {
+                throw new IllegalArgumentException("DRC 必选字段未配置 SQL 映射: " + field);
+            }
+            if (appendCommaPrefix || appended) {
+                sql.append(", ");
+            }
+            sql.append(expression).append(" AS ").append(safeField);
+            appended = true;
+        }
+    }
+
+    private static boolean isRequiredSelectedField(String field) {
+        String safeField = normalizeField(field);
+        if (safeField == null) {
+            return false;
+        }
+        for (String requiredField : REQUIRED_SELECT_FIELDS) {
+            if (requiredField.equals(safeField)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void collectFilterTreeFields(AggregationRule.FilterExpression node, Set<String> fields) {
+        if (node == null || fields == null) {
+            return;
+        }
+        String field = trimToNull(node.getField());
+        if (field != null) {
+            fields.add(field);
+        }
+        if (node.getChildren() == null) {
+            return;
+        }
+        for (AggregationRule.FilterExpression child : node.getChildren()) {
+            collectFilterTreeFields(child, fields);
+        }
+    }
+
+    private static boolean requiresPortfolioFlatView(Set<String> fields) {
+        if (fields == null) {
+            return false;
+        }
+        for (String field : fields) {
+            String safeField = trimToNull(field);
+            if (safeField == null) {
+                continue;
+            }
+            for (int i = 1; i <= PORTFOLIO_LEVEL_MAX; i++) {
+                if (("PORTFOLIO_CODE_" + i).equalsIgnoreCase(safeField)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static String resolveRuleColumn(String field) {
+        String safeField = normalizeField(field);
+        if (safeField == null) {
+            return null;
+        }
+        String expression = DRC_FIELD_SQL.get(safeField);
+        if (expression != null) {
+            return expression;
+        }
+        expression = TRADE_FIELD_SQL.get(safeField);
+        if (expression != null) {
+            return expression;
+        }
+        return PORTFOLIO_FIELD_SQL.get(safeField);
+    }
+
+    private static Map<String, String> buildDrcFieldSqlMap() {
+        Map<String, String> map = new LinkedHashMap<String, String>();
+        map.put("DATA_DATE", "d.DATA_DATE");
+        map.put("PORTFOLIO_CODE", "d.PORTFOLIO_CODE");
+        map.put("PRODUCT_CODE", "d.PRODUCT_CODE");
+        map.put("INSTRUMENT_ID", "d.INSTRUMENT_ID");
+        map.put("SECURITY_ID", "d.SECURITY_ID");
+        map.put("SECURITY_TYPE", "d.SECURITY_TYPE");
+        map.put("LEGAL_ENTITY", "d.LEGAL_ENTITY");
+        map.put("DRC_BUCKET", "d.DRC_BUCKET");
+        map.put("JTD_TYPE", "d.JTD_TYPE");
+        map.put("SENIORITY", "d.SENIORITY");
+        map.put("TERM_TO_MATURITY", "d.TERM_TO_MATURITY");
+        map.put("MODIFIED_REMAIN_TERM", "d.MODIFIED_REMAIN_TERM");
+        map.put("RISK_WEIGHT", "d.RISK_WEIGHT");
+        map.put("JTD", "d.JTD");
+        map.put("JTD_CNY", "d.JTD_CNY");
+        map.put("INSTRUMENT_VALUE", "d.INSTRUMENT_VALUE");
+        map.put("FRTB_LGD", "d.FRTB_LGD");
+        map.put("NOTIONAL", "d.NOTIONAL");
+        return map;
+    }
+
+    private static Map<String, String> buildTradeFieldSqlMap() {
+        Map<String, String> map = new LinkedHashMap<String, String>();
+        map.put("PORTFOLIO", "r.PORTFOLIO");
+        map.put("DESK", "r.DESK");
+        map.put("TRADER", "r.TRADER");
+        map.put("VALUATION_CCY", "r.VALUATION_CCY");
+        return map;
+    }
+
+    private static Map<String, String> buildPortfolioFieldSqlMap() {
+        Map<String, String> map = new LinkedHashMap<String, String>();
+        for (int i = 1; i <= PORTFOLIO_LEVEL_MAX; i++) {
+            map.put("PORTFOLIO_CODE_" + i, "p.PORTFOLIO_CODE_" + i);
+        }
+        return map;
+    }
+
+    private static LocalDate parseDate(String value) {
+        String safe = trimToNull(value);
+        if (safe == null) {
+            return null;
+        }
+        if (safe.length() == 8 && safe.chars().allMatch(Character::isDigit)) {
+            return LocalDate.parse(safe, DateTimeFormatter.BASIC_ISO_DATE);
+        }
+        return LocalDate.parse(safe);
+    }
+
+    private static Integer toInteger(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        String text = trimToNull(String.valueOf(value));
+        return text == null ? null : Integer.valueOf(text);
+    }
+
+    private static Double toDouble(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        String text = trimToNull(String.valueOf(value));
+        if (text == null) {
+            return null;
+        }
+        return new BigDecimal(text).doubleValue();
+    }
+
+    private static String normalizeField(String field) {
+        String safeField = trimToNull(field);
+        return safeField == null ? null : safeField.toUpperCase(java.util.Locale.ROOT);
+    }
+
+    private static String stringValue(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
     private static String trimToNull(String text) {
         if (text == null) {
             return null;
         }
         String value = text.trim();
         return value.isEmpty() ? null : value;
+    }
+
+    public static class RuleDrcDetailRow {
+        private final DrcDetail detail;
+        private final Map<String, Object> fields;
+
+        RuleDrcDetailRow(DrcDetail detail, Map<String, Object> fields) {
+            this.detail = detail;
+            this.fields = fields;
+        }
+
+        public DrcDetail getDetail() {
+            return detail;
+        }
+
+        public Map<String, Object> getFields() {
+            return fields;
+        }
     }
 }

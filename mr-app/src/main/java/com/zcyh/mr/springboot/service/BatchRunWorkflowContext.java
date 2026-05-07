@@ -24,6 +24,9 @@ public class BatchRunWorkflowContext {
     private boolean externalBatchIdProvided;
     private boolean persistResult;
     private boolean frtbDisabled;
+    private String frtbSbaRuleIdList;
+    private String varRuleIdList;
+    private String drcRuleIdList;
     private List<ScenarioGeneratedRecord> scenarioRecords = new ArrayList<ScenarioGeneratedRecord>();
     private List<BatchTradeDataLoader.TradeRow> loadedTrades = new ArrayList<BatchTradeDataLoader.TradeRow>();
     private List<BatchTradeDataLoader.CurveRow> loadedMarketData = new ArrayList<BatchTradeDataLoader.CurveRow>();
@@ -126,6 +129,30 @@ public class BatchRunWorkflowContext {
 
     public void setFrtbDisabled(boolean frtbDisabled) {
         this.frtbDisabled = frtbDisabled;
+    }
+
+    public String getFrtbSbaRuleIdList() {
+        return frtbSbaRuleIdList;
+    }
+
+    public void setFrtbSbaRuleIdList(String frtbSbaRuleIdList) {
+        this.frtbSbaRuleIdList = frtbSbaRuleIdList;
+    }
+
+    public String getVarRuleIdList() {
+        return varRuleIdList;
+    }
+
+    public void setVarRuleIdList(String varRuleIdList) {
+        this.varRuleIdList = varRuleIdList;
+    }
+
+    public String getDrcRuleIdList() {
+        return drcRuleIdList;
+    }
+
+    public void setDrcRuleIdList(String drcRuleIdList) {
+        this.drcRuleIdList = drcRuleIdList;
     }
 
     public List<ScenarioGeneratedRecord> getScenarioRecords() {

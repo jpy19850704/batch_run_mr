@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 /**
  * 计算规则元数据持久化服务。
  * 在每次计算结果落库时，将完整的规则 JSON 同步写入 TB_OUT_CALC_RULE_META，
- * 支持从结果反查当时使用的 filter_tree、build_order、dimensions 等规则配置。
+ * 支持从结果反查当时使用的 filter_tree、build_order 等规则配置。
  */
 @Service
 public class CalcRuleMetaPersistService {

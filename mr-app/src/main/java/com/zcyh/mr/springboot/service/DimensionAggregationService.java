@@ -4,10 +4,8 @@ import com.zcyh.mr.springboot.model.AggregationRule;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -57,23 +55,17 @@ public class DimensionAggregationService {
         if (normalizedSumFields.isEmpty()) {
             throw new IllegalArgumentException("AggregationRule.sumFields 不能为空");
         }
-        Map<String, String> normalizedDimensions = normalizeDimensions(rule.getDimensions());
         for (String level : normalizedOrder) {
             if (TOTAL.equalsIgnoreCase(level)) {
                 continue;
             }
-            String mappedField = normalizedDimensions.get(level);
-            if (mappedField == null) {
-                throw new IllegalArgumentException("AggregationRule.dimensions 缺少 buildOrder 层级映射: " + level);
-            }
-            if (!containsIgnoreCase(normalizedGroupByFields, mappedField)) {
-                throw new IllegalArgumentException("AggregationRule.dimensions[" + level + "]=" + mappedField + " 不在 groupByFields 中");
+            if (!containsIgnoreCase(normalizedGroupByFields, level)) {
+                throw new IllegalArgumentException("AggregationRule.buildOrder 层级不在 groupByFields 中: " + level);
             }
         }
         rule.setBuildOrder(normalizedOrder);
         rule.setGroupByFields(normalizedGroupByFields);
         rule.setSumFields(normalizedSumFields);
-        rule.setDimensions(normalizedDimensions);
 
         if (rule.getFilterTree() != null) {
             validateFilterExpression(rule.getFilterTree(), "AggregationRule.filterTree", 1, new int[]{0});
@@ -200,22 +192,6 @@ public class DimensionAggregationService {
             return NULL_DIMENSION_VALUE;
         }
         return safe;
-    }
-
-    private static Map<String, String> normalizeDimensions(Map<String, String> dimensions) {
-        Map<String, String> normalized = new LinkedHashMap<String, String>();
-        if (dimensions == null || dimensions.isEmpty()) {
-            return normalized;
-        }
-        for (Map.Entry<String, String> entry : dimensions.entrySet()) {
-            String key = trimToNull(entry.getKey());
-            String value = trimToNull(entry.getValue());
-            if (key == null || value == null) {
-                continue;
-            }
-            normalized.put(key, value.toUpperCase());
-        }
-        return normalized;
     }
 
     private static List<String> normalizeFieldList(List<String> fields) {

@@ -44,7 +44,7 @@ public class VarDbRunnerService {
     private static final String VAR_PICK_OUT = "out";
     private static final String VAR_PICK_AVERAGE = "average";
     private static final String TOTAL = "TOTAL";
-    private static final String DEFAULT_RULE_TYPE = "VAR";
+    private static final String VAR_RULE_TYPE = "VAR";
     private static final String DEFAULT_SUM_FIELD = VarPnlColumns.ALL_PNL;
     private static final String VAR_DETAIL_FETCH_API = "/api/engine/var/detail";
 
@@ -615,8 +615,7 @@ public class VarDbRunnerService {
                     groupType = TOTAL;
                     groupValue = TOTAL;
                 } else {
-                    String fieldName = rule.getDimensions().get(level);
-                    String levelValue = dimensionAggregationService.normalizeDimensionValue(row.getDimensions().get(fieldName));
+                    String levelValue = dimensionAggregationService.normalizeDimensionValue(row.getGroupValues().get(level));
                     pathValues.add(levelValue);
                     groupType = level;
                     groupValue = dimensionAggregationService.buildGroupValue(pathValues);
@@ -789,12 +788,8 @@ public class VarDbRunnerService {
 
         List<String> buildOrder = readStringList(ruleJson, "build_order");
         rule.setBuildOrder(buildOrder);
-        rule.setDimensions(readStringMap(ruleJson.getJSONObject("dimensions")));
         rule.setGroupByFields(readStringList(ruleJson, "group_by_fields"));
         rule.setSumFields(readStringList(ruleJson, "sum_fields"));
-        if (ruleJson.containsKey("filters")) {
-            throw new IllegalArgumentException("filters 已停用，请使用 filter_tree");
-        }
         rule.setFilterTree(toFilterExpression(ruleJson.get("filter_tree")));
         applyVarRuleDefaults(rule);
         dimensionAggregationService.validateRule(rule);
@@ -825,15 +820,17 @@ public class VarDbRunnerService {
     }
 
     /**
-     * 补齐 VaR 汇总规则默认项，接口只需要表达业务层级、过滤条件和 VaR 计量口径。
+     * 校验并规范 VaR 汇总规则，规则类型必须由输入明确给出。
      */
     private static void applyVarRuleDefaults(AggregationRule rule) {
         if (rule == null) {
             throw new IllegalArgumentException("AggregationRule 不能为空");
         }
-        if (trimToNull(rule.getRuleType()) == null) {
-            rule.setRuleType(DEFAULT_RULE_TYPE);
+        String ruleType = trimToNull(rule.getRuleType());
+        if (!VAR_RULE_TYPE.equalsIgnoreCase(ruleType)) {
+            throw new IllegalArgumentException("VaR 汇总规则 rule_type 必须为 VAR");
         }
+        rule.setRuleType(VAR_RULE_TYPE);
 
         List<String> buildOrder = new ArrayList<String>();
         addUniqueIgnoreCase(buildOrder, TOTAL);
@@ -842,25 +839,11 @@ public class VarDbRunnerService {
         }
         rule.setBuildOrder(buildOrder);
 
-        Map<String, String> dimensions = normalizeDimensionMap(rule.getDimensions());
-        if (dimensions.isEmpty()) {
-            for (String level : buildOrder) {
-                if (!TOTAL.equalsIgnoreCase(level)) {
-                    dimensions.put(level, level);
-                }
-            }
-        } else {
-            for (String level : buildOrder) {
-                if (!TOTAL.equalsIgnoreCase(level) && !containsKeyIgnoreCase(dimensions, level)) {
-                    dimensions.put(level, level);
-                }
-            }
-        }
-        rule.setDimensions(dimensions);
-
         List<String> groupByFields = normalizeFieldList(rule.getGroupByFields());
-        for (String mappedField : dimensions.values()) {
-            addUniqueIgnoreCase(groupByFields, normalizeFieldName(mappedField));
+        for (String level : buildOrder) {
+            if (!TOTAL.equalsIgnoreCase(level)) {
+                addUniqueIgnoreCase(groupByFields, normalizeFieldName(level));
+            }
         }
         rule.setGroupByFields(groupByFields);
 
@@ -917,21 +900,6 @@ public class VarDbRunnerService {
         return rawValue;
     }
 
-    private static Map<String, String> normalizeDimensionMap(Map<String, String> rawMap) {
-        Map<String, String> result = new LinkedHashMap<String, String>();
-        if (rawMap == null || rawMap.isEmpty()) {
-            return result;
-        }
-        for (Map.Entry<String, String> entry : rawMap.entrySet()) {
-            String key = normalizeFieldName(entry.getKey());
-            String value = normalizeFieldName(entry.getValue());
-            if (key != null && value != null) {
-                result.put(key, value);
-            }
-        }
-        return result;
-    }
-
     private static List<String> normalizeFieldList(List<String> rawList) {
         List<String> result = new ArrayList<String>();
         if (rawList == null || rawList.isEmpty()) {
@@ -949,19 +917,6 @@ public class VarDbRunnerService {
             return null;
         }
         return safe.toUpperCase(Locale.ROOT);
-    }
-
-    private static boolean containsKeyIgnoreCase(Map<String, String> values, String target) {
-        String safeTarget = trimToNull(target);
-        if (values == null || values.isEmpty() || safeTarget == null) {
-            return false;
-        }
-        for (String key : values.keySet()) {
-            if (safeTarget.equalsIgnoreCase(key)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static void addUniqueIgnoreCase(List<String> values, String value) {
@@ -1178,22 +1133,6 @@ public class VarDbRunnerService {
             }
         }
         return list;
-    }
-
-    private static Map<String, String> readStringMap(JSONObject obj) {
-        Map<String, String> map = new LinkedHashMap<String, String>();
-        if (obj == null) {
-            return map;
-        }
-        for (Map.Entry<String, Object> entry : obj.entrySet()) {
-            String key = trimToNull(entry.getKey());
-            String value = trimToNull(entry.getValue() == null ? null : String.valueOf(entry.getValue()));
-            if (key == null || value == null) {
-                continue;
-            }
-            map.put(key, value);
-        }
-        return map;
     }
 
     private static boolean readBoolean(JSONObject obj, String key, boolean defaultValue) {
