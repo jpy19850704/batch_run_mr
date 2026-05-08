@@ -66,7 +66,8 @@ public class FrtbSbaDbRunnerService {
             throw new IllegalArgumentException("未查到可用于规则汇总的 FRTB 敏感性明细");
         }
 
-        List<FrtbInput> inputList = buildRuleDrivenInputs(batchId, dataDate, rule, rows);
+        List<FrtbInput> inputList = buildRuleDrivenInputs(batchId, dataDate, rule,
+                FrtbSbaInputValidator.validateAndNormalizeSbaRows(rows));
         if (inputList.isEmpty()) {
             throw new IllegalArgumentException("规则汇总后未生成有效的 frtb_sba 输入数据");
         }
@@ -121,7 +122,8 @@ public class FrtbSbaDbRunnerService {
             throw new IllegalArgumentException("未查到可用于规则汇总的 FRTB 敏感性明细");
         }
 
-        List<FrtbInput> inputList = buildRuleDrivenInputs(batchId, dataDate, rule, rows);
+        List<FrtbInput> inputList = buildRuleDrivenInputs(batchId, dataDate, rule,
+                FrtbSbaInputValidator.validateAndNormalizeSbaRows(rows));
         if (inputList.isEmpty()) {
             throw new IllegalArgumentException("规则汇总后未生成有效的 frtb_sba 输入数据");
         }
