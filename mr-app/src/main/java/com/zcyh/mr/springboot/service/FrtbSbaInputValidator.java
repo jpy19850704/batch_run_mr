@@ -1,6 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
 import com.zcyh.mr.frtbsa.sba.common.FrtbConstants;
+import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,6 +25,12 @@ final class FrtbSbaInputValidator {
             FrtbConstants.SENS_VEGA,
             FrtbConstants.SENS_CURVATURE_UP,
             FrtbConstants.SENS_CURVATURE_DOWN);
+    private static final Set<String> GIRR_TENORS = new LinkedHashSet<String>(
+            Arrays.asList("0.25", "0.5", "1", "2", "3", "5", "10", "15", "20", "30"));
+    private static final Set<String> CSR_TENORS = new LinkedHashSet<String>(
+            Arrays.asList("0.5", "1", "3", "5", "10"));
+    private static final Set<String> CMTY_TENORS = new LinkedHashSet<String>(
+            Arrays.asList("0", "0.25", "0.5", "1", "2", "3", "5", "10", "15", "20", "30"));
 
     private FrtbSbaInputValidator() {
     }
@@ -45,6 +52,11 @@ final class FrtbSbaInputValidator {
 
             String riskClass = trimToNull(stringValue(row.get("RISK_FACTOR_CLASS")));
             String sensType = trimToNull(stringValue(row.get("SENSITIVITY_TYPE")));
+            String bucket = FrtbConstants.normalizeBucketForRiskClass(
+                    riskClass, trimToNull(stringValue(row.get("RISK_FACTOR_BUCKET"))));
+            if (bucket != null) {
+                row.put("RISK_FACTOR_BUCKET", bucket);
+            }
             boolean invalid = false;
 
             if (!FrtbConstants.isValidRiskClass(riskClass)) {
@@ -59,7 +71,7 @@ final class FrtbSbaInputValidator {
                 stat(stats, "RISK_FACTOR_ID 缺失，已过滤").add(row.get("INSTRUMENT_ID"));
                 invalid = true;
             }
-            if (trimToNull(stringValue(row.get("RISK_FACTOR_BUCKET"))) == null) {
+            if (bucket == null) {
                 stat(stats, "RISK_FACTOR_BUCKET 缺失，已过滤").add(row.get("INSTRUMENT_ID"));
                 invalid = true;
             }
@@ -102,6 +114,14 @@ final class FrtbSbaInputValidator {
                 invalid = true;
             }
 
+            if (!invalid && !validateConfiguredBucket(row, riskClass, bucket, stats)) {
+                invalid = true;
+            }
+
+            if (!invalid && !validateRiskClassTenor(row, riskClass, sensType, stats)) {
+                invalid = true;
+            }
+
             if (!invalid) {
                 validRows.add(row);
             }
@@ -118,8 +138,7 @@ final class FrtbSbaInputValidator {
         if (FrtbConstants.SENS_DELTA.equals(sensType)
                 && (FrtbConstants.RISK_CLASS_CSRNS.equals(riskClass)
                 || FrtbConstants.RISK_CLASS_CSRNC.equals(riskClass)
-                || FrtbConstants.RISK_CLASS_CSRCTP.equals(riskClass)
-                || FrtbConstants.RISK_CLASS_CMTY.equals(riskClass))) {
+                || FrtbConstants.RISK_CLASS_CSRCTP.equals(riskClass))) {
             return true;
         }
         if (FrtbConstants.SENS_DELTA.equals(sensType) && FrtbConstants.RISK_CLASS_GIRR.equals(riskClass)) {
@@ -128,6 +147,74 @@ final class FrtbSbaInputValidator {
             return !upper.contains("INFLA") && !upper.contains("BASIS");
         }
         return false;
+    }
+
+    private static boolean validateConfiguredBucket(
+            Map<String, Object> row,
+            String riskClass,
+            String bucket,
+            Map<String, ValidationStat> stats) {
+        if (bucket == null) {
+            return false;
+        }
+        boolean configured = true;
+        if (FrtbConstants.RISK_CLASS_EQ.equals(riskClass)) {
+            configured = FrtbParamsCache.getEQWeights().containsKey(bucket);
+        } else if (FrtbConstants.RISK_CLASS_CMTY.equals(riskClass)) {
+            configured = FrtbParamsCache.getCmtyWeights().containsKey(bucket);
+        } else if (FrtbConstants.RISK_CLASS_CSRNS.equals(riskClass)) {
+            configured = FrtbParamsCache.getCsrnsWeights().containsKey(bucket);
+        } else if (FrtbConstants.RISK_CLASS_CSRNC.equals(riskClass)) {
+            configured = FrtbParamsCache.getCsrncWeights().containsKey(bucket);
+        } else if (FrtbConstants.RISK_CLASS_CSRCTP.equals(riskClass)) {
+            configured = FrtbParamsCache.getCtpWeights().containsKey(bucket);
+        }
+        if (!configured) {
+            stat(stats, riskClass + " RISK_FACTOR_BUCKET 未配置监管风险权重，已过滤")
+                    .add(row.get("INSTRUMENT_ID"));
+        }
+        return configured;
+    }
+
+    private static boolean validateRiskClassTenor(
+            Map<String, Object> row,
+            String riskClass,
+            String sensType,
+            Map<String, ValidationStat> stats) {
+        if (FrtbConstants.RISK_CLASS_GIRR.equals(riskClass)) {
+            String riskType = trimToNull(stringValue(row.get("RISK_FACTOR_TYPE")));
+            String upper = riskType == null ? "" : riskType.toUpperCase();
+            boolean needsVertex1 = FrtbConstants.SENS_VEGA.equals(sensType)
+                    || (FrtbConstants.SENS_DELTA.equals(sensType)
+                    && !upper.contains("INFLA") && !upper.contains("BASIS"));
+            if (needsVertex1 && !isStandardTenor(row.get("RISK_FACTOR_VERTEX_1"), GIRR_TENORS)) {
+                stat(stats, "GIRR RISK_FACTOR_VERTEX_1 不在监管标准期限，已过滤").add(row.get("INSTRUMENT_ID"));
+                return false;
+            }
+            if (FrtbConstants.SENS_VEGA.equals(sensType)
+                    && !isStandardTenor(row.get("RISK_FACTOR_VERTEX_2"), GIRR_TENORS)) {
+                stat(stats, "GIRR Vega RISK_FACTOR_VERTEX_2 不在监管标准期限，已过滤").add(row.get("INSTRUMENT_ID"));
+                return false;
+            }
+        } else if (FrtbConstants.SENS_DELTA.equals(sensType)
+                && (FrtbConstants.RISK_CLASS_CSRNS.equals(riskClass)
+                || FrtbConstants.RISK_CLASS_CSRNC.equals(riskClass)
+                || FrtbConstants.RISK_CLASS_CSRCTP.equals(riskClass))
+                && !isStandardTenor(row.get("RISK_FACTOR_VERTEX_1"), CSR_TENORS)) {
+            stat(stats, "CSR Delta RISK_FACTOR_VERTEX_1 不在监管标准期限，已过滤").add(row.get("INSTRUMENT_ID"));
+            return false;
+        } else if (FrtbConstants.SENS_DELTA.equals(sensType)
+                && FrtbConstants.RISK_CLASS_CMTY.equals(riskClass)
+                && !isStandardTenor(row.get("RISK_FACTOR_VERTEX_1"), CMTY_TENORS)) {
+            stat(stats, "CMTY Delta RISK_FACTOR_VERTEX_1 缺失或不在监管标准期限，已过滤").add(row.get("INSTRUMENT_ID"));
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean isStandardTenor(Object value, Set<String> standardTenors) {
+        Double parsed = parseStandardVertex(trimToNull(stringValue(value)));
+        return parsed != null && standardTenors.contains(tenorKey(parsed));
     }
 
     private static boolean hasInvalidOptionalVertex(Object value) {
@@ -167,6 +254,13 @@ final class FrtbSbaInputValidator {
         } catch (NumberFormatException ex) {
             return false;
         }
+    }
+
+    private static String tenorKey(double tenor) {
+        if (tenor == (long) tenor) {
+            return String.valueOf((long) tenor);
+        }
+        return String.valueOf(tenor);
     }
 
     private static ValidationStat stat(Map<String, ValidationStat> stats, String message) {
