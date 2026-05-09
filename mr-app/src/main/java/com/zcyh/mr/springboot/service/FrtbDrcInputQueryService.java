@@ -12,7 +12,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -24,11 +23,6 @@ import java.util.Set;
  */
 @Service
 public class FrtbDrcInputQueryService {
-    private static final String PORTFOLIO_FLAT_VIEW = "V_TB_OUT_PORTFOLIO_HIERARCHY_FLAT";
-    private static final int PORTFOLIO_LEVEL_MAX = 7;
-    private static final Map<String, String> DRC_FIELD_SQL = buildDrcFieldSqlMap();
-    private static final Map<String, String> TRADE_FIELD_SQL = buildTradeFieldSqlMap();
-    private static final Map<String, String> PORTFOLIO_FIELD_SQL = buildPortfolioFieldSqlMap();
     private static final String[] REQUIRED_SELECT_FIELDS = {
             "DATA_DATE",
             "PORTFOLIO_CODE",
@@ -197,7 +191,7 @@ public class FrtbDrcInputQueryService {
         StringBuilder sql = new StringBuilder().append("SELECT ");
         appendSelectFields(sql, REQUIRED_SELECT_FIELDS, false);
         for (String field : selectedFields) {
-            String safeField = normalizeField(field);
+            String safeField = RuleColumnSqlResolver.normalizeField(field);
             if (safeField == null || isRequiredSelectedField(safeField)) {
                 continue;
             }
@@ -213,7 +207,7 @@ public class FrtbDrcInputQueryService {
                 .append("AND r.DATA_DATE = d.DATA_DATE ")
                 .append("AND r.INSTRUMENT_ID = d.INSTRUMENT_ID ")
                 .append(usePortfolioFlatView
-                        ? "LEFT JOIN " + PORTFOLIO_FLAT_VIEW + " p ON p.BATCH_ID = d.BATCH_ID AND p.DATA_DATE = d.DATA_DATE AND p.PORTFOLIO_CODE = COALESCE(r.PORTFOLIO, d.PORTFOLIO_CODE) "
+                        ? "LEFT JOIN " + RuleColumnSqlResolver.PORTFOLIO_FLAT_VIEW + " p ON p.BATCH_ID = d.BATCH_ID AND p.DATA_DATE = d.DATA_DATE AND p.PORTFOLIO_CODE = COALESCE(r.PORTFOLIO, d.PORTFOLIO_CODE) "
                         : "")
                 .append("WHERE d.BATCH_ID = ? AND d.DATA_DATE = ?");
         params.add(safeBatchId);
@@ -269,7 +263,7 @@ public class FrtbDrcInputQueryService {
     private static void appendSelectFields(StringBuilder sql, String[] fields, boolean appendCommaPrefix) {
         boolean appended = false;
         for (String field : fields) {
-            String safeField = normalizeField(field);
+            String safeField = RuleColumnSqlResolver.normalizeField(field);
             String expression = resolveRuleColumn(safeField);
             if (safeField == null || expression == null) {
                 throw new IllegalArgumentException("DRC 必选字段未配置 SQL 映射: " + field);
@@ -283,7 +277,7 @@ public class FrtbDrcInputQueryService {
     }
 
     private static boolean isRequiredSelectedField(String field) {
-        String safeField = normalizeField(field);
+        String safeField = RuleColumnSqlResolver.normalizeField(field);
         if (safeField == null) {
             return false;
         }
@@ -312,77 +306,11 @@ public class FrtbDrcInputQueryService {
     }
 
     private static boolean requiresPortfolioFlatView(Set<String> fields) {
-        if (fields == null) {
-            return false;
-        }
-        for (String field : fields) {
-            String safeField = trimToNull(field);
-            if (safeField == null) {
-                continue;
-            }
-            for (int i = 1; i <= PORTFOLIO_LEVEL_MAX; i++) {
-                if (("PORTFOLIO_CODE_" + i).equalsIgnoreCase(safeField)) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return RuleColumnSqlResolver.requiresPortfolioFlatView(fields);
     }
 
     private static String resolveRuleColumn(String field) {
-        String safeField = normalizeField(field);
-        if (safeField == null) {
-            return null;
-        }
-        String expression = DRC_FIELD_SQL.get(safeField);
-        if (expression != null) {
-            return expression;
-        }
-        expression = TRADE_FIELD_SQL.get(safeField);
-        if (expression != null) {
-            return expression;
-        }
-        return PORTFOLIO_FIELD_SQL.get(safeField);
-    }
-
-    private static Map<String, String> buildDrcFieldSqlMap() {
-        Map<String, String> map = new LinkedHashMap<String, String>();
-        map.put("DATA_DATE", "d.DATA_DATE");
-        map.put("PORTFOLIO_CODE", "d.PORTFOLIO_CODE");
-        map.put("PRODUCT_CODE", "d.PRODUCT_CODE");
-        map.put("INSTRUMENT_ID", "d.INSTRUMENT_ID");
-        map.put("SECURITY_ID", "d.SECURITY_ID");
-        map.put("SECURITY_TYPE", "d.SECURITY_TYPE");
-        map.put("LEGAL_ENTITY", "d.LEGAL_ENTITY");
-        map.put("DRC_BUCKET", "d.DRC_BUCKET");
-        map.put("JTD_TYPE", "d.JTD_TYPE");
-        map.put("SENIORITY", "d.SENIORITY");
-        map.put("TERM_TO_MATURITY", "d.TERM_TO_MATURITY");
-        map.put("MODIFIED_REMAIN_TERM", "d.MODIFIED_REMAIN_TERM");
-        map.put("RISK_WEIGHT", "d.RISK_WEIGHT");
-        map.put("JTD", "d.JTD");
-        map.put("JTD_CNY", "d.JTD_CNY");
-        map.put("INSTRUMENT_VALUE", "d.INSTRUMENT_VALUE");
-        map.put("FRTB_LGD", "d.FRTB_LGD");
-        map.put("NOTIONAL", "d.NOTIONAL");
-        return map;
-    }
-
-    private static Map<String, String> buildTradeFieldSqlMap() {
-        Map<String, String> map = new LinkedHashMap<String, String>();
-        map.put("PORTFOLIO", "r.PORTFOLIO");
-        map.put("DESK", "r.DESK");
-        map.put("TRADER", "r.TRADER");
-        map.put("VALUATION_CCY", "r.VALUATION_CCY");
-        return map;
-    }
-
-    private static Map<String, String> buildPortfolioFieldSqlMap() {
-        Map<String, String> map = new LinkedHashMap<String, String>();
-        for (int i = 1; i <= PORTFOLIO_LEVEL_MAX; i++) {
-            map.put("PORTFOLIO_CODE_" + i, "p.PORTFOLIO_CODE_" + i);
-        }
-        return map;
+        return RuleColumnSqlResolver.resolveFrtbDrcColumn(field);
     }
 
     private static LocalDate parseDate(String value) {
@@ -419,11 +347,6 @@ public class FrtbDrcInputQueryService {
             return null;
         }
         return new BigDecimal(text).doubleValue();
-    }
-
-    private static String normalizeField(String field) {
-        String safeField = trimToNull(field);
-        return safeField == null ? null : safeField.toUpperCase(java.util.Locale.ROOT);
     }
 
     private static String stringValue(Object value) {

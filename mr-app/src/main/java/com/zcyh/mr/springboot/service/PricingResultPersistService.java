@@ -18,6 +18,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -37,10 +39,42 @@ public class PricingResultPersistService {
     private static final int MAX_INVALID_DRC_LOG = 10;
     private static final String DECOMP_TABLE = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
     private static final String TRADE_RESULT_TABLE = "TB_OUT_TRADE_RESULT_DETAIL";
-    private static final String TRADE_RESULT_COLUMNS =
-            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,INSTRUMENT_ID,PRODUCT_CODE,PORTFOLIO,DESK,TRADER,"
-                    + "POSITION,VALUATION_UNIT,VALUATION,VALUATION_CCY,VALUATION_CNY,PV01,DELTA,GAMMA,VEGA,THETA,RHO,"
-                    + "STATUS,ERROR,DETAIL,LOGS_JSON,CASHFLOW_JSON,RESULT_JSON,TRADE_INPUT_JSON,MARKET_DATA_KEYS_JSON,CREATED_AT,UPDATED_AT";
+    private static final List<String> TRADE_RESULT_COLUMN_LIST = Collections.unmodifiableList(Arrays.asList(
+            "REQUEST_ID",
+            "JOB_ID",
+            "BATCH_ID",
+            "SEQ_NO",
+            "DATA_DATE",
+            "OP_CODE",
+            "INSTRUMENT_ID",
+            "PRODUCT_CODE",
+            "PORTFOLIO",
+            "DESK",
+            "TRADER",
+            "POSITION",
+            "VALUATION_UNIT",
+            "VALUATION",
+            "VALUATION_CCY",
+            "VALUATION_CNY",
+            "PV01",
+            "DELTA",
+            "GAMMA",
+            "VEGA",
+            "THETA",
+            "RHO",
+            "STATUS",
+            "ERROR",
+            "DETAIL",
+            "LOGS_JSON",
+            "CASHFLOW_JSON",
+            "RESULT_JSON",
+            "TRADE_INPUT_JSON",
+            "MARKET_DATA_KEYS_JSON",
+            "CREATED_AT",
+            "UPDATED_AT"
+    ));
+    private static final String TRADE_RESULT_COLUMNS = String.join(",", TRADE_RESULT_COLUMN_LIST);
+    private static final Map<String, String> TRADE_RESULT_DIMENSION_SOURCE_COLUMNS = buildTradeResultDimensionSourceColumns();
     private static final String SCENARIO_RESULT_TABLE = "TB_OUT_TRADE_SCENARIO_RESULT_DETAIL";
     private static final String SCENARIO_RESULT_COLUMNS =
             "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,INSTRUMENT_ID,PRODUCT_CODE,"
@@ -138,12 +172,7 @@ public class PricingResultPersistService {
             if (requiredSchemaVerified) {
                 return;
             }
-            verifyTableColumns("TB_OUT_TRADE_RESULT_DETAIL",
-                    "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
-                            + "INSTRUMENT_ID, PRODUCT_CODE, PORTFOLIO, DESK, TRADER, "
-                            + "POSITION, VALUATION_UNIT, VALUATION, VALUATION_CCY, VALUATION_CNY, "
-                            + "PV01, DELTA, GAMMA, VEGA, THETA, RHO, STATUS, ERROR, DETAIL, LOGS_JSON, CASHFLOW_JSON, RESULT_JSON, "
-                            + "TRADE_INPUT_JSON, MARKET_DATA_KEYS_JSON, CREATED_AT, UPDATED_AT");
+            verifyTableColumns(TRADE_RESULT_TABLE, String.join(", ", TRADE_RESULT_COLUMN_LIST));
             verifyTableColumns("TB_OUT_TRADE_SCENARIO_RESULT_DETAIL",
                     "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
                             + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, SCENARIO_TYPE, INSTRUMENT_ID, PRODUCT_CODE, "
@@ -230,42 +259,47 @@ public class PricingResultPersistService {
             // 从输入侧 payload 提取原始交易和市场数据依赖（沿用 tradeDimension 的设计模式）
             JSONObject inputTrade = (instrumentId == null || inputTradeIndex == null)
                     ? null : inputTradeIndex.get(instrumentId);
-            buffer.appendRow(
-                    context.requestId,
-                    context.jobId,
-                    context.batchId,
-                    context.seqNo,
-                    normalizeDataDate(context.dataDate),
-                    context.opCode,
-                    instrumentId,
-                    trimToNull(trade.getString("PRODUCT_CODE")),
-                    resolveDimensionField(context.tradeDimension, instrumentId, "PORTFOLIO"),
-                    resolveDimensionField(context.tradeDimension, instrumentId, "DESK"),
-                    resolveDimensionField(context.tradeDimension, instrumentId, "TRADER"),
-                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("POSITION"))),
-                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VALUATION_UNIT"))),
-                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VALUATION"))),
-                    trimToNull(trade.getString("VALUATION_CCY")),
-                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VALUATION_CNY"))),
-                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("PV01"))),
-                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("DELTA"))),
-                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("GAMMA"))),
-                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VEGA"))),
-                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("THETA"))),
-                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("RHO"))),
-                    trimToNull(trade.getString("STATUS")),
-                    null,
-                    toTextValue(trade.get("DETAIL")),
-                    toJsonString(trade.get("LOGS")),
-                    toJsonString(trade.get("CASH_FLOW")),
-                    isSyntheticErrorTrade(trade) ? null : toJsonString(trade),
-                    toJsonString(inputTrade),
-                    inputTrade == null ? null : toJsonString(inputTrade.get("_MARKET_DATA_KEYS")),
-                    context.createdAt,
-                    context.updatedAt
-            );
+            buffer.appendRow(buildTradeResultRow(context, trade, instrumentId, inputTrade));
         }
         buffer.flush();
+    }
+
+    private Object[] buildTradeResultRow(PersistContext context, JSONObject trade, String instrumentId,
+                                         JSONObject inputTrade) {
+        return new Object[]{
+                context.requestId,
+                context.jobId,
+                context.batchId,
+                context.seqNo,
+                normalizeDataDate(context.dataDate),
+                context.opCode,
+                instrumentId,
+                trimToNull(trade.getString("PRODUCT_CODE")),
+                resolveTradeResultDimensionField(context.tradeDimension, instrumentId, "PORTFOLIO"),
+                resolveTradeResultDimensionField(context.tradeDimension, instrumentId, "DESK"),
+                resolveTradeResultDimensionField(context.tradeDimension, instrumentId, "TRADER"),
+                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("POSITION"))),
+                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VALUATION_UNIT"))),
+                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VALUATION"))),
+                trimToNull(trade.getString("VALUATION_CCY")),
+                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VALUATION_CNY"))),
+                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("PV01"))),
+                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("DELTA"))),
+                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("GAMMA"))),
+                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VEGA"))),
+                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("THETA"))),
+                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("RHO"))),
+                trimToNull(trade.getString("STATUS")),
+                null,
+                toTextValue(trade.get("DETAIL")),
+                toJsonString(trade.get("LOGS")),
+                toJsonString(trade.get("CASH_FLOW")),
+                isSyntheticErrorTrade(trade) ? null : toJsonString(trade),
+                toJsonString(inputTrade),
+                inputTrade == null ? null : toJsonString(inputTrade.get("_MARKET_DATA_KEYS")),
+                context.createdAt,
+                context.updatedAt
+        };
     }
 
     private void insertScenarioResults(PersistContext context, JSONArray scenarioResults, Map<String, JSONObject> baseTradeIndex, boolean decompTableExists) {
@@ -868,15 +902,27 @@ public class PricingResultPersistService {
         return JSON.toJSONString(value, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
 
+    private static Map<String, String> buildTradeResultDimensionSourceColumns() {
+        LinkedHashMap<String, String> map = new LinkedHashMap<String, String>();
+        map.put("PORTFOLIO", "portfolio");
+        map.put("DESK", "desk");
+        map.put("TRADER", "trader");
+        return Collections.unmodifiableMap(map);
+    }
+
     /**
-     * 维度字段只读取批次构建阶段生成的 trade_dimension。
+     * trade_detail 输出维度字段只读取批次构建阶段生成的 trade_dimension。
      */
-    private static String resolveDimensionField(JSONObject tradeDimension, String instrumentId,
-                                                String dimKey) {
+    private static String resolveTradeResultDimensionField(JSONObject tradeDimension, String instrumentId,
+                                                           String outputColumn) {
+        String sourceColumn = TRADE_RESULT_DIMENSION_SOURCE_COLUMNS.get(outputColumn);
+        if (sourceColumn == null) {
+            throw new IllegalStateException("trade_detail输出字段缺少输入维度映射: " + outputColumn);
+        }
         if (tradeDimension != null && instrumentId != null) {
             JSONObject dim = tradeDimension.getJSONObject(instrumentId);
             if (dim != null) {
-                return trimToNull(dim.getString(dimKey));
+                return trimToNull(dim.getString(sourceColumn));
             }
         }
         return null;

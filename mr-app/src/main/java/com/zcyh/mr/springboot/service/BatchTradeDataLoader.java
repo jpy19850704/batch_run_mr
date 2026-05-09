@@ -10,6 +10,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
@@ -22,6 +23,12 @@ import java.util.Map;
  */
 @Component
 public class BatchTradeDataLoader {
+
+    private static final List<String> TRADE_DIMENSION_COLUMNS = Collections.unmodifiableList(Arrays.asList(
+            "portfolio",
+            "desk",
+            "trader"
+    ));
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -39,9 +46,12 @@ public class BatchTradeDataLoader {
             row.instrumentId = rs.getString("instrument_id");
             row.productCode = rs.getString("product_code");
             row.tradeContentText = rs.getString("trade_content_text");
-            row.portfolio = rs.getString("portfolio");
-            row.desk = rs.getString("desk");
-            row.trader = rs.getString("trader");
+            for (String column : TRADE_DIMENSION_COLUMNS) {
+                String value = trimToNull(rs.getString(column));
+                if (value != null) {
+                    row.tradeDimensions.put(column, value);
+                }
+            }
             return row;
         }
     };
@@ -88,7 +98,7 @@ public class BatchTradeDataLoader {
     public List<TradeRow> loadTradeRows(LocalDate dataDate, String portfolio, String desk) {
         StringBuilder sql = new StringBuilder();
         List<Object> params = new ArrayList<Object>();
-        sql.append("SELECT id, instrument_id, product_code, trade_content_text, portfolio, desk, trader FROM MR_TRADE_INPUT WHERE data_date=?");
+        sql.append(buildTradeSelectSql()).append(" FROM MR_TRADE_INPUT WHERE data_date=?");
         params.add(Date.valueOf(dataDate));
         if (portfolio != null) {
             sql.append(" AND portfolio=?");
@@ -111,7 +121,7 @@ public class BatchTradeDataLoader {
         }
         StringBuilder sql = new StringBuilder();
         List<Object> params = new ArrayList<Object>();
-        sql.append("SELECT id, instrument_id, product_code, trade_content_text, portfolio, desk, trader FROM MR_TRADE_INPUT WHERE data_date=?");
+        sql.append(buildTradeSelectSql()).append(" FROM MR_TRADE_INPUT WHERE data_date=?");
         params.add(Date.valueOf(dataDate));
         sql.append(" AND instrument_id IN (");
         for (int i = 0; i < instrumentIds.size(); i++) {
@@ -236,9 +246,7 @@ public class BatchTradeDataLoader {
         public String instrumentId;
         public String productCode;
         public String tradeContentText;
-        public String portfolio;
-        public String desk;
-        public String trader;
+        public Map<String, String> tradeDimensions = new LinkedHashMap<String, String>();
     }
 
     /**
@@ -277,6 +285,14 @@ public class BatchTradeDataLoader {
         }
         String value = txt.trim();
         return value.isEmpty() ? null : value;
+    }
+
+    private static String buildTradeSelectSql() {
+        StringBuilder sql = new StringBuilder("SELECT id, instrument_id, product_code, trade_content_text");
+        for (String column : TRADE_DIMENSION_COLUMNS) {
+            sql.append(", ").append(column);
+        }
+        return sql.toString();
     }
 }
 

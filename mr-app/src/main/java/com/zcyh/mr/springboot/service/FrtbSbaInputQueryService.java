@@ -20,11 +20,6 @@ import java.util.Set;
  */
 @Service
 public class FrtbSbaInputQueryService {
-    private static final String PORTFOLIO_FLAT_VIEW = "V_TB_OUT_PORTFOLIO_HIERARCHY_FLAT";
-    private static final int PORTFOLIO_LEVEL_MAX = 7;
-    private static final Map<String, String> TRADE_FIELD_SQL = buildTradeFieldSqlMap();
-    private static final Map<String, String> PORTFOLIO_FIELD_SQL = buildPortfolioFieldSqlMap();
-    private static final Map<String, String> FRTB_RESULT_FIELD_SQL = buildFrtbResultFieldSqlMap();
     private static final String[] REQUIRED_SELECT_FIELDS = {
             "INSTRUMENT_ID",
             "PRODUCT_CODE",
@@ -113,7 +108,7 @@ public class FrtbSbaInputQueryService {
         appendSelectFields(sql, REQUIRED_SELECT_FIELDS, false);
 
         for (String field : selectedFields) {
-            String safeField = normalizeField(field);
+            String safeField = RuleColumnSqlResolver.normalizeField(field);
             if (safeField == null || isRequiredSelectedField(safeField)) {
                 continue;
             }
@@ -130,7 +125,7 @@ public class FrtbSbaInputQueryService {
                 .append("AND r.DATA_DATE = d.DATA_DATE ")
                 .append("AND r.INSTRUMENT_ID = d.INSTRUMENT_ID ")
                 .append(usePortfolioFlatView
-                        ? "LEFT JOIN " + PORTFOLIO_FLAT_VIEW + " p ON p.BATCH_ID = d.BATCH_ID AND p.DATA_DATE = d.DATA_DATE AND p.PORTFOLIO_CODE = r.PORTFOLIO "
+                        ? "LEFT JOIN " + RuleColumnSqlResolver.PORTFOLIO_FLAT_VIEW + " p ON p.BATCH_ID = d.BATCH_ID AND p.DATA_DATE = d.DATA_DATE AND p.PORTFOLIO_CODE = r.PORTFOLIO "
                         : "")
                 .append("WHERE d.BATCH_ID = ? AND d.DATA_DATE = ?");
         params.add(safeBatchId);
@@ -192,15 +187,11 @@ public class FrtbSbaInputQueryService {
     }
 
     private static String resolveRuleColumn(String field) {
-        String safeField = normalizeField(field);
-        if (safeField == null) {
-            return null;
-        }
-        return resolveColumnFromMaps(safeField);
+        return RuleColumnSqlResolver.resolveFrtbSbaColumn(field);
     }
 
     private static boolean isRequiredSelectedField(String field) {
-        String safeField = normalizeField(field);
+        String safeField = RuleColumnSqlResolver.normalizeField(field);
         if (safeField == null) {
             return false;
         }
@@ -229,28 +220,14 @@ public class FrtbSbaInputQueryService {
     }
 
     private static boolean requiresPortfolioFlatView(Set<String> fields) {
-        if (fields == null) {
-            return false;
-        }
-        for (String field : fields) {
-            String safeField = trimToNull(field);
-            if (safeField == null) {
-                continue;
-            }
-            for (int i = 1; i <= PORTFOLIO_LEVEL_MAX; i++) {
-                if (("PORTFOLIO_CODE_" + i).equalsIgnoreCase(safeField)) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return RuleColumnSqlResolver.requiresPortfolioFlatView(fields);
     }
 
     private static void appendSelectFields(StringBuilder sql, String[] fields, boolean appendCommaPrefix) {
         boolean appended = false;
         for (String field : fields) {
-            String safeField = normalizeField(field);
-            String expression = resolveColumnFromMaps(safeField);
+            String safeField = RuleColumnSqlResolver.normalizeField(field);
+            String expression = resolveRuleColumn(safeField);
             if (safeField == null || expression == null) {
                 throw new IllegalArgumentException("FRTB SBA 必选字段未配置 SQL 映射: " + field);
             }
@@ -260,60 +237,6 @@ public class FrtbSbaInputQueryService {
             sql.append(expression).append(" AS ").append(safeField);
             appended = true;
         }
-    }
-
-    private static String resolveColumnFromMaps(String safeField) {
-        if (safeField == null) {
-            return null;
-        }
-        String expression = TRADE_FIELD_SQL.get(safeField);
-        if (expression != null) {
-            return expression;
-        }
-        expression = PORTFOLIO_FIELD_SQL.get(safeField);
-        if (expression != null) {
-            return expression;
-        }
-        return FRTB_RESULT_FIELD_SQL.get(safeField);
-    }
-
-    private static Map<String, String> buildTradeFieldSqlMap() {
-        Map<String, String> map = new LinkedHashMap<String, String>();
-        map.put("INSTRUMENT_ID", "r.INSTRUMENT_ID");
-        map.put("PRODUCT_CODE", "r.PRODUCT_CODE");
-        map.put("PORTFOLIO", "r.PORTFOLIO");
-        map.put("DESK", "r.DESK");
-        map.put("TRADER", "r.TRADER");
-        map.put("VALUATION_CCY", "r.VALUATION_CCY");
-        return map;
-    }
-
-    private static Map<String, String> buildPortfolioFieldSqlMap() {
-        Map<String, String> map = new LinkedHashMap<String, String>();
-        for (int i = 1; i <= PORTFOLIO_LEVEL_MAX; i++) {
-            map.put("PORTFOLIO_CODE_" + i, "p.PORTFOLIO_CODE_" + i);
-        }
-        return map;
-    }
-
-    private static Map<String, String> buildFrtbResultFieldSqlMap() {
-        Map<String, String> map = new LinkedHashMap<String, String>();
-        map.put("RISK_FACTOR_ID", "d.RISK_FACTOR_ID");
-        map.put("RISK_FACTOR_VERTEX_1", "d.RISK_FACTOR_VERTEX_1");
-        map.put("RISK_FACTOR_VERTEX_2", "d.RISK_FACTOR_VERTEX_2");
-        map.put("RISK_FACTOR_CLASS", "d.RISK_FACTOR_CLASS");
-        map.put("RISK_FACTOR_BUCKET", "d.RISK_FACTOR_BUCKET");
-        map.put("RISK_FACTOR_TYPE", "d.RISK_FACTOR_TYPE");
-        map.put("SENSITIVITY_TYPE", "d.SENSITIVITY_TYPE");
-        map.put("SENSITIVITY_VAL_INST_CURR_CNY", "d.SENSITIVITY_VAL_INST_CURR_CNY");
-        map.put("DATA_DATE", "d.DATA_DATE");
-        map.put("BATCH_ID", "d.BATCH_ID");
-        return map;
-    }
-
-    private static String normalizeField(String field) {
-        String safeField = trimToNull(field);
-        return safeField == null ? null : safeField.toUpperCase(java.util.Locale.ROOT);
     }
 
     private static String stringValue(Object value) {

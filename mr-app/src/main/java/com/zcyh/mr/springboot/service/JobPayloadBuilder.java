@@ -114,7 +114,7 @@ public class JobPayloadBuilder {
             }
         }
 
-        // 维度映射表（PORTFOLIO, DESK, TRADER）
+        // 维度映射表使用输入表字段名。
         JSONObject tradeDimension = new JSONObject();
         for (BatchTradeDataLoader.TradeRow trade : chunkTrades) {
             String dimInstrumentId = trimToNull(trade.instrumentId);
@@ -122,14 +122,14 @@ public class JobPayloadBuilder {
                 continue;
             }
             JSONObject dim = new JSONObject();
-            if (trimToNull(trade.portfolio) != null) {
-                dim.put("PORTFOLIO", trade.portfolio.trim());
-            }
-            if (trimToNull(trade.desk) != null) {
-                dim.put("DESK", trade.desk.trim());
-            }
-            if (trimToNull(trade.trader) != null) {
-                dim.put("TRADER", trade.trader.trim());
+            if (trade.tradeDimensions != null) {
+                for (Map.Entry<String, String> entry : trade.tradeDimensions.entrySet()) {
+                    String key = trimToNull(entry.getKey());
+                    String value = trimToNull(entry.getValue());
+                    if (key != null && value != null) {
+                        dim.put(key, value);
+                    }
+                }
             }
             if (!dim.isEmpty()) {
                 tradeDimension.put(dimInstrumentId, dim);

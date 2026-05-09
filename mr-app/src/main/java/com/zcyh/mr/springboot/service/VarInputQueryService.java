@@ -23,8 +23,6 @@ import java.util.Set;
 @Service
 public class VarInputQueryService {
     private static final String TABLE = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
-    private static final String PORTFOLIO_FLAT_VIEW = "V_TB_OUT_PORTFOLIO_HIERARCHY_FLAT";
-    private static final int PORTFOLIO_LEVEL_MAX = 7;
     private final JdbcTemplate engineDbJdbcTemplate;
     private final JdbcTemplate engineResultDbJdbcTemplate;
 
@@ -124,7 +122,7 @@ public class VarInputQueryService {
                 .append(" AND r.DATA_DATE = d.DATA_DATE ")
                 .append(" AND r.INSTRUMENT_ID = d.INSTRUMENT_ID ");
         if (usePortfolioFlatView) {
-            sql.append(" LEFT JOIN ").append(PORTFOLIO_FLAT_VIEW).append(" p ")
+            sql.append(" LEFT JOIN ").append(RuleColumnSqlResolver.PORTFOLIO_FLAT_VIEW).append(" p ")
                     .append(" ON p.BATCH_ID = d.BATCH_ID ")
                     .append(" AND p.DATA_DATE = d.DATA_DATE ")
                     .append(" AND p.PORTFOLIO_CODE = r.PORTFOLIO ");
@@ -261,55 +259,7 @@ public class VarInputQueryService {
     }
 
     private static String resolveRuleColumn(String field) {
-        String safeField = trimToNull(field);
-        if (safeField == null) {
-            return null;
-        }
-        if ("PORTFOLIO".equalsIgnoreCase(safeField) || "PORTFOLIO_ID".equalsIgnoreCase(safeField)) {
-            return "r.PORTFOLIO";
-        }
-        if ("BOOK".equalsIgnoreCase(safeField) || "BOOK_ID".equalsIgnoreCase(safeField)) {
-            return "r.PORTFOLIO";
-        }
-        if ("DESK".equalsIgnoreCase(safeField) || "DESK_ID".equalsIgnoreCase(safeField)) {
-            return "r.DESK";
-        }
-        if ("TRADER".equalsIgnoreCase(safeField) || "TRADER_ID".equalsIgnoreCase(safeField)) {
-            return "r.TRADER";
-        }
-        if ("PRODUCT_CODE".equalsIgnoreCase(safeField)) {
-            return "r.PRODUCT_CODE";
-        }
-        if ("INSTRUMENT_ID".equalsIgnoreCase(safeField)) {
-            return "r.INSTRUMENT_ID";
-        }
-        if ("VALUATION_CCY".equalsIgnoreCase(safeField)) {
-            return "r.VALUATION_CCY";
-        }
-        if ("SCENARIO_ID".equalsIgnoreCase(safeField)) {
-            return "d.SCENARIO_ID";
-        }
-        if ("SUBSCENARIO_ID".equalsIgnoreCase(safeField)) {
-            return "d.SUBSCENARIO_ID";
-        }
-        if ("SCENARIO_NAME".equalsIgnoreCase(safeField)) {
-            return "d.SCENARIO_NAME";
-        }
-        if ("DATA_DATE".equalsIgnoreCase(safeField)) {
-            return "d.DATA_DATE";
-        }
-        if ("BATCH_ID".equalsIgnoreCase(safeField)) {
-            return "d.BATCH_ID";
-        }
-        if ("OP_CODE".equalsIgnoreCase(safeField)) {
-            return "d.OP_CODE";
-        }
-        for (int i = 1; i <= PORTFOLIO_LEVEL_MAX; i++) {
-            if (("PORTFOLIO_CODE_" + i).equalsIgnoreCase(safeField)) {
-                return "p.PORTFOLIO_CODE_" + i;
-            }
-        }
-        return null;
+        return RuleColumnSqlResolver.resolveVarColumn(field);
     }
 
     private static Set<String> collectFilterFields(AggregationRule rule) {
@@ -338,34 +288,10 @@ public class VarInputQueryService {
     }
 
     private static boolean requiresPortfolioFlatView(Set<String> dimensionFields, Set<String> filterFields) {
-        if (dimensionFields != null) {
-            for (String field : dimensionFields) {
-                if (isPortfolioFlatField(field)) {
-                    return true;
-                }
-            }
+        if (RuleColumnSqlResolver.requiresPortfolioFlatView(dimensionFields)) {
+            return true;
         }
-        if (filterFields != null) {
-            for (String field : filterFields) {
-                if (isPortfolioFlatField(field)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private static boolean isPortfolioFlatField(String field) {
-        String safeField = trimToNull(field);
-        if (safeField == null) {
-            return false;
-        }
-        for (int i = 1; i <= PORTFOLIO_LEVEL_MAX; i++) {
-            if (("PORTFOLIO_CODE_" + i).equalsIgnoreCase(safeField)) {
-                return true;
-            }
-        }
-        return false;
+        return RuleColumnSqlResolver.requiresPortfolioFlatView(filterFields);
     }
 
     private static String trimToNull(String value) {

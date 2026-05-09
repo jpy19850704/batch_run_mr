@@ -54,7 +54,7 @@ public class MrCalcEngineAdapter implements EngineAdapter {
     }
 
     private String runSingle(String taskPayloadJson) {
-        Calc calc = new Calc(taskPayloadJson);
+        Calc calc = new Calc(taskPayloadJson, null);
         return calc.run();
     }
 

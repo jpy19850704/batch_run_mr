@@ -33,6 +33,7 @@ public class DorisStreamLoadService {
     private static final char ENCLOSE_CHAR = '"';
     private static final String ESCAPE_HEADER = "\\";
     private static final char ESCAPE_CHAR = '\\';
+    private static final String NULL_FORMAT_HEADER = "\\N";
 
     private final HttpClient httpClient;
     private final String baseUrl;
@@ -80,6 +81,7 @@ public class DorisStreamLoadService {
                 .header("column_separator", COLUMN_SEPARATOR_HEADER)
                 .header("enclose", ENCLOSE_HEADER)
                 .header("escape", ESCAPE_HEADER)
+                .header("null_format", NULL_FORMAT_HEADER)
                 .header("columns", safeColumnsHeader)
                 .header("label", label)
                 .PUT(HttpRequest.BodyPublishers.ofByteArray(payload))

@@ -91,7 +91,11 @@ public class DorisCsvStreamLoadBuffer {
                                       char encloseChar,
                                       char escapeChar,
                                       Object value) {
-        String text = value == null ? "" : String.valueOf(value);
+        if (value == null) {
+            csvBuilder.append("\\N");
+            return;
+        }
+        String text = String.valueOf(value);
         boolean needQuote = text.indexOf(columnSeparatorChar) >= 0
                 || text.indexOf(encloseChar) >= 0
                 || text.indexOf(escapeChar) >= 0

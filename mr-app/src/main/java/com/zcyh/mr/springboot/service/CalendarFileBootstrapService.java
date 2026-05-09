@@ -5,6 +5,7 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.core.Calendar;
+import com.zcyh.mr.core.SystemCalendarCache;
 import com.zcyh.mr.springboot.calendar.mapper.CalendarMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,6 +95,7 @@ public class CalendarFileBootstrapService {
                 writeCalendarFile(rootPath, entry.getKey(), entry.getValue());
             }
             holidayCalendar.loadFromPath(storePath);
+            SystemCalendarCache.setCalendar(holidayCalendar);
         } catch (IOException ex) {
             throw new IllegalStateException("写入日历文件失败: " + ex.getMessage(), ex);
         }
