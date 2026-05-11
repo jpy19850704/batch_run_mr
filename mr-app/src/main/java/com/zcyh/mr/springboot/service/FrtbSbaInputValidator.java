@@ -2,6 +2,7 @@ package com.zcyh.mr.springboot.service;
 
 import com.zcyh.mr.frtbsa.sba.common.FrtbConstants;
 import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
+import com.zcyh.mr.frtbsa.sba.common.CmtyRiskFactorId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -98,6 +99,13 @@ final class FrtbSbaInputValidator {
                     && FrtbConstants.SENS_DELTA.equals(sensType)
                     && trimToNull(stringValue(row.get("RISK_FACTOR_TYPE"))) == null) {
                 stat(stats, "GIRR Delta RISK_FACTOR_TYPE 缺失，已过滤").add(row.get("INSTRUMENT_ID"));
+                invalid = true;
+            }
+
+            if (!invalid && FrtbConstants.RISK_CLASS_CMTY.equals(riskClass)
+                    && !FrtbConstants.SENS_VEGA.equals(sensType)
+                    && CmtyRiskFactorId.parse(row.get("RISK_FACTOR_ID")) == null) {
+                stat(stats, "CMTY RISK_FACTOR_ID 必须为 type&location 格式，已过滤").add(row.get("INSTRUMENT_ID"));
                 invalid = true;
             }
 

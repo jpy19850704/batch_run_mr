@@ -267,7 +267,7 @@ sequenceDiagram
 1. 先删后插（按 `JOB_ID`，并按 `BATCH_ID + INSTRUMENT_ID` 做覆盖清理）。
 2. 严格表结构校验（缺列直接失败）。
 3. 市场数据采取“外部输入优先”合并策略。
-4. DRC 明细要求 `JTD_CNY`，缺失会跳过并记录告警日志。
+4. DRC 明细落库阶段要求 `JTD_CNY`，缺失会跳过并记录告警日志；DRC 汇总计算入口会再次校验 `SECURITY_TYPE / LEGAL_ENTITY / DRC_BUCKET / SENIORITY / TERM_TO_MATURITY / RISK_WEIGHT / JTD_CNY`，`sec non-CTP` 额外要求 `SECURITY_ID`。
 
 ## 8.2 批次级汇总写入（BatchRun 全部成功后）
 
@@ -290,10 +290,11 @@ sequenceDiagram
    - 服务：`VarResultPersistService.persist`
    - 表：`TB_OUT_VAR_RESULT`
 
-实现一致性提示：
+写入特征：
 
-- 当前代码已使用 `TB_OUT_FRTB_SBA_CLASS_RESULT` 作为 FRTB SBA 汇总落库目标。
-- `mr-app/src/main/resources/db/mr_output_schema_doris.sql` 中暂未看到该表 DDL，请在部署前确认该表已在 Doris 建好。
+- FRTB SBA 汇总写入 `TB_OUT_FRTB_SBA_CLASS_RESULT`，表结构由 `mr-app/src/main/resources/db/mr_output_schema_doris.sql` 提供。
+- FRTB SBA 与 DRC 汇总均通过 Doris Stream Load 写入，DRC 结果表主键包含 `RULE_ID + GROUP_TYPE + GROUP_VALUE`。
+- DRC `non-sec / sec non-CTP` standard 路径按监管 seniority 规则生成净 JTD；`sec non-CTP` 以 `SECURITY_ID` 区分证券化敞口，避免不同证券化敞口在同一 bucket 下直接轧差。
 
 异常口径：
 
