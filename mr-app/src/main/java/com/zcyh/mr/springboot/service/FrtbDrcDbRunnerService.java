@@ -41,7 +41,7 @@ public class FrtbDrcDbRunnerService {
     public String calculateByBatch(String payloadJson) {
         JSONObject req = JSON.parseObject(payloadJson);
         if (req == null) {
-            throw new IllegalArgumentException("payload must be a json object");
+            throw new IllegalArgumentException("payload 必须是 JSON 对象");
         }
         String batchId = requireTopLevelString(req, "batch_id");
         String dataDate = requireTopLevelString(req, "data_date");
@@ -71,7 +71,7 @@ public class FrtbDrcDbRunnerService {
     public String calculateByRule(String payloadJson) {
         JSONObject req = JSON.parseObject(payloadJson);
         if (req == null) {
-            throw new IllegalArgumentException("payload must be a json object");
+            throw new IllegalArgumentException("payload 必须是 JSON 对象");
         }
         String batchId = requireTopLevelString(req, "batch_id");
         String dataDate = requireTopLevelString(req, "data_date");
@@ -84,7 +84,7 @@ public class FrtbDrcDbRunnerService {
     public String calculateByInlineRule(String payloadJson) {
         JSONObject req = JSON.parseObject(payloadJson);
         if (req == null) {
-            throw new IllegalArgumentException("payload must be a json object");
+            throw new IllegalArgumentException("payload 必须是 JSON 对象");
         }
         String batchId = requireTopLevelString(req, "batch_id");
         String dataDate = requireTopLevelString(req, "data_date");
@@ -206,7 +206,7 @@ public class FrtbDrcDbRunnerService {
     private static LocalDate parseDataDate(String dataDate) {
         String value = trimToNull(dataDate);
         if (value == null) {
-            throw new IllegalArgumentException("data_date is required");
+            throw new IllegalArgumentException("data_date 必填");
         }
         if (value.length() == 8 && value.chars().allMatch(Character::isDigit)) {
             return LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE);
@@ -214,14 +214,14 @@ public class FrtbDrcDbRunnerService {
         try {
             return LocalDate.parse(value);
         } catch (Exception ex) {
-            throw new IllegalArgumentException("data_date format must be yyyyMMdd or yyyy-MM-dd");
+            throw new IllegalArgumentException("data_date 格式必须为 yyyyMMdd 或 yyyy-MM-dd");
         }
     }
 
     private static String requireTopLevelString(JSONObject obj, String key) {
         String value = trimToNull(obj.getString(key));
         if (value == null) {
-            throw new IllegalArgumentException(key + " is required");
+            throw new IllegalArgumentException(key + " 必填");
         }
         return value;
     }

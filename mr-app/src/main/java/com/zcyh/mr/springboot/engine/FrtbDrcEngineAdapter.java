@@ -32,18 +32,18 @@ public class FrtbDrcEngineAdapter implements EngineAdapter {
     public String calculate(String inputJson) {
         JSONObject req = JSON.parseObject(inputJson);
         if (req == null) {
-            throw new IllegalArgumentException("payload must be a json object");
+            throw new IllegalArgumentException("payload 必须是 JSON 对象");
         }
 
         JSONArray detailListJson = req.getJSONArray("drc_detail_list");
         if (detailListJson == null || detailListJson.isEmpty()) {
-            throw new IllegalArgumentException("drc_detail_list is required and cannot be empty");
+            throw new IllegalArgumentException("drc_detail_list 必填且不能为空");
         }
         List<DrcDetail> detailList = parseDrcDetailList(detailListJson, "drc_detail_list");
 
         String dataDateRaw = req.getString("data_date");
         if (dataDateRaw == null || dataDateRaw.trim().isEmpty()) {
-            throw new IllegalArgumentException("data_date is required, format yyyyMMdd");
+            throw new IllegalArgumentException("data_date 必填，格式 yyyyMMdd");
         }
         LocalDate dataDate = parseDate(dataDateRaw.trim());
 
@@ -55,7 +55,7 @@ public class FrtbDrcEngineAdapter implements EngineAdapter {
         if (raw.length() == 8 && raw.chars().allMatch(Character::isDigit)) {
             return LocalDate.parse(raw, DateTimeFormatter.BASIC_ISO_DATE);
         }
-        throw new IllegalArgumentException("data_date format must be yyyyMMdd");
+        throw new IllegalArgumentException("data_date 格式必须为 yyyyMMdd");
     }
 
     private static List<DrcDetail> parseDrcDetailList(JSONArray array, String path) {
@@ -63,7 +63,7 @@ public class FrtbDrcEngineAdapter implements EngineAdapter {
         for (int i = 0; i < array.size(); i++) {
             Object item = array.get(i);
             if (!(item instanceof JSONObject)) {
-                throw new IllegalArgumentException(path + "[" + i + "] must be an object");
+                throw new IllegalArgumentException(path + "[" + i + "] 必须是 JSON 对象");
             }
             list.add(parseDrcDetail((JSONObject) item, path, i));
         }
@@ -104,7 +104,7 @@ public class FrtbDrcEngineAdapter implements EngineAdapter {
     private static String requireString(JSONObject obj, String key, String path, int index) {
         String value = trimToNull(obj.getString(key));
         if (value == null) {
-            throw new IllegalArgumentException(path + "[" + index + "]." + key + " is required");
+            throw new IllegalArgumentException(path + "[" + index + "]." + key + " 必填");
         }
         return value;
     }
@@ -112,7 +112,7 @@ public class FrtbDrcEngineAdapter implements EngineAdapter {
     private static Double requireDouble(JSONObject obj, String key, String path, int index) {
         Double value = obj.getDouble(key);
         if (value == null) {
-            throw new IllegalArgumentException(path + "[" + index + "]." + key + " is required");
+            throw new IllegalArgumentException(path + "[" + index + "]." + key + " 必填");
         }
         return value;
     }

@@ -6,10 +6,12 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
 import com.zcyh.mr.frtbsa.sba.pojo.FRTBClassResult;
+import com.zcyh.mr.frtbsa.sba.pojo.FRTBPosResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 /**
@@ -23,15 +25,18 @@ public class FrtbSbaSummaryService {
 
     private final FrtbSbaDbRunnerService frtbSbaDbRunnerService;
     private final FrtbSbaResultPersistService frtbSbaResultPersistService;
+    private final FrtbSbaDecompDetailPersistService frtbSbaDecompDetailPersistService;
     private final FrtbAggregator frtbAggregator;
     private final CalcRuleMetaPersistService calcRuleMetaPersistService;
 
     public FrtbSbaSummaryService(FrtbSbaDbRunnerService frtbSbaDbRunnerService,
                                  FrtbSbaResultPersistService frtbSbaResultPersistService,
+                                 FrtbSbaDecompDetailPersistService frtbSbaDecompDetailPersistService,
                                  FrtbAggregator frtbAggregator,
                                  CalcRuleMetaPersistService calcRuleMetaPersistService) {
         this.frtbSbaDbRunnerService = frtbSbaDbRunnerService;
         this.frtbSbaResultPersistService = frtbSbaResultPersistService;
+        this.frtbSbaDecompDetailPersistService = frtbSbaDecompDetailPersistService;
         this.frtbAggregator = frtbAggregator;
         this.calcRuleMetaPersistService = calcRuleMetaPersistService;
     }
@@ -50,6 +55,7 @@ public class FrtbSbaSummaryService {
 
         if (persistResult) {
             frtbSbaResultPersistService.deleteByBatch(batchId);
+            frtbSbaDecompDetailPersistService.deleteByBatch(batchId);
             calcRuleMetaPersistService.deleteByBatchAndCalcType(batchId, dataDate, CALC_TYPE_FRTB_SBA);
         }
 
@@ -64,7 +70,7 @@ public class FrtbSbaSummaryService {
             Object parsed = JSON.parse(raw);
 
             if (persistResult) {
-                Map<String, Map<String, Object>> batchResult = JSON.parseObject(raw, Map.class);
+                Map<String, Object> batchResult = JSON.parseObject(raw, Map.class);
                 persistRuleResult(batchId, dataDate, execution.ruleId, batchResult);
                 persistRuleMeta(batchId, dataDate, execution);
             }
@@ -110,29 +116,48 @@ public class FrtbSbaSummaryService {
     private void persistRuleResult(String batchId,
                                    String dataDate,
                                    String ruleId,
-                                   Map<String, Map<String, Object>> batchResult) {
+                                   Map<String, Object> batchResult) {
         if (batchResult == null || batchResult.isEmpty()) {
             return;
         }
-        Map<String, Object> rawDetails = batchResult.get("__raw_details");
-        for (Map.Entry<String, Map<String, Object>> entry : batchResult.entrySet()) {
+        Map<String, Object> rawDetails = requireRawDetails(batchResult.get("__raw_details"));
+        List<FRTBPosResult> decompDetails = new ArrayList<FRTBPosResult>();
+        for (Map.Entry<String, Object> entry : batchResult.entrySet()) {
             String taskKey = entry.getKey();
-            if ("__raw_details".equals(taskKey)) {
+            if ("__raw_details".equals(taskKey) || "__raw_detail_schema".equals(taskKey)) {
                 continue;
             }
             Map<String, Object> rawDetail = requireRawDetail(rawDetails, taskKey);
             String treeId = requireRawDetailText(rawDetail, "treeId", taskKey);
             String groupType = requireRawDetailText(rawDetail, "groupType", taskKey);
             String groupValue = requireRawDetailText(rawDetail, "groupValue", taskKey);
-            Map<String, List<?>> pojoResult = frtbAggregator.buildResults(
-                    entry.getValue(), treeId, groupType, groupValue);
-            List<?> classResults = pojoResult.get("classResults");
-            if (classResults == null || classResults.isEmpty()) {
-                continue;
+            Object calcResult = entry.getValue();
+            if (!(calcResult instanceof Map)) {
+                throw new IllegalArgumentException("FRTB SBA 任务结果格式异常: taskKey=" + taskKey);
             }
-            frtbSbaResultPersistService.persist(
-                    (List<FRTBClassResult>) classResults, batchId, dataDate, ruleId);
+            Map<String, List<?>> pojoResult = frtbAggregator.buildResults(
+                    (Map<String, Object>) calcResult, treeId, groupType, groupValue);
+            List<?> classResults = pojoResult.get("classResults");
+            if (classResults != null && !classResults.isEmpty()) {
+                frtbSbaResultPersistService.persist(
+                        (List<FRTBClassResult>) classResults, batchId, dataDate, ruleId);
+            }
+            List<?> posResults = pojoResult.get("posResults");
+            if (posResults != null && !posResults.isEmpty()) {
+                decompDetails.addAll((List<FRTBPosResult>) posResults);
+            }
         }
+        if (!decompDetails.isEmpty()) {
+            frtbSbaDecompDetailPersistService.persist(decompDetails, batchId, dataDate, ruleId);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> requireRawDetails(Object rawDetails) {
+        if (!(rawDetails instanceof Map)) {
+            throw new IllegalArgumentException("FRTB SBA 结果缺少 __raw_details，无法确定真实维度类型");
+        }
+        return (Map<String, Object>) rawDetails;
     }
 
     @SuppressWarnings("unchecked")

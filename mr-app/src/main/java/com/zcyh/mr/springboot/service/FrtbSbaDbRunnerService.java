@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
+import com.zcyh.mr.frtbsa.sba.pojo.FRTBPosResult;
 import com.zcyh.mr.frtbsa.sba.pojo.FrtbInput;
 import com.zcyh.mr.springboot.model.AggregationRule;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,18 @@ public class FrtbSbaDbRunnerService {
             "RISK_FACTOR_TYPE",
             "SENSITIVITY_TYPE"
     };
+    private static final List<String> RAW_DETAIL_SCHEMA = java.util.Collections.unmodifiableList(java.util.Arrays.asList(
+            "riskFactorClass",
+            "riskFactorBucket",
+            "sensitivityType",
+            "riskFactorType",
+            "riskFactorId",
+            "riskFactorVertex1",
+            "riskFactorVertex2",
+            "sensitivityValRptCurrCny",
+            "riskWeight",
+            "ws"
+    ));
 
     private final FrtbSbaInputQueryService inputQueryService;
     private final FrtbAggregator aggregator;
@@ -51,7 +64,7 @@ public class FrtbSbaDbRunnerService {
     public String calculateByRule(String payloadJson) {
         JSONObject req = JSON.parseObject(payloadJson);
         if (req == null) {
-            throw new IllegalArgumentException("payload must be a json object");
+            throw new IllegalArgumentException("payload 必须是 JSON 对象");
         }
         boolean needDecompose = parseNeedDecompose(req);
         int threadCount = parseThreadCount(req);
@@ -96,7 +109,7 @@ public class FrtbSbaDbRunnerService {
     public String calculateByInlineRule(String payloadJson) {
         JSONObject req = JSON.parseObject(payloadJson);
         if (req == null) {
-            throw new IllegalArgumentException("payload must be a json object");
+            throw new IllegalArgumentException("payload 必须是 JSON 对象");
         }
         boolean needDecompose = parseNeedDecompose(req);
         int threadCount = parseThreadCount(req);
@@ -146,12 +159,13 @@ public class FrtbSbaDbRunnerService {
         if (batchResult != null && !batchResult.isEmpty()) {
             output.putAll(batchResult);
         }
+        output.put("__raw_detail_schema", RAW_DETAIL_SCHEMA);
         output.put("__raw_details", buildRawDetails(tasks, batchResult));
         return output;
     }
 
     /**
-     * 基于引擎已生成的 posResults/classResults/bucketResults 回填原始下钻结果。
+     * 基于引擎已生成的 posResults 回填原始下钻结果，使用 schema+rows 降低字段名重复带来的结果体积。
      */
     private Map<String, Object> buildRawDetails(Map<String, List<FrtbInput>> tasks,
                                                 Map<String, Map<String, Object>> batchResult) {
@@ -178,12 +192,36 @@ public class FrtbSbaDbRunnerService {
             detailEntry.put("treeId", treeId);
             detailEntry.put("groupType", groupType);
             detailEntry.put("groupValue", groupValue);
-            detailEntry.put("classResults", pojoResult.get("classResults"));
-            detailEntry.put("bucketResults", pojoResult.get("bucketResults"));
-            detailEntry.put("posResults", pojoResult.get("posResults"));
+            detailEntry.put("rows", buildRawDetailRows(pojoResult.get("posResults")));
             rawDetails.put(taskKey, detailEntry);
         }
         return rawDetails;
+    }
+
+    private List<List<Object>> buildRawDetailRows(List<?> posResults) {
+        List<List<Object>> rows = new ArrayList<List<Object>>();
+        if (posResults == null || posResults.isEmpty()) {
+            return rows;
+        }
+        for (Object item : posResults) {
+            if (!(item instanceof FRTBPosResult)) {
+                continue;
+            }
+            FRTBPosResult pos = (FRTBPosResult) item;
+            List<Object> row = new ArrayList<Object>(RAW_DETAIL_SCHEMA.size());
+            row.add(pos.getRiskFactorClass());
+            row.add(pos.getRiskFactorBucket());
+            row.add(pos.getSensitivityType());
+            row.add(pos.getRiskFactorType());
+            row.add(pos.getRiskFactorId());
+            row.add(pos.getRiskFactorVertex1());
+            row.add(pos.getRiskFactorVertex2());
+            row.add(pos.getSensitivityValRptCurrCny());
+            row.add(pos.getRiskWeight());
+            row.add(pos.getWs());
+            rows.add(row);
+        }
+        return rows;
     }
 
     /**
@@ -387,7 +425,7 @@ public class FrtbSbaDbRunnerService {
     private static String requireTopLevelString(JSONObject obj, String key) {
         String value = trimToNull(obj.getString(key));
         if (value == null) {
-            throw new IllegalArgumentException(key + " is required");
+            throw new IllegalArgumentException(key + " 必填");
         }
         return value;
     }

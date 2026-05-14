@@ -58,7 +58,7 @@ public class ScenarioEngineAdapter implements EngineAdapter {
     public String calculate(String inputJson) {
         JSONObject req = JSON.parseObject(inputJson);
         if (req == null) {
-            throw new IllegalArgumentException("payload must be a json object");
+            throw new IllegalArgumentException("payload 必须是 JSON 对象");
         }
         String scenarioIdList = requiredString(req, "scenario_id_list");
         String dataDate = requiredString(req, "data_date");
@@ -120,7 +120,7 @@ public class ScenarioEngineAdapter implements EngineAdapter {
     private static String requiredString(JSONObject obj, String key) {
         String value = obj.getString(key);
         if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException(key + " is required");
+            throw new IllegalArgumentException(key + " 必填");
         }
         return value.trim();
     }

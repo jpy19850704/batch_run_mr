@@ -283,7 +283,7 @@ final class FrtbSbaInputValidator {
     private static void logStats(Map<String, ValidationStat> stats) {
         for (ValidationStat stat : stats.values()) {
             if (stat.count > 0) {
-                log.warn("FRTB SBA {}: total={}, sampledInstrumentIds={}",
+                log.warn("FRTB SBA {}: 总数={}, 样例交易ID={}",
                         stat.message, stat.count, stat.samples);
             }
         }

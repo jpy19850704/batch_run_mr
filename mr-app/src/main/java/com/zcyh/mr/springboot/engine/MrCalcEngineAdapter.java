@@ -42,7 +42,7 @@ public class MrCalcEngineAdapter implements EngineAdapter {
     public String calculate(String inputJson) {
         JSONObject req = JSON.parseObject(inputJson);
         if (req == null) {
-            throw new IllegalArgumentException("payload must be a json object");
+            throw new IllegalArgumentException("payload 必须是 JSON 对象");
         }
 
         if (req.containsKey("batch_tasks")) {
@@ -106,7 +106,7 @@ public class MrCalcEngineAdapter implements EngineAdapter {
     private static String requiredRefField(JSONObject ref, String key) {
         String val = ref.getString(key);
         if (val == null || val.trim().isEmpty()) {
-            throw new IllegalArgumentException("scenario_ref." + key + " is required");
+            throw new IllegalArgumentException("scenario_ref." + key + " 必填");
         }
         return val.trim();
     }
@@ -134,7 +134,7 @@ public class MrCalcEngineAdapter implements EngineAdapter {
                 throw new IllegalArgumentException("非法 scenario 文件路径: " + path);
             }
             if (!Files.exists(path)) {
-                throw new IllegalArgumentException("scenario set file not found: " + path);
+                throw new IllegalArgumentException("scenario 文件不存在: " + path);
             }
             result.add(path.toString());
         }

@@ -37,13 +37,13 @@ public class FrtbSaEngineAdapter implements EngineAdapter {
     public String calculate(String inputJson) {
         JSONObject req = JSON.parseObject(inputJson);
         if (req == null) {
-            throw new IllegalArgumentException("payload must be a json object");
+            throw new IllegalArgumentException("payload 必须是 JSON 对象");
         }
 
         boolean needDecompose = parseNeedDecompose(req);
         JSONArray inputListJson = req.getJSONArray("frtb_input_list");
         if (inputListJson == null || inputListJson.isEmpty()) {
-            throw new IllegalArgumentException("frtb_input_list is required and cannot be empty");
+            throw new IllegalArgumentException("frtb_input_list 必填且不能为空");
         }
         List<FrtbInput> inputList = parseFrtbInputList(inputListJson, "frtb_input_list");
         Map<String, Object> result = aggregator.calculateAsMap(inputList, needDecompose);
@@ -60,7 +60,7 @@ public class FrtbSaEngineAdapter implements EngineAdapter {
         for (int i = 0; i < array.size(); i++) {
             Object item = array.get(i);
             if (!(item instanceof JSONObject)) {
-                throw new IllegalArgumentException(path + "[" + i + "] must be an object");
+                throw new IllegalArgumentException(path + "[" + i + "] 必须是 JSON 对象");
             }
             list.add(parseFrtbInput((JSONObject) item, path, i));
         }
@@ -88,7 +88,7 @@ public class FrtbSaEngineAdapter implements EngineAdapter {
     private static String requireString(JSONObject obj, String key, String path, int index) {
         String value = trimToNull(obj.getString(key));
         if (value == null) {
-            throw new IllegalArgumentException(path + "[" + index + "]." + key + " is required");
+            throw new IllegalArgumentException(path + "[" + index + "]." + key + " 必填");
         }
         return value;
     }
@@ -96,7 +96,7 @@ public class FrtbSaEngineAdapter implements EngineAdapter {
     private static BigDecimal requireBigDecimal(JSONObject obj, String key, String path, int index) {
         BigDecimal value = obj.getBigDecimal(key);
         if (value == null) {
-            throw new IllegalArgumentException(path + "[" + index + "]." + key + " is required");
+            throw new IllegalArgumentException(path + "[" + index + "]." + key + " 必填");
         }
         return value;
     }

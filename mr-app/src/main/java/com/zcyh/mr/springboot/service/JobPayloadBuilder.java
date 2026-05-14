@@ -89,7 +89,7 @@ public class JobPayloadBuilder {
         payload.put("persist_result", persistResult);
         payload.put("frtb_disable", frtbDisabled);
 
-        // batch_meta
+        // 批次元数据
         JSONObject batchMeta = new JSONObject();
         batchMeta.put("batch_id", batchId);
         batchMeta.put("seq_no", seqNo);

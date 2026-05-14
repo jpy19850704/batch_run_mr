@@ -36,7 +36,7 @@ public class BatchTradeDataLoader {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    // ==================== RowMapper ====================
+    // ==================== 行映射器 ====================
 
     private static final RowMapper<TradeRow> TRADE_ROW_MAPPER = new RowMapper<TradeRow>() {
         @Override

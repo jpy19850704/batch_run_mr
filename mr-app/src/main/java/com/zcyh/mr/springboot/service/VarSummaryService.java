@@ -66,7 +66,7 @@ public class VarSummaryService {
      */
     private void persistRuleMeta(String batchId, String dataDate, JSONObject runnerRequest) {
         try {
-            JSONArray rules = runnerRequest.getJSONArray("rules");
+            JSONArray rules = varDbRunnerService.resolveRuleSnapshots(runnerRequest);
             if (rules == null || rules.isEmpty()) {
                 return;
             }

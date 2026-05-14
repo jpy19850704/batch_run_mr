@@ -68,7 +68,7 @@ public class VarDbRunnerService {
     public String calculateByInline(String payloadJson) {
         JSONObject req = JSON.parseObject(payloadJson);
         if (req == null) {
-            throw new IllegalArgumentException("payload must be a json object");
+            throw new IllegalArgumentException("payload 必须是 JSON 对象");
         }
 
         normalizeRuleIdRequest(req);
@@ -84,7 +84,7 @@ public class VarDbRunnerService {
             requestId = UUID.randomUUID().toString().replace("-", "");
         }
         if (rules.isEmpty()) {
-            throw new IllegalArgumentException("rules is required");
+            throw new IllegalArgumentException("rules 必填");
         }
         if (includeDetail && varDetailCacheService == null) {
             throw new IllegalStateException("include_detail=true 但 Redis 缓存服务未启用");
@@ -710,6 +710,29 @@ public class VarDbRunnerService {
     }
 
     /**
+     * 返回本次 VaR 请求解析后的规则快照，用于结果落库后按规则还原下钻范围。
+     */
+    public JSONArray resolveRuleSnapshots(JSONObject request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request 不能为空");
+        }
+        JSONObject copy = JSON.parseObject(request.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
+        normalizeRuleIdRequest(copy);
+        JSONArray rules = copy.getJSONArray("rules");
+        if (rules == null) {
+            return new JSONArray();
+        }
+        JSONArray snapshots = new JSONArray();
+        for (int i = 0; i < rules.size(); i++) {
+            JSONObject rule = rules.getJSONObject(i);
+            if (rule != null) {
+                snapshots.add(JSON.parseObject(rule.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain)));
+            }
+        }
+        return snapshots;
+    }
+
+    /**
      * 支持通过 rule_id 从 MR_AGG_RULE 读取 VAR 规则，并将规则内的 quantiles / measure 提升为本次运行参数。
      */
     private void normalizeRuleIdRequest(JSONObject req) {
@@ -949,7 +972,7 @@ public class VarDbRunnerService {
     static List<BigDecimal> parseQuantiles(Object value) {
         List<BigDecimal> quantiles = new ArrayList<BigDecimal>();
         if (value == null) {
-            throw new IllegalArgumentException("quantiles is required, 例如: 0.95,0.99");
+            throw new IllegalArgumentException("quantiles 必填, 例如: 0.95,0.99");
         }
 
         if (value instanceof JSONArray) {
@@ -961,7 +984,7 @@ public class VarDbRunnerService {
         } else {
             String txt = trimToNull(String.valueOf(value));
             if (txt == null) {
-                throw new IllegalArgumentException("quantiles is required, 例如: 0.95,0.99");
+                throw new IllegalArgumentException("quantiles 必填, 例如: 0.95,0.99");
             }
             String[] parts = txt.split(",");
             for (String part : parts) {
@@ -971,7 +994,7 @@ public class VarDbRunnerService {
         }
 
         if (quantiles.isEmpty()) {
-            throw new IllegalArgumentException("quantiles is required, 例如: 0.95,0.99");
+            throw new IllegalArgumentException("quantiles 必填, 例如: 0.95,0.99");
         }
 
         List<BigDecimal> deduped = new ArrayList<BigDecimal>();
@@ -1093,7 +1116,7 @@ public class VarDbRunnerService {
     private static String requireTopLevelString(JSONObject obj, String key) {
         String value = trimToNull(obj.getString(key));
         if (value == null) {
-            throw new IllegalArgumentException(key + " is required");
+            throw new IllegalArgumentException(key + " 必填");
         }
         return value;
     }
@@ -1101,7 +1124,7 @@ public class VarDbRunnerService {
     private static String requireString(JSONObject obj, String key) {
         String value = readString(obj, key);
         if (value == null) {
-            throw new IllegalArgumentException((key == null ? "field" : key) + " is required");
+            throw new IllegalArgumentException((key == null ? "field" : key) + " 必填");
         }
         return value;
     }

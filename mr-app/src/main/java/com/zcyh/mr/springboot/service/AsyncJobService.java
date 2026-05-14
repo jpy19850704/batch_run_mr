@@ -744,9 +744,7 @@ public class AsyncJobService {
         runResult.setElapsedMs(elapsed);
         final String finalStatus = runResult.isSuccess() ? SUCCESS : FAILED;
         final String safeErrorMessage = truncateForErrorMessage(runResult.getErrorMessage());
-        final String resultJson = shouldPersistResult(payloadJson)
-                ? null
-                : JSON.toJSONString(runResult.getData(), JSONWriter.Feature.WriteBigDecimalAsPlain);
+        final String resultJson = buildResultReferenceJson(jobId, payloadJson, runResult);
         withRetry(new Callable<Void>() {
             @Override
             public Void call() {
@@ -756,6 +754,14 @@ public class AsyncJobService {
                 return null;
             }
         }, "持久化任务结果");
+    }
+
+    private String buildResultReferenceJson(String jobId, String payloadJson, EngineRunResult runResult) {
+        if (shouldPersistResult(payloadJson)) {
+            return null;
+        }
+        Map<String, Object> reference = batchResultFileService.writeJobResultData(jobId, runResult.getData());
+        return JSON.toJSONString(reference, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
 
     private void persistRunFailure(String jobId, String requestId, String engineCode, String message, long finish) {

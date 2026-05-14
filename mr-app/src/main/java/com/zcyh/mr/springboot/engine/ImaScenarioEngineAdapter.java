@@ -277,7 +277,7 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
     private static String required(JSONObject obj, String key) {
         String v = obj.getString(key);
         if (v == null || v.trim().isEmpty()) {
-            throw new IllegalArgumentException(key + " is required");
+            throw new IllegalArgumentException(key + " 必填");
         }
         return v.trim();
     }

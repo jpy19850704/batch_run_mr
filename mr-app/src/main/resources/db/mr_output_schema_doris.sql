@@ -213,6 +213,34 @@ PROPERTIES (
     "enable_unique_key_merge_on_write" = "true"
 );
 
+-- FRTB SBA 风险因子单位贡献度明细表
+CREATE TABLE IF NOT EXISTS TB_OUT_FRTB_SBA_DECOMP_DETAIL (
+    BATCH_ID                        VARCHAR(64),
+    DATA_DATE                       VARCHAR(16),
+    RULE_ID                         VARCHAR(128),
+    TREE_ID                         VARCHAR(128),
+    GROUP_TYPE                      VARCHAR(64),
+    GROUP_VALUE                     VARCHAR(512),
+    RISK_FACTOR_CLASS               VARCHAR(64),
+    RISK_FACTOR_BUCKET              VARCHAR(64),
+    RISK_FACTOR_ID                  VARCHAR(256),
+    RISK_FACTOR_VERTEX_1            VARCHAR(128),
+    RISK_FACTOR_VERTEX_2            VARCHAR(128),
+    RISK_FACTOR_TYPE                VARCHAR(64),
+    SENSITIVITY_TYPE                VARCHAR(64),
+    UNIT_CONTRIBUTION               DECIMAL(38, 10),
+    CREATED_AT                      VARCHAR(32),
+    UPDATED_AT                      VARCHAR(32)
+)
+UNIQUE KEY(BATCH_ID, DATA_DATE, RULE_ID, TREE_ID, GROUP_TYPE, GROUP_VALUE,
+           RISK_FACTOR_CLASS, RISK_FACTOR_BUCKET, RISK_FACTOR_ID,
+           RISK_FACTOR_VERTEX_1, RISK_FACTOR_VERTEX_2, RISK_FACTOR_TYPE, SENSITIVITY_TYPE)
+DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
 -- DRC 违约风险明细表
 CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_DRC_DETAIL (
     ID                  BIGINT          NOT NULL AUTO_INCREMENT,
