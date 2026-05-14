@@ -662,7 +662,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_CALC_RULE_META (
     DATA_DATE   VARCHAR(16)     COMMENT '数据日期',
     CALC_TYPE   VARCHAR(32)     COMMENT '计算类型：VAR / FRTB_SBA / IMA',
     RULE_ID     VARCHAR(128)    COMMENT '规则ID',
-    RULE_JSON   TEXT            COMMENT '完整规则原始 JSON（含 filter_tree、build_order、dimensions 等）',
+    RULE_JSON   TEXT            COMMENT '完整规则原始 JSON（含 filter_tree、build_order 等）',
     CREATED_AT  VARCHAR(32)     COMMENT '创建时间'
 )
 UNIQUE KEY(BATCH_ID, DATA_DATE, CALC_TYPE, RULE_ID)
