@@ -128,6 +128,7 @@ public class BatchRunService {
         context.setWhatifMode(RUN_MODE_WHATIF.equals(runMode));
         context.setExternalBatchIdProvided(externalBatchId != null);
         context.setPersistResult(persistResult);
+        context.setCacheScenarioResult(Boolean.TRUE.equals(request.getCacheScenarioResult()));
         context.setFrtbDisabled(frtbDisabled);
         context.setFrtbSbaRuleIdList(trimToNull(request.getFrtbSbaRuleIdList()));
         context.setVarRuleIdList(trimToNull(request.getVarRuleIdList()));

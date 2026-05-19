@@ -1,5 +1,6 @@
 package com.zcyh.mr.springboot.api;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.context.RequestContextHolder;
 import com.zcyh.mr.springboot.model.ApiResponse;
 import com.zcyh.mr.springboot.model.BatchDetailResult;
@@ -108,6 +109,20 @@ public class MrJobController {
             return ApiResponse.ok(result);
         } catch (RuntimeException ex) {
             auditLogService.recordFailure("JOB_RESULT_QUERY", "JOB", jobId, null, "JOB_RESULT_QUERY_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
+            throw ex;
+        }
+    }
+
+    @GetMapping("/{jobId}/scenario-result")
+    public ApiResponse<JSONObject> scenarioResult(@PathVariable("jobId") String jobId) {
+        long start = System.currentTimeMillis();
+        RequestContextHolder.setJobId(jobId);
+        try {
+            JSONObject result = asyncJobService.getScenarioResult(jobId);
+            auditLogService.recordSuccess("JOB_SCENARIO_RESULT_QUERY", "JOB", jobId, "MR_CALC", "任务情景结果查询成功", System.currentTimeMillis() - start);
+            return ApiResponse.ok(result);
+        } catch (RuntimeException ex) {
+            auditLogService.recordFailure("JOB_SCENARIO_RESULT_QUERY", "JOB", jobId, "MR_CALC", "JOB_SCENARIO_RESULT_QUERY_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
             throw ex;
         }
     }

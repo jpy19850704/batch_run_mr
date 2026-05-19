@@ -21,6 +21,8 @@ public class BatchRunRequest {
     private Boolean persistScenario;
     @JsonProperty("persist_result")
     private Boolean persistResult;
+    @JsonProperty("cache_scenario_result")
+    private Boolean cacheScenarioResult;
     @JsonProperty("frtb_disable")
     private Boolean frtbDisable;
     @JsonProperty("frtb_sba_rule_id_list")
@@ -92,6 +94,14 @@ public class BatchRunRequest {
 
     public void setPersistResult(Boolean persistResult) {
         this.persistResult = persistResult;
+    }
+
+    public Boolean getCacheScenarioResult() {
+        return cacheScenarioResult;
+    }
+
+    public void setCacheScenarioResult(Boolean cacheScenarioResult) {
+        this.cacheScenarioResult = cacheScenarioResult;
     }
 
     public Boolean getFrtbDisable() {

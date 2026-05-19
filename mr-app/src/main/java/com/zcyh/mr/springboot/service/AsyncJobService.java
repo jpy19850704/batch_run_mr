@@ -1,6 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
 import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
@@ -66,6 +67,7 @@ public class AsyncJobService {
     private final EngineOrchestratorService orchestratorService;
     private final PricingResultPersistService pricingResultPersistService;
     private final BatchResultFileService batchResultFileService;
+    private final JobScenarioResultCacheService jobScenarioResultCacheService;
     private final AlertService alertService;
     private final JdbcTemplate jdbcTemplate;
     private final AsyncJobStateRepository jobStateRepository;
@@ -102,6 +104,7 @@ public class AsyncJobService {
             EngineOrchestratorService orchestratorService,
             PricingResultPersistService pricingResultPersistService,
             BatchResultFileService batchResultFileService,
+            JobScenarioResultCacheService jobScenarioResultCacheService,
             AlertService alertService,
             AsyncJobStateRepository jobStateRepository,
             @Qualifier("engineDbJdbcTemplate") JdbcTemplate jdbcTemplate,
@@ -130,6 +133,7 @@ public class AsyncJobService {
         this.orchestratorService = orchestratorService;
         this.pricingResultPersistService = pricingResultPersistService;
         this.batchResultFileService = batchResultFileService;
+        this.jobScenarioResultCacheService = jobScenarioResultCacheService;
         this.alertService = alertService;
         this.jdbcTemplate = jdbcTemplate;
         this.jobStateRepository = jobStateRepository;
@@ -262,6 +266,25 @@ public class AsyncJobService {
             throw new IllegalStateException("任务尚未完成");
         }
         return buildResult(job);
+    }
+
+    public JSONObject getScenarioResult(String jobId) {
+        AsyncJobEntity job = requireJob(jobId);
+        if (PENDING.equals(job.status) || RUNNING.equals(job.status)) {
+            throw new IllegalStateException("任务尚未完成");
+        }
+        if (!SUCCESS.equals(job.status)) {
+            throw new IllegalStateException("任务未成功完成: " + jobId);
+        }
+        JSONArray scenarioResult = jobScenarioResultCacheService.getScenarioResult(jobId);
+        if (scenarioResult == null) {
+            throw new IllegalStateException("Job 情景结果缓存不存在或已过期: " + jobId);
+        }
+        JSONObject result = new JSONObject();
+        result.put("job_id", jobId);
+        result.put("scenario_result", scenarioResult);
+        result.put("cache_ttl_seconds", jobScenarioResultCacheService.getTtlSeconds());
+        return result;
     }
 
     public JobDetailResult cancel(String jobId) {
@@ -744,6 +767,7 @@ public class AsyncJobService {
         runResult.setElapsedMs(elapsed);
         final String finalStatus = runResult.isSuccess() ? SUCCESS : FAILED;
         final String safeErrorMessage = truncateForErrorMessage(runResult.getErrorMessage());
+        cacheScenarioResultIfRequested(jobId, payloadJson, runResult);
         final String resultJson = buildResultReferenceJson(jobId, payloadJson, runResult);
         withRetry(new Callable<Void>() {
             @Override
@@ -754,6 +778,38 @@ public class AsyncJobService {
                 return null;
             }
         }, "持久化任务结果");
+    }
+
+    private void cacheScenarioResultIfRequested(String jobId, String payloadJson, EngineRunResult runResult) {
+        if (runResult == null || !runResult.isSuccess()) {
+            return;
+        }
+        JSONObject payload = parseJsonObjectSafely(payloadJson);
+        if (payload == null) {
+            return;
+        }
+        String opCode = trimToNull(payload.getString("oper_code"));
+        if (opCode == null || !"SCENARIO".equalsIgnoreCase(opCode)) {
+            return;
+        }
+        if (!payload.getBooleanValue("cache_scenario_result")) {
+            return;
+        }
+        JSONArray scenarioResult = extractScenarioResult(runResult.getData());
+        if (scenarioResult == null) {
+            throw new IllegalStateException("cache_scenario_result=true 但计算结果缺少 scenario_result: " + jobId);
+        }
+        jobScenarioResultCacheService.putScenarioResult(jobId, scenarioResult);
+    }
+
+    private JSONArray extractScenarioResult(Object data) {
+        JSONObject dataObj = castToJsonObject(data);
+        if (dataObj == null) {
+            return null;
+        }
+        JSONObject nestedData = castToJsonObject(dataObj.get("data"));
+        JSONObject target = nestedData == null ? dataObj : nestedData;
+        return castToJsonArray(target.get("scenario_result"));
     }
 
     private String buildResultReferenceJson(String jobId, String payloadJson, EngineRunResult runResult) {
@@ -1179,6 +1235,46 @@ public class AsyncJobService {
             return JSON.parse(txt);
         } catch (Exception ignore) {
             return txt;
+        }
+    }
+
+    private static JSONObject parseJsonObjectSafely(String raw) {
+        String txt = trimToNull(raw);
+        if (txt == null) {
+            return null;
+        }
+        try {
+            return JSON.parseObject(txt);
+        } catch (Exception ignore) {
+            return null;
+        }
+    }
+
+    private static JSONObject castToJsonObject(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof JSONObject) {
+            return (JSONObject) value;
+        }
+        try {
+            return JSON.parseObject(JSON.toJSONString(value));
+        } catch (Exception ignore) {
+            return null;
+        }
+    }
+
+    private static JSONArray castToJsonArray(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof JSONArray) {
+            return (JSONArray) value;
+        }
+        try {
+            return JSON.parseArray(JSON.toJSONString(value));
+        } catch (Exception ignore) {
+            return null;
         }
     }
 

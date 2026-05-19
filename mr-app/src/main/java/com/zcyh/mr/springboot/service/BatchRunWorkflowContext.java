@@ -23,6 +23,7 @@ public class BatchRunWorkflowContext {
     private boolean whatifMode;
     private boolean externalBatchIdProvided;
     private boolean persistResult;
+    private boolean cacheScenarioResult;
     private boolean frtbDisabled;
     private String frtbSbaRuleIdList;
     private String varRuleIdList;
@@ -121,6 +122,14 @@ public class BatchRunWorkflowContext {
 
     public void setPersistResult(boolean persistResult) {
         this.persistResult = persistResult;
+    }
+
+    public boolean isCacheScenarioResult() {
+        return cacheScenarioResult;
+    }
+
+    public void setCacheScenarioResult(boolean cacheScenarioResult) {
+        this.cacheScenarioResult = cacheScenarioResult;
     }
 
     public boolean isFrtbDisabled() {

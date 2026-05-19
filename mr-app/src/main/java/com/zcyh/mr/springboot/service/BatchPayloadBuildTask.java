@@ -50,6 +50,9 @@ public class BatchPayloadBuildTask implements BatchRunTask {
             if (context.getRunMode() != null) {
                 payload.put("run_mode", context.getRunMode());
             }
+            if (context.isScenarioMode() && context.isCacheScenarioResult()) {
+                payload.put("cache_scenario_result", true);
+            }
             BatchJobPayload jobPayload = new BatchJobPayload();
             jobPayload.setSeqNo(seqNo);
             jobPayload.setChunkTrades(chunkTrades);
