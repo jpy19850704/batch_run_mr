@@ -15,7 +15,7 @@ import java.util.List;
 
 /**
  * FRTB DRC 结果落库服务。
- * 统一写入 TB_OUT_TRADE_DRC_RESULT，按 DECOMP_FLAG + AGG_LEVEL 区分结果语义。
+ * 统一写入 TB_OUT_TRADE_DRC_RESULT，按 CAPITAL_TYPE + AGG_LEVEL 区分结果语义。
  */
 @Service
 public class FrtbDrcResultPersistService {
@@ -25,9 +25,11 @@ public class FrtbDrcResultPersistService {
 
     private static final String FLAG_DRC_VALUE = "DRC_VALUE";
     private static final String FLAG_DECOMP_LEGAL_ENTITY = "DECOMP_LEGALENTITY";
+    private static final String CAPITAL_TYPE_NONADDITIVE = "NONADDITIVE";
+    private static final String CAPITAL_TYPE_ADDITIVE = "ADDITIVE";
     private static final String TARGET_TABLE = "TB_OUT_TRADE_DRC_RESULT";
     private static final String STREAM_LOAD_COLUMNS =
-            "REQUEST_ID,JOB_ID,BATCH_ID,DATA_DATE,RULE_ID,GROUP_TYPE,GROUP_VALUE,DECOMP_FLAG,AGG_LEVEL,DRC_TYPE,DRC_BUCKET,LEGAL_ENTITY,DRC_VALUE,CREATED_AT";
+            "REQUEST_ID,JOB_ID,BATCH_ID,DATA_DATE,RULE_ID,GROUP_TYPE,GROUP_VALUE,CAPITAL_TYPE,AGG_LEVEL,DRC_TYPE,DRC_BUCKET,LEGAL_ENTITY,DRC_VALUE,CREATED_AT";
 
     private final JdbcTemplate jdbcTemplate;
     private final DorisStreamLoadService dorisStreamLoadService;
@@ -52,7 +54,7 @@ public class FrtbDrcResultPersistService {
 
     /**
      * 将 DRC 计量结果写入单表。
-     * 输入只使用 DRC_VALUE 与 DECOMP_LEGALENTITY 两类模块，聚合层级由核心模块输出。
+     * DRC_VALUE 写为 NONADDITIVE，DECOMP_LEGALENTITY 写为 ADDITIVE，聚合层级由核心模块输出。
      */
     @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
     public void persist(String requestId, String jobId, String batchId, String dataDate, String ruleId, JSONObject drcResult) {
@@ -78,13 +80,13 @@ public class FrtbDrcResultPersistService {
         appendModuleRows(
                 rows,
                 drcResult.getJSONArray(FLAG_DRC_VALUE),
-                FLAG_DRC_VALUE,
+                CAPITAL_TYPE_NONADDITIVE,
                 "DRC_VALUE",
                 safeBatchId, safeDataDate, safeRuleId);
         appendModuleRows(
                 rows,
                 drcResult.getJSONArray(FLAG_DECOMP_LEGAL_ENTITY),
-                FLAG_DECOMP_LEGAL_ENTITY,
+                CAPITAL_TYPE_ADDITIVE,
                 "CONTRIBUTION",
                 safeBatchId, safeDataDate, safeRuleId);
 
@@ -109,7 +111,7 @@ public class FrtbDrcResultPersistService {
                     row.ruleId,
                     row.groupType,
                     row.groupValue,
-                    row.decompFlag,
+                    row.capitalType,
                     row.aggLevel,
                     row.drcType,
                     row.drcBucket,
@@ -124,7 +126,7 @@ public class FrtbDrcResultPersistService {
 
     private static void appendModuleRows(List<ResultRow> output,
                                          JSONArray moduleRows,
-                                         String decompFlag,
+                                         String capitalType,
                                          String valueField,
                                          String batchId,
                                          String dataDate,
@@ -138,7 +140,7 @@ public class FrtbDrcResultPersistService {
             JSONObject row = moduleRows.getJSONObject(i);
             if (row == null) {
                 invalidRowCount++;
-                logInvalidRow(batchId, dataDate, decompFlag, i, "row_is_null", null, invalidRowCount);
+                logInvalidRow(batchId, dataDate, capitalType, i, "row_is_null", null, invalidRowCount);
                 continue;
             }
             String drcType = trimToNull(row.getString("DRC_TYPE"));
@@ -155,21 +157,21 @@ public class FrtbDrcResultPersistService {
             String missingFields = buildMissingFields(rowRuleId, groupType, groupValue, drcType, legalEntity, drcBucket, aggLevel, value);
             if (missingFields != null) {
                 invalidRowCount++;
-                logInvalidRow(batchId, dataDate, decompFlag, i, missingFields, row, invalidRowCount);
+                logInvalidRow(batchId, dataDate, capitalType, i, missingFields, row, invalidRowCount);
                 continue;
             }
 
             output.add(ResultRow.of(
                     batchId, dataDate,
                     rowRuleId, groupType, groupValue,
-                    decompFlag, aggLevel,
+                    capitalType, aggLevel,
                     drcType, drcBucket, legalEntity, value));
         }
 
         if (invalidRowCount > 0) {
-            log.error("DRC 结果存在无效行: batchId={}, dataDate={}, decompFlag={}, invalidRows={}, loggedRows={}",
-                    batchId, dataDate, decompFlag, invalidRowCount, Math.min(invalidRowCount, MAX_INVALID_ROW_LOG));
-            throw new IllegalStateException("DRC 结果存在无效行，已拒绝落库: decompFlag=" + decompFlag + ", invalidRows=" + invalidRowCount);
+            log.error("DRC 结果存在无效行: batchId={}, dataDate={}, capitalType={}, invalidRows={}, loggedRows={}",
+                    batchId, dataDate, capitalType, invalidRowCount, Math.min(invalidRowCount, MAX_INVALID_ROW_LOG));
+            throw new IllegalStateException("DRC 结果存在无效行，已拒绝落库: capitalType=" + capitalType + ", invalidRows=" + invalidRowCount);
         }
     }
 
@@ -214,14 +216,14 @@ public class FrtbDrcResultPersistService {
 
     private static void logInvalidRow(String batchId,
                                       String dataDate,
-                                      String decompFlag,
+                                      String capitalType,
                                       int rowIndex,
                                       String reason,
                                       JSONObject row,
                                       int invalidRowCount) {
         if (invalidRowCount <= MAX_INVALID_ROW_LOG) {
-            log.error("DRC 结果行无效: batchId={}, dataDate={}, decompFlag={}, rowIndex={}, reason={}, row={}",
-                    batchId, dataDate, decompFlag, rowIndex, reason, row);
+            log.error("DRC 结果行无效: batchId={}, dataDate={}, capitalType={}, rowIndex={}, reason={}, row={}",
+                    batchId, dataDate, capitalType, rowIndex, reason, row);
         }
     }
 
@@ -256,7 +258,7 @@ public class FrtbDrcResultPersistService {
         String ruleId;
         String groupType;
         String groupValue;
-        String decompFlag;
+        String capitalType;
         String aggLevel;
         String drcType;
         String drcBucket;
@@ -268,7 +270,7 @@ public class FrtbDrcResultPersistService {
                             String ruleId,
                             String groupType,
                             String groupValue,
-                            String decompFlag,
+                            String capitalType,
                             String aggLevel,
                             String drcType,
                             String drcBucket,
@@ -280,7 +282,7 @@ public class FrtbDrcResultPersistService {
             row.ruleId = ruleId;
             row.groupType = groupType;
             row.groupValue = groupValue;
-            row.decompFlag = decompFlag;
+            row.capitalType = capitalType;
             row.aggLevel = aggLevel;
             row.drcType = drcType;
             row.drcBucket = drcBucket;

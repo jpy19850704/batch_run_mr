@@ -20,7 +20,7 @@ public class BatchTradeLoadTask implements BatchRunTask {
     @Override
     public void execute(BatchRunWorkflowContext context) {
         LocalDate dataDate = LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE);
-        List<BatchTradeDataLoader.TradeRow> loadedTrades = dataLoader.loadTradeRows(dataDate, null, null);
+        List<BatchTradeDataLoader.TradeRow> loadedTrades = dataLoader.loadTradeRows(dataDate, context.getTradeFilter());
         if (loadedTrades.isEmpty()) {
             throw new IllegalArgumentException("未查询到交易数据，请检查 dataDate 条件");
         }

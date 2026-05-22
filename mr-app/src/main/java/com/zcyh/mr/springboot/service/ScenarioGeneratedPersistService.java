@@ -106,7 +106,7 @@ public class ScenarioGeneratedPersistService {
             return null;
         }
         Integer termDays = record.getTermDays();
-        if (termDays == null || termDays <= 0) {
+        if (termDays == null) {
             return null;
         }
         return String.valueOf(termDays);

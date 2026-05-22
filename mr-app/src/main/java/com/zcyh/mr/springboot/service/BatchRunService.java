@@ -41,6 +41,7 @@ public class BatchRunService {
     private final List<BatchRunTask> summaryTasks;
     private final BatchJobService batchJobService;
     private final AlertService alertService;
+    private final TradeFilterResolver tradeFilterResolver;
     private final ExecutorService batchRunWorkflowExecutor;
 
     public BatchRunService(
@@ -56,6 +57,7 @@ public class BatchRunService {
             BatchSummaryTask summaryTask,
             BatchJobService batchJobService,
             AlertService alertService,
+            TradeFilterResolver tradeFilterResolver,
             @Qualifier("batchRunWorkflowExecutor") ExecutorService batchRunWorkflowExecutor) {
         this.batchPrepareTasks = Arrays.<BatchRunTask>asList(prepareTask);
         this.scenarioTasks = Arrays.<BatchRunTask>asList(
@@ -72,6 +74,7 @@ public class BatchRunService {
         this.summaryTasks = Arrays.<BatchRunTask>asList(summaryTask);
         this.batchJobService = batchJobService;
         this.alertService = alertService;
+        this.tradeFilterResolver = tradeFilterResolver;
         this.batchRunWorkflowExecutor = batchRunWorkflowExecutor;
     }
 
@@ -133,6 +136,7 @@ public class BatchRunService {
         context.setFrtbSbaRuleIdList(trimToNull(request.getFrtbSbaRuleIdList()));
         context.setVarRuleIdList(trimToNull(request.getVarRuleIdList()));
         context.setDrcRuleIdList(trimToNull(request.getDrcRuleIdList()));
+        context.setTradeFilter(tradeFilterResolver.resolve(request.getTradeFilter()));
         return context;
     }
 

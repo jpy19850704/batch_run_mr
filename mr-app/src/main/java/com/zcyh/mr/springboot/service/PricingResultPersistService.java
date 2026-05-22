@@ -350,7 +350,7 @@ public class PricingResultPersistService {
                         DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("BASE_VALUATION_CNY"))),
                         DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("SCENARIO_VALUATION_CNY"))),
                         DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("PNL"))),
-                        null,
+                        resolveScenarioError(trade),
                         toTextValue(trade.get("DETAIL")),
                         toJsonString(trade.get("LOGS")),
                         toJsonString(trade),
@@ -360,6 +360,31 @@ public class PricingResultPersistService {
             }
         }
         buffer.flush();
+    }
+
+    private static String resolveScenarioError(JSONObject trade) {
+        if (trade == null || !"ERROR".equalsIgnoreCase(String.valueOf(trade.get("STATUS")))) {
+            return null;
+        }
+        String error = trimToNull(trade.getString("ERROR"));
+        if (error != null) {
+            return error;
+        }
+        String detail = toTextValue(trade.get("DETAIL"));
+        if (detail != null) {
+            return detail;
+        }
+        JSONArray logs = trade.getJSONArray("LOGS");
+        if (logs != null) {
+            for (int i = 0; i < logs.size(); i++) {
+                JSONObject logItem = logs.getJSONObject(i);
+                String message = resolveLogMessage(logItem);
+                if (message != null) {
+                    return message;
+                }
+            }
+        }
+        return "情景估值失败";
     }
 
     private void insertScenarioDecompResults(PersistContext context, JSONObject scenario, Map<String, JSONObject> baseTradeIndex) {

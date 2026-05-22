@@ -1,5 +1,6 @@
 package com.zcyh.mr.springboot.service;
 
+import com.zcyh.mr.springboot.model.AggregationRule;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -98,7 +99,7 @@ public class BatchTradeDataLoader {
     public List<TradeRow> loadTradeRows(LocalDate dataDate, String portfolio, String desk) {
         StringBuilder sql = new StringBuilder();
         List<Object> params = new ArrayList<Object>();
-        sql.append(buildTradeSelectSql()).append(" FROM MR_TRADE_INPUT WHERE data_date=?");
+        sql.append(buildTradeSelectSql(null)).append(" FROM MR_TRADE_INPUT WHERE data_date=?");
         params.add(Date.valueOf(dataDate));
         if (portfolio != null) {
             sql.append(" AND portfolio=?");
@@ -113,6 +114,23 @@ public class BatchTradeDataLoader {
     }
 
     /**
+     * 按数据日期和交易过滤树加载交易行。
+     */
+    public List<TradeRow> loadTradeRows(LocalDate dataDate, AggregationRule.FilterExpression tradeFilter) {
+        StringBuilder sql = new StringBuilder();
+        List<Object> params = new ArrayList<Object>();
+        sql.append(buildTradeSelectSql("t")).append(" FROM MR_TRADE_INPUT t ");
+        if (TradeFilterSqlBuilder.usesPortfolioFlatView(tradeFilter)) {
+            sql.append("LEFT JOIN V_PORTFOLIO_HIERARCHY_FLAT p ON p.PORTFOLIO_CODE = t.portfolio ");
+        }
+        sql.append("WHERE t.data_date=?");
+        params.add(Date.valueOf(dataDate));
+        TradeFilterSqlBuilder.appendWhereClause(sql, params, tradeFilter);
+        sql.append(" ORDER BY t.id");
+        return jdbcTemplate.query(sql.toString(), TRADE_ROW_MAPPER, params.toArray());
+    }
+
+    /**
      * 按指定的 instrumentId 列表加载交易行。
      */
     public List<TradeRow> loadTradeRowsByInstrumentIds(LocalDate dataDate, List<String> instrumentIds) {
@@ -121,7 +139,7 @@ public class BatchTradeDataLoader {
         }
         StringBuilder sql = new StringBuilder();
         List<Object> params = new ArrayList<Object>();
-        sql.append(buildTradeSelectSql()).append(" FROM MR_TRADE_INPUT WHERE data_date=?");
+        sql.append(buildTradeSelectSql(null)).append(" FROM MR_TRADE_INPUT WHERE data_date=?");
         params.add(Date.valueOf(dataDate));
         sql.append(" AND instrument_id IN (");
         for (int i = 0; i < instrumentIds.size(); i++) {
@@ -287,10 +305,15 @@ public class BatchTradeDataLoader {
         return value.isEmpty() ? null : value;
     }
 
-    private static String buildTradeSelectSql() {
-        StringBuilder sql = new StringBuilder("SELECT id, instrument_id, product_code, trade_content_text");
+    private static String buildTradeSelectSql(String tableAlias) {
+        String prefix = trimToNull(tableAlias) == null ? "" : tableAlias + ".";
+        StringBuilder sql = new StringBuilder("SELECT ");
+        sql.append(prefix).append("id AS id, ");
+        sql.append(prefix).append("instrument_id AS instrument_id, ");
+        sql.append(prefix).append("product_code AS product_code, ");
+        sql.append(prefix).append("trade_content_text AS trade_content_text");
         for (String column : TRADE_DIMENSION_COLUMNS) {
-            sql.append(", ").append(column);
+            sql.append(", ").append(prefix).append(column).append(" AS ").append(column);
         }
         return sql.toString();
     }

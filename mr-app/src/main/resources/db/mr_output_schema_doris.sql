@@ -182,6 +182,45 @@ PROPERTIES (
     "enable_unique_key_merge_on_write" = "true"
 );
 
+-- FRTB 虚拟交易敏感性补录输入表
+CREATE TABLE IF NOT EXISTS TB_FRTB_VIRTUAL_SENSITIVITY_INPUT (
+    DATA_DATE                       VARCHAR(16),
+    VIRTUAL_TRADE_ID                VARCHAR(128),
+    PRODUCT_CODE                    VARCHAR(64),
+    PORTFOLIO                       VARCHAR(128),
+    DESK                            VARCHAR(128),
+    TRADER                          VARCHAR(128),
+    VALUATION_CCY                   VARCHAR(32),
+    PORTFOLIO_CODE_1                VARCHAR(128),
+    PORTFOLIO_CODE_2                VARCHAR(128),
+    PORTFOLIO_CODE_3                VARCHAR(128),
+    PORTFOLIO_CODE_4                VARCHAR(128),
+    PORTFOLIO_CODE_5                VARCHAR(128),
+    PORTFOLIO_CODE_6                VARCHAR(128),
+    PORTFOLIO_CODE_7                VARCHAR(128),
+    RISK_FACTOR_ID                  VARCHAR(256),
+    RISK_FACTOR_VERTEX_1            VARCHAR(128),
+    RISK_FACTOR_VERTEX_2            VARCHAR(128),
+    RISK_FACTOR_CLASS               VARCHAR(64),
+    RISK_FACTOR_BUCKET              VARCHAR(64),
+    RISK_FACTOR_TYPE                VARCHAR(64),
+    SENSITIVITY_TYPE                VARCHAR(64),
+    SENSITIVITY_VAL_INST_CURR       DECIMAL(38, 10),
+    INSTRUMENT_CURRENCY             VARCHAR(32),
+    SENSITIVITY_VAL_INST_CURR_CNY   DECIMAL(38, 10),
+    ENABLED                         SMALLINT,
+    CREATED_AT                      VARCHAR(32),
+    UPDATED_AT                      VARCHAR(32)
+)
+UNIQUE KEY(DATA_DATE, VIRTUAL_TRADE_ID, RISK_FACTOR_ID, RISK_FACTOR_VERTEX_1,
+           RISK_FACTOR_VERTEX_2, RISK_FACTOR_CLASS, RISK_FACTOR_BUCKET,
+           RISK_FACTOR_TYPE, SENSITIVITY_TYPE)
+DISTRIBUTED BY HASH(DATA_DATE) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
 -- FRTB SBA Class 汇总结果表
 CREATE TABLE IF NOT EXISTS TB_OUT_FRTB_SBA_CLASS_RESULT (
     BATCH_ID                        VARCHAR(64),
@@ -285,7 +324,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_DRC_RESULT (
     RULE_ID             VARCHAR(128),
     GROUP_TYPE          VARCHAR(64),
     GROUP_VALUE         VARCHAR(512),
-    DECOMP_FLAG         VARCHAR(32),
+    CAPITAL_TYPE        VARCHAR(32),
     AGG_LEVEL           VARCHAR(32),
     DRC_TYPE            VARCHAR(64),
     DRC_BUCKET          VARCHAR(64),
@@ -295,7 +334,27 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_DRC_RESULT (
     DRC_VALUE           DECIMAL(38, 10),
     CREATED_AT          VARCHAR(32)
 )
-UNIQUE KEY(BATCH_ID, DATA_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE, DECOMP_FLAG, AGG_LEVEL, DRC_TYPE, DRC_BUCKET, LEGAL_ENTITY)
+UNIQUE KEY(BATCH_ID, DATA_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE, CAPITAL_TYPE, AGG_LEVEL, DRC_TYPE, DRC_BUCKET, LEGAL_ENTITY)
+DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
+-- FRTB RRAO 汇总结果表
+CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_RRAO_RESULT (
+    BATCH_ID            VARCHAR(64),
+    DATA_DATE           VARCHAR(16),
+    TREE_ID             VARCHAR(128),
+    GROUP_TYPE          VARCHAR(64),
+    GROUP_VALUE         VARCHAR(512),
+    RRAO_TYPE           VARCHAR(64),
+    TRADE_COUNT         BIGINT,
+    RRAO_NOTIONAL       DECIMAL(38, 10),
+    RRAO_CAPITAL        DECIMAL(38, 10),
+    CREATED_AT          VARCHAR(32)
+)
+UNIQUE KEY(BATCH_ID, DATA_DATE, TREE_ID, GROUP_TYPE, GROUP_VALUE, RRAO_TYPE)
 DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
 PROPERTIES (
     "replication_allocation" = "tag.location.default: 1",

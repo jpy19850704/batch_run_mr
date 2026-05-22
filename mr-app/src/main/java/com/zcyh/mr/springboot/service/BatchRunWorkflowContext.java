@@ -1,6 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
 import com.zcyh.mr.springboot.model.BatchDetailResult;
+import com.zcyh.mr.springboot.model.AggregationRule;
 import com.zcyh.mr.springboot.model.BatchRunRequest;
 import com.zcyh.mr.springboot.model.BatchSubmitResult;
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
@@ -28,6 +29,7 @@ public class BatchRunWorkflowContext {
     private String frtbSbaRuleIdList;
     private String varRuleIdList;
     private String drcRuleIdList;
+    private AggregationRule.FilterExpression tradeFilter;
     private List<ScenarioGeneratedRecord> scenarioRecords = new ArrayList<ScenarioGeneratedRecord>();
     private List<BatchTradeDataLoader.TradeRow> loadedTrades = new ArrayList<BatchTradeDataLoader.TradeRow>();
     private List<BatchTradeDataLoader.CurveRow> loadedMarketData = new ArrayList<BatchTradeDataLoader.CurveRow>();
@@ -162,6 +164,14 @@ public class BatchRunWorkflowContext {
 
     public void setDrcRuleIdList(String drcRuleIdList) {
         this.drcRuleIdList = drcRuleIdList;
+    }
+
+    public AggregationRule.FilterExpression getTradeFilter() {
+        return tradeFilter;
+    }
+
+    public void setTradeFilter(AggregationRule.FilterExpression tradeFilter) {
+        this.tradeFilter = tradeFilter;
     }
 
     public List<ScenarioGeneratedRecord> getScenarioRecords() {

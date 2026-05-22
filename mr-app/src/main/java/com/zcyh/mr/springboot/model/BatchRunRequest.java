@@ -31,6 +31,8 @@ public class BatchRunRequest {
     private String varRuleIdList;
     @JsonProperty("drc_rule_id_list")
     private String drcRuleIdList;
+    @JsonProperty("trade_filter")
+    private BatchTradeFilter tradeFilter;
 
     public String getBatchId() {
         return batchId;
@@ -134,5 +136,13 @@ public class BatchRunRequest {
 
     public void setDrcRuleIdList(String drcRuleIdList) {
         this.drcRuleIdList = drcRuleIdList;
+    }
+
+    public BatchTradeFilter getTradeFilter() {
+        return tradeFilter;
+    }
+
+    public void setTradeFilter(BatchTradeFilter tradeFilter) {
+        this.tradeFilter = tradeFilter;
     }
 }

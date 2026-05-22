@@ -130,7 +130,7 @@ public class BatchResultFileService {
                     batchId,
                     engineResultDbJdbcTemplate));
             sections.add(writeJsonlGzipSection(directory, "trade_drc_result",
-                    "SELECT * FROM TB_OUT_TRADE_DRC_RESULT WHERE batch_id=? ORDER BY data_date, decomp_flag, agg_level, drc_type, drc_bucket, legal_entity",
+                    "SELECT * FROM TB_OUT_TRADE_DRC_RESULT WHERE batch_id=? ORDER BY data_date, capital_type, agg_level, drc_type, drc_bucket, legal_entity",
                     batchId,
                     engineResultDbJdbcTemplate));
             sections.add(writeJsonlGzipSection(directory, "calc_rule_meta",
@@ -258,7 +258,7 @@ public class BatchResultFileService {
         verifyQuery(engineResultDbJdbcTemplate, "engine_result_db", "TB_OUT_TRADE_DRC_DETAIL",
                 "SELECT batch_id, seq_no, id FROM TB_OUT_TRADE_DRC_DETAIL WHERE 1=0");
         verifyQuery(engineResultDbJdbcTemplate, "engine_result_db", "TB_OUT_TRADE_DRC_RESULT",
-                "SELECT batch_id, data_date, decomp_flag, agg_level FROM TB_OUT_TRADE_DRC_RESULT WHERE 1=0");
+                "SELECT batch_id, data_date, capital_type, agg_level FROM TB_OUT_TRADE_DRC_RESULT WHERE 1=0");
         verifyQuery(engineResultDbJdbcTemplate, "engine_result_db", "TB_OUT_CALC_RULE_META",
                 "SELECT batch_id, data_date, calc_type, rule_id FROM TB_OUT_CALC_RULE_META WHERE 1=0");
     }
