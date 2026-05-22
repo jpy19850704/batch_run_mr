@@ -22,7 +22,7 @@ import java.util.Map;
 @Service
 public class FrtbSbaDbRunnerService {
     private static final String TOTAL = "TOTAL";
-    private static final String SBA_RULE_TYPE = "FRTB";
+    private static final String SBA_RULE_TYPE = "FRTB_SBA";
     private static final String SBA_SUM_FIELD = "SENSITIVITY_VAL_INST_CURR_CNY";
     private static final String[] SBA_GROUP_BY_FIELDS = new String[]{
             "RISK_FACTOR_ID",
@@ -294,7 +294,7 @@ public class FrtbSbaDbRunnerService {
         }
         String ruleType = trimToNull(rule.getRuleType());
         if (!SBA_RULE_TYPE.equalsIgnoreCase(ruleType)) {
-            throw new IllegalArgumentException("FRTB SBA 汇总规则 rule_type 必须为 FRTB");
+            throw new IllegalArgumentException("FRTB SBA 汇总规则 rule_type 必须为 FRTB_SBA");
         }
         rule.setRuleType(SBA_RULE_TYPE);
 

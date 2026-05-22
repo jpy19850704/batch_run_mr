@@ -62,25 +62,25 @@ public class FrtbDrcInputQueryService {
             List<Map<String, Object>> rows = engineDbJdbcTemplate.queryForList(
                     "SELECT RULE_ID, RULE_TYPE, RULE_NAME, RULE_JSON "
                             + "FROM MR_AGG_RULE WHERE RULE_TYPE=? AND RULE_ID=?",
-                    "DRC", safeRuleId);
+                    "FRTB_DRC", safeRuleId);
             if (rows.isEmpty()) {
-                throw new IllegalArgumentException("未找到 DRC 汇总规则: " + safeRuleId);
+                throw new IllegalArgumentException("未找到 FRTB DRC 汇总规则: " + safeRuleId);
             }
             Map<String, Object> row = rows.get(0);
             String ruleJson = trimToNull(stringValue(row.get("RULE_JSON")));
             if (ruleJson == null) {
-                throw new IllegalArgumentException("DRC 汇总规则内容为空: " + safeRuleId);
+                throw new IllegalArgumentException("FRTB DRC 汇总规则内容为空: " + safeRuleId);
             }
             AggregationRule rule = JSON.parseObject(ruleJson, AggregationRule.class);
             if (rule == null) {
-                throw new IllegalArgumentException("DRC 汇总规则解析失败: " + safeRuleId);
+                throw new IllegalArgumentException("FRTB DRC 汇总规则解析失败: " + safeRuleId);
             }
             rule.setRuleId(safeRuleId);
             rule.setRuleType(trimToNull(stringValue(row.get("RULE_TYPE"))));
             rule.setRuleName(trimToNull(stringValue(row.get("RULE_NAME"))));
             return rule;
         } catch (DataAccessException ex) {
-            throw new IllegalStateException("读取 MR_AGG_RULE 中 DRC 规则失败，请确认规则表已创建且可访问: " + ex.getMessage(), ex);
+            throw new IllegalStateException("读取 MR_AGG_RULE 中 FRTB DRC 规则失败，请确认规则表已创建且可访问: " + ex.getMessage(), ex);
         }
     }
 

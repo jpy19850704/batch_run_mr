@@ -52,18 +52,18 @@ public class FrtbSbaInputQueryService {
             List<Map<String, Object>> rows = engineDbJdbcTemplate.queryForList(
                     "SELECT RULE_ID, RULE_TYPE, RULE_NAME, RULE_JSON "
                             + "FROM MR_AGG_RULE WHERE RULE_TYPE=? AND RULE_ID=?",
-                    "FRTB", safeRuleId);
+                    "FRTB_SBA", safeRuleId);
             if (rows.isEmpty()) {
-                throw new IllegalArgumentException("未找到 FRTB 汇总规则: " + safeRuleId);
+                throw new IllegalArgumentException("未找到 FRTB SBA 汇总规则: " + safeRuleId);
             }
             Map<String, Object> row = rows.get(0);
             String ruleJson = trimToNull(stringValue(row.get("RULE_JSON")));
             if (ruleJson == null) {
-                throw new IllegalArgumentException("FRTB 汇总规则内容为空: " + safeRuleId);
+                throw new IllegalArgumentException("FRTB SBA 汇总规则内容为空: " + safeRuleId);
             }
             AggregationRule rule = JSON.parseObject(ruleJson, AggregationRule.class);
             if (rule == null) {
-                throw new IllegalArgumentException("FRTB 汇总规则解析失败: " + safeRuleId);
+                throw new IllegalArgumentException("FRTB SBA 汇总规则解析失败: " + safeRuleId);
             }
             rule.setRuleId(safeRuleId);
             rule.setRuleType(trimToNull(stringValue(row.get("RULE_TYPE"))));

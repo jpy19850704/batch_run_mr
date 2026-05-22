@@ -23,7 +23,7 @@ import java.util.Map;
 @Service
 public class FrtbDrcDbRunnerService {
     private static final String TOTAL = "TOTAL";
-    private static final String CALC_TYPE_DRC = "DRC";
+    private static final String CALC_TYPE_DRC = "FRTB_DRC";
 
     private final FrtbDrcInputQueryService inputQueryService;
     private final DimensionAggregationService dimensionAggregationService;
@@ -192,7 +192,7 @@ public class FrtbDrcDbRunnerService {
         }
         String ruleType = trimToNull(rule.getRuleType());
         if (!CALC_TYPE_DRC.equalsIgnoreCase(ruleType)) {
-            throw new IllegalArgumentException("DRC 规则 rule_type 必须为 DRC: rule_id=" + ruleId);
+            throw new IllegalArgumentException("DRC 规则 rule_type 必须为 FRTB_DRC: rule_id=" + ruleId);
         }
         List<String> buildOrder = dimensionAggregationService.normalizeBuildOrder(rule.getBuildOrder());
         if (buildOrder.isEmpty()) {
