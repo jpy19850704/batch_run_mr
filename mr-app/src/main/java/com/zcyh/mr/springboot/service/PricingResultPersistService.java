@@ -918,8 +918,13 @@ public class PricingResultPersistService {
         if (value == null) {
             return null;
         }
-        if (value instanceof CharSequence && trimToNull(String.valueOf(value)) == null) {
-            return null;
+        if (value instanceof CharSequence) {
+            String text = trimToNull(String.valueOf(value));
+            if (text == null) {
+                return null;
+            }
+            JSON.parse(text);
+            return text;
         }
         if (value instanceof JSONObject && ((JSONObject) value).isEmpty()) {
             return null;
