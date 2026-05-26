@@ -1,0 +1,1101 @@
+[
+  {
+    "CONVERSION_TYPE": "ZeroCurveBootstrap",
+    "CURVE_ID": "CNY_ZERO_CONT365",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "cont",
+    "CALENDAR": "CNY",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0180,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "3M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0195,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "6M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0210,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "1Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0225,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "2Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0240,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "3Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0255,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "5Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0280,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "7Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0305,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "10Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0330,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "30Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0380,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "ZeroCurveBootstrap",
+    "CURVE_ID": "CNY_ZERO_SEMI365",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "semi",
+    "CALENDAR": "CNY",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0180,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "3M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0195,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "6M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0210,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "1Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0225,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "2Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0240,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "3Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0255,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "5Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0280,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "7Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0305,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "10Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0330,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "30Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0380,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "ZeroCurveBootstrap",
+    "CURVE_ID": "CNY_ZERO_CONT360",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/360",
+    "CURVE_FREQ": "cont",
+    "CALENDAR": "CNY",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0180,
+        "TERM_DAYCOUNT": "actual/360",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "3M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0195,
+        "TERM_DAYCOUNT": "actual/360",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "6M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0210,
+        "TERM_DAYCOUNT": "actual/360",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "1Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0225,
+        "TERM_DAYCOUNT": "actual/360",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "3Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0255,
+        "TERM_DAYCOUNT": "actual/360",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "5Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0280,
+        "TERM_DAYCOUNT": "actual/360",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "10Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0330,
+        "TERM_DAYCOUNT": "actual/360",
+        "TERM_FRQ": "6M"
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "ZeroCurveBootstrap",
+    "CURVE_ID": "CNY_ZERO_QUART365",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "quart",
+    "CALENDAR": "CNY",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0180,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "3M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0195,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "6M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0210,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "1Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0225,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "2Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0240,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "3Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0255,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "5Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0280,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "7Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0305,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "10Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0330,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "30Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0380,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "ZeroCurveBootstrap",
+    "CURVE_ID": "CNY_BOND_ZERO",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "cont",
+    "CALENDAR": "CNY",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "3M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0185,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "6M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0200,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "1Y",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0218,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "2Y",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0235,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "3Y",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0250,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "5Y",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0275,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "10Y",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0320,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "30Y",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0370,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "ZeroCurveBootstrap",
+    "CURVE_ID": "USD_ZERO_SMP360",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/360",
+    "CURVE_FREQ": "smp",
+    "CALENDAR": "USD",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0420,
+        "TERM_DAYCOUNT": "actual/360",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "3M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0435,
+        "TERM_DAYCOUNT": "actual/360",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "6M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0445,
+        "TERM_DAYCOUNT": "actual/360",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "1Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0450,
+        "TERM_DAYCOUNT": "actual/360",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "2Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0440,
+        "TERM_DAYCOUNT": "actual/360",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "5Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0410,
+        "TERM_DAYCOUNT": "actual/360",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "10Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0380,
+        "TERM_DAYCOUNT": "actual/360",
+        "TERM_FRQ": "6M"
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "ZeroCurveBootstrap",
+    "CURVE_ID": "EUR_ZERO_CONT365",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "cont",
+    "CALENDAR": "",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0320,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "3M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0335,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "6M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0345,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "1Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0350,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "2Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0340,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "5Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0310,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "ZeroCurveBootstrap",
+    "CURVE_ID": "GBP_ZERO_ANNU365",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "annu",
+    "CALENDAR": "",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "3M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0450,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "6M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0460,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "1Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0465,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "2Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0455,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "5Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0425,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "ZeroCurveBootstrap",
+    "CURVE_ID": "JPY_ZERO_CONT365",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "cont",
+    "CALENDAR": "",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": -0.0010,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "3M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": -0.0005,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "6M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0005,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "1Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0020,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "2Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0040,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "5Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0080,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "10Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0120,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "ZeroCurveBootstrap",
+    "CURVE_ID": "HKD_ZERO_CONT365",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "cont",
+    "CALENDAR": "",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0410,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "3M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0425,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "6M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0440,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": null
+      },
+      {
+        "TERM_CODE": "1Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0450,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "2Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0435,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      },
+      {
+        "TERM_CODE": "5Y",
+        "TERM_TYPE": "SWAP",
+        "TERM_VALUE": 0.0400,
+        "TERM_DAYCOUNT": "actual/365",
+        "TERM_FRQ": "6M"
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "FxImpliedCurveConstruct",
+    "CURVE_ID": "USD_IMPLIED_FROM_CNY",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "cont",
+    "CALENDAR": "CNY",
+    "BASE_CURRENCY_CODE": "USD",
+    "BASE_DISCOUNT_CURVE": "CNY_ZERO_CONT365",
+    "FX_SPOT": 7.2500,
+    "DAY_OFF": 2,
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "FWD_RATE": 7.2380
+      },
+      {
+        "TERM_CODE": "3M",
+        "FWD_RATE": 7.2050
+      },
+      {
+        "TERM_CODE": "6M",
+        "FWD_RATE": 7.1520
+      },
+      {
+        "TERM_CODE": "1Y",
+        "FWD_RATE": 7.0650
+      },
+      {
+        "TERM_CODE": "2Y",
+        "FWD_RATE": 6.9200
+      },
+      {
+        "TERM_CODE": "5Y",
+        "FWD_RATE": 6.5500
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "FxImpliedCurveConstruct",
+    "CURVE_ID": "EUR_IMPLIED_FROM_USD",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "cont",
+    "CALENDAR": "",
+    "BASE_CURRENCY_CODE": "EUR",
+    "BASE_DISCOUNT_CURVE": "USD_IMPLIED_FROM_CNY",
+    "FX_SPOT": 1.0850,
+    "DAY_OFF": 2,
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "FWD_RATE": 1.0855
+      },
+      {
+        "TERM_CODE": "3M",
+        "FWD_RATE": 1.0870
+      },
+      {
+        "TERM_CODE": "6M",
+        "FWD_RATE": 1.0910
+      },
+      {
+        "TERM_CODE": "1Y",
+        "FWD_RATE": 1.0980
+      },
+      {
+        "TERM_CODE": "2Y",
+        "FWD_RATE": 1.1150
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "FxImpliedCurveConstruct",
+    "CURVE_ID": "GBP_IMPLIED_FROM_USD",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "cont",
+    "CALENDAR": "",
+    "BASE_CURRENCY_CODE": "GBP",
+    "BASE_DISCOUNT_CURVE": "USD_IMPLIED_FROM_CNY",
+    "FX_SPOT": 1.2650,
+    "DAY_OFF": 2,
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "FWD_RATE": 1.2658
+      },
+      {
+        "TERM_CODE": "3M",
+        "FWD_RATE": 1.2680
+      },
+      {
+        "TERM_CODE": "6M",
+        "FWD_RATE": 1.2730
+      },
+      {
+        "TERM_CODE": "1Y",
+        "FWD_RATE": 1.2820
+      },
+      {
+        "TERM_CODE": "2Y",
+        "FWD_RATE": 1.3010
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "FxImpliedCurveConstruct",
+    "CURVE_ID": "JPY_IMPLIED_FROM_USD",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "cont",
+    "CALENDAR": "",
+    "BASE_CURRENCY_CODE": "JPY",
+    "BASE_DISCOUNT_CURVE": "USD_IMPLIED_FROM_CNY",
+    "FX_SPOT": 150.50,
+    "DAY_OFF": 2,
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "FWD_RATE": 150.20
+      },
+      {
+        "TERM_CODE": "3M",
+        "FWD_RATE": 149.50
+      },
+      {
+        "TERM_CODE": "6M",
+        "FWD_RATE": 148.30
+      },
+      {
+        "TERM_CODE": "1Y",
+        "FWD_RATE": 146.20
+      },
+      {
+        "TERM_CODE": "2Y",
+        "FWD_RATE": 142.80
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "FxImpliedCurveConstruct",
+    "CURVE_ID": "HKD_IMPLIED_FROM_USD",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "cont",
+    "CALENDAR": "",
+    "BASE_CURRENCY_CODE": "HKD",
+    "BASE_DISCOUNT_CURVE": "USD_IMPLIED_FROM_CNY",
+    "FX_SPOT": 7.8100,
+    "DAY_OFF": 2,
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "FWD_RATE": 7.8095
+      },
+      {
+        "TERM_CODE": "3M",
+        "FWD_RATE": 7.8080
+      },
+      {
+        "TERM_CODE": "6M",
+        "FWD_RATE": 7.8050
+      },
+      {
+        "TERM_CODE": "1Y",
+        "FWD_RATE": 7.8000
+      },
+      {
+        "TERM_CODE": "2Y",
+        "FWD_RATE": 7.7900
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "ZeroCurveSubtract",
+    "CURVE_ID": "CNY_CREDIT_SPREAD",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "cont",
+    "YC_CURVE_CODE": "CNY_BOND_ZERO",
+    "RF_CURVE_CODE": "CNY_ZERO_CONT365"
+  },
+  {
+    "CONVERSION_TYPE": "ZeroCurveSubtract",
+    "CURVE_ID": "USD_EUR_SPREAD",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "cont",
+    "YC_CURVE_CODE": "USD_IMPLIED_FROM_CNY",
+    "RF_CURVE_CODE": "EUR_IMPLIED_FROM_USD"
+  },
+  {
+    "CONVERSION_TYPE": "ZeroCurveSubtract",
+    "CURVE_ID": "USD_GBP_SPREAD",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "cont",
+    "YC_CURVE_CODE": "USD_IMPLIED_FROM_CNY",
+    "RF_CURVE_CODE": "GBP_IMPLIED_FROM_USD"
+  },
+  {
+    "CONVERSION_TYPE": "ZeroCurveSubtract",
+    "CURVE_ID": "USD_JPY_SPREAD_SEMI",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "semi",
+    "YC_CURVE_CODE": "USD_IMPLIED_FROM_CNY",
+    "RF_CURVE_CODE": "JPY_IMPLIED_FROM_USD"
+  },
+  {
+    "CONVERSION_TYPE": "ZeroCurveSubtract",
+    "CURVE_ID": "USD_HKD_SPREAD",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "cont",
+    "YC_CURVE_CODE": "USD_IMPLIED_FROM_CNY",
+    "RF_CURVE_CODE": "HKD_IMPLIED_FROM_USD"
+  },
+  {
+    "CONVERSION_TYPE": "VolRrbf2Delta",
+    "CURVE_ID": "VOL_USDCNY_25D",
+    "DATA_DATE": "20260218",
+    "CALENDAR": "CNY",
+    "FX_SPOT": 7.2500,
+    "BASE_CURRENCY_CODE": "USD",
+    "BASE_DISCOUNT_CURVE": "USD_IMPLIED_FROM_CNY",
+    "UNDERLYING_DISCOUNT_CURVE": "CNY_ZERO_CONT365",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "ATM_VOL": 0.065,
+        "RR_VOL": -0.008,
+        "BF_VOL": 0.003
+      },
+      {
+        "TERM_CODE": "3M",
+        "ATM_VOL": 0.070,
+        "RR_VOL": -0.010,
+        "BF_VOL": 0.004
+      },
+      {
+        "TERM_CODE": "6M",
+        "ATM_VOL": 0.075,
+        "RR_VOL": -0.012,
+        "BF_VOL": 0.005
+      },
+      {
+        "TERM_CODE": "1Y",
+        "ATM_VOL": 0.080,
+        "RR_VOL": -0.015,
+        "BF_VOL": 0.006
+      },
+      {
+        "TERM_CODE": "2Y",
+        "ATM_VOL": 0.082,
+        "RR_VOL": -0.016,
+        "BF_VOL": 0.007
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "VolRrbf2Delta",
+    "CURVE_ID": "VOL_EURUSD_25D",
+    "DATA_DATE": "20260218",
+    "CALENDAR": "",
+    "FX_SPOT": 1.0850,
+    "BASE_CURRENCY_CODE": "EUR",
+    "BASE_DISCOUNT_CURVE": "EUR_IMPLIED_FROM_USD",
+    "UNDERLYING_DISCOUNT_CURVE": "USD_IMPLIED_FROM_CNY",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "ATM_VOL": 0.072,
+        "RR_VOL": -0.005,
+        "BF_VOL": 0.002
+      },
+      {
+        "TERM_CODE": "3M",
+        "ATM_VOL": 0.078,
+        "RR_VOL": -0.007,
+        "BF_VOL": 0.003
+      },
+      {
+        "TERM_CODE": "6M",
+        "ATM_VOL": 0.082,
+        "RR_VOL": -0.009,
+        "BF_VOL": 0.004
+      },
+      {
+        "TERM_CODE": "1Y",
+        "ATM_VOL": 0.088,
+        "RR_VOL": -0.011,
+        "BF_VOL": 0.005
+      },
+      {
+        "TERM_CODE": "2Y",
+        "ATM_VOL": 0.090,
+        "RR_VOL": -0.012,
+        "BF_VOL": 0.006
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "VolRrbf2Delta",
+    "CURVE_ID": "VOL_GBPUSD_25D",
+    "DATA_DATE": "20260218",
+    "CALENDAR": "",
+    "FX_SPOT": 1.2650,
+    "BASE_CURRENCY_CODE": "GBP",
+    "BASE_DISCOUNT_CURVE": "GBP_IMPLIED_FROM_USD",
+    "UNDERLYING_DISCOUNT_CURVE": "USD_IMPLIED_FROM_CNY",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "ATM_VOL": 0.068,
+        "RR_VOL": -0.006,
+        "BF_VOL": 0.0025
+      },
+      {
+        "TERM_CODE": "3M",
+        "ATM_VOL": 0.073,
+        "RR_VOL": -0.008,
+        "BF_VOL": 0.0035
+      },
+      {
+        "TERM_CODE": "6M",
+        "ATM_VOL": 0.078,
+        "RR_VOL": -0.010,
+        "BF_VOL": 0.0045
+      },
+      {
+        "TERM_CODE": "1Y",
+        "ATM_VOL": 0.083,
+        "RR_VOL": -0.012,
+        "BF_VOL": 0.0055
+      },
+      {
+        "TERM_CODE": "2Y",
+        "ATM_VOL": 0.085,
+        "RR_VOL": -0.014,
+        "BF_VOL": 0.0060
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "VolRrbf2Delta",
+    "CURVE_ID": "VOL_USDJPY_25D",
+    "DATA_DATE": "20260218",
+    "CALENDAR": "",
+    "FX_SPOT": 150.50,
+    "BASE_CURRENCY_CODE": "USD",
+    "BASE_DISCOUNT_CURVE": "USD_IMPLIED_FROM_CNY",
+    "UNDERLYING_DISCOUNT_CURVE": "JPY_IMPLIED_FROM_USD",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "ATM_VOL": 0.095,
+        "RR_VOL": -0.012,
+        "BF_VOL": 0.005
+      },
+      {
+        "TERM_CODE": "3M",
+        "ATM_VOL": 0.100,
+        "RR_VOL": -0.015,
+        "BF_VOL": 0.006
+      },
+      {
+        "TERM_CODE": "6M",
+        "ATM_VOL": 0.105,
+        "RR_VOL": -0.018,
+        "BF_VOL": 0.007
+      },
+      {
+        "TERM_CODE": "1Y",
+        "ATM_VOL": 0.110,
+        "RR_VOL": -0.020,
+        "BF_VOL": 0.008
+      },
+      {
+        "TERM_CODE": "2Y",
+        "ATM_VOL": 0.112,
+        "RR_VOL": -0.022,
+        "BF_VOL": 0.009
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "VolRrbf2Delta",
+    "CURVE_ID": "VOL_USDHKD_25D",
+    "DATA_DATE": "20260218",
+    "CALENDAR": "",
+    "FX_SPOT": 7.8100,
+    "BASE_CURRENCY_CODE": "USD",
+    "BASE_DISCOUNT_CURVE": "USD_IMPLIED_FROM_CNY",
+    "UNDERLYING_DISCOUNT_CURVE": "HKD_IMPLIED_FROM_USD",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "1M",
+        "ATM_VOL": 0.025,
+        "RR_VOL": -0.002,
+        "BF_VOL": 0.001
+      },
+      {
+        "TERM_CODE": "3M",
+        "ATM_VOL": 0.028,
+        "RR_VOL": -0.003,
+        "BF_VOL": 0.0012
+      },
+      {
+        "TERM_CODE": "6M",
+        "ATM_VOL": 0.030,
+        "RR_VOL": -0.004,
+        "BF_VOL": 0.0015
+      },
+      {
+        "TERM_CODE": "1Y",
+        "ATM_VOL": 0.032,
+        "RR_VOL": -0.005,
+        "BF_VOL": 0.0018
+      },
+      {
+        "TERM_CODE": "2Y",
+        "ATM_VOL": 0.034,
+        "RR_VOL": -0.006,
+        "BF_VOL": 0.0020
+      }
+    ]
+  },
+  {
+    "CONVERSION_TYPE": "ZeroCurveBootstrap",
+    "CURVE_ID": "CNY_FWD_ONLY",
+    "DATA_DATE": "20260218",
+    "CURVE_DAYCOUNT": "actual/365",
+    "CURVE_FREQ": "cont",
+    "CALENDAR": "CNY",
+    "CURVE_DATA": [
+      {
+        "TERM_CODE": "3M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0185,
+        "TERM_DAYCOUNT": "actual/365",
+        "START_TERM": "1M"
+      },
+      {
+        "TERM_CODE": "3M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0190,
+        "TERM_DAYCOUNT": "actual/365",
+        "START_TERM": "2M"
+      },
+      {
+        "TERM_CODE": "3M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0195,
+        "TERM_DAYCOUNT": "actual/365",
+        "START_TERM": "3M"
+      },
+      {
+        "TERM_CODE": "3M",
+        "TERM_TYPE": "ZERO",
+        "TERM_VALUE": 0.0200,
+        "TERM_DAYCOUNT": "actual/365",
+        "START_TERM": "4M"
+      }
+    ]
+  }
+]

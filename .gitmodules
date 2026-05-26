@@ -1,4 +1,0 @@
-[submodule "src/main/java/com/zcyh/mr"]
-	path = mr-core/src/main/java/com/zcyh/mr
-	url = https://github.com/jpy19850704/mr.git
-

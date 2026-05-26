@@ -1,0 +1,199 @@
+{
+  "oper_code": "PRICING",
+  "data_date": "20260225",
+  "trade_data": [],
+  "other_data": {},
+  "market_data": [
+    {
+      "CURVE_TYPE": "IR_SPOT",
+      "DATA_DATE": "20260225",
+      "CURVE_ID": "IR_CURVE_CNY",
+      "CURVE_DATA": [
+        { "TERM": 1, "RATE": 0.0131 },
+        { "TERM": 7, "RATE": 0.0132 },
+        { "TERM": 30, "RATE": 0.0135 },
+        { "TERM": 90, "RATE": 0.0138 },
+        { "TERM": 180, "RATE": 0.0142 },
+        { "TERM": 365, "RATE": 0.0148 },
+        { "TERM": 730, "RATE": 0.0154 }
+      ],
+      "FREQ": "cont",
+      "DAYCOUNT": "actual/365"
+    },
+    {
+      "CURVE_TYPE": "IR_SPOT",
+      "DATA_DATE": "20260225",
+      "CURVE_ID": "IR_CURVE_USD",
+      "CURVE_DATA": [
+        { "TERM": 1, "RATE": 0.0368 },
+        { "TERM": 7, "RATE": 0.0368 },
+        { "TERM": 30, "RATE": 0.0368 },
+        { "TERM": 90, "RATE": 0.0368 },
+        { "TERM": 180, "RATE": 0.0365 },
+        { "TERM": 365, "RATE": 0.0353 },
+        { "TERM": 730, "RATE": 0.0348 }
+      ],
+      "FREQ": "cont",
+      "DAYCOUNT": "actual/365"
+    },
+    {
+      "CURVE_TYPE": "IR_SPOT",
+      "DATA_DATE": "20260225",
+      "CURVE_ID": "IR_CURVE_EUR",
+      "CURVE_DATA": [
+        { "TERM": 1, "RATE": 0.0202 },
+        { "TERM": 7, "RATE": 0.0201 },
+        { "TERM": 30, "RATE": 0.0200 },
+        { "TERM": 90, "RATE": 0.0199 },
+        { "TERM": 180, "RATE": 0.0198 },
+        { "TERM": 365, "RATE": 0.0197 },
+        { "TERM": 730, "RATE": 0.0195 }
+      ],
+      "FREQ": "cont",
+      "DAYCOUNT": "actual/365"
+    },
+    {
+      "CURVE_TYPE": "IR_SPOT",
+      "DATA_DATE": "20260225",
+      "CURVE_ID": "IR_CURVE_JPY",
+      "CURVE_DATA": [
+        { "TERM": 1, "RATE": 0.0068 },
+        { "TERM": 7, "RATE": 0.0069 },
+        { "TERM": 30, "RATE": 0.0070 },
+        { "TERM": 90, "RATE": 0.0072 },
+        { "TERM": 180, "RATE": 0.0083 },
+        { "TERM": 365, "RATE": 0.0099 },
+        { "TERM": 730, "RATE": 0.0104 }
+      ],
+      "FREQ": "cont",
+      "DAYCOUNT": "actual/365"
+    },
+    {
+      "CURVE_TYPE": "FX_SPOT",
+      "DATA_DATE": "20260225",
+      "CURVE_ID": "FX_SPOT_USD_BASE",
+      "CURVE_DATA": [
+        { "CURRENCY": "USD/CNY", "RATE": 6.9032 },
+        { "CURRENCY": "EUR/USD", "RATE": 1.1780 },
+        { "CURRENCY": "USD/JPY", "RATE": 155.8860 }
+      ]
+    },
+    {
+      "CURVE_TYPE": "COMM_SPOT",
+      "DATA_DATE": "20260225",
+      "CURVE_ID": "COMM_SPOT_A99",
+      "CURVE_DATA": [
+        { "TERM": 1, "COMM_PRICE": 518.31 },
+        { "TERM": 30, "COMM_PRICE": 520.00 },
+        { "TERM": 90, "COMM_PRICE": 523.50 },
+        { "TERM": 180, "COMM_PRICE": 527.00 },
+        { "TERM": 365, "COMM_PRICE": 532.50 }
+      ]
+    },
+    {
+      "CURVE_TYPE": "EQ_SPOT",
+      "DATA_DATE": "20260225",
+      "CURVE_ID": "EQ_SPOT_CN_A",
+      "CURVE_DATA": [
+        { "TERM": 1, "EQ_PRICE": 3490.0 },
+        { "TERM": 30, "EQ_PRICE": 3510.0 },
+        { "TERM": 90, "EQ_PRICE": 3540.0 },
+        { "TERM": 180, "EQ_PRICE": 3580.0 },
+        { "TERM": 365, "EQ_PRICE": 3630.0 }
+      ]
+    },
+    {
+      "CURVE_TYPE": "FIXING",
+      "DATA_DATE": "20260225",
+            "FIXING_ID": "FIXING_CNY_3M",
+      "CURVE_DATA": [
+        { "TRADE_DATE": "20260224", "FIXING_VALUE": 0.0198 },
+        { "TRADE_DATE": "20260225", "FIXING_VALUE": 0.0199 }
+      ]
+    },
+    {
+      "CURVE_TYPE": "IR_VOL",
+      "DATA_DATE": "20260225",
+      "CURVE_ID": "IR_VOL_CNY",
+      "TERM_INTERPOLATE_TYPE": "LINERVAR",
+      "AXIS2_TYPE": "UNDERLYING_TERM",
+      "AXIS2_INTERPOLATE_TYPE": "linear",
+      "CURVE_DATA": [
+        { "OPTION_TERM": 30, "UNDERLYING_TERM": 30, "VOLATILITY_RATE": 0.1760 },
+        { "OPTION_TERM": 30, "UNDERLYING_TERM": 365, "VOLATILITY_RATE": 0.1720 },
+        { "OPTION_TERM": 90, "UNDERLYING_TERM": 90, "VOLATILITY_RATE": 0.1700 },
+        { "OPTION_TERM": 90, "UNDERLYING_TERM": 365, "VOLATILITY_RATE": 0.1670 },
+        { "OPTION_TERM": 180, "UNDERLYING_TERM": 180, "VOLATILITY_RATE": 0.1650 },
+        { "OPTION_TERM": 180, "UNDERLYING_TERM": 365, "VOLATILITY_RATE": 0.1620 },
+        { "OPTION_TERM": 365, "UNDERLYING_TERM": 180, "VOLATILITY_RATE": 0.1590 },
+        { "OPTION_TERM": 365, "UNDERLYING_TERM": 365, "VOLATILITY_RATE": 0.1570 }
+      ]
+    },
+    {
+      "CURVE_TYPE": "FX_VOL",
+      "DATA_DATE": "20260225",
+      "CURVE_ID": "FX_VOL_EUR_CNY",
+      "TERM_INTERPOLATE_TYPE": "LINERVAR",
+      "AXIS2_TYPE": "DELTA",
+      "AXIS2_INTERPOLATE_TYPE": "linear",
+      "CURVE_DATA": [
+        { "OPTION_TERM": 30, "DELTA": 0.25, "VOLATILITY_RATE": 0.1210 },
+        { "OPTION_TERM": 30, "DELTA": 0.50, "VOLATILITY_RATE": 0.1150 },
+        { "OPTION_TERM": 30, "DELTA": 0.75, "VOLATILITY_RATE": 0.1190 },
+        { "OPTION_TERM": 90, "DELTA": 0.25, "VOLATILITY_RATE": 0.1230 },
+        { "OPTION_TERM": 90, "DELTA": 0.50, "VOLATILITY_RATE": 0.1170 },
+        { "OPTION_TERM": 90, "DELTA": 0.75, "VOLATILITY_RATE": 0.1210 },
+        { "OPTION_TERM": 180, "DELTA": 0.25, "VOLATILITY_RATE": 0.1250 },
+        { "OPTION_TERM": 180, "DELTA": 0.50, "VOLATILITY_RATE": 0.1190 },
+        { "OPTION_TERM": 180, "DELTA": 0.75, "VOLATILITY_RATE": 0.1230 },
+        { "OPTION_TERM": 365, "DELTA": 0.25, "VOLATILITY_RATE": 0.1280 },
+        { "OPTION_TERM": 365, "DELTA": 0.50, "VOLATILITY_RATE": 0.1220 },
+        { "OPTION_TERM": 365, "DELTA": 0.75, "VOLATILITY_RATE": 0.1260 }
+      ]
+    },
+    {
+      "CURVE_TYPE": "COMM_VOL",
+      "DATA_DATE": "20260225",
+      "CURVE_ID": "COMM_VOL_A99",
+      "TERM_INTERPOLATE_TYPE": "LINERVAR",
+      "AXIS2_TYPE": "DELTA",
+      "AXIS2_INTERPOLATE_TYPE": "linear",
+      "CURVE_DATA": [
+        { "OPTION_TERM": 30, "DELTA": 0.25, "VOLATILITY_RATE": 0.2260 },
+        { "OPTION_TERM": 30, "DELTA": 0.50, "VOLATILITY_RATE": 0.2110 },
+        { "OPTION_TERM": 30, "DELTA": 0.75, "VOLATILITY_RATE": 0.2210 },
+        { "OPTION_TERM": 90, "DELTA": 0.25, "VOLATILITY_RATE": 0.2310 },
+        { "OPTION_TERM": 90, "DELTA": 0.50, "VOLATILITY_RATE": 0.2160 },
+        { "OPTION_TERM": 90, "DELTA": 0.75, "VOLATILITY_RATE": 0.2260 },
+        { "OPTION_TERM": 180, "DELTA": 0.25, "VOLATILITY_RATE": 0.2360 },
+        { "OPTION_TERM": 180, "DELTA": 0.50, "VOLATILITY_RATE": 0.2210 },
+        { "OPTION_TERM": 180, "DELTA": 0.75, "VOLATILITY_RATE": 0.2310 },
+        { "OPTION_TERM": 365, "DELTA": 0.25, "VOLATILITY_RATE": 0.2410 },
+        { "OPTION_TERM": 365, "DELTA": 0.50, "VOLATILITY_RATE": 0.2260 },
+        { "OPTION_TERM": 365, "DELTA": 0.75, "VOLATILITY_RATE": 0.2360 }
+      ]
+    },
+    {
+      "CURVE_TYPE": "EQ_VOL",
+      "DATA_DATE": "20260225",
+      "CURVE_ID": "EQ_VOL_CN_A",
+      "TERM_INTERPOLATE_TYPE": "LINERVAR",
+      "AXIS2_TYPE": "DELTA",
+      "AXIS2_INTERPOLATE_TYPE": "linear",
+      "CURVE_DATA": [
+        { "OPTION_TERM": 30, "DELTA": 0.25, "VOLATILITY_RATE": 0.2520 },
+        { "OPTION_TERM": 30, "DELTA": 0.50, "VOLATILITY_RATE": 0.2320 },
+        { "OPTION_TERM": 30, "DELTA": 0.75, "VOLATILITY_RATE": 0.2470 },
+        { "OPTION_TERM": 90, "DELTA": 0.25, "VOLATILITY_RATE": 0.2570 },
+        { "OPTION_TERM": 90, "DELTA": 0.50, "VOLATILITY_RATE": 0.2370 },
+        { "OPTION_TERM": 90, "DELTA": 0.75, "VOLATILITY_RATE": 0.2520 },
+        { "OPTION_TERM": 180, "DELTA": 0.25, "VOLATILITY_RATE": 0.2620 },
+        { "OPTION_TERM": 180, "DELTA": 0.50, "VOLATILITY_RATE": 0.2420 },
+        { "OPTION_TERM": 180, "DELTA": 0.75, "VOLATILITY_RATE": 0.2570 },
+        { "OPTION_TERM": 365, "DELTA": 0.25, "VOLATILITY_RATE": 0.2670 },
+        { "OPTION_TERM": 365, "DELTA": 0.50, "VOLATILITY_RATE": 0.2470 },
+        { "OPTION_TERM": 365, "DELTA": 0.75, "VOLATILITY_RATE": 0.2620 }
+      ]
+    }
+  ]
+}
