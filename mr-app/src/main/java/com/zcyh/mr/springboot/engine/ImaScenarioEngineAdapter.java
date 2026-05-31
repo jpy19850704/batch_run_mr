@@ -10,7 +10,6 @@ import com.zcyh.mr.frtbima.model.SubsetPnlRecord;
 import com.zcyh.mr.frtbima.scenariopnl.NmrfScenarioRunner;
 import com.zcyh.mr.frtbima.scenariopnl.SubsetScenarioRunner;
 import com.zcyh.mr.frtbima.rfet.bucket.RfetModellableIndex;
-import com.zcyh.mr.frtbima.rfet.model.RfetResult;
 import com.zcyh.mr.loader.Loader;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.springboot.service.ImaModellablePnlPersistService;
@@ -231,19 +230,13 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
 
     /**
      * 从 ScenarioCache 加载 RfetModellableIndex。
-     * 兼容两种缓存格式：RfetModellableIndex 实例 或 List&lt;RfetResult&gt;。
      */
-    @SuppressWarnings("unchecked")
     private RfetModellableIndex loadModellableIndex(String cacheKey) {
         Object cached = com.zcyh.mr.scenario.ScenarioCache.getObject(cacheKey);
         if (cached instanceof RfetModellableIndex) {
             return (RfetModellableIndex) cached;
         }
-        if (cached instanceof List) {
-            return RfetModellableIndex.build((List<RfetResult>) cached);
-        }
-        log.warn("ScenarioCache 中未找到 modellableIndex: key={}", cacheKey);
-        return RfetModellableIndex.build(Collections.emptyList());
+        throw new IllegalStateException("ScenarioCache 中未找到 RfetModellableIndex: key=" + cacheKey);
     }
 
     /**

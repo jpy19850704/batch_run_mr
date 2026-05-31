@@ -9,6 +9,8 @@ import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.MeasureValuation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -22,6 +24,7 @@ import java.util.Map;
  * 内聚 GIRR 的 dependency 规则、bucket 规则、vega 顶点拆分与 curvature 规则。
  */
 public class GirrSensitivityBuilder extends AbstractSensitivityBuilder {
+    private static final Logger log = LoggerFactory.getLogger(GirrSensitivityBuilder.class);
 
     private static final double GIRR_DELTA_SCALE = 10000.0;
     private static final double GIRR_BASIS_SHIFT = 0.0001;
@@ -279,6 +282,8 @@ public class GirrSensitivityBuilder extends AbstractSensitivityBuilder {
                         dependency.secondaryVertex,
                         FrtbParamsCache.getVegaMatchToleranceDays());
                 if (vertex2Weights.isEmpty()) {
+                    log.info("GIRR Vega第二维无法映射到标准期限，已跳过: instrumentId={}, volatilitySurface={}, secondaryVertex={}, bucket={}",
+                            instrumentId, dependency.curveOrRiskFactor, dependency.secondaryVertex, dependency.bucket);
                     continue;
                 }
                 for (Map.Entry<String, Double> vertex2Weight : vertex2Weights.entrySet()) {

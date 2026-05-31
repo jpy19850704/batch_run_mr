@@ -91,6 +91,7 @@ final class FrtbSbaInputValidator {
 
             if (!invalid && FrtbConstants.RISK_CLASS_CSRNC.equals(riskClass)
                     && trimToNull(stringValue(row.get("RISK_FACTOR_TYPE"))) == null) {
+                // 正式口径：CSR non-sec 明细缺少 RISK_FACTOR_TYPE 时，按最常用 BOND 情景处理。
                 missingCsrncType.add(row.get("INSTRUMENT_ID"));
                 row.put("RISK_FACTOR_TYPE", "BOND");
             }

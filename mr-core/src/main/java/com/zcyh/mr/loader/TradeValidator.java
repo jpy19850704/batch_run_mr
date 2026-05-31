@@ -59,17 +59,16 @@ public class TradeValidator {
             return errors;
         }
 
-        // 通用规则（_common）：字段在数据中不存在则跳过（该产品不涉及此字段）
-        JSONObject commonNodeRules = getNodeRules("_common", node);
-        if (commonNodeRules != null) {
-            applyRules(data, commonNodeRules, errors, true);
+        if ("TRADE".equals(node)) {
+            validateRequiredText(data, "INSTRUMENT_ID", errors);
+            validateRequiredText(data, "PRODUCT_CODE", errors);
         }
 
-        // 产品专属规则：所有字段都必填
+        // 产品专属规则：商品类字段存在才校验，其他产品按配置必填。
         if (productCode != null) {
             JSONObject productNodeRules = getNodeRules(productCode, node);
             if (productNodeRules != null) {
-                applyRules(data, productNodeRules, errors, false);
+                applyRules(data, productNodeRules, errors, isCommodityProduct(productCode));
             }
         }
 
@@ -84,6 +83,18 @@ public class TradeValidator {
         if (productRules == null)
             return null;
         return productRules.getJSONObject(node);
+    }
+
+    private static boolean isCommodityProduct(String productCode) {
+        return productCode != null && productCode.startsWith("COMM");
+    }
+
+    private static void validateRequiredText(JSONObject data, String field, List<String> errors) {
+        Object val = data.get(field);
+        String strVal = (val != null) ? val.toString().trim() : "";
+        if (val == null || strVal.isEmpty()) {
+            errors.add("缺少必填字段: " + field);
+        }
     }
 
     /**

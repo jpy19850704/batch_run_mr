@@ -66,11 +66,16 @@ public class MrCalcEngineAdapter implements EngineAdapter {
         if (operCode == null || !"SCENARIO".equalsIgnoreCase(operCode.trim())) {
             return payload;
         }
-        if (payload.getJSONArray("scenario_data") != null) {
+        boolean hasInlineScenarioData = payload.getJSONArray("scenario_data") != null
+                && !payload.getJSONArray("scenario_data").isEmpty();
+        JSONObject scenarioRef = payload.getJSONObject("scenario_ref");
+        if (hasInlineScenarioData && scenarioRef != null && !scenarioRef.isEmpty()) {
+            throw new IllegalArgumentException("scenario_data 与 scenario_ref 不能同时传入");
+        }
+        if (hasInlineScenarioData) {
             return payload;
         }
 
-        JSONObject scenarioRef = payload.getJSONObject("scenario_ref");
         if (scenarioRef == null || scenarioRef.isEmpty()) {
             return payload;
         }

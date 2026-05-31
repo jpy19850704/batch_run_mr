@@ -375,11 +375,11 @@ public class IrsCcs {
 
     /**
      * CCS Basis 统一选择每条腿最能代表该币种利率风险的曲线：
-     * 浮动腿优先使用 referenceCurve，否则退回 discountCurve。
+     * 浮动腿只使用 referenceCurve；缺失时由现金流逻辑按0远期处理，不回退 discountCurve。
      */
     private String resolveBasisCurve(String interestType, String referenceCurve, String discountCurve) {
-        if ("floating".equalsIgnoreCase(interestType) && StringUtils.isNotBlank(referenceCurve)) {
-            return referenceCurve.trim();
+        if ("floating".equalsIgnoreCase(interestType)) {
+            return StringUtils.isBlank(referenceCurve) ? null : referenceCurve.trim();
         }
         if (StringUtils.isNotBlank(discountCurve)) {
             return discountCurve.trim();

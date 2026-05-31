@@ -111,13 +111,11 @@ public class Trs implements FrtbDrcInterface {
         try {
             Bond.BondInfo bondInfo = JSON.parseObject(underlyingData.toString(), Bond.BondInfo.class);
 
-            // 有效信用利差曲线：TrsInfo优先，回退到bondInfo
-            String effectiveCreditSpreadCurve = StringUtils.isNotBlank(trsInfo.creditSpreadCurve)
-                    ? trsInfo.creditSpreadCurve : bondInfo.creditSpreadCurve;
+            // TRS 信用利差曲线与 CDS 保持一致：只使用底层债券信用利差曲线。
+            String effectiveCreditSpreadCurve = bondInfo.creditSpreadCurve;
 
-            // 有效标的折现曲线（无风险）：TrsInfo优先，回退到bondInfo
-            String effectiveAssetDiscountCurve = StringUtils.isNotBlank(trsInfo.underlyingCurrencyDiscountCurve)
-                    ? trsInfo.underlyingCurrencyDiscountCurve : bondInfo.discountCurve;
+            // 标的无风险折现曲线必须由 TRS 交易字段显式提供，不回退到底层债券折现曲线。
+            String effectiveAssetDiscountCurve = trsInfo.underlyingCurrencyDiscountCurve;
 
             // 融资折现曲线
             String fundingCurve = trsInfo.discountCurve;
@@ -129,7 +127,8 @@ public class Trs implements FrtbDrcInterface {
                 throw new IllegalArgumentException("融资折现曲线不存在: " + fundingCurve
                         + " (INSTRUMENT_ID=" + trsInfo.instrumentId + ")");
             }
-            if (!marketData.irSpot.containsKey(effectiveAssetDiscountCurve)) {
+            if (StringUtils.isBlank(effectiveAssetDiscountCurve)
+                    || !marketData.irSpot.containsKey(effectiveAssetDiscountCurve)) {
                 throw new IllegalArgumentException("标的折现曲线不存在: " + effectiveAssetDiscountCurve
                         + " (INSTRUMENT_ID=" + trsInfo.instrumentId + ")");
             }
@@ -546,6 +545,9 @@ public class Trs implements FrtbDrcInterface {
         if (StringUtils.isBlank(trsInfo.discountCurve)) {
             return "DISCOUNT_CURVE 不能为空: INSTRUMENT_ID=" + trsInfo.instrumentId;
         }
+        if (StringUtils.isBlank(trsInfo.underlyingCurrencyDiscountCurve)) {
+            return "UNDERLYING_CURRENCY_DISCOUNT_CURVE 不能为空: INSTRUMENT_ID=" + trsInfo.instrumentId;
+        }
         if (StringUtils.isBlank(trsInfo.underlyingBondId)) {
             return "UNDERLYING_BOND_ID 不能为空: INSTRUMENT_ID=" + trsInfo.instrumentId;
         }
@@ -627,10 +629,10 @@ public class Trs implements FrtbDrcInterface {
         /** 融资折现曲线 */
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
-        /** 标的无风险折现曲线（可选，回退到bondInfo.discountCurve） */
+        /** 标的无风险折现曲线 */
         @JSONField(name = "UNDERLYING_CURRENCY_DISCOUNT_CURVE")
         public String underlyingCurrencyDiscountCurve;
-        /** 信用利差曲线（可选，回退到bondInfo.creditSpreadCurve） */
+        /** 信用利差曲线（保留输入字段，计量口径使用底层债券 creditSpreadCurve） */
         @JSONField(name = "CREDIT_SPREAD_CURVE")
         public String creditSpreadCurve;
         @JSONField(name = "UNDERLYING_BOND_ID")

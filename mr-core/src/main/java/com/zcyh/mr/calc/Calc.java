@@ -194,34 +194,33 @@ public class Calc {
                 this.validationErrors = loader.getValidationErrors();
                 this.curveGenerationInputs = loader.getCurveGenerationInputs();
 
-                // 优先从 ScenarioCache 获取场景数据（通过 scenario_ref.cache_key）
                 this.scenarioDataList = resolveScenarioData(jsonData, loader);
                 this.decompScenarioDataList = resolveDecompScenarioData(jsonData);
         }
 
         /**
-         * 解析场景数据来源：优先从缓存，回退到 Loader 内联解析。
+         * 解析场景数据来源：缓存引用和内联数据是两种正式协议，但同一请求不能共存。
          */
         private static List<Loader.ScenarioEntry> resolveScenarioData(String jsonData, Loader loader) {
-                // 尝试从 payload 中提取 cache_key
-                try {
-                        JSONObject jo = JSON.parseObject(jsonData);
-                        if (jo != null) {
-                                JSONObject ref = jo.getJSONObject("scenario_ref");
-                                if (ref != null) {
-                                        String cacheKey = ref.getString("cache_key");
-                                        if (cacheKey != null && !cacheKey.trim().isEmpty()) {
-                                                List<Loader.ScenarioEntry> cached = ScenarioCache.get(cacheKey.trim());
-                                                if (cached != null) {
-                                                        return cached;
-                                                }
-                                        }
-                                }
-                        }
-                } catch (Exception ignored) {
-                        // JSON 解析异常时回退到 Loader 的内联解析
+                JSONObject jo = JSON.parseObject(jsonData);
+                if (jo == null) {
+                        return loader.getScenarioDataList();
                 }
-                // 回退：使用 Loader 从 payload 内联的 scenario_data 解析
+                JSONArray inlineScenarioData = jo.getJSONArray("scenario_data");
+                JSONObject ref = jo.getJSONObject("scenario_ref");
+                String cacheKey = ref == null ? null : ref.getString("cache_key");
+                boolean hasInline = inlineScenarioData != null && !inlineScenarioData.isEmpty();
+                boolean hasCache = cacheKey != null && !cacheKey.trim().isEmpty();
+                if (hasInline && hasCache) {
+                        throw new IllegalArgumentException("scenario_data 与 scenario_ref.cache_key 不能同时传入");
+                }
+                if (hasCache) {
+                        List<Loader.ScenarioEntry> cached = ScenarioCache.get(cacheKey.trim());
+                        if (cached == null) {
+                                throw new IllegalArgumentException("ScenarioCache 未找到场景数据: cache_key=" + cacheKey.trim());
+                        }
+                        return cached;
+                }
                 return loader.getScenarioDataList();
         }
 

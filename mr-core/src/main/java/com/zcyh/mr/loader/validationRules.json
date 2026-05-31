@@ -398,5 +398,389 @@
             "DISCOUNT_CURVE": "string",
             "HISTORICAL_CURVE": "string"
         }
+    },
+    "COMMOPT": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "CALL_OR_PUT": "string",
+            "CONTRACT_SIZE": "number",
+            "STRIKE_PRICE": "number",
+            "MATURITY_DATE": "date",
+            "SETTLE_DATE": "date",
+            "DISCOUNT_CURVE": "string",
+            "REFERENCE_CURVE": "string",
+            "VOLATILITY_SURFACE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "CAPFLOOR": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "CURRENCY_CODE": "string",
+            "NOTIONAL": "number",
+            "START_DATE": "date",
+            "MATURITY_DATE": "date",
+            "STRIKE_RATE": "number",
+            "DISCOUNT_CURVE": "string",
+            "REFERENCE_CURVE": "string",
+            "VOLATILITY_SURFACE": "string"
+        }
+    },
+    "FXOPT": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "CALL_OR_PUT": "string",
+            "CONTRACT_SIZE": "number",
+            "STRIKE_PRICE": "number",
+            "MATURITY_DATE": "date",
+            "SETTLE_DATE": "date",
+            "UNDERLYING_CURRENCY_CODE": "string",
+            "BASE_CURRENCY_CODE": "string",
+            "BASE_DISCOUNT_CURVE": "string",
+            "UNDERLYING_DISCOUNT_CURVE": "string",
+            "VOLATILITY_SURFACE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "FX_ASIAN": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "CALL_OR_PUT": "string",
+            "CONTRACT_SIZE": "number",
+            "STRIKE_PRICE": "number",
+            "MATURITY_DATE": "date",
+            "SETTLE_DATE": "date",
+            "SETTLE_TYPE": "string",
+            "OBS_START_DATE": "date",
+            "OBS_END_DATE": "date",
+            "UNDERLYING_CURRENCY_CODE": "string",
+            "BASE_CURRENCY_CODE": "string",
+            "BASE_DISCOUNT_CURVE": "string",
+            "UNDERLYING_DISCOUNT_CURVE": "string",
+            "VOLATILITY_SURFACE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "AUTO_CALL": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "CURRENCY_CODE": "string",
+            "DISCOUNT_CURVE": "string",
+            "PAYOFF_TYPE": "string",
+            "START_DATE": "date",
+            "SETTLE_DATE": "date",
+            "OBS_DATES": "string",
+            "UNDERLYING_TYPE": "string",
+            "VOLATILITY_SURFACE": "string"
+        }
+    },
+    "IR_SPREADOPT": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "OPTION_TYPE": "string",
+            "SETTLE_TYPE": "string",
+            "CONTRACT_SIZE": "number",
+            "START_DATE": "date",
+            "MATURITY_DATE": "date",
+            "SETTLE_DATE": "date",
+            "DOWN_BARRIER": "number",
+            "UPPER_BARRIER": "number",
+            "NOTIONAL": "number",
+            "INITIAL_PRICE": "number",
+            "DISCOUNT_CURVE": "string",
+            "REFERENCE_CURVE": "string",
+            "VOLATILITY_SURFACE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "IR_BARRIER": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "OPTION_TYPE": "string",
+            "MATURITY_DATE": "date",
+            "SETTLE_DATE": "date",
+            "DISCOUNT_CURVE": "string",
+            "REFERENCE_CURVE": "string",
+            "VOLATILITY_SURFACE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "EQ_BARRIER": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "OPTION_TYPE": "string",
+            "MATURITY_DATE": "date",
+            "SETTLE_DATE": "date",
+            "DISCOUNT_CURVE": "string",
+            "REFERENCE_CURVE": "string",
+            "VOLATILITY_SURFACE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "FX_BARRIER": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "OPTION_TYPE": "string",
+            "MATURITY_DATE": "date",
+            "SETTLE_DATE": "date",
+            "UNDERLYING_CURRENCY_CODE": "string",
+            "BASE_CURRENCY_CODE": "string",
+            "BASE_DISCOUNT_CURVE": "string",
+            "UNDERLYING_DISCOUNT_CURVE": "string",
+            "VOLATILITY_SURFACE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "COMM_BARRIER": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "OPTION_TYPE": "string",
+            "MATURITY_DATE": "date",
+            "SETTLE_DATE": "date",
+            "DISCOUNT_CURVE": "string",
+            "REFERENCE_CURVE": "string",
+            "VOLATILITY_SURFACE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "IR_DIGITAL": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "CALL_OR_PUT": "string",
+            "STRIKE_PRICE": "number",
+            "MATURITY_DATE": "date",
+            "SETTLE_DATE": "date",
+            "DISCOUNT_CURVE": "string",
+            "REFERENCE_CURVE": "string",
+            "VOLATILITY_SURFACE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "EQ_DIGITAL": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "CALL_OR_PUT": "string",
+            "STRIKE_PRICE": "number",
+            "MATURITY_DATE": "date",
+            "SETTLE_DATE": "date",
+            "DISCOUNT_CURVE": "string",
+            "REFERENCE_CURVE": "string",
+            "VOLATILITY_SURFACE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "FX_DIGITAL": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "CALL_OR_PUT": "string",
+            "STRIKE_PRICE": "number",
+            "MATURITY_DATE": "date",
+            "SETTLE_DATE": "date",
+            "UNDERLYING_CURRENCY_CODE": "string",
+            "BASE_CURRENCY_CODE": "string",
+            "BASE_DISCOUNT_CURVE": "string",
+            "UNDERLYING_DISCOUNT_CURVE": "string",
+            "VOLATILITY_SURFACE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "COMM_DIGITAL": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "CALL_OR_PUT": "string",
+            "STRIKE_PRICE": "number",
+            "MATURITY_DATE": "date",
+            "SETTLE_DATE": "date",
+            "DISCOUNT_CURVE": "string",
+            "REFERENCE_CURVE": "string",
+            "VOLATILITY_SURFACE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "SWAPTION": {
+        "TRADE": {
+            "CALL_OR_PUT": "string",
+            "BUY_OR_SELL": "domain:B|S",
+            "MATURITY_DATE": "date",
+            "NOTIONAL": "number",
+            "CURRENCY_CODE": "string",
+            "UNDERLYING_START_DATE": "date",
+            "UNDERLYING_MATURITY_DATE": "date",
+            "FIXED_RATE": "number",
+            "DISCOUNT_CURVE": "string",
+            "REFERENCE_CURVE": "string",
+            "VOLATILITY_SURFACE": "string"
+        }
+    },
+    "TRS": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "START_DATE": "date",
+            "MATURITY_DATE": "date",
+            "NOTIONAL": "number",
+            "CURRENCY_CODE": "string",
+            "UNDERLYING_CURRENCY_CODE": "string",
+            "DISCOUNT_CURVE": "string",
+            "UNDERLYING_CURRENCY_DISCOUNT_CURVE": "string",
+            "UNDERLYING_BOND_ID": "string"
+        }
+    },
+    "IR_RANGE_ACCURE": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "START_DATE": "date",
+            "MATURITY_DATE": "date",
+            "OBS_DATES": "string",
+            "NOTIONAL": "number",
+            "UPPER_BARRIER": "number",
+            "LOWER_BARRIER": "number",
+            "RANGE_ACCURE_RATE": "number",
+            "RANGE_DIRECTION": "string",
+            "DISCOUNT_CURVE": "string",
+            "FIXING_ID": "string",
+            "VOLATILITY_SURFACE": "string",
+            "REFERENCE_CURVE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "IR_STEP_UP": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "CALL_OR_PUT": "string",
+            "START_DATE": "date",
+            "MATURITY_DATE": "date",
+            "FIXING_DATE": "date",
+            "NOTIONAL": "number",
+            "CURRENCY_CODE": "string",
+            "UPPER_BARRIER": "number",
+            "LOWER_BARRIER": "number",
+            "LOW_RATE": "number",
+            "MID_RATE": "number",
+            "HIGH_RATE": "number",
+            "DISCOUNT_CURVE": "string",
+            "FIXING_ID": "string",
+            "VOLATILITY_SURFACE": "string",
+            "REFERENCE_CURVE": "string"
+        }
+    },
+    "EQ_RANGE_ACCURE": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "START_DATE": "date",
+            "MATURITY_DATE": "date",
+            "OBS_DATES": "string",
+            "NOTIONAL": "number",
+            "UPPER_BARRIER": "number",
+            "LOWER_BARRIER": "number",
+            "RANGE_ACCURE_RATE": "number",
+            "RANGE_DIRECTION": "string",
+            "DISCOUNT_CURVE": "string",
+            "FIXING_ID": "string",
+            "VOLATILITY_SURFACE": "string",
+            "REFERENCE_CURVE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "EQ_STEP_UP": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "CALL_OR_PUT": "string",
+            "START_DATE": "date",
+            "MATURITY_DATE": "date",
+            "FIXING_DATE": "date",
+            "NOTIONAL": "number",
+            "CURRENCY_CODE": "string",
+            "UPPER_BARRIER": "number",
+            "LOWER_BARRIER": "number",
+            "LOW_RATE": "number",
+            "MID_RATE": "number",
+            "HIGH_RATE": "number",
+            "DISCOUNT_CURVE": "string",
+            "FIXING_ID": "string",
+            "VOLATILITY_SURFACE": "string",
+            "REFERENCE_CURVE": "string"
+        }
+    },
+    "COMM_RANGE_ACCURE": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "START_DATE": "date",
+            "MATURITY_DATE": "date",
+            "OBS_DATES": "string",
+            "NOTIONAL": "number",
+            "UPPER_BARRIER": "number",
+            "LOWER_BARRIER": "number",
+            "RANGE_ACCURE_RATE": "number",
+            "RANGE_DIRECTION": "string",
+            "DISCOUNT_CURVE": "string",
+            "FIXING_ID": "string",
+            "VOLATILITY_SURFACE": "string",
+            "REFERENCE_CURVE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "COMM_STEP_UP": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "CALL_OR_PUT": "string",
+            "START_DATE": "date",
+            "MATURITY_DATE": "date",
+            "FIXING_DATE": "date",
+            "NOTIONAL": "number",
+            "CURRENCY_CODE": "string",
+            "UPPER_BARRIER": "number",
+            "LOWER_BARRIER": "number",
+            "LOW_RATE": "number",
+            "MID_RATE": "number",
+            "HIGH_RATE": "number",
+            "DISCOUNT_CURVE": "string",
+            "FIXING_ID": "string",
+            "VOLATILITY_SURFACE": "string",
+            "REFERENCE_CURVE": "string"
+        }
+    },
+    "FX_RANGE_ACCURE": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "START_DATE": "date",
+            "MATURITY_DATE": "date",
+            "OBS_DATES": "string",
+            "NOTIONAL": "number",
+            "UPPER_BARRIER": "number",
+            "LOWER_BARRIER": "number",
+            "RANGE_ACCURE_RATE": "number",
+            "RANGE_DIRECTION": "string",
+            "DISCOUNT_CURVE": "string",
+            "FIXING_ID": "string",
+            "VOLATILITY_SURFACE": "string",
+            "UNDERLYING_CURRENCY_CODE": "string",
+            "BASE_CURRENCY_CODE": "string",
+            "BASE_DISCOUNT_CURVE": "string",
+            "UNDERLYING_DISCOUNT_CURVE": "string",
+            "CURRENCY_CODE": "string"
+        }
+    },
+    "FX_STEP_UP": {
+        "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
+            "CALL_OR_PUT": "string",
+            "START_DATE": "date",
+            "MATURITY_DATE": "date",
+            "FIXING_DATE": "date",
+            "NOTIONAL": "number",
+            "CURRENCY_CODE": "string",
+            "UPPER_BARRIER": "number",
+            "LOWER_BARRIER": "number",
+            "LOW_RATE": "number",
+            "MID_RATE": "number",
+            "HIGH_RATE": "number",
+            "DISCOUNT_CURVE": "string",
+            "FIXING_ID": "string",
+            "VOLATILITY_SURFACE": "string",
+            "UNDERLYING_CURRENCY_CODE": "string",
+            "BASE_CURRENCY_CODE": "string",
+            "BASE_DISCOUNT_CURVE": "string",
+            "UNDERLYING_DISCOUNT_CURVE": "string"
+        }
     }
 }

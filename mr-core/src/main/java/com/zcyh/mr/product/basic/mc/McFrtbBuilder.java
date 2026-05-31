@@ -138,6 +138,7 @@ public final class McFrtbBuilder {
                     null,
                     null));
 
+            // 正式口径：EQ bucket 为空时按最常用 bucket 11 处理。
             String bucket = defaultText(c.frtbEqBucket, "11");
             list.addAll(FrtbSensitivityBuilder.buildEqSensitivities(
                     marketData,

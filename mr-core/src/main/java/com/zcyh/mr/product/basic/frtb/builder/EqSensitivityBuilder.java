@@ -27,6 +27,7 @@ public class EqSensitivityBuilder extends AbstractSensitivityBuilder {
         if (!hasText(priceCurve)) {
             return dependencies;
         }
+        // 正式口径：EQ bucket 为空时按最常用 bucket 11 处理。
         String resolvedBucket = hasText(bucket) ? bucket : "11";
         dependencies.add(FrtbDependency.of(
                 FrtbDependency.TYPE_EQ_DELTA,
@@ -41,6 +42,7 @@ public class EqSensitivityBuilder extends AbstractSensitivityBuilder {
         if (!hasText(volatilitySurface)) {
             return dependencies;
         }
+        // 正式口径：EQ bucket 为空时按最常用 bucket 11 处理。
         String resolvedBucket = hasText(bucket) ? bucket : "11";
         dependencies.add(FrtbDependency.of(
                 FrtbDependency.TYPE_EQ_VEGA,
