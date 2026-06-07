@@ -21,7 +21,6 @@ public class AggregationRule {
     private List<String> groupByFields = new ArrayList<String>();
     @JSONField(name = "sum_fields")
     private List<String> sumFields = new ArrayList<String>();
-    @JSONField(name = "filter_tree")
     private FilterExpression filterTree;
 
     public String getRuleId() {
@@ -84,18 +83,18 @@ public class AggregationRule {
      * 复杂过滤表达式树节点。
      */
     public static class FilterExpression {
-        private String op;
+        private String logic;
         private List<FilterExpression> children = new ArrayList<FilterExpression>();
         private String field;
         private String operator;
         private Object value;
 
-        public String getOp() {
-            return op;
+        public String getLogic() {
+            return logic;
         }
 
-        public void setOp(String op) {
-            this.op = op;
+        public void setLogic(String logic) {
+            this.logic = logic;
         }
 
         public List<FilterExpression> getChildren() {

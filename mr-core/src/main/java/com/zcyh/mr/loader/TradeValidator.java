@@ -1,6 +1,7 @@
 package com.zcyh.mr.loader;
 
 import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 
 import java.time.LocalDate;
@@ -15,7 +16,7 @@ import java.util.Set;
 /**
  * 交易数据字段校验器
  * 根据 validationRules.json 配置文件按产品类型校验交易字段
- * 支持 string/number/date/domain 四种类型校验
+ * 支持 string/number/date/array/domain 类型校验
  */
 public class TradeValidator {
 
@@ -132,6 +133,8 @@ public class TradeValidator {
                 validateNumber(field, val, strVal, errors);
             } else if ("date".equals(rule)) {
                 validateDate(field, strVal, errors);
+            } else if ("array".equals(rule)) {
+                validateArray(field, val, errors);
             } else if (rule != null && rule.startsWith("domain:")) {
                 validateDomain(field, strVal, rule, errors);
             }
@@ -160,6 +163,12 @@ public class TradeValidator {
             LocalDate.parse(strVal, DATE_FMT);
         } catch (DateTimeParseException e) {
             errors.add(field + " 日期格式错误(应为yyyyMMdd): " + strVal);
+        }
+    }
+
+    private static void validateArray(String field, Object val, List<String> errors) {
+        if (!(val instanceof JSONArray)) {
+            errors.add(field + " 必须为数组");
         }
     }
 

@@ -47,51 +47,55 @@ public final class TradeFilterSqlBuilder {
     }
 
     private static String buildExpression(AggregationRule.FilterExpression node, List<Object> params) {
-        String op = trimToNull(node.getOp());
-        if (op != null) {
+        String logic = trimToNull(node.getLogic());
+        if (logic != null) {
+            String normalizedLogic = logic.trim();
+            if (!"AND".equals(normalizedLogic) && !"OR".equals(normalizedLogic)) {
+                throw new IllegalArgumentException("tradeFilter.filterTree.logic 仅支持 AND/OR: " + logic);
+            }
             List<AggregationRule.FilterExpression> children = node.getChildren();
             if (children == null || children.isEmpty()) {
-                throw new IllegalArgumentException("trade_filter.filter_tree.children 不能为空");
+                throw new IllegalArgumentException("tradeFilter.filterTree.children 不能为空");
             }
             List<String> parts = new ArrayList<String>();
             for (AggregationRule.FilterExpression child : children) {
                 if (child == null) {
-                    throw new IllegalArgumentException("trade_filter.filter_tree.children 不能包含空节点");
+                    throw new IllegalArgumentException("tradeFilter.filterTree.children 不能包含空节点");
                 }
                 parts.add(buildExpression(child, params));
             }
-            return "(" + String.join(" " + op.toUpperCase(Locale.ROOT) + " ", parts) + ")";
+            return "(" + String.join(" " + normalizedLogic + " ", parts) + ")";
         }
         return buildCondition(node.getField(), node.getOperator(), node.getValue(), params);
     }
 
     private static String buildCondition(String field, String operator, Object value, List<Object> params) {
-        String safeField = requireText(field, "trade_filter.filter_tree.field");
-        String safeOperator = requireText(operator, "trade_filter.filter_tree.operator");
+        String safeField = requireText(field, "tradeFilter.filterTree.field");
+        String safeOperator = requireText(operator, "tradeFilter.filterTree.operator");
         String column = resolveColumn(safeField);
-        if ("=".equals(safeOperator)) {
+        if ("EQ".equals(safeOperator)) {
             params.add(requireSingleValue(value, safeField));
             return column + " = ?";
         }
-        if ("!=".equals(safeOperator)) {
+        if ("NE".equals(safeOperator)) {
             params.add(requireSingleValue(value, safeField));
             return column + " <> ?";
         }
-        if ("contains".equals(safeOperator) || "not_contains".equals(safeOperator)) {
+        if ("CONTAINS".equals(safeOperator) || "NOT_CONTAINS".equals(safeOperator)) {
             params.add("%" + escapeLike(requireSingleValue(value, safeField)) + "%");
-            return column + ("contains".equals(safeOperator) ? " LIKE ? ESCAPE '#'" : " NOT LIKE ? ESCAPE '#'");
+            return column + ("CONTAINS".equals(safeOperator) ? " LIKE ? ESCAPE '#'" : " NOT LIKE ? ESCAPE '#'");
         }
-        if ("in".equals(safeOperator) || "not_in".equals(safeOperator)) {
+        if ("IN".equals(safeOperator) || "NOT_IN".equals(safeOperator)) {
             List<String> values = requireValueList(value, safeField);
             if (values.size() > MAX_IN_VALUES) {
                 throw new IllegalArgumentException("交易过滤字段 " + safeField + " 的取值数量超过上限: " + MAX_IN_VALUES);
             }
-            return buildInCondition(column, "in".equals(safeOperator), values, params);
+            return buildInCondition(column, "IN".equals(safeOperator), values, params);
         }
-        if ("is_null".equals(safeOperator)) {
+        if ("IS_NULL".equals(safeOperator)) {
             return column + " IS NULL";
         }
-        if ("is_not_null".equals(safeOperator)) {
+        if ("IS_NOT_NULL".equals(safeOperator)) {
             return column + " IS NOT NULL";
         }
         throw new IllegalArgumentException("不支持的交易过滤操作符: " + safeOperator);
@@ -112,7 +116,7 @@ public final class TradeFilterSqlBuilder {
     }
 
     private static String resolveColumn(String field) {
-        String safeField = requireText(field, "trade_filter.filter_tree.field").toUpperCase(Locale.ROOT);
+        String safeField = requireText(field, "tradeFilter.filterTree.field").toUpperCase(Locale.ROOT);
         if ("INSTRUMENT_ID".equals(safeField)) {
             return "t.instrument_id";
         }

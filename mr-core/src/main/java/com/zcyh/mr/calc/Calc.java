@@ -113,6 +113,8 @@ public class Calc {
                                 (op, dt, tr, md, cal, oth) -> new CommAsianCalc(op, dt, tr, md));
                 REGISTRY.put(Constants.PRODUCT_CODE.AUTO_CALL,
                                 (op, dt, tr, md, cal, oth) -> new GenericMcCalc(op, dt, tr, md));
+                REGISTRY.put(Constants.PRODUCT_CODE.COMPOSITE,
+                                (op, dt, tr, md, cal, oth) -> new CompositeCalc(op, dt, tr, md, cal, oth));
                 REGISTRY.put(Constants.PRODUCT_CODE.FX_SPREADOPT,
                                 (op, dt, tr, md, cal, oth) -> new FxSpreadOptCalc(op, dt, tr, md));
                 REGISTRY.put(Constants.PRODUCT_CODE.EQ_SPREADOPT,
@@ -831,6 +833,19 @@ public class Calc {
                 if (trade.get("DETAIL") == null) {
                         trade.put("DETAIL", safeMessage);
                 }
+        }
+
+        static Runnable createRegisteredCalc(String productCode, String operCode, LocalDate dataDate,
+                        List<HashMap<String, Object>> trades, MarketData md, Calendar calendar, JSONObject otherData) {
+                CalcFactory factory = REGISTRY.get(productCode);
+                if (factory == null) {
+                        throw new IllegalArgumentException("不支持的产品类型: " + productCode);
+                }
+                return factory.create(operCode, dataDate, trades, md, calendar, otherData);
+        }
+
+        static String invokeCalc(Runnable calcInstance) throws Exception {
+                return (String) calcInstance.getClass().getMethod("calc").invoke(calcInstance);
         }
 
         private static String resolveLogMessage(JSONObject logItem) {

@@ -17,18 +17,18 @@ import java.util.Set;
 public class DimensionAggregationService {
     private static final String TOTAL = "TOTAL";
     private static final String NULL_DIMENSION_VALUE = "NULL";
-    private static final String OP_EQ = "=";
-    private static final String OP_NE = "!=";
-    private static final String OP_GT = ">";
-    private static final String OP_GE = ">=";
-    private static final String OP_LT = "<";
-    private static final String OP_LE = "<=";
-    private static final String OP_IN = "in";
-    private static final String OP_NOT_IN = "not_in";
-    private static final String OP_CONTAINS = "contains";
-    private static final String OP_NOT_CONTAINS = "not_contains";
-    private static final String OP_IS_NULL = "is_null";
-    private static final String OP_IS_NOT_NULL = "is_not_null";
+    private static final String OP_EQ = "EQ";
+    private static final String OP_NE = "NE";
+    private static final String OP_GT = "GT";
+    private static final String OP_GE = "GE";
+    private static final String OP_LT = "LT";
+    private static final String OP_LE = "LE";
+    private static final String OP_IN = "IN";
+    private static final String OP_NOT_IN = "NOT_IN";
+    private static final String OP_CONTAINS = "CONTAINS";
+    private static final String OP_NOT_CONTAINS = "NOT_CONTAINS";
+    private static final String OP_IS_NULL = "IS_NULL";
+    private static final String OP_IS_NOT_NULL = "IS_NOT_NULL";
     private static final int MAX_FILTER_TREE_DEPTH = 5;
     private static final int MAX_FILTER_TREE_NODES = 100;
 
@@ -145,17 +145,17 @@ public class DimensionAggregationService {
             throw new IllegalArgumentException("AggregationRule.filterTree 节点数量超过上限: " + MAX_FILTER_TREE_NODES);
         }
 
-        String op = trimToNull(node.getOp());
+        String logic = trimToNull(node.getLogic());
         String field = trimToNull(node.getField());
-        if (op != null) {
+        if (logic != null) {
             if (field != null) {
-                throw new IllegalArgumentException(path + " 不能同时包含 op 和 field");
+                throw new IllegalArgumentException(path + " 不能同时包含 logic 和 field");
             }
-            String normalizedOp = op.toLowerCase();
-            if (!"and".equals(normalizedOp) && !"or".equals(normalizedOp)) {
-                throw new IllegalArgumentException(path + ".op 仅支持 and/or: " + op);
+            String normalizedLogic = logic.trim();
+            if (!"AND".equals(normalizedLogic) && !"OR".equals(normalizedLogic)) {
+                throw new IllegalArgumentException(path + ".logic 仅支持 AND/OR: " + logic);
             }
-            node.setOp(normalizedOp);
+            node.setLogic(normalizedLogic);
             List<AggregationRule.FilterExpression> children = node.getChildren();
             if (children == null || children.isEmpty()) {
                 throw new IllegalArgumentException(path + ".children 不能为空");

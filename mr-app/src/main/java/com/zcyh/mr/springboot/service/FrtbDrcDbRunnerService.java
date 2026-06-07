@@ -90,7 +90,7 @@ public class FrtbDrcDbRunnerService {
         String dataDate = requireTopLevelString(req, "data_date");
         JSONObject ruleJson = req.getJSONObject("rule");
         if (ruleJson == null) {
-            throw new IllegalArgumentException("rule 不能为空，需要包含 rule_id/rule_type/build_order/filter_tree");
+            throw new IllegalArgumentException("rule 不能为空，需要包含 rule_id/rule_type/build_order/filterTree");
         }
         AggregationRule rule = parseInlineRule(ruleJson);
         JSONObject result = calculateByRule(batchId, dataDate, rule);

@@ -1,16 +1,11 @@
 package com.zcyh.mr.springboot.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 /**
  * 批次交易过滤请求。
  */
 public class BatchTradeFilter {
-    @JsonProperty("source_type")
     private String sourceType;
-    @JsonProperty("rule_id")
     private String ruleId;
-    @JsonProperty("filter_tree")
     private AggregationRule.FilterExpression filterTree;
 
     public String getSourceType() {

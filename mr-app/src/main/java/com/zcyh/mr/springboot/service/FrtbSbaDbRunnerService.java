@@ -118,7 +118,7 @@ public class FrtbSbaDbRunnerService {
 
         JSONObject ruleJson = req.getJSONObject("rule");
         if (ruleJson == null) {
-            throw new IllegalArgumentException("rule 不能为空，需要包含 build_order/filter_tree 等");
+            throw new IllegalArgumentException("rule 不能为空，需要包含 build_order/filterTree 等");
         }
         AggregationRule rule = parseInlineRule(ruleJson);
         if (rule == null) {
@@ -274,7 +274,7 @@ public class FrtbSbaDbRunnerService {
         rule.setBuildOrder(toStringList(ruleJson.get("build_order")));
         rule.setGroupByFields(toStringList(ruleJson.get("group_by_fields")));
         rule.setSumFields(toStringList(ruleJson.get("sum_fields")));
-        rule.setFilterTree(toFilterExpression(ruleJson.get("filter_tree")));
+        rule.setFilterTree(toFilterExpression(ruleJson.get("filterTree")));
         return rule;
     }
 
@@ -327,7 +327,7 @@ public class FrtbSbaDbRunnerService {
         }
         Map<?, ?> row = (Map<?, ?>) rawExpression;
         AggregationRule.FilterExpression expression = new AggregationRule.FilterExpression();
-        expression.setOp(asTrimmedString(row.get("op")));
+        expression.setLogic(asTrimmedString(row.get("logic")));
         expression.setField(asTrimmedString(row.get("field")));
         String operator = asTrimmedString(row.get("operator"));
         expression.setOperator(operator);
@@ -348,7 +348,7 @@ public class FrtbSbaDbRunnerService {
     }
 
     /**
-     * 过滤值归一化：in/not_in 保留数组，其它操作符按单值处理。
+     * 过滤值归一化：IN/NOT_IN 保留数组，其它操作符按单值处理。
      */
     private static Object normalizeFilterValue(String operator, Object rawValue) {
         if (rawValue == null) {
@@ -356,7 +356,7 @@ public class FrtbSbaDbRunnerService {
         }
         if (rawValue instanceof List) {
             List<?> values = (List<?>) rawValue;
-            if ("in".equalsIgnoreCase(operator) || "not_in".equalsIgnoreCase(operator)) {
+            if ("IN".equals(operator) || "NOT_IN".equals(operator)) {
                 return new ArrayList<Object>(values);
             }
             for (Object item : values) {

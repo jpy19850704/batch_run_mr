@@ -35,20 +35,24 @@ public class AggregationFilterSqlBuilder {
     private static String buildExpression(AggregationRule.FilterExpression node,
                                           List<Object> params,
                                           ColumnResolver columnResolver) {
-        String op = trimToNull(node.getOp());
-        if (op != null) {
+        String logic = trimToNull(node.getLogic());
+        if (logic != null) {
+            String normalizedLogic = logic.trim();
+            if (!"AND".equals(normalizedLogic) && !"OR".equals(normalizedLogic)) {
+                throw new IllegalArgumentException("filterTree.logic 仅支持 AND/OR: " + logic);
+            }
             List<AggregationRule.FilterExpression> children = node.getChildren();
             if (children == null || children.isEmpty()) {
-                throw new IllegalArgumentException("filter_tree.children 不能为空");
+                throw new IllegalArgumentException("filterTree.children 不能为空");
             }
             List<String> parts = new ArrayList<String>();
             for (AggregationRule.FilterExpression child : children) {
                 if (child == null) {
-                    throw new IllegalArgumentException("filter_tree.children 不能包含空节点");
+                    throw new IllegalArgumentException("filterTree.children 不能包含空节点");
                 }
                 parts.add(buildExpression(child, params, columnResolver));
             }
-            String joiner = " " + op.toUpperCase() + " ";
+            String joiner = " " + normalizedLogic + " ";
             return "(" + String.join(joiner, parts) + ")";
         }
         return buildCondition(node.getField(), node.getOperator(), node.getValue(), params, columnResolver);
@@ -66,24 +70,25 @@ public class AggregationFilterSqlBuilder {
             throw new IllegalArgumentException("不支持的过滤字段或操作符: " + safeField + " / " + safeOperator);
         }
 
-        if ("=".equals(safeOperator)) {
+        String normalizedOperator = safeOperator;
+        if ("EQ".equals(normalizedOperator)) {
             params.add(value);
             return column + " = ?";
         }
-        if ("!=".equals(safeOperator)) {
+        if ("NE".equals(normalizedOperator)) {
             params.add(value);
             return column + " <> ?";
         }
-        if (">".equals(safeOperator) || ">=".equals(safeOperator)
-                || "<".equals(safeOperator) || "<=".equals(safeOperator)) {
+        if ("GT".equals(normalizedOperator) || "GE".equals(normalizedOperator)
+                || "LT".equals(normalizedOperator) || "LE".equals(normalizedOperator)) {
             params.add(value);
-            return column + " " + safeOperator + " ?";
+            return column + " " + compareSqlOperator(normalizedOperator) + " ?";
         }
-        if ("contains".equals(safeOperator) || "not_contains".equals(safeOperator)) {
+        if ("CONTAINS".equals(normalizedOperator) || "NOT_CONTAINS".equals(normalizedOperator)) {
             params.add("%" + String.valueOf(value) + "%");
-            return column + ("contains".equals(safeOperator) ? " LIKE ?" : " NOT LIKE ?");
+            return column + ("CONTAINS".equals(normalizedOperator) ? " LIKE ?" : " NOT LIKE ?");
         }
-        if ("in".equals(safeOperator) || "not_in".equals(safeOperator)) {
+        if ("IN".equals(normalizedOperator) || "NOT_IN".equals(normalizedOperator)) {
             List<Object> values = asList(value);
             if (values.isEmpty()) {
                 throw new IllegalArgumentException("过滤条件 " + safeField + " 的取值不能为空");
@@ -91,15 +96,23 @@ public class AggregationFilterSqlBuilder {
             if (values.size() > MAX_IN_VALUES) {
                 throw new IllegalArgumentException("过滤条件 " + safeField + " 的取值数量超过上限: " + MAX_IN_VALUES);
             }
-            return buildInCondition(column, "in".equals(safeOperator), values, params);
+            return buildInCondition(column, "IN".equals(normalizedOperator), values, params);
         }
-        if ("is_null".equals(safeOperator)) {
+        if ("IS_NULL".equals(normalizedOperator)) {
             return column + " IS NULL";
         }
-        if ("is_not_null".equals(safeOperator)) {
+        if ("IS_NOT_NULL".equals(normalizedOperator)) {
             return column + " IS NOT NULL";
         }
         throw new IllegalArgumentException("不支持的过滤操作符: " + safeOperator);
+    }
+
+    private static String compareSqlOperator(String operator) {
+        if ("GT".equals(operator)) return ">";
+        if ("GE".equals(operator)) return ">=";
+        if ("LT".equals(operator)) return "<";
+        if ("LE".equals(operator)) return "<=";
+        throw new IllegalArgumentException("非法比较操作符: " + operator);
     }
 
     private static String buildInCondition(String column, boolean positive, List<Object> values, List<Object> params) {

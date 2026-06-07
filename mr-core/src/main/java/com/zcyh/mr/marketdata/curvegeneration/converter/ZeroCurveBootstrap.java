@@ -44,18 +44,16 @@ public class ZeroCurveBootstrap {
             return Collections.emptyList();
         }
 
-        String calName = input.calendar != null ? input.calendar : "";
-        int dayOff = input.dayOff != null ? input.dayOff : 0;
         LocalDate dataDate = input.dataDate;
 
         // 解析输入期限点
-        List<TermData> termList = parseTermData(input.curveData, dataDate, calName, dayOff, calendar);
+        List<TermData> termList = parseTermData(input.curveData, dataDate, calendar);
 
         // 按 TERM_DAYS 排序
         termList.sort(Comparator.comparingDouble(t -> t.termDays));
 
         // 自举计算零息利率和折现因子
-        bootstrapSpotRateAndDF(termList, dataDate, calName, calendar);
+        bootstrapSpotRateAndDF(termList, dataDate, calendar);
 
         // 仅输出原始输入点
         List<TermData> originalPoints = termList.stream()
@@ -104,8 +102,7 @@ public class ZeroCurveBootstrap {
     /**
      * 解析 CURVE_DATA 中的 JSONObject 为内部 TermData 结构
      */
-    private List<TermData> parseTermData(List<JSONObject> curveData, LocalDate dataDate,
-            String calName, int dayOff, Calendar calendar) {
+    private List<TermData> parseTermData(List<JSONObject> curveData, LocalDate dataDate, Calendar calendar) {
         List<TermData> list = new ArrayList<>();
         for (JSONObject jo : curveData) {
             TermData td = new TermData();
@@ -114,32 +111,41 @@ public class ZeroCurveBootstrap {
             td.termValue = jo.getDoubleValue("TERM_VALUE");
             td.termDayCount = jo.getString("TERM_DAYCOUNT");
             td.termFrq = jo.getString("TERM_FRQ");
+            // 业务口径：CALENDAR 为空表示所有日期均为工作日。
+            td.calName = jo.getString("CALENDAR");
+            if (td.calName == null) {
+                td.calName = "";
+            }
+            // 业务口径：DAY_OFF 为空表示 0。
+            td.dayOff = jo.getInteger("DAY_OFF") == null ? 0 : jo.getInteger("DAY_OFF");
             td.isOriginal = true;
 
             // 解析远期起始期限，默认为 0（即期）
             String startTerm = jo.getString("START_TERM");
             td.startTerm = startTerm;
 
+            LocalDate effectiveDate = calendar.addBusinessDays(td.calName, dataDate, td.dayOff);
             if (startTerm != null && !startTerm.isEmpty()) {
-                // 远期起始：起始日 = dataDate + START_TERM，结束日 = 起始日 + TERM_CODE
-                LocalDate startDate = calendar.resolveTermDate(calName, dataDate, startTerm);
-                LocalDate endDate = calendar.resolveTermDate(calName, startDate, td.termCode);
+                // 远期起始：起始日 = effectiveDate + START_TERM，结束日 = 起始日 + TERM_CODE
+                LocalDate startDate = calendar.resolveTermDate(td.calName, effectiveDate, startTerm);
+                LocalDate endDate = calendar.resolveTermDate(td.calName, startDate, td.termCode);
                 td.startDate = startDate;
                 td.adjustDate = endDate;
                 td.startDays = ChronoUnit.DAYS.between(dataDate, startDate);
                 td.termDays = ChronoUnit.DAYS.between(dataDate, endDate);
+                td.isForwardStart = true;
             } else {
-                // 即期：从 dataDate 算起
-                LocalDate adjustDate = calendar.resolveTermDate(calName, dataDate, td.termCode);
-                td.startDate = dataDate;
+                // 即期：从 effectiveDate 算起
+                LocalDate adjustDate = calendar.resolveTermDate(td.calName, effectiveDate, td.termCode);
+                td.startDate = effectiveDate;
                 td.adjustDate = adjustDate;
-                td.startDays = 0;
+                td.startDays = ChronoUnit.DAYS.between(dataDate, effectiveDate);
                 td.termDays = ChronoUnit.DAYS.between(dataDate, adjustDate);
             }
 
             // 使用各点自身的 daycount 计算时间因子
             String dcb = td.termDayCount != null ? td.termDayCount : "actual/365";
-            td.timeFactor = CurveFunc.timeFactor(dataDate, td.adjustDate, dcb);
+            td.timeFactor = CurveFunc.timeFactor(td.startDate, td.adjustDate, dcb);
             td.yieldRate = td.termValue;
             td.yieldRateWeighted = td.timeFactor * td.termValue;
 
@@ -266,22 +272,20 @@ public class ZeroCurveBootstrap {
      * 自举计算零息利率和折现因子
      * 处理顺序：ZERO即期 → ZERO远期 → SWAP
      */
-    private void bootstrapSpotRateAndDF(List<TermData> termList, LocalDate dataDate,
-            String calName, Calendar calendar) {
+    private void bootstrapSpotRateAndDF(List<TermData> termList, LocalDate dataDate, Calendar calendar) {
         // 第一轮：处理 ZERO 即期点（startDays == 0）
         for (TermData td : termList) {
             double termYear = td.termDays / 365.0;
-            if (termYear > 0 && td.startDays == 0 && !"SWAP".equals(td.termType)) {
-                td.spotRate = Math.log(1 + td.timeFactor * td.yieldRate) / termYear;
-                td.discountFactor = Math.exp(-td.spotRate * termYear);
+            if (termYear > 0 && !td.isForwardStart && !"SWAP".equals(td.termType)) {
+                calcSpotZeroPoint(td, termList);
             }
         }
 
         // 第二轮：处理 ZERO 远期点（startDays > 0），此时所有即期点的 DF 已可用
         for (TermData td : termList) {
             double termYear = td.termDays / 365.0;
-            if (termYear > 0 && td.startDays > 0 && "ZERO".equals(td.termType)) {
-                calcForwardZeroPoint(td, termList);
+            if (termYear > 0 && td.isForwardStart && "ZERO".equals(td.termType)) {
+                calcForwardZeroPoint(td, termList, dataDate);
             }
         }
 
@@ -291,31 +295,35 @@ public class ZeroCurveBootstrap {
                 .sorted(Comparator.comparingLong(t -> t.termDays))
                 .collect(Collectors.toList());
         for (TermData swap : swapPillars) {
-            bootstrapSwapPillar(swap, termList, dataDate, calName, calendar);
+            bootstrapSwapPillar(swap, termList, dataDate, calendar);
         }
+    }
+
+    /**
+     * 处理即期 ZERO 点。
+     */
+    private void calcSpotZeroPoint(TermData td, List<TermData> termList) {
+        double termYear = td.termDays / 365.0;
+        double dfStart = td.startDays <= 0 ? 1.0 : interpolateDF(termList, td.startDays);
+        td.discountFactor = dfStart / (1.0 + td.timeFactor * td.yieldRate);
+        td.spotRate = -Math.log(td.discountFactor) / termYear;
     }
 
     /**
      * 对单个 SWAP pillar 做自举：
      * 按 TERM_FRQ 生成票息现金流日期表，求解满足平价方程的 DF(0,Tn)。
      */
-    private void bootstrapSwapPillar(TermData swap, List<TermData> termList, LocalDate dataDate,
-            String calName, Calendar calendar) {
+    private void bootstrapSwapPillar(TermData swap, List<TermData> termList, LocalDate dataDate, Calendar calendar) {
         if (swap.adjustDate == null || swap.termDays <= 0) {
             return;
         }
 
         if (swap.termFrq == null || swap.termFrq.isEmpty()) {
-            // 无票息频率时退化为单点 ZERO 近似
-            double termYear = swap.termDays / 365.0;
-            if (termYear > 0) {
-                swap.spotRate = Math.log(1 + swap.timeFactor * swap.yieldRate) / termYear;
-                swap.discountFactor = Math.exp(-swap.spotRate * termYear);
-            }
-            return;
+            throw new IllegalArgumentException("SWAP 期限点缺少 TERM_FRQ, TERM_CODE=" + swap.termCode);
         }
 
-        List<LocalDate> payDates = buildSwapPaymentDates(dataDate, swap.adjustDate, swap.termFrq, calName, calendar);
+        List<LocalDate> payDates = buildSwapPaymentDates(swap.startDate, swap.adjustDate,
+                swap.termFrq, swap.calName, calendar);
         if (payDates.isEmpty()) {
             return;
         }
@@ -327,6 +335,8 @@ public class ZeroCurveBootstrap {
                 swap.termDayCount != null ? swap.termDayCount : "actual/365",
                 payDates,
                 dataDate,
+                swap.startDate,
+                swap.startDays,
                 maturityDays,
                 anchor,
                 termList);
@@ -341,11 +351,11 @@ public class ZeroCurveBootstrap {
     /**
      * 构建固定端票息日期（含到期日）。
      */
-    private List<LocalDate> buildSwapPaymentDates(LocalDate dataDate, LocalDate maturityDate,
+    private List<LocalDate> buildSwapPaymentDates(LocalDate effectiveDate, LocalDate maturityDate,
             String termFrq, String calName, Calendar calendar) {
         List<LocalDate> dates = new ArrayList<>();
-        LocalDate next = calendar.resolveTermDate(calName, dataDate, termFrq);
-        if (!next.isAfter(dataDate)) {
+        LocalDate next = calendar.resolveTermDate(calName, effectiveDate, termFrq);
+        if (!next.isAfter(effectiveDate)) {
             dates.add(maturityDate);
             return dates;
         }
@@ -390,28 +400,32 @@ public class ZeroCurveBootstrap {
      * 区间(anchor,T)内用 log-DF 线性插值（等价分段常数远期）。
      */
     private double solveSwapMaturityDf(double fixedRate, String dayCount, List<LocalDate> payDates,
-            LocalDate dataDate, long maturityDays, KnownDfAnchor anchor, List<TermData> termList) {
+            LocalDate dataDate, LocalDate effectiveDate, long effectiveDays, long maturityDays,
+            KnownDfAnchor anchor, List<TermData> termList) {
 
         double low = 1e-10;
         double high = Math.max(2.0, anchor.df * 2.0);
-        double fLow = swapEquation(low, fixedRate, dayCount, payDates, dataDate, maturityDays, anchor, termList);
-        double fHigh = swapEquation(high, fixedRate, dayCount, payDates, dataDate, maturityDays, anchor, termList);
+        double fLow = swapEquation(low, fixedRate, dayCount, payDates, dataDate, effectiveDate,
+                effectiveDays, maturityDays, anchor, termList);
+        double fHigh = swapEquation(high, fixedRate, dayCount, payDates, dataDate, effectiveDate,
+                effectiveDays, maturityDays, anchor, termList);
 
         int expand = 0;
         while (fLow * fHigh > 0 && expand < 40) {
             high *= 2.0;
-            fHigh = swapEquation(high, fixedRate, dayCount, payDates, dataDate, maturityDays, anchor, termList);
+            fHigh = swapEquation(high, fixedRate, dayCount, payDates, dataDate, effectiveDate,
+                    effectiveDays, maturityDays, anchor, termList);
             expand++;
         }
 
-        // 极端输入下无根时，返回与锚点一致的保守值，避免数值爆炸
         if (fLow * fHigh > 0) {
-            return Math.max(low, anchor.df);
+            throw new IllegalArgumentException("SWAP 方程无有效根, maturityDays=" + maturityDays);
         }
 
         for (int i = 0; i < 120; i++) {
             double mid = 0.5 * (low + high);
-            double fMid = swapEquation(mid, fixedRate, dayCount, payDates, dataDate, maturityDays, anchor, termList);
+            double fMid = swapEquation(mid, fixedRate, dayCount, payDates, dataDate, effectiveDate,
+                    effectiveDays, maturityDays, anchor, termList);
             if (Math.abs(fMid) < 1e-13) {
                 return mid;
             }
@@ -430,8 +444,9 @@ public class ZeroCurveBootstrap {
      * SWAP 平价方程值。
      */
     private double swapEquation(double dfMaturity, double fixedRate, String dayCount, List<LocalDate> payDates,
-            LocalDate dataDate, long maturityDays, KnownDfAnchor anchor, List<TermData> termList) {
-        LocalDate prevDate = dataDate;
+            LocalDate dataDate, LocalDate effectiveDate, long effectiveDays, long maturityDays,
+            KnownDfAnchor anchor, List<TermData> termList) {
+        LocalDate prevDate = effectiveDate;
         double couponPvSum = 0.0;
 
         for (LocalDate payDate : payDates) {
@@ -446,7 +461,10 @@ public class ZeroCurveBootstrap {
             couponPvSum += alpha * df;
             prevDate = payDate;
         }
-        return fixedRate * couponPvSum + dfMaturity - 1.0;
+        double dfEffective = effectiveDays <= 0
+                ? 1.0
+                : interpolateDfForSwapSolve(effectiveDays, maturityDays, anchor, dfMaturity, termList);
+        return fixedRate * couponPvSum + dfMaturity - dfEffective;
     }
 
     /**
@@ -480,28 +498,17 @@ public class ZeroCurveBootstrap {
      * @param td       远期利率点（startDays > 0）
      * @param termList 全部期限点（用于插值查找 DF(0,T1)）
      */
-    private void calcForwardZeroPoint(TermData td, List<TermData> termList) {
+    private void calcForwardZeroPoint(TermData td, List<TermData> termList, LocalDate dataDate) {
         double termYear = td.termDays / 365.0;
 
-        // 检查是否有即期点覆盖 T1
-        boolean hasSpotCoverage = hasSpotPointCoverage(termList, td.startDays);
-
-        if (!hasSpotCoverage) {
-            // 无即期点覆盖远期起始日，直接将远期利率当即期利率
-            td.spotRate = Math.log(1 + td.timeFactor * td.termValue) / termYear;
-            td.discountFactor = Math.exp(-td.spotRate * termYear);
+        Double dfStart = interpolateDFOrNull(termList, td.startDays);
+        if (dfStart == null) {
+            calcForwardZeroAsFirstZero(td, dataDate);
             return;
         }
 
-        // 有即期点覆盖：通过 DF(0,T1) 推导
-        double dfStart = interpolateDF(termList, td.startDays);
-
-        // 计算 T1→T2 的时间因子
-        String dcb = td.termDayCount != null ? td.termDayCount : "actual/365";
-        double fwdTimeFactor = CurveFunc.timeFactor(td.startDate, td.adjustDate, dcb);
-
         // DF(T1,T2) = 1 / (1 + fwdRate × dcf)
-        double dfFwd = 1.0 / (1.0 + td.termValue * fwdTimeFactor);
+        double dfFwd = 1.0 / (1.0 + td.termValue * td.timeFactor);
 
         // DF(0,T2) = DF(0,T1) × DF(T1,T2)
         td.discountFactor = dfStart * dfFwd;
@@ -511,16 +518,14 @@ public class ZeroCurveBootstrap {
     }
 
     /**
-     * 检查在 targetDays 及其之前是否存在已计算的折现因子点
-     * 确保 interpolateDF 在 targetDays 处至多做短距离外推
+     * 将远期 ZERO 作为当前曲线第一段 ZERO 处理。
      */
-    private boolean hasSpotPointCoverage(List<TermData> termList, long targetDays) {
-        for (TermData td : termList) {
-            if (td.discountFactor > 0 && td.termDays > 0 && td.termDays <= targetDays) {
-                return true;
-            }
-        }
-        return false;
+    private void calcForwardZeroAsFirstZero(TermData td, LocalDate dataDate) {
+        double termYear = td.termDays / 365.0;
+        String dcb = td.termDayCount != null ? td.termDayCount : "actual/365";
+        double wholeTimeFactor = CurveFunc.timeFactor(dataDate, td.adjustDate, dcb);
+        td.discountFactor = 1.0 / (1.0 + td.termValue * wholeTimeFactor);
+        td.spotRate = -Math.log(td.discountFactor) / termYear;
     }
 
     /**
@@ -528,6 +533,21 @@ public class ZeroCurveBootstrap {
      * 包括即期点和已处理的远期点
      */
     private double interpolateDF(List<TermData> termList, long targetDays) {
+        Double df = interpolateDFOrNull(termList, targetDays);
+        if (df == null) {
+            throw new IllegalArgumentException("缺少可插值的已知 DF 点, targetDays=" + targetDays);
+        }
+        return df;
+    }
+
+    /**
+     * 从当前曲线已计算结果中插值获取折现因子，无法取得时返回 null。
+     */
+    private Double interpolateDFOrNull(List<TermData> termList, long targetDays) {
+        if (targetDays <= 0) {
+            return 1.0;
+        }
+
         // 精确匹配
         for (TermData td : termList) {
             if (td.termDays == targetDays && td.discountFactor > 0) {
@@ -551,19 +571,16 @@ public class ZeroCurveBootstrap {
         }
 
         if (lower == null && upper == null) {
-            return 1.0;
+            return null;
         }
         if (lower == null) {
             return Interpolation.logInterpolation(
-                    new Double[] { (double) upper.termDays },
-                    new Double[] { upper.discountFactor },
+                    new Double[] { 0.0, (double) upper.termDays },
+                    new Double[] { 1.0, upper.discountFactor },
                     (double) targetDays);
         }
         if (upper == null) {
-            return Interpolation.logInterpolation(
-                    new Double[] { (double) lower.termDays },
-                    new Double[] { lower.discountFactor },
-                    (double) targetDays);
+            return null;
         }
         if (lower.termDays == upper.termDays) {
             return lower.discountFactor;
@@ -728,6 +745,8 @@ public class ZeroCurveBootstrap {
         double termValue;
         String termDayCount;
         String termFrq;
+        String calName;
+        int dayOff;
         String startTerm; // 远期起始期限代码，null 或空表示即期
         LocalDate startDate; // 远期起始日
         LocalDate adjustDate; // 结束日
@@ -739,6 +758,7 @@ public class ZeroCurveBootstrap {
         double interval;
         double spotRate;
         double discountFactor;
+        boolean isForwardStart;
         boolean isOriginal;
     }
 }

@@ -45,14 +45,14 @@ public class TradeFilterResolver {
             "PORTFOLIO_CODE_7"
     ));
     private static final Set<String> SUPPORTED_OPERATORS = new HashSet<String>(Arrays.asList(
-            "=",
-            "!=",
-            "in",
-            "not_in",
-            "contains",
-            "not_contains",
-            "is_null",
-            "is_not_null"
+            "EQ",
+            "NE",
+            "IN",
+            "NOT_IN",
+            "CONTAINS",
+            "NOT_CONTAINS",
+            "IS_NULL",
+            "IS_NOT_NULL"
     ));
 
     private final JdbcTemplate engineDbJdbcTemplate;
@@ -67,31 +67,30 @@ public class TradeFilterResolver {
         }
         String sourceType = trimToNull(filter.getSourceType());
         if (sourceType == null) {
-            throw new IllegalArgumentException("trade_filter.source_type 不能为空");
+            throw new IllegalArgumentException("tradeFilter.sourceType 不能为空");
         }
-        sourceType = sourceType.toUpperCase(Locale.ROOT);
         AggregationRule.FilterExpression filterTree;
         if (SOURCE_TYPE_INLINE.equals(sourceType)) {
             if (trimToNull(filter.getRuleId()) != null) {
-                throw new IllegalArgumentException("trade_filter.source_type=INLINE 时不能传 rule_id");
+                throw new IllegalArgumentException("tradeFilter.sourceType=INLINE 时不能传 ruleId");
             }
             filterTree = filter.getFilterTree();
             if (filterTree == null) {
-                throw new IllegalArgumentException("trade_filter.source_type=INLINE 时 filter_tree 不能为空");
+                throw new IllegalArgumentException("tradeFilter.sourceType=INLINE 时 filterTree 不能为空");
             }
         } else if (SOURCE_TYPE_RULE.equals(sourceType)) {
             if (filter.getFilterTree() != null) {
-                throw new IllegalArgumentException("trade_filter.source_type=RULE 时不能传 filter_tree");
+                throw new IllegalArgumentException("tradeFilter.sourceType=RULE 时不能传 filterTree");
             }
             String ruleId = trimToNull(filter.getRuleId());
             if (ruleId == null) {
-                throw new IllegalArgumentException("trade_filter.source_type=RULE 时 rule_id 不能为空");
+                throw new IllegalArgumentException("tradeFilter.sourceType=RULE 时 ruleId 不能为空");
             }
             filterTree = loadRuleFilterTree(ruleId);
         } else {
-            throw new IllegalArgumentException("trade_filter.source_type 仅支持 INLINE/RULE: " + filter.getSourceType());
+            throw new IllegalArgumentException("tradeFilter.sourceType 仅支持 INLINE/RULE: " + filter.getSourceType());
         }
-        validateFilterExpression(filterTree, "trade_filter.filter_tree", 1, new int[]{0});
+        validateFilterExpression(filterTree, "tradeFilter.filterTree", 1, new int[]{0});
         return filterTree;
     }
 
@@ -109,15 +108,15 @@ public class TradeFilterResolver {
                 throw new IllegalArgumentException("TRADE 交易过滤规则内容为空: " + ruleId);
             }
             JSONObject ruleObject = JSON.parseObject(ruleJson);
-            Object filterTreeValue = ruleObject == null ? null : ruleObject.get("filter_tree");
+            Object filterTreeValue = ruleObject == null ? null : ruleObject.get("filterTree");
             if (filterTreeValue == null) {
-                throw new IllegalArgumentException("TRADE 交易过滤规则缺少 filter_tree: " + ruleId);
+                throw new IllegalArgumentException("TRADE 交易过滤规则缺少 filterTree: " + ruleId);
             }
             AggregationRule.FilterExpression filterTree = JSON.parseObject(
                     JSON.toJSONString(filterTreeValue),
                     AggregationRule.FilterExpression.class);
             if (filterTree == null) {
-                throw new IllegalArgumentException("TRADE 交易过滤规则 filter_tree 解析失败: " + ruleId);
+                throw new IllegalArgumentException("TRADE 交易过滤规则 filterTree 解析失败: " + ruleId);
             }
             return filterTree;
         } catch (DataAccessException ex) {
@@ -138,20 +137,20 @@ public class TradeFilterResolver {
         }
         nodeCount[0]++;
         if (nodeCount[0] > MAX_FILTER_TREE_NODES) {
-            throw new IllegalArgumentException("trade_filter.filter_tree 节点数量超过上限: " + MAX_FILTER_TREE_NODES);
+            throw new IllegalArgumentException("tradeFilter.filterTree 节点数量超过上限: " + MAX_FILTER_TREE_NODES);
         }
 
-        String op = trimToNull(node.getOp());
+        String logic = trimToNull(node.getLogic());
         String field = trimToNull(node.getField());
-        if (op != null) {
+        if (logic != null) {
             if (field != null) {
-                throw new IllegalArgumentException(path + " 不能同时包含 op 和 field");
+                throw new IllegalArgumentException(path + " 不能同时包含 logic 和 field");
             }
-            String normalizedOp = op.toLowerCase(Locale.ROOT);
-            if (!"and".equals(normalizedOp) && !"or".equals(normalizedOp)) {
-                throw new IllegalArgumentException(path + ".op 仅支持 and/or: " + op);
+            String normalizedLogic = logic.trim();
+            if (!"AND".equals(normalizedLogic) && !"OR".equals(normalizedLogic)) {
+                throw new IllegalArgumentException(path + ".logic 仅支持 AND/OR: " + logic);
             }
-            node.setOp(normalizedOp);
+            node.setLogic(normalizedLogic);
             List<AggregationRule.FilterExpression> children = node.getChildren();
             if (children == null || children.isEmpty()) {
                 throw new IllegalArgumentException(path + ".children 不能为空");
@@ -185,7 +184,7 @@ public class TradeFilterResolver {
     private static void validateFilterValue(AggregationRule.FilterExpression node, String path) {
         String operator = node.getOperator();
         Object value = node.getValue();
-        if ("is_null".equals(operator) || "is_not_null".equals(operator)) {
+        if ("IS_NULL".equals(operator) || "IS_NOT_NULL".equals(operator)) {
             if (!isEmptyValue(value)) {
                 throw new IllegalArgumentException(path + "." + operator + " 不需要 value");
             }
@@ -195,10 +194,10 @@ public class TradeFilterResolver {
         if (values.isEmpty()) {
             throw new IllegalArgumentException(path + ".value 不能为空");
         }
-        if (("in".equals(operator) || "not_in".equals(operator)) && values.size() > MAX_IN_VALUES) {
+        if (("IN".equals(operator) || "NOT_IN".equals(operator)) && values.size() > MAX_IN_VALUES) {
             throw new IllegalArgumentException(path + ".value 数量超过上限: " + MAX_IN_VALUES);
         }
-        if (!"in".equals(operator) && !"not_in".equals(operator) && values.size() != 1) {
+        if (!"IN".equals(operator) && !"NOT_IN".equals(operator) && values.size() != 1) {
             throw new IllegalArgumentException(path + ".value 只能包含一个值");
         }
         for (Object item : values) {
@@ -213,11 +212,7 @@ public class TradeFilterResolver {
         if (safe == null) {
             return null;
         }
-        if ("=".equals(safe) || "!=".equals(safe)) {
-            return safe;
-        }
-        String lower = safe.toLowerCase(Locale.ROOT);
-        return SUPPORTED_OPERATORS.contains(lower) ? lower : null;
+        return SUPPORTED_OPERATORS.contains(safe) ? safe : null;
     }
 
     private static boolean isEmptyValue(Object value) {

@@ -20,6 +20,9 @@ final public class Constants {
         // 通用 MC 承接产品
         public final static String AUTO_CALL = "AUTO_CALL";
 
+        // 组合产品
+        public final static String COMPOSITE = "COMPOSITE";
+
         // 外汇相关产品
         public final static String FXFWD = "FXFWD";
         public final static String FXSWAP = "FXSWAP";

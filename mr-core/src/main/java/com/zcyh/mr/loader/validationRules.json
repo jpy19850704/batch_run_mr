@@ -53,6 +53,11 @@
             "WILLOW_VOLATILITY": "number"
         }
     },
+    "COMPOSITE": {
+        "TRADE": {
+            "COMPONENTS": "array"
+        }
+    },
     "BOND_FUTURE": {
         "TRADE": {
             "MATURITY_DATE": "date",

@@ -813,7 +813,7 @@ public class VarDbRunnerService {
         rule.setBuildOrder(buildOrder);
         rule.setGroupByFields(readStringList(ruleJson, "group_by_fields"));
         rule.setSumFields(readStringList(ruleJson, "sum_fields"));
-        rule.setFilterTree(toFilterExpression(ruleJson.get("filter_tree")));
+        rule.setFilterTree(toFilterExpression(ruleJson.get("filterTree")));
         applyVarRuleDefaults(rule);
         dimensionAggregationService.validateRule(rule);
 
@@ -881,7 +881,7 @@ public class VarDbRunnerService {
         }
         Map<?, ?> row = (Map<?, ?>) rawExpression;
         AggregationRule.FilterExpression expression = new AggregationRule.FilterExpression();
-        expression.setOp(asTrimmedString(row.get("op")));
+        expression.setLogic(asTrimmedString(row.get("logic")));
         expression.setField(asTrimmedString(row.get("field")));
         String operator = asTrimmedString(row.get("operator"));
         expression.setOperator(operator);
@@ -902,7 +902,7 @@ public class VarDbRunnerService {
     }
 
     /**
-     * 过滤值归一化：in/not_in 保留数组，其它操作符按单值处理。
+     * 过滤值归一化：IN/NOT_IN 保留数组，其它操作符按单值处理。
      */
     private static Object normalizeFilterValue(String operator, Object rawValue) {
         if (rawValue == null) {
@@ -910,7 +910,7 @@ public class VarDbRunnerService {
         }
         if (rawValue instanceof List) {
             List<?> values = (List<?>) rawValue;
-            if ("in".equalsIgnoreCase(operator) || "not_in".equalsIgnoreCase(operator)) {
+            if ("IN".equals(operator) || "NOT_IN".equals(operator)) {
                 return new ArrayList<Object>(values);
             }
             for (Object item : values) {

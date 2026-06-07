@@ -112,12 +112,12 @@ public class MrEngineController {
         if (varDetailCacheService == null) {
             return ApiResponse.fail("CACHE_DISABLED", "VaR 维度缓存服务未启用");
         }
-        String requestId = readRequiredField(request, "request_id", "requestId");
+        String requestId = readRequiredField(request, "request_id");
         String quantile = readRequiredField(request, "quantile");
-        String ruleId = readRequiredField(request, "rule_id", "ruleId");
-        String scenarioId = readRequiredField(request, "scenario_id", "scenarioId");
-        String groupType = readRequiredField(request, "group_type", "groupType");
-        String groupValue = readRequiredField(request, "group_value", "groupValue");
+        String ruleId = readRequiredField(request, "rule_id");
+        String scenarioId = readRequiredField(request, "scenario_id");
+        String groupType = readRequiredField(request, "group_type");
+        String groupValue = readRequiredField(request, "group_value");
 
         JSONObject detail;
         try {
@@ -146,10 +146,10 @@ public class MrEngineController {
         if (scenarioResultCacheService == null) {
             return ApiResponse.fail("CACHE_DISABLED", "Scenario Redis 缓存服务未启用");
         }
-        String runId = readRequiredField(request, "run_id", "runId");
-        String scenarioId = readOptionalField(request, "scenario_id", "scenarioId");
-        String subScenarioId = readOptionalField(request, "sub_scenario_id", "subScenarioId");
-        String curveType = readOptionalField(request, "curve_type", "curveType");
+        String runId = readRequiredField(request, "run_id");
+        String scenarioId = readOptionalField(request, "scenario_id");
+        String subScenarioId = readOptionalField(request, "sub_scenario_id");
+        String curveType = readOptionalField(request, "curve_type");
 
         try {
             return ApiResponse.ok(scenarioResultCacheService.listDimensions(runId, scenarioId, subScenarioId, curveType));
@@ -169,11 +169,11 @@ public class MrEngineController {
         if (scenarioResultCacheService == null) {
             return ApiResponse.fail("CACHE_DISABLED", "Scenario Redis 缓存服务未启用");
         }
-        String runId = readRequiredField(request, "run_id", "runId");
-        String scenarioId = readRequiredField(request, "scenario_id", "scenarioId");
-        String subScenarioId = readRequiredField(request, "sub_scenario_id", "subScenarioId");
-        String curveType = readRequiredField(request, "curve_type", "curveType");
-        String curveId = readRequiredField(request, "curve_id", "curveId");
+        String runId = readRequiredField(request, "run_id");
+        String scenarioId = readRequiredField(request, "scenario_id");
+        String subScenarioId = readRequiredField(request, "sub_scenario_id");
+        String curveType = readRequiredField(request, "curve_type");
+        String curveId = readRequiredField(request, "curve_id");
 
         try {
             JSONObject detail = scenarioResultCacheService.getDetail(runId, scenarioId, subScenarioId, curveType, curveId);
