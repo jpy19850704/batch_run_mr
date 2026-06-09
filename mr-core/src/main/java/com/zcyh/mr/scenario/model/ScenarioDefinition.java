@@ -10,6 +10,7 @@ public class ScenarioDefinition {
     private String scenarioId;
     private String scenarioName;
     private String scenarioType;
+    private Boolean reducedSetFlag;
     private String curveType;
     private String curveCode;
     private String riskGroupId;
@@ -47,6 +48,14 @@ public class ScenarioDefinition {
 
     public void setScenarioType(String scenarioType) {
         this.scenarioType = scenarioType;
+    }
+
+    public Boolean getReducedSetFlag() {
+        return reducedSetFlag;
+    }
+
+    public void setReducedSetFlag(Boolean reducedSetFlag) {
+        this.reducedSetFlag = reducedSetFlag;
     }
 
     public String getCurveType() {

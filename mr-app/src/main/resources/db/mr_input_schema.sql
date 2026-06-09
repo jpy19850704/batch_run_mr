@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS MR_SCENARIO_RULE (
     line_no INT NOT NULL,
     scenario_name VARCHAR(256) NOT NULL,
     scenario_type VARCHAR(32) NOT NULL,
+    reduced_set_flag TINYINT NOT NULL DEFAULT 0,
     curve_type VARCHAR(64),
     curve_code VARCHAR(128),
     riskgroup_id VARCHAR(128),
@@ -120,6 +121,7 @@ SELECT
     scenario_id,
     scenario_name,
     scenario_type,
+    reduced_set_flag,
     curve_type,
     curve_code,
     riskgroup_id,
@@ -135,6 +137,37 @@ SELECT
     holiday_calendar
 FROM MR_SCENARIO_RULE
 WHERE status = 'ACTIVE';
+
+CREATE TABLE IF NOT EXISTS MR_IMA_RFET_RESULT_SNAPSHOT (
+    batch_id VARCHAR(128) NOT NULL,
+    data_date DATE NOT NULL,
+    rfet_data_date DATE NOT NULL,
+    update_time TIMESTAMP NOT NULL,
+    curve_code VARCHAR(128) NOT NULL,
+    curve_type VARCHAR(64) NOT NULL,
+    group_id VARCHAR(128) NOT NULL,
+    group_type VARCHAR(64) NOT NULL,
+    bucket_id VARCHAR(256) NOT NULL,
+    tenor_bucket_row VARCHAR(8) NOT NULL,
+    delta_bucket_flag TINYINT NOT NULL DEFAULT 0,
+    tenor_min INT NOT NULL,
+    tenor_max INT NOT NULL,
+    delta_min DECIMAL(18,10),
+    delta_max DECIMAL(18,10),
+    modellable TINYINT NOT NULL DEFAULT 0,
+    reduced_set TINYINT NOT NULL DEFAULT 0,
+    passed_via_own_bucket TINYINT NOT NULL DEFAULT 0,
+    observation_count INT NOT NULL DEFAULT 0,
+    min_observations_in_any_period INT NOT NULL DEFAULT -1,
+    reason VARCHAR(1024),
+    CONSTRAINT pk_MR_IMA_RFET_RESULT_SNAPSHOT PRIMARY KEY (batch_id, curve_code, group_id, group_type, bucket_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_MR_IMA_RFET_RESULT_SNAPSHOT_date
+    ON MR_IMA_RFET_RESULT_SNAPSHOT (data_date, rfet_data_date);
+
+CREATE INDEX IF NOT EXISTS idx_MR_IMA_RFET_RESULT_SNAPSHOT_curve
+    ON MR_IMA_RFET_RESULT_SNAPSHOT (batch_id, curve_type, curve_code);
 
 DROP VIEW IF EXISTS V_CALENDAR;
 CREATE VIEW V_CALENDAR AS

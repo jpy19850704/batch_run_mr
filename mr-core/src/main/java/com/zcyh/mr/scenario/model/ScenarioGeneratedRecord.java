@@ -11,6 +11,7 @@ public class ScenarioGeneratedRecord {
     private String subScenarioId;
     private String scenarioName;
     private String scenarioType;
+    private Boolean reducedSetFlag;
     private String riskGroupId;
     private String curveType;
     private String curveCode;
@@ -22,6 +23,9 @@ public class ScenarioGeneratedRecord {
     private BigDecimal changedValue;
     private BigDecimal shiftValue;
     private String shiftRule;
+    private String rfetBucketId;
+    private Boolean rfetModellable;
+    private Boolean rfetReducedSet;
     private String modifier;
 
     public String getScenarioId() {
@@ -54,6 +58,14 @@ public class ScenarioGeneratedRecord {
 
     public void setScenarioType(String scenarioType) {
         this.scenarioType = scenarioType;
+    }
+
+    public Boolean getReducedSetFlag() {
+        return reducedSetFlag;
+    }
+
+    public void setReducedSetFlag(Boolean reducedSetFlag) {
+        this.reducedSetFlag = reducedSetFlag;
     }
 
     public String getRiskGroupId() {
@@ -142,6 +154,30 @@ public class ScenarioGeneratedRecord {
 
     public void setShiftRule(String shiftRule) {
         this.shiftRule = shiftRule;
+    }
+
+    public String getRfetBucketId() {
+        return rfetBucketId;
+    }
+
+    public void setRfetBucketId(String rfetBucketId) {
+        this.rfetBucketId = rfetBucketId;
+    }
+
+    public Boolean getRfetModellable() {
+        return rfetModellable;
+    }
+
+    public void setRfetModellable(Boolean rfetModellable) {
+        this.rfetModellable = rfetModellable;
+    }
+
+    public Boolean getRfetReducedSet() {
+        return rfetReducedSet;
+    }
+
+    public void setRfetReducedSet(Boolean rfetReducedSet) {
+        this.rfetReducedSet = rfetReducedSet;
     }
 
     public String getModifier() {

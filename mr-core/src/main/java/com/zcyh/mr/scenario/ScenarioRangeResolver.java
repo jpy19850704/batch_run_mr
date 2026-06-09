@@ -42,10 +42,13 @@ public class ScenarioRangeResolver {
 
         switch (scenarioType) {
             case "VAR":
+            case "IMA_NORMAL":
                 return calculateVarRange(definition, valuationDate);
             case "BACKTEST":
                 return calculateBacktestRange(definition, valuationDate);
             case "SVAR":
+            case "IMA_STRESS":
+            case "IMA_NMRF":
                 return calculateSvarRange(definition, valuationDate);
             case "MC":
                 return calculateMcRange(definition, valuationDate);
@@ -64,6 +67,9 @@ public class ScenarioRangeResolver {
                 || "VAR".equals(normalized)
                 || "BACKTEST".equals(normalized)
                 || "SVAR".equals(normalized)
+                || "IMA_NORMAL".equals(normalized)
+                || "IMA_STRESS".equals(normalized)
+                || "IMA_NMRF".equals(normalized)
                 || "MC".equals(normalized);
     }
 

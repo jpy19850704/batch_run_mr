@@ -117,6 +117,9 @@ public class ScenarioRequestAssembler {
             case "VAR":
             case "BACKTEST":
             case "SVAR":
+            case "IMA_NORMAL":
+            case "IMA_STRESS":
+            case "IMA_NMRF":
                 return emptyIfNull(scenarioMapper.selectHistoryScenarioMpByScenarioIdList(scenarioId));
             case "CUSTOM":
             case "KEY_RATE":
@@ -136,6 +139,7 @@ public class ScenarioRequestAssembler {
             definition.setScenarioName(toStringValue(row.get("SCENARIO_NAME")));
             String resolvedScenarioType = firstNonBlank(row.get("SCENARIO_TYPE"), scenarioType);
             definition.setScenarioType(resolvedScenarioType);
+            definition.setReducedSetFlag(toBoolean(row.get("REDUCED_SET_FLAG")));
             definition.setCurveType(toStringValue(row.get("CURVE_TYPE")));
             definition.setCurveCode(toStringValue(row.get("CURVE_CODE")));
             definition.setRiskGroupId(toStringValue(row.get("RISKGROUP_ID")));
@@ -272,6 +276,7 @@ public class ScenarioRequestAssembler {
         copied.setScenarioId(source.getScenarioId());
         copied.setScenarioName(source.getScenarioName());
         copied.setScenarioType(source.getScenarioType());
+        copied.setReducedSetFlag(source.getReducedSetFlag());
         copied.setCurveType(source.getCurveType());
         copied.setCurveCode(source.getCurveCode());
         copied.setRiskGroupId(source.getRiskGroupId());
@@ -351,6 +356,20 @@ public class ScenarioRequestAssembler {
         }
     }
 
+    private Boolean toBoolean(Object value) {
+        if (value == null) {
+            return Boolean.FALSE;
+        }
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue() != 0;
+        }
+        String text = value.toString().trim();
+        return "1".equals(text) || "true".equalsIgnoreCase(text) || "y".equalsIgnoreCase(text);
+    }
+
     private LocalDate toLocalDate(Object value) {
         if (value == null) {
             return null;
@@ -406,7 +425,10 @@ public class ScenarioRequestAssembler {
         if ("HISTORY".equals(normalized)
                 || "VAR".equals(normalized)
                 || "SVAR".equals(normalized)
-                || "BACKTEST".equals(normalized)) {
+                || "BACKTEST".equals(normalized)
+                || "IMA_NORMAL".equals(normalized)
+                || "IMA_STRESS".equals(normalized)
+                || "IMA_NMRF".equals(normalized)) {
             return "RELATIVE";
         }
         return "ABSOLUTE";

@@ -43,6 +43,9 @@ public class ScenarioGenerationEngine {
         strategies.put("VAR", historicalStrategy);
         strategies.put("BACKTEST", historicalStrategy);
         strategies.put("SVAR", historicalStrategy);
+        strategies.put("IMA_NORMAL", historicalStrategy);
+        strategies.put("IMA_STRESS", historicalStrategy);
+        strategies.put("IMA_NMRF", historicalStrategy);
         strategies.put("MC", new McScenarioStrategy(holidayCalendar));
         strategies.put("KEY_RATE", customStrategy);
     }

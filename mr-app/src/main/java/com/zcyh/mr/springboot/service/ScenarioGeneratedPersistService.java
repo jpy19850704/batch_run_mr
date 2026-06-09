@@ -24,7 +24,8 @@ public class ScenarioGeneratedPersistService {
     private static final String TARGET_TABLE = "TB_OUT_SCENARIO_FILE_DETAIL";
     private static final String STREAM_LOAD_COLUMNS = "BATCH_ID,DATA_DATE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,"
             + "RISKFACTOR_TYPE,RISKFACTOR_ID,RISKFACTOR_VERTEX1,TERM_DAYS,RISKFACTOR_VERTEX2,CHANGE_VALUE,"
-            + "RISKFACTOR_TERM,ORI_VALUE,SCENARIO_RESULT,SHIFT_RULE,MODIFIER,CREATED_AT,UPDATED_AT";
+            + "RISKFACTOR_TERM,ORI_VALUE,SCENARIO_RESULT,SHIFT_RULE,RFET_BUCKET_ID,RFET_MODELLABLE,RFET_REDUCED_SET,"
+            + "MODIFIER,CREATED_AT,UPDATED_AT";
     private final JdbcTemplate jdbcTemplate;
     private final DorisStreamLoadService dorisStreamLoadService;
     private final int batchSize;
@@ -87,6 +88,9 @@ public class ScenarioGeneratedPersistService {
                     toPlainString(record.getOriginalValue()),
                     toPlainString(record.getChangedValue()),
                     trimToNull(record.getShiftRule()),
+                    trimToNull(record.getRfetBucketId()),
+                    booleanText(record.getRfetModellable()),
+                    booleanText(record.getRfetReducedSet()),
                     trimToNull(record.getModifier()),
                     now,
                     now
@@ -133,6 +137,10 @@ public class ScenarioGeneratedPersistService {
 
     private static String toPlainString(BigDecimal value) {
         return value == null ? null : value.toPlainString();
+    }
+
+    private static String booleanText(Boolean value) {
+        return value == null ? null : (Boolean.TRUE.equals(value) ? "1" : "0");
     }
 
     private static String trimToNull(String text) {

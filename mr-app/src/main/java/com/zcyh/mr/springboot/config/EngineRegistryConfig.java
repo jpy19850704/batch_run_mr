@@ -16,6 +16,7 @@ import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
 import com.zcyh.mr.springboot.service.ImaCapitalResultPersistService;
 import com.zcyh.mr.springboot.service.ImaModellablePnlPersistService;
 import com.zcyh.mr.springboot.service.ImaNmrfPnlPersistService;
+import com.zcyh.mr.springboot.service.ImaRfetSnapshotService;
 import com.zcyh.mr.springboot.service.ScenarioGeneratedPersistService;
 import com.zcyh.mr.springboot.service.ScenarioResultCacheService;
 import org.springframework.beans.factory.ObjectProvider;
@@ -85,12 +86,14 @@ public class EngineRegistryConfig {
             ObjectProvider<ScenarioGenerationEngine> scenarioGenerationEngineProvider,
             ObjectProvider<ScenarioRequestAssembler> scenarioRequestAssemblerProvider,
             ObjectProvider<ScenarioGeneratedPersistService> scenarioGeneratedPersistServiceProvider,
-            ObjectProvider<ScenarioResultCacheService> scenarioResultCacheServiceProvider) {
+            ObjectProvider<ScenarioResultCacheService> scenarioResultCacheServiceProvider,
+            ObjectProvider<ImaRfetSnapshotService> imaRfetSnapshotServiceProvider) {
         return new ScenarioEngineAdapter(
                 scenarioGenerationEngineProvider.getIfAvailable(),
                 scenarioRequestAssemblerProvider.getIfAvailable(),
                 scenarioGeneratedPersistServiceProvider.getIfAvailable(),
-                scenarioResultCacheServiceProvider.getIfAvailable());
+                scenarioResultCacheServiceProvider.getIfAvailable(),
+                imaRfetSnapshotServiceProvider.getIfAvailable());
     }
 
     @Bean

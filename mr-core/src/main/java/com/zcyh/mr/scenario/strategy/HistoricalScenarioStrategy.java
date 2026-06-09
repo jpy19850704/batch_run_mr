@@ -266,6 +266,7 @@ public class HistoricalScenarioStrategy implements ScenarioStrategy {
         LocalDate baseStartDate = first.getStartDate();
         LocalDate baseEndDate = first.getEndDate();
         String baseCalendarCode = normalize(first.getHolidayCalendarCode());
+        Boolean baseReducedSetFlag = normalizeBoolean(first.getReducedSetFlag());
 
         for (int i = 1; i < controlPoints.size(); i++) {
             ScenarioDefinition current = controlPoints.get(i);
@@ -275,7 +276,8 @@ public class HistoricalScenarioStrategy implements ScenarioStrategy {
                     || !safeEquals(baseIncreaseDays, normalizePositive(current.getIncreaseDays()))
                     || !safeEquals(baseStartDate, current.getStartDate())
                     || !safeEquals(baseEndDate, current.getEndDate())
-                    || !safeEquals(baseCalendarCode, normalize(current.getHolidayCalendarCode()))) {
+                    || !safeEquals(baseCalendarCode, normalize(current.getHolidayCalendarCode()))
+                    || !safeEquals(baseReducedSetFlag, normalizeBoolean(current.getReducedSetFlag()))) {
                 throw new IllegalArgumentException(buildConsistencyError(first, current));
             }
         }
@@ -291,6 +293,7 @@ public class HistoricalScenarioStrategy implements ScenarioStrategy {
         appendDiff(diffs, "startDate", first.getStartDate(), current.getStartDate());
         appendDiff(diffs, "endDate", first.getEndDate(), current.getEndDate());
         appendDiff(diffs, "holidayCalendarCode", normalize(first.getHolidayCalendarCode()), normalize(current.getHolidayCalendarCode()));
+        appendDiff(diffs, "reducedSetFlag", normalizeBoolean(first.getReducedSetFlag()), normalizeBoolean(current.getReducedSetFlag()));
         return "历史类情景定义存在不一致的公共字段，无法按统一日期规则执行: scenarioId="
                 + safeValue(first.getScenarioId())
                 + ", diffs="
@@ -428,7 +431,10 @@ public class HistoricalScenarioStrategy implements ScenarioStrategy {
         if ("HISTORY".equals(scenarioType)
                 || "VAR".equals(scenarioType)
                 || "SVAR".equals(scenarioType)
-                || "BACKTEST".equals(scenarioType)) {
+                || "BACKTEST".equals(scenarioType)
+                || "IMA_NORMAL".equals(scenarioType)
+                || "IMA_STRESS".equals(scenarioType)
+                || "IMA_NMRF".equals(scenarioType)) {
             return "RELATIVE";
         }
         return "ABSOLUTE";
@@ -436,6 +442,10 @@ public class HistoricalScenarioStrategy implements ScenarioStrategy {
 
     private Integer normalizePositive(Integer value) {
         return value == null || value <= 0 ? Integer.valueOf(1) : value;
+    }
+
+    private Boolean normalizeBoolean(Boolean value) {
+        return Boolean.TRUE.equals(value);
     }
 
     private boolean safeEquals(Object left, Object right) {

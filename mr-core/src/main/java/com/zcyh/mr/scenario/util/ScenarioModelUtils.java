@@ -142,6 +142,7 @@ public final class ScenarioModelUtils {
         record.setSubScenarioId(subScenarioId);
         record.setScenarioName(definition == null ? null : definition.getScenarioName());
         record.setScenarioType(definition == null ? null : definition.getScenarioType());
+        record.setReducedSetFlag(definition == null ? null : definition.getReducedSetFlag());
         record.setRiskGroupId(definition == null ? null : definition.getRiskGroupId());
         record.setCurveType(series == null ? null : series.getCurveType());
         record.setCurveCode(series == null ? null : series.getCurveCode());

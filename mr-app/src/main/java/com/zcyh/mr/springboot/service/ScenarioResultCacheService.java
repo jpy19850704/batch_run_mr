@@ -292,6 +292,9 @@ public class ScenarioResultCacheService {
         item.put("changed_value", toPlainString(record.getChangedValue()));
         item.put("shift_value", toPlainString(record.getShiftValue()));
         item.put("shift_rule", trimToNull(record.getShiftRule()));
+        item.put("rfet_bucket_id", trimToNull(record.getRfetBucketId()));
+        item.put("rfet_modellable", record.getRfetModellable());
+        item.put("rfet_reduced_set", record.getRfetReducedSet());
         item.put("modifier", trimToNull(record.getModifier()));
         return item;
     }
