@@ -10,6 +10,9 @@ import com.zcyh.mr.frtbima.model.SubsetPnlRecord;
 import com.zcyh.mr.frtbima.scenariopnl.NmrfScenarioRunner;
 import com.zcyh.mr.frtbima.scenariopnl.SubsetScenarioRunner;
 import com.zcyh.mr.frtbima.rfet.bucket.RfetModellableIndex;
+import com.zcyh.mr.marketdata.CommSpot;
+import com.zcyh.mr.marketdata.EqSpot;
+import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.loader.Loader;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.springboot.service.ImaModellablePnlPersistService;
@@ -26,7 +29,7 @@ import java.util.List;
  *
  * <p>职责：
  * <ol>
- *   <li>接收包含 baseCalcJson / baseMarketData / modellableIndex /
+ *   <li>接收包含 baseCalcJson / modellableIndex /
  *       scenarioEntries / nmrfBuckets / stressScenarios 的输入 JSON。</li>
  *   <li>调用 {@link SubsetScenarioRunner} 完成可建模因子情景重定价（Phase1-A）。</li>
  *   <li>调用 {@link NmrfScenarioRunner} 完成 NMRF 桶 UP/DOWN 重定价（Phase1-B）。</li>
@@ -106,8 +109,16 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
         String scenarioCacheKey = req.getString("scenario_cache_key");
         String modellableIndexCacheKey = req.getString("modellable_index_cache_key");
 
+        boolean hasModellableInput = scenarioCacheKey != null || modellableIndexCacheKey != null;
+        boolean hasNmrfInput = req.getString("nmrf_scenario_cache_key") != null || req.getString("nmrf_buckets_cache_key") != null;
+        if (!hasModellableInput && !hasNmrfInput) {
+            throw new IllegalArgumentException("IMA Phase1 必须提供可建模或 NMRF 缓存键");
+        }
+
         int modellableCount = 0;
-        if (scenarioCacheKey != null && modellableIndexCacheKey != null) {
+        if (hasModellableInput) {
+            scenarioCacheKey = required(req, "scenario_cache_key");
+            modellableIndexCacheKey = required(req, "modellable_index_cache_key");
             List<Loader.ScenarioEntry> scenEntries = loadScenarioEntries(scenarioCacheKey);
             MarketData baseMarketData = loadBaseMarketData(req);
             RfetModellableIndex modellableIndex = loadModellableIndex(modellableIndexCacheKey);
@@ -139,6 +150,10 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
                 List<SubsetPnlRecord> modellableRecords = runSubsetScenario(
                         baseCalcJson, baseMarketData, scenEntries, modellableIndex,
                         effectiveScenType, scenId, batchId, jobId, requestId, dataDate);
+                if (modellableRecords.isEmpty()) {
+                    throw new IllegalStateException("IMA Phase1-A 可建模 PnL 结果为空，batchId=" + batchId
+                            + ", scenarioType=" + effectiveScenType);
+                }
                 modellablePersistService.persist(modellableRecords, opCode);
                 modellableCount = modellableRecords.size();
 
@@ -160,16 +175,22 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
         String nmrfBucketsCacheKey  = req.getString("nmrf_buckets_cache_key");
 
         int nmrfCount = 0;
-        if (nmrfScenarioCacheKey != null && nmrfBucketsCacheKey != null) {
+        if (hasNmrfInput) {
+            nmrfScenarioCacheKey = required(req, "nmrf_scenario_cache_key");
+            nmrfBucketsCacheKey = required(req, "nmrf_buckets_cache_key");
             List<Loader.ScenarioEntry> stressScenarios = loadScenarioEntries(nmrfScenarioCacheKey);
             List<NmrfScenarioRunner.NmrfBucketMeta> nmrfBuckets = loadNmrfBuckets(nmrfBucketsCacheKey);
             MarketData baseMarketData = loadBaseMarketData(req);
+            List<NmrfScenarioRunner.NmrfBucketMeta> activeNmrfBuckets = filterActiveNmrfBuckets(baseMarketData, nmrfBuckets);
 
             NmrfScenarioRunner nmrfRunner = new NmrfScenarioRunner();
             List<NmrfPnlRecord> nmrfRecords = nmrfRunner.run(
-                    baseCalcJson, baseMarketData, nmrfBuckets, stressScenarios,
+                    baseCalcJson, baseMarketData, activeNmrfBuckets, stressScenarios,
                     batchId, jobId, requestId, dataDate);
 
+            if (!activeNmrfBuckets.isEmpty() && nmrfRecords.isEmpty()) {
+                throw new IllegalStateException("IMA Phase1-B NMRF PnL 结果为空，batchId=" + batchId);
+            }
             nmrfPersistService.persist(nmrfRecords, opCode);
             nmrfCount = nmrfRecords.size();
             log.info("IMA Phase1-B 完成: batchId={}, nmrfRows={}", batchId, nmrfCount);
@@ -210,22 +231,21 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
     private List<Loader.ScenarioEntry> loadScenarioEntries(String cacheKey) {
         Object cached = com.zcyh.mr.scenario.ScenarioCache.get(cacheKey);
         if (cached instanceof List) {
-            return (List<Loader.ScenarioEntry>) cached;
+            List<Loader.ScenarioEntry> entries = (List<Loader.ScenarioEntry>) cached;
+            if (entries.isEmpty()) {
+                throw new IllegalStateException("ScenarioCache 中情景条目为空: key=" + cacheKey);
+            }
+            return entries;
         }
-        log.warn("ScenarioCache 中未找到情景条目: key={}", cacheKey);
-        return Collections.emptyList();
+        throw new IllegalStateException("ScenarioCache 中未找到情景条目: key=" + cacheKey);
     }
 
     /**
-     * 从请求 JSON 的 base_market_data 字段解析基准市场数据。
+     * 从 base_calc_json 解析基准市场数据。
      */
     private MarketData loadBaseMarketData(JSONObject req) {
-        String mdJson = req.getString("base_market_data");
-        if (mdJson == null || mdJson.isEmpty()) {
-            log.warn("base_market_data 为空，使用空 MarketData");
-            return new MarketData();
-        }
-        return JSON.parseObject(mdJson, MarketData.class);
+        String baseCalcJson = required(req, "base_calc_json");
+        return new Loader(baseCalcJson, null).getMarketData();
     }
 
     /**
@@ -263,8 +283,54 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
         if (cached instanceof List) {
             return (List<NmrfScenarioRunner.NmrfBucketMeta>) cached;
         }
-        log.warn("ScenarioCache 中未找到 nmrfBuckets: key={}", cacheKey);
-        return Collections.emptyList();
+        throw new IllegalStateException("ScenarioCache 中未找到 nmrfBuckets: key=" + cacheKey);
+    }
+
+    private List<NmrfScenarioRunner.NmrfBucketMeta> filterActiveNmrfBuckets(
+            MarketData baseMarketData,
+            List<NmrfScenarioRunner.NmrfBucketMeta> buckets) {
+        if (buckets == null || buckets.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<NmrfScenarioRunner.NmrfBucketMeta> active = new ArrayList<NmrfScenarioRunner.NmrfBucketMeta>();
+        for (NmrfScenarioRunner.NmrfBucketMeta bucket : buckets) {
+            if (bucket != null && hasAnyBasePoint(baseMarketData, bucket)) {
+                active.add(bucket);
+            }
+        }
+        return active;
+    }
+
+    private boolean hasAnyBasePoint(MarketData marketData, NmrfScenarioRunner.NmrfBucketMeta bucket) {
+        if (marketData == null || bucket.tenorDays == null || bucket.tenorDays.isEmpty()) {
+            return false;
+        }
+        for (Integer tenorDays : bucket.tenorDays) {
+            if (tenorDays != null && getSpotValue(marketData, bucket.rfType, bucket.curveId, tenorDays) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Double getSpotValue(MarketData marketData, String rfType, String curveId, int tenorDays) {
+        if (ImaConstants.RF_TYPE_IR_SPOT.equals(rfType)) {
+            IrSpot.IrSpotInfo info = marketData.irSpot == null ? null : marketData.irSpot.get(curveId);
+            return info != null && info.curveData != null ? info.curveData.get(tenorDays) : null;
+        }
+        if (ImaConstants.RF_TYPE_EQ_SPOT.equals(rfType)) {
+            EqSpot.EqSpotInfo info = marketData.eqSpot == null ? null : marketData.eqSpot.get(curveId);
+            return info != null && info.curveData != null ? info.curveData.get(tenorDays) : null;
+        }
+        if (ImaConstants.RF_TYPE_COMM_SPOT.equals(rfType)) {
+            CommSpot.CommSpotInfo info = marketData.commSpot == null ? null : marketData.commSpot.get(curveId);
+            return info != null && info.curveData != null ? info.curveData.get(tenorDays) : null;
+        }
+        if (ImaConstants.RF_TYPE_FX_SPOT.equals(rfType)) {
+            return marketData.fxSpot != null && marketData.fxSpot.curveData != null
+                    ? marketData.fxSpot.curveData.get(curveId) : null;
+        }
+        throw new IllegalArgumentException("NMRF 当前不支持风险因子类型: " + rfType);
     }
 
     private static String required(JSONObject obj, String key) {

@@ -238,10 +238,10 @@ public class BatchJobService {
         updateBatchStatus(
                 batchId,
                 BATCH_FAILED,
-                batchRow.pendingJobs,
-                batchRow.runningJobs,
+                0,
+                0,
                 batchRow.successJobs,
-                batchRow.failedJobs,
+                Math.max(batchRow.failedJobs, 1),
                 batchRow.cancelledJobs,
                 System.currentTimeMillis(),
                 message
@@ -579,6 +579,9 @@ public class BatchJobService {
         clearExistingResultTableWithRetry("TB_OUT_MARKET_DATA_DETAIL", batchId);
         clearExistingResultTableWithRetry("TB_OUT_PORTFOLIO_HIERARCHY", batchId);
         clearExistingResultTableWithRetry("TB_OUT_CALC_RULE_META", batchId);
+        clearExistingResultTableWithRetry("TB_OUT_IMA_MODELLABLE_SCENARIO_PNL", batchId);
+        clearExistingResultTableWithRetry("TB_OUT_IMA_NMRF_SCENARIO_PNL", batchId);
+        clearExistingResultTableWithRetry("TB_OUT_IMA_CAPITAL_RESULT", batchId);
     }
 
     private void clearExistingResultTableWithRetry(String tableName, String batchId) {

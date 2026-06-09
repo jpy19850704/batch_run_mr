@@ -41,8 +41,8 @@ import java.util.UUID;
  *   <li>以 base market data 为底，完整深拷贝后选择性覆盖。
  *   <li>Q(P,j) 定义：LH(factor) &gt;= LH_j 的因子集（MAR33.4）。
  *       lhDays=10 包含全部因子（最宽），lhDays=120 仅含 LH=120 因子（最窄）。
- *   <li>对每个 (curveId, tenorDays)，仅当同时满足：
- *       (1) modellableIndex.isModellable(curveId, tenorDays) 为 true（RFET 可建模，
+ *   <li>对每个 (curveType, curveId, tenorDays)，仅当同时满足：
+ *       (1) modellableIndex.isModellable(curveType, curveId, tenorDays) 为 true（RFET 可建模，
  *           以桶的期限范围 [tenorMin,tenorMax] 判断，非点集合匹配），
  *       (2) lhTable.getLhDays(curveId) &gt;= lhDays（因子 LH 满足 Q(P,j) 包含条件），
  *       才用情景值覆盖基准值；否则保留基准值。
@@ -126,16 +126,18 @@ public class SubsetScenarioRunner {
         MarketData scenMD = entry.marketData;
         if (scenMD != null) {
             applyIrSpotSubset(merged.irSpot, scenMD.irSpot, lhDays, modellableIndex, reducedSetOnly);
-            applySeriesSpotSubset(merged.eqSpot, scenMD.eqSpot, lhDays, modellableIndex, reducedSetOnly);
-            applySeriesSpotSubset(merged.commSpot, scenMD.commSpot, lhDays, modellableIndex, reducedSetOnly);
+            applySeriesSpotSubset(merged.eqSpot, scenMD.eqSpot, lhDays, modellableIndex, reducedSetOnly,
+                    ImaConstants.RF_TYPE_EQ_SPOT);
+            applySeriesSpotSubset(merged.commSpot, scenMD.commSpot, lhDays, modellableIndex, reducedSetOnly,
+                    ImaConstants.RF_TYPE_COMM_SPOT);
             applyFxSpotSubset(merged, scenMD, lhDays, modellableIndex, reducedSetOnly);
             applyIrVolSubset(merged.irVol, scenMD.irVol, lhDays, modellableIndex, reducedSetOnly);
             applyDeltaVolSubset(merged.eqVol, scenMD.eqVol, lhDays, modellableIndex, reducedSetOnly,
-                    info -> info.curveData, (info, d) -> info.curveData = d);
+                    ImaConstants.RF_TYPE_EQ_VOL, info -> info.curveData, (info, d) -> info.curveData = d);
             applyDeltaVolSubset(merged.fxVol, scenMD.fxVol, lhDays, modellableIndex, reducedSetOnly,
-                    info -> info.curveData, (info, d) -> info.curveData = d);
+                    ImaConstants.RF_TYPE_FX_VOL, info -> info.curveData, (info, d) -> info.curveData = d);
             applyDeltaVolSubset(merged.commVol, scenMD.commVol, lhDays, modellableIndex, reducedSetOnly,
-                    info -> info.curveData, (info, d) -> info.curveData = d);
+                    ImaConstants.RF_TYPE_COMM_VOL, info -> info.curveData, (info, d) -> info.curveData = d);
         }
 
         // subScenarioId 追加 LH 编码，供解析时还原
@@ -173,7 +175,7 @@ public class SubsetScenarioRunner {
 
             for (Map.Entry<Integer, Double> td : scenInfo.curveData.entrySet()) {
                 // 范围匹配：tenorDays 落在任意可建模桶的 [tenorMin, tenorMax] 内即覆盖
-                if (modellableIndex.isModellable(curveId, td.getKey(), reducedSetOnly)) {
+                if (modellableIndex.isModellable(ImaConstants.RF_TYPE_IR_SPOT, curveId, td.getKey(), reducedSetOnly)) {
                     mergedInfo.curveData.put(td.getKey(), td.getValue());
                 }
             }
@@ -188,7 +190,8 @@ public class SubsetScenarioRunner {
                                             HashMap<String, T> scenSpot,
                                             int lhDays,
                                             RfetModellableIndex modellableIndex,
-                                            boolean reducedSetOnly) {
+                                            boolean reducedSetOnly,
+                                            String rfType) {
         if (scenSpot == null) return;
         for (Map.Entry<String, T> e : scenSpot.entrySet()) {
             String curveId = e.getKey();
@@ -205,7 +208,7 @@ public class SubsetScenarioRunner {
             if (scenCurve == null || mergedCurve == null) continue;
 
             for (Map.Entry<Integer, Double> td : scenCurve.entrySet()) {
-                if (modellableIndex.isModellable(curveId, td.getKey(), reducedSetOnly)) {
+                if (modellableIndex.isModellable(rfType, curveId, td.getKey(), reducedSetOnly)) {
                     mergedCurve.put(td.getKey(), td.getValue());
                 }
             }
@@ -230,7 +233,7 @@ public class SubsetScenarioRunner {
         }
         // Q(P,j)：因子 LH >= lhDays 才属于当前子集（MAR33.4）
         for (String pairKey : scenMD.fxSpot.curveData.keySet()) {
-            if (modellableIndex.hasAnyModellableBucket(pairKey, reducedSetOnly)
+            if (modellableIndex.hasAnyModellableBucket(ImaConstants.RF_TYPE_FX_SPOT, pairKey, reducedSetOnly)
                     && lhTable.getLhDays(pairKey) >= lhDays) {
                 merged.fxSpot = scenMD.fxSpot;
                 return;
@@ -278,6 +281,7 @@ public class SubsetScenarioRunner {
                                           int lhDays,
                                           RfetModellableIndex modellableIndex,
                                           boolean reducedSetOnly,
+                                          String rfType,
                                           java.util.function.Function<V, List<Map<String, Object>>> getter,
                                           java.util.function.BiConsumer<V, List<Map<String, Object>>> setter) {
         if (scenVol == null) return;
@@ -289,7 +293,7 @@ public class SubsetScenarioRunner {
             V mergedInfo = mergedVol.get(curveId);
             if (mergedInfo == null) continue;
             List<Map<String, Object>> merged = mergeDeltaVolRows(
-                    getter.apply(mergedInfo), getter.apply(scenInfo), curveId, modellableIndex, reducedSetOnly);
+                    getter.apply(mergedInfo), getter.apply(scenInfo), curveId, modellableIndex, reducedSetOnly, rfType);
             setter.accept(mergedInfo, merged);
         }
     }
@@ -324,7 +328,7 @@ public class SubsetScenarioRunner {
         }
         // 可建模的 OPTION_TERM 用情景行整体覆盖
         for (Map.Entry<Integer, List<Map<String, Object>>> se : scenByTerm.entrySet()) {
-            if (index.isModellable(curveId, se.getKey(), reducedSetOnly)) {
+            if (index.isModellable(ImaConstants.RF_TYPE_IR_VOL, curveId, se.getKey(), reducedSetOnly)) {
                 baseByTerm.put(se.getKey(), se.getValue());
             }
         }
@@ -342,7 +346,8 @@ public class SubsetScenarioRunner {
                                                          List<Map<String, Object>> scenRows,
                                                          String curveId,
                                                          RfetModellableIndex index,
-                                                         boolean reducedSetOnly) {
+                                                         boolean reducedSetOnly,
+                                                         String rfType) {
         // key = "optionTerm_delta"，保留插入顺序
         Map<String, Map<String, Object>> baseMap = new LinkedHashMap<>();
         if (baseRows != null) {
@@ -354,8 +359,8 @@ public class SubsetScenarioRunner {
         if (scenRows != null) {
             for (Map<String, Object> row : scenRows) {
                 int optTerm = Convert.toInt(row.get("OPTION_TERM"));
-                double delta = Convert.toDouble(row.get("DELTA"));
-                if (index.isModellable(curveId, optTerm, delta, reducedSetOnly)) {
+                double delta = requiredFiniteDouble(row.get("DELTA"), rfType, curveId, optTerm);
+                if (index.isModellable(rfType, curveId, optTerm, delta, reducedSetOnly)) {
                     baseMap.put(makeVolKey(row), row);
                 }
             }
@@ -365,7 +370,17 @@ public class SubsetScenarioRunner {
 
     /** 生成 EQ/FX/COMM vol 行的唯一 key */
     private String makeVolKey(Map<String, Object> row) {
-        return Convert.toInt(row.get("OPTION_TERM")) + "_" + Convert.toDouble(row.get("DELTA"));
+        int optionTerm = Convert.toInt(row.get("OPTION_TERM"));
+        return optionTerm + "_" + requiredFiniteDouble(row.get("DELTA"), "VOL", null, optionTerm);
+    }
+
+    private double requiredFiniteDouble(Object raw, String rfType, String curveId, int optionTerm) {
+        double value = Convert.toDouble(raw);
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            throw new IllegalArgumentException("波动率 RFET 判断缺少有效 DELTA: rfType="
+                    + rfType + ", curveId=" + curveId + ", optionTerm=" + optionTerm);
+        }
+        return value;
     }
 
     // ==================== 深拷贝工具 ====================
@@ -572,6 +587,7 @@ public class SubsetScenarioRunner {
             json.put("scenario_ref", scenarioRef);
         }
         scenarioRef.put("decomp_cache_key", decompCacheKey);
+        json.put("oper_code", "SCENARIO");
         return json.toJSONString();
     }
 
@@ -600,10 +616,10 @@ public class SubsetScenarioRunner {
             JSONObject scenItem = scenarioResults.getJSONObject(i);
             if (scenItem == null) continue;
 
-            String encodedSubId = scenItem.getString("sub_scenario_id");
+            String encodedSubId = scenItem.getString("SUBSCENARIO_ID");
             int lhDays = decodeLhDays(encodedSubId);
             String originalSubId = decodeOriginalSubId(encodedSubId);
-            String scName = scenItem.getString("scenario_name");
+            String scName = scenItem.getString("SCENARIO_NAME");
 
             JSONArray tradePnls = scenItem.getJSONArray("trade_data");
             if (tradePnls == null) continue;

@@ -32,6 +32,12 @@ public class RfetResult {
     /** 风险因子类型（来自 RfBucketDefinition.rfType，如 IR_SPOT / CREDIT_SPOT / EQ_VOL） */
     private String rfType;
 
+    /** 观测数据组ID */
+    private String groupId;
+
+    /** 观测数据组类型 */
+    private String groupType;
+
     // ---- 桶的期限/delta 范围（来自桶定义，用于范围匹配） ----
 
     /** 桶期限下界（天，含） */
@@ -109,6 +115,12 @@ public class RfetResult {
 
     public String getRfType() { return rfType; }
     public void setRfType(String rfType) { this.rfType = rfType; }
+
+    public String getGroupId() { return groupId; }
+    public void setGroupId(String groupId) { this.groupId = groupId; }
+
+    public String getGroupType() { return groupType; }
+    public void setGroupType(String groupType) { this.groupType = groupType; }
 
     public int getTenorMin() { return tenorMin; }
     public void setTenorMin(int tenorMin) { this.tenorMin = tenorMin; }

@@ -47,16 +47,22 @@ public class ImaCapitalResultPersistService {
             log.warn("IMA 资本结果为空，跳过落库");
             return;
         }
+        String batchId = result.getBatchId();
+        if (batchId == null || batchId.trim().isEmpty()) {
+            throw new IllegalArgumentException("IMA 资本结果缺少 BATCH_ID");
+        }
         String now = ResultPersistTime.nowText();
         String resultJson = JSON.toJSONString(result, JSONWriter.Feature.WriteBigDecimalAsPlain);
+        int deleted = jdbcTemplate.update("DELETE FROM " + TARGET_TABLE + " WHERE BATCH_ID=?", batchId);
+        log.info("清理 IMA 资本历史结果: batchId={}, deleted={}", batchId, deleted);
         DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
                 dorisStreamLoadService,
                 TARGET_TABLE,
                 STREAM_LOAD_COLUMNS,
-                "ima_capital_" + result.getBatchId(),
+                "ima_capital_" + batchId,
                 1);
         buffer.appendRow(
-                result.getBatchId(),
+                batchId,
                 result.getDataDate(),
                 DorisCsvStreamLoadBuffer.decimalText(result.getImccResult() != null ? result.getImccResult().getImcc() : null),
                 DorisCsvStreamLoadBuffer.decimalText(result.getSesResult() != null ? result.getSesResult().getSes() : null),

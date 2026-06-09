@@ -39,7 +39,7 @@ public class ScenarioCacheTest {
         System.out.println("[步骤1] PRICING 模式基准估值...");
         JSONObject pricingInput = inputJson.clone();
         pricingInput.put("oper_code", "PRICING");
-        String pricingResult = new Calc(pricingInput.toJSONString()).run();
+        String pricingResult = new Calc(pricingInput.toJSONString(), null).run();
         JSONObject pricingJson = JSON.parseObject(pricingResult);
         JSONArray pricingTrades = pricingJson.getJSONObject("data").getJSONArray("trade_data");
         System.out.println("  基准估值交易数: " + pricingTrades.size());
@@ -49,7 +49,7 @@ public class ScenarioCacheTest {
         JSONObject scenarioInput = inputJson.clone();
         scenarioInput.put("oper_code", "SCENARIO");
         scenarioInput.put("scenario_data", scenarioData);
-        String scenarioResult = new Calc(scenarioInput.toJSONString()).run();
+        String scenarioResult = new Calc(scenarioInput.toJSONString(), null).run();
         JSONObject scenarioJson = JSON.parseObject(scenarioResult);
         JSONObject scenarioDataObj = scenarioJson.getJSONObject("data");
         JSONArray scenarioTrades = scenarioDataObj.getJSONArray("trade_data");

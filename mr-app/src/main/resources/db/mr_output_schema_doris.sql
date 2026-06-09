@@ -491,6 +491,27 @@ PROPERTIES (
     "enable_unique_key_merge_on_write" = "true"
 );
 
+-- IMA 最终资本结果表（Phase2 输出）
+-- 每行对应一个 IMA 批次的资本汇总，RESULT_JSON 保存 IMCC、SES、Amber 附加项等完整中间结果。
+CREATE TABLE IF NOT EXISTS TB_OUT_IMA_CAPITAL_RESULT (
+    ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
+    BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
+    DATA_DATE               VARCHAR(16)                              COMMENT '计算基准日期',
+    IMCC                    DECIMAL(38, 10)                          COMMENT '内部模型资本要求 IMCC',
+    SES                     DECIMAL(38, 10)                          COMMENT '不可建模风险因子压力情景资本 SES',
+    AMBER_SURCHARGE_RATIO   DECIMAL(38, 10)                          COMMENT 'Amber 区附加资本比例',
+    ACR_TOTAL               DECIMAL(38, 10)                          COMMENT 'IMA 总资本',
+    RESULT_JSON             TEXT                                     COMMENT '完整资本结果JSON',
+    CREATED_AT              VARCHAR(32)                              COMMENT '创建时间',
+    UPDATED_AT              VARCHAR(32)                              COMMENT '更新时间'
+)
+UNIQUE KEY(ID)
+DISTRIBUTED BY HASH(ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
 -- SA-CCR 交易对手信用风险 EAD 结果表（BCBS 279）
 CREATE TABLE IF NOT EXISTS TB_OUT_SACCR_RESULT (
     ID                  BIGINT          NOT NULL AUTO_INCREMENT,

@@ -120,6 +120,9 @@ public class NmrfScenarioRunner {
         Map<Integer, Double> maxUpShock = new HashMap<>();
         Map<Integer, Double> maxDownShock = new HashMap<>();
         aggregateShocks(bucket, baseMarketData, stressScenarios, maxUpShock, maxDownShock);
+        if (maxUpShock.isEmpty() && maxDownShock.isEmpty()) {
+            return records;
+        }
 
         // 步骤2: 构建 stressed_up MarketData（其他桶期限点保持 base）
         MarketData stressedUp = applyBucketShock(baseMarketData, bucket, maxUpShock);
@@ -151,24 +154,34 @@ public class NmrfScenarioRunner {
                                   List<Loader.ScenarioEntry> stressScenarios,
                                   Map<Integer, Double> maxUpShock,
                                   Map<Integer, Double> maxDownShock) {
-        if (stressScenarios == null) return;
+        if (stressScenarios == null || stressScenarios.isEmpty()) {
+            throw new IllegalStateException("NMRF 压力情景为空，bucketId=" + bucket.bucketId);
+        }
 
         for (int tenor : bucket.tenorDays) {
             Double baseVal = getSpotValue(baseMarketData, bucket.rfType, bucket.curveId, tenor);
-            if (baseVal == null) continue;
+            if (baseVal == null) {
+                continue;
+            }
 
             // 以 0 为基线：UP 方向取最大正冲击（至少为 0），DOWN 方向取最大负冲击（至多为 0）
             maxUpShock.put(tenor, 0.0);
             maxDownShock.put(tenor, 0.0);
 
+            boolean foundStressPoint = false;
             for (Loader.ScenarioEntry entry : stressScenarios) {
                 if (entry == null || entry.marketData == null) continue;
                 Double scenVal = getSpotValue(entry.marketData, bucket.rfType, bucket.curveId, tenor);
                 if (scenVal == null) continue;
 
+                foundStressPoint = true;
                 double shock = scenVal - baseVal;
                 maxUpShock.merge(tenor, shock, Math::max);
                 maxDownShock.merge(tenor, shock, Math::min);
+            }
+            if (!foundStressPoint) {
+                throw new IllegalStateException("NMRF 压力情景缺少点位，rfType=" + bucket.rfType
+                        + ", curveId=" + bucket.curveId + ", tenorDays=" + tenor);
             }
         }
     }
@@ -257,7 +270,7 @@ public class NmrfScenarioRunner {
                         ? md.fxSpot.curveData.get(curveId) : null;
             }
             default:
-                return null;
+                throw new IllegalArgumentException("NMRF 当前不支持风险因子类型: " + rfType);
         }
     }
 
@@ -298,7 +311,7 @@ public class NmrfScenarioRunner {
                 break;
             }
             default:
-                break;
+                throw new IllegalArgumentException("NMRF 当前不支持风险因子类型: " + rfType);
         }
     }
 
@@ -397,9 +410,9 @@ public class NmrfScenarioRunner {
             JSONObject scenItem = scenarioResults.getJSONObject(i);
             if (scenItem == null) continue;
 
-            String scenId = scenItem.getString("scenario_id");
-            String subScenId = scenItem.getString("sub_scenario_id");
-            String scenName = scenItem.getString("scenario_name");
+            String scenId = scenItem.getString("SCENARIO_ID");
+            String subScenId = scenItem.getString("SUBSCENARIO_ID");
+            String scenName = scenItem.getString("SCENARIO_NAME");
             JSONArray tradePnls = scenItem.getJSONArray("trade_data");
             if (tradePnls == null) continue;
 
