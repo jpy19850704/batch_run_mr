@@ -1,5 +1,9 @@
 # Engine BatchRun 程序与接口调用链路文档
 
+> 文档更新时间：2026-06-16 16:04:00 +08:00  
+> 文档对应 Git 版本：`f31c64e`  
+> 版本状态：本文档已按曲线生成发布 payload 和 engine 提交 `f31c64e` 刷新。
+
 ## 1. 文档目标与范围
 
 本文档用于说明 `engine` 模块中 BatchRun 的端到端执行路径，覆盖：
@@ -187,6 +191,25 @@ sequenceDiagram
    - `AsyncJobService.submit(jobRequest)` 提交子任务
    - 写 `MR_ASYNC_BATCH_ITEM`
 5. 更新批次状态为 `SUBMITTED`。
+
+### 5.3.1 曲线生成发布 payload
+
+`CURVE_GENERATION` 通过同步接口 `/api/engine/run` 调用。若需要将生成结果发布为有效市场数据，调用方必须在 `payload` 内显式传入 `persistGeneratedMarketData=true`：
+
+```json
+{
+  "requestId": "curve-generation-001",
+  "engineCode": "MR_CALC",
+  "payload": {
+    "oper_code": "CURVE_GENERATION",
+    "persistGeneratedMarketData": true,
+    "market_data": [],
+    "curve_generation": []
+  }
+}
+```
+
+该开关仅用于曲线生成发布。普通批量估值 `JobPayloadBuilder.buildPayload(...)` 不设置该字段，避免估值任务隐式改写 `MR_MARKET_CURVE_INPUT`。
 
 ### 5.4 提交失败补偿
 
