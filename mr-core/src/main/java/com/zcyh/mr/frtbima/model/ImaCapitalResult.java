@@ -9,6 +9,10 @@ public class ImaCapitalResult {
 
     private String dataDate;
     private String batchId;
+    private String ruleId;
+    private String groupType;
+    private String groupValue;
+    private Integer groupOrder;
 
     /** 全行 IMCC 结果 */
     private ImccResult imccResult;
@@ -30,6 +34,18 @@ public class ImaCapitalResult {
 
     public String getBatchId() { return batchId; }
     public void setBatchId(String batchId) { this.batchId = batchId; }
+
+    public String getRuleId() { return ruleId; }
+    public void setRuleId(String ruleId) { this.ruleId = ruleId; }
+
+    public String getGroupType() { return groupType; }
+    public void setGroupType(String groupType) { this.groupType = groupType; }
+
+    public String getGroupValue() { return groupValue; }
+    public void setGroupValue(String groupValue) { this.groupValue = groupValue; }
+
+    public Integer getGroupOrder() { return groupOrder; }
+    public void setGroupOrder(Integer groupOrder) { this.groupOrder = groupOrder; }
 
     public ImccResult getImccResult() { return imccResult; }
     public void setImccResult(ImccResult imccResult) { this.imccResult = imccResult; }

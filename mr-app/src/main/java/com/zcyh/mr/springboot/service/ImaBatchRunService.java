@@ -5,6 +5,7 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.frtbima.common.ImaConstants;
+import com.zcyh.mr.frtbima.common.LiquidityHorizonTable;
 import com.zcyh.mr.frtbima.rfet.bucket.RfetModellableIndex;
 import com.zcyh.mr.frtbima.rfet.model.RfetResult;
 import com.zcyh.mr.frtbima.scenariopnl.NmrfScenarioRunner;
@@ -64,6 +65,7 @@ public class ImaBatchRunService {
     private final ImaScenarioEngineAdapter imaScenarioEngineAdapter;
     private final ImaCapitalEngineAdapter imaCapitalEngineAdapter;
     private final ImaRfetSnapshotService imaRfetSnapshotService;
+    private final ImaRiskFactorConfigSnapshotService imaRiskFactorConfigSnapshotService;
     private final ExecutorService batchRunWorkflowExecutor;
 
     public ImaBatchRunService(
@@ -80,6 +82,7 @@ public class ImaBatchRunService {
             ImaScenarioEngineAdapter imaScenarioEngineAdapter,
             ImaCapitalEngineAdapter imaCapitalEngineAdapter,
             ImaRfetSnapshotService imaRfetSnapshotService,
+            ImaRiskFactorConfigSnapshotService imaRiskFactorConfigSnapshotService,
             @Qualifier("batchRunWorkflowExecutor") ExecutorService batchRunWorkflowExecutor) {
         this.prepareTask = prepareTask;
         this.tradeLoadTask = tradeLoadTask;
@@ -94,6 +97,7 @@ public class ImaBatchRunService {
         this.imaScenarioEngineAdapter = imaScenarioEngineAdapter;
         this.imaCapitalEngineAdapter = imaCapitalEngineAdapter;
         this.imaRfetSnapshotService = imaRfetSnapshotService;
+        this.imaRiskFactorConfigSnapshotService = imaRiskFactorConfigSnapshotService;
         this.batchRunWorkflowExecutor = batchRunWorkflowExecutor;
     }
 
@@ -133,6 +137,7 @@ public class ImaBatchRunService {
         context.normalReducedScenarioIdList = requireNonBlank(request.getNormalReducedScenarioIdList(), "normal_reduced_scenario_id_list 不能为空");
         context.stressReducedScenarioIdList = requireNonBlank(request.getStressReducedScenarioIdList(), "stress_reduced_scenario_id_list 不能为空");
         context.nmrfScenarioIdList = requireNonBlank(request.getNmrfScenarioIdList(), "nmrf_scenario_id_list 不能为空");
+        context.imaRuleIdList = requireNonBlank(request.getImaRuleIdList(), "ima_rule_id_list 不能为空");
         if (Boolean.FALSE.equals(request.getPersistResult())) {
             throw new IllegalArgumentException("ima_batch_run 当前要求 persist_result=true，Phase2 需要读取 Phase1 落库结果");
         }
@@ -147,6 +152,7 @@ public class ImaBatchRunService {
         context.nmrfScenarioCacheKey = buildCacheKey(batchId, "nmrf");
         context.modellableIndexCacheKey = buildCacheKey(batchId, "modellable_index");
         context.nmrfBucketsCacheKey = buildCacheKey(batchId, "nmrf_buckets");
+        context.liquidityHorizonTableCacheKey = buildCacheKey(batchId, "liquidity_horizon_table");
         context.normalFullResultsCacheKey = buildCacheKey(batchId, "normal_full_results");
         return context;
     }
@@ -331,6 +337,8 @@ public class ImaBatchRunService {
         }
         RfetModellableIndex index = RfetModellableIndex.build(rfetResults);
         ScenarioCache.putObject(context.modellableIndexCacheKey, index);
+        LiquidityHorizonTable liquidityHorizonTable = imaRiskFactorConfigSnapshotService.loadLiquidityHorizonTable(context.batchId);
+        ScenarioCache.putObject(context.liquidityHorizonTableCacheKey, liquidityHorizonTable);
         List<NmrfScenarioRunner.NmrfBucketMeta> nmrfBuckets = buildNmrfBuckets(context.nmrfRecords);
         ScenarioCache.putObject(context.nmrfBucketsCacheKey, nmrfBuckets);
         context.nmrfBucketCount = nmrfBuckets.size();
@@ -481,6 +489,7 @@ public class ImaBatchRunService {
         common.put("op_code", OP_CODE);
         common.put("base_calc_json", baseCalcJson);
         common.put("modellable_index_cache_key", context.modellableIndexCacheKey);
+        common.put("liquidity_horizon_table_cache_key", context.liquidityHorizonTableCacheKey);
         String normalFullResultsCacheKey = context.normalFullResultsCacheKey + "_" + jobPayload.getSeqNo();
         common.put("normal_full_results_cache_key", normalFullResultsCacheKey);
 
@@ -523,6 +532,7 @@ public class ImaBatchRunService {
         JSONObject payload = new JSONObject();
         payload.put("batch_id", context.batchId);
         payload.put("data_date", context.dataDate);
+        payload.put("ima_rule_id_list", context.imaRuleIdList);
         if (context.request.getSaByDesk() != null) {
             payload.put("sa_by_desk", context.request.getSaByDesk());
         }
@@ -543,10 +553,11 @@ public class ImaBatchRunService {
         ScenarioCache.evict(context.nmrfScenarioCacheKey);
         ScenarioCache.evictObject(context.modellableIndexCacheKey);
         ScenarioCache.evictObject(context.nmrfBucketsCacheKey);
+        ScenarioCache.evictObject(context.liquidityHorizonTableCacheKey);
     }
 
     private static String nmrfType(String curveType) {
-        if ("CSR_SPOT".equals(curveType) || "CREDIT_SPOT".equals(curveType)) {
+        if (ImaConstants.RF_TYPE_CREDIT_SPOT.equals(curveType)) {
             return ImaConstants.NMRF_TYPE_IDIO_CREDIT;
         }
         if (ImaConstants.RF_TYPE_EQ_SPOT.equals(curveType) || ImaConstants.RF_TYPE_EQ_VOL.equals(curveType)) {
@@ -557,6 +568,7 @@ public class ImaBatchRunService {
 
     private static boolean isSupportedNmrfRfType(String curveType) {
         return ImaConstants.RF_TYPE_IR_SPOT.equals(curveType)
+                || ImaConstants.RF_TYPE_CREDIT_SPOT.equals(curveType)
                 || ImaConstants.RF_TYPE_EQ_SPOT.equals(curveType)
                 || ImaConstants.RF_TYPE_FX_SPOT.equals(curveType)
                 || ImaConstants.RF_TYPE_COMM_SPOT.equals(curveType);
@@ -629,6 +641,7 @@ public class ImaBatchRunService {
         private String normalReducedScenarioIdList;
         private String stressReducedScenarioIdList;
         private String nmrfScenarioIdList;
+        private String imaRuleIdList;
         private Boolean persistScenario;
         private boolean persistResult;
         private boolean cacheScenarioResult;
@@ -640,6 +653,7 @@ public class ImaBatchRunService {
         private String nmrfScenarioCacheKey;
         private String modellableIndexCacheKey;
         private String nmrfBucketsCacheKey;
+        private String liquidityHorizonTableCacheKey;
         private String normalFullResultsCacheKey;
         private List<ScenarioGeneratedRecord> normalFullRecords = new ArrayList<ScenarioGeneratedRecord>();
         private List<ScenarioGeneratedRecord> normalReducedRecords = new ArrayList<ScenarioGeneratedRecord>();

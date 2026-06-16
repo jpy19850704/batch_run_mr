@@ -183,7 +183,8 @@ public class MarketDataLoader {
             }
         }
 
-        if (Constants.RF_TYPE.IR_SPOT.equals(curveType)) {
+        if (Constants.RF_TYPE.IR_SPOT.equals(curveType)
+                || Constants.RF_TYPE.CREDIT_SPOT.equals(curveType)) {
             parseIrSpot(target, marketJson, curveType);
         } else if (Constants.RF_TYPE.FIXING.equals(curveType)) {
             parseFixing(target, marketJson, curveType);

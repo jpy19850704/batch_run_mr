@@ -29,7 +29,7 @@ public class CustomScenarioStrategy implements ScenarioStrategy {
     private static final Logger log = LoggerFactory.getLogger(CustomScenarioStrategy.class);
 
     private static final String[] CURVE_TYPES = {
-            "IR_SPOT", "FX_SPOT", "COMM_SPOT", "EQ_SPOT", "FX_VOL", "IR_VOL", "COMM_VOL", "EQ_VOL"
+            "IR_SPOT", "CREDIT_SPOT", "FX_SPOT", "COMM_SPOT", "EQ_SPOT", "FX_VOL", "IR_VOL", "COMM_VOL", "EQ_VOL"
     };
 
     @Override

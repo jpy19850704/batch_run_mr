@@ -46,6 +46,7 @@ public class EsCalculator {
             accumulatePnl(portfolioPnlMap, rec.getScenarioType(), subId, rec.getLhDays(), "ALL",  rec.getAllPnl());
             // 各风险类别分量
             accumulatePnl(portfolioPnlMap, rec.getScenarioType(), subId, rec.getLhDays(), "IR",   rec.getIrPnl());
+            accumulatePnl(portfolioPnlMap, rec.getScenarioType(), subId, rec.getLhDays(), "CS",   rec.getCsPnl());
             accumulatePnl(portfolioPnlMap, rec.getScenarioType(), subId, rec.getLhDays(), "FX",   rec.getFxPnl());
             accumulatePnl(portfolioPnlMap, rec.getScenarioType(), subId, rec.getLhDays(), "EQ",   rec.getEqPnl());
             accumulatePnl(portfolioPnlMap, rec.getScenarioType(), subId, rec.getLhDays(), "COMM", rec.getCommPnl());
@@ -69,7 +70,7 @@ public class EsCalculator {
             int lhDays = Integer.parseInt(parts[1]);
             String riskClass = parts[2];
             BigDecimal esValue = computeEs(entry.getValue());
-            results.add(new EsResult(scenarioType, lhDays, riskClass, esValue));
+            results.add(new EsResult(scenarioType, ImaConstants.ES_CONFIDENCE, lhDays, riskClass, esValue));
         }
         return results;
     }

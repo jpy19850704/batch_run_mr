@@ -298,8 +298,11 @@ public class ScenarioCache {
         }
         switch (group) {
             case "IR":
-                md.irSpot = src.irSpot;
+                md.irSpot = filterIrSpotByCurveType(src.irSpot, "IR_SPOT");
                 md.irVol = src.irVol;
+                break;
+            case "CS":
+                md.irSpot = filterIrSpotByCurveType(src.irSpot, "CREDIT_SPOT");
                 break;
             case "FX":
                 md.fxSpot = src.fxSpot;
@@ -329,7 +332,7 @@ public class ScenarioCache {
         }
         // ALL 组使用原始 impactKeys 或推导全部
         if ("ALL".equals(group)) {
-            addMapKeys(keys, "IR_SPOT", md.irSpot);
+            addIrSpotKeysByCurveType(keys, md.irSpot);
             addMapKeys(keys, "IR_VOL", md.irVol);
             addMapKeys(keys, "EQ_SPOT", md.eqSpot);
             addMapKeys(keys, "EQ_VOL", md.eqVol);
@@ -348,6 +351,9 @@ public class ScenarioCache {
             case "IR":
                 addMapKeys(keys, "IR_SPOT", md.irSpot);
                 addMapKeys(keys, "IR_VOL", md.irVol);
+                break;
+            case "CS":
+                addMapKeys(keys, "CREDIT_SPOT", md.irSpot);
                 break;
             case "FX":
                 addMapKeys(keys, "FX_VOL", md.fxVol);
@@ -369,6 +375,38 @@ public class ScenarioCache {
                 break;
         }
         return keys;
+    }
+
+    private static java.util.HashMap<String, IrSpot.IrSpotInfo> filterIrSpotByCurveType(
+            java.util.HashMap<String, IrSpot.IrSpotInfo> source, String curveType) {
+        java.util.HashMap<String, IrSpot.IrSpotInfo> result = new java.util.HashMap<>();
+        if (source == null || source.isEmpty()) {
+            return result;
+        }
+        for (Map.Entry<String, IrSpot.IrSpotInfo> entry : source.entrySet()) {
+            IrSpot.IrSpotInfo info = entry.getValue();
+            if (info != null && curveType.equals(info.curveType)) {
+                result.put(entry.getKey(), info);
+            }
+        }
+        return result;
+    }
+
+    private static void addIrSpotKeysByCurveType(
+            java.util.Set<String> target, java.util.HashMap<String, IrSpot.IrSpotInfo> irSpot) {
+        if (irSpot == null || irSpot.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, IrSpot.IrSpotInfo> entry : irSpot.entrySet()) {
+            String key = entry.getKey();
+            IrSpot.IrSpotInfo info = entry.getValue();
+            if (key == null || info == null || info.curveType == null) {
+                continue;
+            }
+            if ("IR_SPOT".equals(info.curveType) || "CREDIT_SPOT".equals(info.curveType)) {
+                target.add(info.curveType + ":" + key.trim().toUpperCase());
+            }
+        }
     }
 
     @SuppressWarnings("rawtypes")
@@ -487,15 +525,20 @@ public class ScenarioCache {
             JSONObject row, double changedRate, LocalDate dataDate) {
 
         switch (curveType) {
-            case "IR_SPOT": {
+            case "IR_SPOT":
+            case "CREDIT_SPOT": {
                 IrSpot.IrSpotInfo info = target.irSpot.computeIfAbsent(curveCode, k -> {
                     IrSpot.IrSpotInfo n = new IrSpot.IrSpotInfo();
+                    n.curveType = curveType;
+                    n.curveCode = curveCode;
                     n.pDataDate = dataDate;
                     return n;
                 });
+                info.curveType = curveType;
+                info.curveCode = curveCode;
                 Integer term = parseTermDays(row);
                 if (term == null) {
-                    throw new IllegalArgumentException("IR_SPOT 场景记录缺少 TERM_DAYS: curveCode=" + curveCode);
+                    throw new IllegalArgumentException(curveType + " 场景记录缺少 TERM_DAYS: curveCode=" + curveCode);
                 }
                 info.curveData.put(term, changedRate);
                 break;

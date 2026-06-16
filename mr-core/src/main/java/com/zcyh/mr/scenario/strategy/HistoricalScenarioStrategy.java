@@ -36,7 +36,7 @@ public class HistoricalScenarioStrategy implements ScenarioStrategy {
     private static final DateTimeFormatter SUB_SCENARIO_DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 
     private static final String[] CURVE_TYPES = {
-            "IR_SPOT", "FX_SPOT", "COMM_SPOT", "EQ_SPOT", "FX_VOL", "IR_VOL", "COMM_VOL", "EQ_VOL"
+            "IR_SPOT", "CREDIT_SPOT", "FX_SPOT", "COMM_SPOT", "EQ_SPOT", "FX_VOL", "IR_VOL", "COMM_VOL", "EQ_VOL"
     };
 
     private static final int BATCH_SIZE = 40;

@@ -21,6 +21,8 @@ public class ImaBatchRunRequest {
     private String stressReducedScenarioIdList;
     @JsonProperty("nmrf_scenario_id_list")
     private String nmrfScenarioIdList;
+    @JsonProperty("ima_rule_id_list")
+    private String imaRuleIdList;
     @JsonProperty("persist_scenario")
     private Boolean persistScenario;
     @JsonProperty("persist_result")
@@ -92,6 +94,14 @@ public class ImaBatchRunRequest {
 
     public void setNmrfScenarioIdList(String nmrfScenarioIdList) {
         this.nmrfScenarioIdList = nmrfScenarioIdList;
+    }
+
+    public String getImaRuleIdList() {
+        return imaRuleIdList;
+    }
+
+    public void setImaRuleIdList(String imaRuleIdList) {
+        this.imaRuleIdList = imaRuleIdList;
     }
 
     public Boolean getPersistScenario() {

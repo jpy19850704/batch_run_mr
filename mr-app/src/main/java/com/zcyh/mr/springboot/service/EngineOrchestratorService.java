@@ -1,6 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
 import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.springboot.engine.EngineAdapter;
@@ -22,15 +23,18 @@ public class EngineOrchestratorService {
     private final FrtbSbaDbRunnerService frtbSbaDbRunnerService;
     private final FrtbDrcDbRunnerService frtbDrcDbRunnerService;
     private final VarDbRunnerService varDbRunnerService;
+    private final GeneratedMarketDataPersistService generatedMarketDataPersistService;
 
     public EngineOrchestratorService(EngineRegistry registry,
                                      FrtbSbaDbRunnerService frtbSbaDbRunnerService,
                                      FrtbDrcDbRunnerService frtbDrcDbRunnerService,
-                                     VarDbRunnerService varDbRunnerService) {
+                                     VarDbRunnerService varDbRunnerService,
+                                     GeneratedMarketDataPersistService generatedMarketDataPersistService) {
         this.registry = registry;
         this.frtbSbaDbRunnerService = frtbSbaDbRunnerService;
         this.frtbDrcDbRunnerService = frtbDrcDbRunnerService;
         this.varDbRunnerService = varDbRunnerService;
+        this.generatedMarketDataPersistService = generatedMarketDataPersistService;
     }
 
     public EngineRunResult run(EngineRunRequest request) {
@@ -80,12 +84,15 @@ public class EngineOrchestratorService {
         }
         long elapsed = System.currentTimeMillis() - start;
 
+        Object parsedData = parseJsonSafely(raw);
+        persistGeneratedMarketDataIfNeeded(engineCode, payloadJson, parsedData);
+
         EngineRunResult result = new EngineRunResult();
         result.setRequestId(request.getRequestId());
         result.setEngineCode(adapter.code());
         result.setSuccess(true);
         result.setElapsedMs(elapsed);
-        result.setData(parseJsonSafely(raw));
+        result.setData(parsedData);
         return result;
     }
 
@@ -179,6 +186,32 @@ public class EngineOrchestratorService {
         } catch (Exception ignore) {
             return txt;
         }
+    }
+
+    private void persistGeneratedMarketDataIfNeeded(String engineCode, String payloadJson, Object parsedData) {
+        if (!MrCalcEngineAdapter.CODE.equalsIgnoreCase(engineCode) || !isPersistGeneratedMarketData(payloadJson)) {
+            return;
+        }
+        if (!(parsedData instanceof JSONObject)) {
+            throw new IllegalArgumentException("曲线生成结果结构异常，无法写入市场数据");
+        }
+        JSONObject root = (JSONObject) parsedData;
+        JSONObject data = root.getJSONObject("data");
+        if (data == null) {
+            throw new IllegalArgumentException("曲线生成结果缺少data节点，无法写入市场数据");
+        }
+        JSONArray generatedMarketData = data.getJSONArray("generated_market_data");
+        int persistedCount = generatedMarketDataPersistService.persist(generatedMarketData);
+        data.put("generatedMarketDataPersisted", persistedCount);
+    }
+
+    private static boolean isPersistGeneratedMarketData(String payloadJson) {
+        JSONObject payload = JSON.parseObject(payloadJson);
+        if (payload == null) {
+            return false;
+        }
+        Object value = payload.get("persistGeneratedMarketData");
+        return value instanceof Boolean && (Boolean) value;
     }
 
     private static String trimToNull(String txt) {

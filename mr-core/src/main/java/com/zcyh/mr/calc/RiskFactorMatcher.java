@@ -55,7 +55,7 @@ public final class RiskFactorMatcher {
         if (md == null) {
             return index;
         }
-        registerTypedKeys(index, Constants.RF_TYPE.IR_SPOT, md.irSpot == null ? null : md.irSpot.keySet());
+        registerIrSpotKeys(index, md);
         registerTypedKeys(index, Constants.RF_TYPE.IR_VOL, md.irVol == null ? null : md.irVol.keySet());
         registerTypedKeys(index, Constants.RF_TYPE.EQ_SPOT, md.eqSpot == null ? null : md.eqSpot.keySet());
         registerTypedKeys(index, Constants.RF_TYPE.EQ_VOL, md.eqVol == null ? null : md.eqVol.keySet());
@@ -222,6 +222,22 @@ public final class RiskFactorMatcher {
              * 这样场景与交易都可以使用“TYPE”或“TYPE:ID”两种形式匹配。
              */
             registerAlias(index, type, canonical);
+        }
+    }
+
+    private static void registerIrSpotKeys(Index index, MarketData md) {
+        if (md == null || md.irSpot == null || md.irSpot.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, com.zcyh.mr.marketdata.IrSpot.IrSpotInfo> entry : md.irSpot.entrySet()) {
+            com.zcyh.mr.marketdata.IrSpot.IrSpotInfo info = entry.getValue();
+            if (info == null || info.curveType == null) {
+                continue;
+            }
+            if (Constants.RF_TYPE.IR_SPOT.equals(info.curveType)
+                    || Constants.RF_TYPE.CREDIT_SPOT.equals(info.curveType)) {
+                registerTypedKeys(index, info.curveType, Collections.singleton(entry.getKey()));
+            }
         }
     }
 

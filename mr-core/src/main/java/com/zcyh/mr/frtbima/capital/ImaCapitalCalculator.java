@@ -73,13 +73,22 @@ public class ImaCapitalCalculator {
                                        Set<String> greenDesks,
                                        String dataDate,
                                        String batchId) {
+        List<EsResult> esResults = esCalculator.calculate(subsetPnlRecords);
+        return calculateFromEsResults(esResults, nmrfPnlRecords, saByDesk, amberDesks, greenDesks, dataDate, batchId);
+    }
+
+    public ImaCapitalResult calculateFromEsResults(List<EsResult> esResults,
+                                                   List<com.zcyh.mr.frtbima.model.NmrfPnlRecord> nmrfPnlRecords,
+                                                   Map<String, BigDecimal> saByDesk,
+                                                   Set<String> amberDesks,
+                                                   Set<String> greenDesks,
+                                                   String dataDate,
+                                                   String batchId) {
         ImaCapitalResult result = new ImaCapitalResult();
         result.setDataDate(dataDate);
         result.setBatchId(batchId);
 
         // 步骤1-2: ES 计算 + 流动性调整（间接法仅需3种scenarioType）
-        List<EsResult> esResults = esCalculator.calculate(subsetPnlRecords);
-
         Map<String, BigDecimal> esCurrent        = lhEs.compute(esResults, ImaConstants.SCENARIO_TYPE_NORMAL_FULL);
         Map<String, BigDecimal> esStressReduced  = lhEs.compute(esResults, ImaConstants.SCENARIO_TYPE_STRESS_REDUCED);
         Map<String, BigDecimal> esCurrentReduced = lhEs.compute(esResults, ImaConstants.SCENARIO_TYPE_NORMAL_REDUCED);

@@ -27,7 +27,7 @@ public class ImccAggregator {
 
     private static final BigDecimal RHO = ImaConstants.RHO_IMCC; // 0.5
     private static final BigDecimal ONE_MINUS_RHO = BigDecimal.ONE.subtract(RHO);
-    private static final String[] RISK_CLASSES = {"IR", "FX", "EQ", "COMM"};
+    private static final String[] RISK_CLASSES = {"IR", "CS", "FX", "EQ", "COMM"};
 
     private final ScalingFactorCalculator scalingCalc = new ScalingFactorCalculator();
 

@@ -49,7 +49,7 @@ public class NmrfScenarioRunner {
         /** 桶内期限天数集合（来自 RFET 结果的 tenorDays 或根据 tenorMin/Max 枚举） */
         public final Set<Integer> tenorDays;
         /**
-         * MarketData 字段类型：ImaConstants.RF_TYPE_IR_SPOT / EQ_SPOT / COMM_SPOT /
+         * MarketData 字段类型：ImaConstants.RF_TYPE_IR_SPOT / CREDIT_SPOT / EQ_SPOT / COMM_SPOT /
          * FX_SPOT / IR_VOL / EQ_VOL / FX_VOL / COMM_VOL
          */
         public final String rfType;
@@ -256,6 +256,10 @@ public class NmrfScenarioRunner {
                 IrSpot.IrSpotInfo info = md.irSpot != null ? md.irSpot.get(curveId) : null;
                 return info != null && info.curveData != null ? info.curveData.get(tenorDays) : null;
             }
+            case ImaConstants.RF_TYPE_CREDIT_SPOT: {
+                IrSpot.IrSpotInfo info = md.irSpot != null ? md.irSpot.get(curveId) : null;
+                return info != null && info.curveData != null ? info.curveData.get(tenorDays) : null;
+            }
             case ImaConstants.RF_TYPE_EQ_SPOT: {
                 EqSpot.EqSpotInfo info = md.eqSpot != null ? md.eqSpot.get(curveId) : null;
                 return info != null && info.curveData != null ? info.curveData.get(tenorDays) : null;
@@ -283,6 +287,13 @@ public class NmrfScenarioRunner {
         if (md == null) return;
         switch (rfType) {
             case ImaConstants.RF_TYPE_IR_SPOT: {
+                IrSpot.IrSpotInfo info = md.irSpot != null ? md.irSpot.get(curveId) : null;
+                if (info != null && info.curveData != null) {
+                    info.curveData.put(tenorDays, value);
+                }
+                break;
+            }
+            case ImaConstants.RF_TYPE_CREDIT_SPOT: {
                 IrSpot.IrSpotInfo info = md.irSpot != null ? md.irSpot.get(curveId) : null;
                 if (info != null && info.curveData != null) {
                     info.curveData.put(tenorDays, value);

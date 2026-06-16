@@ -67,14 +67,11 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(ImaScenarioEngineAdapter.class);
 
-    private final LiquidityHorizonTable lhTable;
     private final ImaModellablePnlPersistService modellablePersistService;
     private final ImaNmrfPnlPersistService nmrfPersistService;
 
-    public ImaScenarioEngineAdapter(LiquidityHorizonTable lhTable,
-                                    ImaModellablePnlPersistService modellablePersistService,
+    public ImaScenarioEngineAdapter(ImaModellablePnlPersistService modellablePersistService,
                                     ImaNmrfPnlPersistService nmrfPersistService) {
-        this.lhTable = lhTable;
         this.modellablePersistService = modellablePersistService;
         this.nmrfPersistService = nmrfPersistService;
     }
@@ -122,6 +119,7 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
             List<Loader.ScenarioEntry> scenEntries = loadScenarioEntries(scenarioCacheKey);
             MarketData baseMarketData = loadBaseMarketData(req);
             RfetModellableIndex modellableIndex = loadModellableIndex(modellableIndexCacheKey);
+            LiquidityHorizonTable lhTable = loadLiquidityHorizonTable(required(req, "liquidity_horizon_table_cache_key"));
 
             String effectiveScenType = scenType != null ? scenType : ImaConstants.SCENARIO_TYPE_NORMAL_FULL;
 
@@ -148,7 +146,7 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
             } else {
                 // 标准路径：执行实际重定价
                 List<SubsetPnlRecord> modellableRecords = runSubsetScenario(
-                        baseCalcJson, baseMarketData, scenEntries, modellableIndex,
+                        baseCalcJson, baseMarketData, scenEntries, modellableIndex, lhTable,
                         effectiveScenType, scenId, batchId, jobId, requestId, dataDate);
                 if (modellableRecords.isEmpty()) {
                     throw new IllegalStateException("IMA Phase1-A 可建模 PnL 结果为空，batchId=" + batchId
@@ -211,6 +209,7 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
                                                      MarketData baseMarketData,
                                                      List<Loader.ScenarioEntry> scenEntries,
                                                      RfetModellableIndex modellableIndex,
+                                                     LiquidityHorizonTable lhTable,
                                                      String scenarioType,
                                                      String scenarioId,
                                                      String batchId,
@@ -257,6 +256,14 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
             return (RfetModellableIndex) cached;
         }
         throw new IllegalStateException("ScenarioCache 中未找到 RfetModellableIndex: key=" + cacheKey);
+    }
+
+    private LiquidityHorizonTable loadLiquidityHorizonTable(String cacheKey) {
+        Object cached = com.zcyh.mr.scenario.ScenarioCache.getObject(cacheKey);
+        if (cached instanceof LiquidityHorizonTable) {
+            return (LiquidityHorizonTable) cached;
+        }
+        throw new IllegalStateException("ScenarioCache 中未找到 LiquidityHorizonTable: key=" + cacheKey);
     }
 
     /**
@@ -315,6 +322,10 @@ public class ImaScenarioEngineAdapter implements EngineAdapter {
 
     private Double getSpotValue(MarketData marketData, String rfType, String curveId, int tenorDays) {
         if (ImaConstants.RF_TYPE_IR_SPOT.equals(rfType)) {
+            IrSpot.IrSpotInfo info = marketData.irSpot == null ? null : marketData.irSpot.get(curveId);
+            return info != null && info.curveData != null ? info.curveData.get(tenorDays) : null;
+        }
+        if (ImaConstants.RF_TYPE_CREDIT_SPOT.equals(rfType)) {
             IrSpot.IrSpotInfo info = marketData.irSpot == null ? null : marketData.irSpot.get(curveId);
             return info != null && info.curveData != null ? info.curveData.get(tenorDays) : null;
         }

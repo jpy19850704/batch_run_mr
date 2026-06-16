@@ -439,6 +439,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_MODELLABLE_SCENARIO_PNL (
     BASE_VALUATION_CNY      DECIMAL(38, 10)                          COMMENT '基准估值（人民币）',
     IR_VALUATION            DECIMAL(38, 10)                          COMMENT '利率风险因子子集重定价估值',
     IR_PNL                  DECIMAL(38, 10)                          COMMENT '利率风险损益',
+    CS_VALUATION            DECIMAL(38, 10)                          COMMENT '信用利差风险因子子集重定价估值',
+    CS_PNL                  DECIMAL(38, 10)                          COMMENT '信用利差风险损益',
     FX_VALUATION            DECIMAL(38, 10)                          COMMENT '外汇风险因子子集重定价估值',
     FX_PNL                  DECIMAL(38, 10)                          COMMENT '外汇风险损益',
     EQ_VALUATION            DECIMAL(38, 10)                          COMMENT '权益风险因子子集重定价估值',
@@ -491,12 +493,45 @@ PROPERTIES (
     "enable_unique_key_merge_on_write" = "true"
 );
 
+-- IMA ES 中间明细结果表（Phase2 输出）
+-- 每行对应一个汇总节点下，一个情景类型、一个置信水平、一个流动性期限的 ES 结果。
+CREATE TABLE IF NOT EXISTS TB_OUT_IMA_ES_RESULT_DETAIL (
+    ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
+    BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
+    DATA_DATE               VARCHAR(16)                              COMMENT '计算基准日期',
+    RULE_ID                 VARCHAR(128)                             COMMENT 'IMA汇总规则ID',
+    GROUP_TYPE              VARCHAR(64)                              COMMENT '汇总维度类型',
+    GROUP_VALUE             VARCHAR(512)                             COMMENT '汇总维度路径值',
+    GROUP_ORDER             INT                                      COMMENT '汇总维度顺序',
+    SCENARIO_TYPE           VARCHAR(32)                              COMMENT '情景类型：STRESS_REDUCED / NORMAL_FULL / NORMAL_REDUCED',
+    CONFIDENCE_LEVEL        DECIMAL(10, 6)                           COMMENT 'ES置信水平',
+    LIQUIDITY_HORIZON_DAYS  SMALLINT                                 COMMENT '流动性期限天数：10/20/40/60/120',
+    ALL_ES                  DECIMAL(38, 10)                          COMMENT '全风险类别ES',
+    IR_ES                   DECIMAL(38, 10)                          COMMENT '利率风险ES',
+    CS_ES                   DECIMAL(38, 10)                          COMMENT '信用利差风险ES',
+    FX_ES                   DECIMAL(38, 10)                          COMMENT '外汇风险ES',
+    EQ_ES                   DECIMAL(38, 10)                          COMMENT '权益风险ES',
+    COMM_ES                 DECIMAL(38, 10)                          COMMENT '大宗商品风险ES',
+    CREATED_AT              VARCHAR(32)                              COMMENT '创建时间',
+    UPDATED_AT              VARCHAR(32)                              COMMENT '更新时间'
+)
+UNIQUE KEY(ID)
+DISTRIBUTED BY HASH(ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
 -- IMA 最终资本结果表（Phase2 输出）
 -- 每行对应一个 IMA 批次的资本汇总，RESULT_JSON 保存 IMCC、SES、Amber 附加项等完整中间结果。
 CREATE TABLE IF NOT EXISTS TB_OUT_IMA_CAPITAL_RESULT (
     ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
     BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
     DATA_DATE               VARCHAR(16)                              COMMENT '计算基准日期',
+    RULE_ID                 VARCHAR(128)                             COMMENT 'IMA汇总规则ID',
+    GROUP_TYPE              VARCHAR(64)                              COMMENT '汇总维度类型',
+    GROUP_VALUE             VARCHAR(512)                             COMMENT '汇总维度路径值',
+    GROUP_ORDER             INT                                      COMMENT '汇总维度顺序',
     IMCC                    DECIMAL(38, 10)                          COMMENT '内部模型资本要求 IMCC',
     SES                     DECIMAL(38, 10)                          COMMENT '不可建模风险因子压力情景资本 SES',
     AMBER_SURCHARGE_RATIO   DECIMAL(38, 10)                          COMMENT 'Amber 区附加资本比例',

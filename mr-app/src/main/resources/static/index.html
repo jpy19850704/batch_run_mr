@@ -104,6 +104,7 @@
 }</textarea>
         <div class="row">
             <button onclick="runSync()">Run Sync</button>
+            <button class="secondary" onclick="fillCurveGenerationPublishPayload()">Curve Generation Publish Template</button>
         </div>
     </div>
 
@@ -164,6 +165,20 @@
         const payload = document.getElementById("syncPayload").value;
         const result = await callApi("POST", "/api/engine/run", payload);
         print("SYNC /api/engine/run", result);
+    }
+
+    function fillCurveGenerationPublishPayload() {
+        const payload = {
+            requestId: "ui-curve-generation-001",
+            engineCode: "MR_CALC",
+            payload: {
+                oper_code: "CURVE_GENERATION",
+                persistGeneratedMarketData: true,
+                market_data: [],
+                curve_generation: []
+            }
+        };
+        document.getElementById("syncPayload").value = JSON.stringify(payload, null, 2);
     }
 
     async function submitJob() {

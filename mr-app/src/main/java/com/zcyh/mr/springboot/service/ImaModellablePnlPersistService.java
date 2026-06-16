@@ -22,7 +22,7 @@ public class ImaModellablePnlPersistService {
     private static final String TARGET_TABLE = "TB_OUT_IMA_MODELLABLE_SCENARIO_PNL";
     private static final String STREAM_LOAD_COLUMNS =
             "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,"
-                    + "INSTRUMENT_ID,PRODUCT_CODE,LH_DAYS,BASE_VALUATION_CNY,IR_VALUATION,IR_PNL,FX_VALUATION,FX_PNL,"
+                    + "INSTRUMENT_ID,PRODUCT_CODE,LH_DAYS,BASE_VALUATION_CNY,IR_VALUATION,IR_PNL,CS_VALUATION,CS_PNL,FX_VALUATION,FX_PNL,"
                     + "EQ_VALUATION,EQ_PNL,COMM_VALUATION,COMM_PNL,ALL_VALUATION,ALL_PNL,CREATED_AT,UPDATED_AT";
 
     private final JdbcTemplate jdbcTemplate;
@@ -65,6 +65,7 @@ public class ImaModellablePnlPersistService {
                     r.getInstrumentId(), r.getProductCode(), r.getLhDays(),
                     DorisCsvStreamLoadBuffer.decimalText(r.getBaseValuationCny()),
                     DorisCsvStreamLoadBuffer.decimalText(r.getIrValuation()), DorisCsvStreamLoadBuffer.decimalText(r.getIrPnl()),
+                    DorisCsvStreamLoadBuffer.decimalText(r.getCsValuation()), DorisCsvStreamLoadBuffer.decimalText(r.getCsPnl()),
                     DorisCsvStreamLoadBuffer.decimalText(r.getFxValuation()), DorisCsvStreamLoadBuffer.decimalText(r.getFxPnl()),
                     DorisCsvStreamLoadBuffer.decimalText(r.getEqValuation()), DorisCsvStreamLoadBuffer.decimalText(r.getEqPnl()),
                     DorisCsvStreamLoadBuffer.decimalText(r.getCommValuation()), DorisCsvStreamLoadBuffer.decimalText(r.getCommPnl()),

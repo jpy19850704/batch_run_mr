@@ -23,6 +23,7 @@ public class ShockUtils {
     public static final String RELATIVE = "RELATIVE";
 
     private static final String IR_SPOT = "IR_SPOT";
+    private static final String CREDIT_SPOT = "CREDIT_SPOT";
     private static final String COMM_SPOT = "COMM_SPOT";
     private static final String FX_SPOT = "FX_SPOT";
     private static final String EQ_SPOT = "EQ_SPOT";
@@ -140,6 +141,7 @@ public class ShockUtils {
 
         switch (curveType) {
             case IR_SPOT:
+            case CREDIT_SPOT:
             case COMM_SPOT:
             case EQ_SPOT:
                 return curveCode + SPLITSTR + termCode;
@@ -164,6 +166,7 @@ public class ShockUtils {
 
         switch (curveType) {
             case IR_SPOT:
+            case CREDIT_SPOT:
             case COMM_SPOT:
             case FX_SPOT:
             case EQ_SPOT:

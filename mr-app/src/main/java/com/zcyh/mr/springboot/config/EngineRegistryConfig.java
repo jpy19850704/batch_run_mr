@@ -1,6 +1,5 @@
 package com.zcyh.mr.springboot.config;
 
-import com.zcyh.mr.frtbima.common.LiquidityHorizonTable;
 import com.zcyh.mr.springboot.engine.EngineAdapter;
 import com.zcyh.mr.springboot.engine.EngineRegistry;
 import com.zcyh.mr.springboot.engine.FrtbDrcEngineAdapter;
@@ -14,9 +13,13 @@ import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.springboot.engine.ScenarioEngineAdapter;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
 import com.zcyh.mr.springboot.service.ImaCapitalResultPersistService;
+import com.zcyh.mr.springboot.service.ImaEsResultDetailPersistService;
 import com.zcyh.mr.springboot.service.ImaModellablePnlPersistService;
 import com.zcyh.mr.springboot.service.ImaNmrfPnlPersistService;
 import com.zcyh.mr.springboot.service.ImaRfetSnapshotService;
+import com.zcyh.mr.springboot.service.BatchTradeDataLoader;
+import com.zcyh.mr.springboot.service.CalcRuleMetaPersistService;
+import com.zcyh.mr.springboot.service.FrtbSbaSummaryService;
 import com.zcyh.mr.springboot.service.ScenarioGeneratedPersistService;
 import com.zcyh.mr.springboot.service.ScenarioResultCacheService;
 import org.springframework.beans.factory.ObjectProvider;
@@ -26,7 +29,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -97,28 +99,31 @@ public class EngineRegistryConfig {
     }
 
     @Bean
-    public LiquidityHorizonTable imaLiquidityHorizonTable() {
-        return new LiquidityHorizonTable(new HashMap<String, String>());
-    }
-
-    @Bean
     public ImaScenarioEngineAdapter imaScenarioEngineAdapter(
-            LiquidityHorizonTable imaLiquidityHorizonTable,
             ImaModellablePnlPersistService imaModellablePnlPersistService,
             ImaNmrfPnlPersistService imaNmrfPnlPersistService) {
         return new ImaScenarioEngineAdapter(
-                imaLiquidityHorizonTable,
                 imaModellablePnlPersistService,
                 imaNmrfPnlPersistService);
     }
 
     @Bean
     public ImaCapitalEngineAdapter imaCapitalEngineAdapter(
+            @Qualifier("engineDbJdbcTemplate") org.springframework.jdbc.core.JdbcTemplate engineDbJdbcTemplate,
             @Qualifier("engineResultDbJdbcTemplate") org.springframework.jdbc.core.JdbcTemplate engineResultDbJdbcTemplate,
-            ImaCapitalResultPersistService imaCapitalResultPersistService) {
+            BatchTradeDataLoader batchTradeDataLoader,
+            CalcRuleMetaPersistService calcRuleMetaPersistService,
+            FrtbSbaSummaryService frtbSbaSummaryService,
+            ImaCapitalResultPersistService imaCapitalResultPersistService,
+            ImaEsResultDetailPersistService imaEsResultDetailPersistService) {
         return new ImaCapitalEngineAdapter(
+                engineDbJdbcTemplate,
                 engineResultDbJdbcTemplate,
-                imaCapitalResultPersistService);
+                batchTradeDataLoader,
+                calcRuleMetaPersistService,
+                frtbSbaSummaryService,
+                imaCapitalResultPersistService,
+                imaEsResultDetailPersistService);
     }
 
     @Bean

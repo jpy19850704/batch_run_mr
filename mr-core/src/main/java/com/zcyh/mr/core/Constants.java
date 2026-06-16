@@ -118,6 +118,7 @@ final public class Constants {
 
     final public class RF_TYPE {
         public final static String IR_SPOT = "IR_SPOT";
+        public final static String CREDIT_SPOT = "CREDIT_SPOT";
         public final static String FIXING = "FIXING";
         public final static String IR_VOL = "IR_VOL";
         public final static String EQ_SPOT = "EQ_SPOT";

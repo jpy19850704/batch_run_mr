@@ -350,7 +350,7 @@ public class Calc {
                         }
 
                         // RISK_CLASS decomp 场景：每个 entry × 5 groups 动态过滤
-                        String[] riskGroups = {"IR", "FX", "EQ", "COMM", "ALL"};
+                        String[] riskGroups = {"IR", "CS", "FX", "EQ", "COMM", "ALL"};
                         List<Loader.ScenarioEntry> decompEntries = (decompScenarioDataList == null)
                                         ? Collections.emptyList()
                                         : decompScenarioDataList;
@@ -915,7 +915,7 @@ public class Calc {
 
         /**
          * 将 RISK_CLASS decomp 的五组结果聚合为一条 scenario_result。
-         * 每笔交易同时携带 IR/FX/EQ/COMM/ALL 五组 valuation 与 pnl。
+         * 每笔交易同时携带 IR/CS/FX/EQ/COMM/ALL 六组 valuation 与 pnl。
          */
         private JSONArray buildDecompScenarioTradeData(
                         Loader.ScenarioEntry entry,

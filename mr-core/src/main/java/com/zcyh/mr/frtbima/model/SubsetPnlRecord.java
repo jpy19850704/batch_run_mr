@@ -35,6 +35,10 @@ public class SubsetPnlRecord {
     private BigDecimal irValuation;
     private BigDecimal irPnl;
 
+    /** 信用利差风险因子子集重定价估值 */
+    private BigDecimal csValuation;
+    private BigDecimal csPnl;
+
     /** 外汇风险因子子集重定价估值 */
     private BigDecimal fxValuation;
     private BigDecimal fxPnl;
@@ -102,6 +106,12 @@ public class SubsetPnlRecord {
     public BigDecimal getIrPnl() { return irPnl; }
     public void setIrPnl(BigDecimal irPnl) { this.irPnl = irPnl; }
 
+    public BigDecimal getCsValuation() { return csValuation; }
+    public void setCsValuation(BigDecimal csValuation) { this.csValuation = csValuation; }
+
+    public BigDecimal getCsPnl() { return csPnl; }
+    public void setCsPnl(BigDecimal csPnl) { this.csPnl = csPnl; }
+
     public BigDecimal getFxValuation() { return fxValuation; }
     public void setFxValuation(BigDecimal fxValuation) { this.fxValuation = fxValuation; }
 
@@ -157,6 +167,8 @@ public class SubsetPnlRecord {
         copy.baseValuationCny = this.baseValuationCny;
         copy.irValuation = this.irValuation;
         copy.irPnl = this.irPnl;
+        copy.csValuation = this.csValuation;
+        copy.csPnl = this.csPnl;
         copy.fxValuation = this.fxValuation;
         copy.fxPnl = this.fxPnl;
         copy.eqValuation = this.eqValuation;

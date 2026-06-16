@@ -30,6 +30,7 @@ public abstract class RiskFactorProcessor {
 
     static {
         register(new IrSpotProcessor());
+        register(new CreditSpotProcessor());
         register(new FxSpotProcessor());
         register(new CommSpotProcessor());
         register(new EqSpotProcessor());

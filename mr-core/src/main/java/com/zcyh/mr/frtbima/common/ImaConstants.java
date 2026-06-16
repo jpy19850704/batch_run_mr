@@ -66,6 +66,9 @@ public final class ImaConstants {
     /** 利率即期曲线（irSpot 字段） */
     public static final String RF_TYPE_IR_SPOT = "IR_SPOT";
 
+    /** 信用利差即期曲线（irSpot 字段） */
+    public static final String RF_TYPE_CREDIT_SPOT = "CREDIT_SPOT";
+
     /** 利率波动率（irVol 字段） */
     public static final String RF_TYPE_IR_VOL = "IR_VOL";
 

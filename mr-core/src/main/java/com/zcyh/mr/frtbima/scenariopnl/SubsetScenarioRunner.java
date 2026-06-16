@@ -34,7 +34,7 @@ import java.util.UUID;
  *
  * <p>职责：对每个 LH 子集 j（10/20/40/60/120天），将原始情景的市场数据冲击
  * 裁剪至 Q(P,j) 因子集后重定价，通过 Calc decomp 机制同时输出
- * IR/FX/EQ/COMM/ALL 五类风险 PnL。
+ * IR/CS/FX/EQ/COMM/ALL 六类风险 PnL。
  *
  * <p>filterToSubset 核心规则（MAR33.4）：
  * <ul>
@@ -167,6 +167,7 @@ public class SubsetScenarioRunner {
             String curveId = e.getKey();
             IrSpot.IrSpotInfo scenInfo = e.getValue();
             if (scenInfo == null || scenInfo.curveData == null) continue;
+            String rfType = resolveIrSpotRfType(curveId, scenInfo);
             // Q(P,j)：因子 LH >= lhDays 才属于当前子集（MAR33.4）
             if (lhTable.getLhDays(curveId) < lhDays) continue;
 
@@ -175,11 +176,19 @@ public class SubsetScenarioRunner {
 
             for (Map.Entry<Integer, Double> td : scenInfo.curveData.entrySet()) {
                 // 范围匹配：tenorDays 落在任意可建模桶的 [tenorMin, tenorMax] 内即覆盖
-                if (modellableIndex.isModellable(ImaConstants.RF_TYPE_IR_SPOT, curveId, td.getKey(), reducedSetOnly)) {
+                if (modellableIndex.isModellable(rfType, curveId, td.getKey(), reducedSetOnly)) {
                     mergedInfo.curveData.put(td.getKey(), td.getValue());
                 }
             }
         }
+    }
+
+    private String resolveIrSpotRfType(String curveId, IrSpot.IrSpotInfo scenInfo) {
+        if (ImaConstants.RF_TYPE_IR_SPOT.equals(scenInfo.curveType)
+                || ImaConstants.RF_TYPE_CREDIT_SPOT.equals(scenInfo.curveType)) {
+            return scenInfo.curveType;
+        }
+        throw new IllegalArgumentException("IMA irSpot 情景缺少明确曲线类型: curveId=" + curveId);
     }
 
     /**
@@ -644,6 +653,8 @@ public class SubsetScenarioRunner {
                 rec.setBaseValuationCny(tp.getBigDecimal("BASE_VALUATION_CNY"));
                 rec.setIrValuation(tp.getBigDecimal("IR_VALUATION"));
                 rec.setIrPnl(tp.getBigDecimal("IR_PNL"));
+                rec.setCsValuation(tp.getBigDecimal("CS_VALUATION"));
+                rec.setCsPnl(tp.getBigDecimal("CS_PNL"));
                 rec.setFxValuation(tp.getBigDecimal("FX_VALUATION"));
                 rec.setFxPnl(tp.getBigDecimal("FX_PNL"));
                 rec.setEqValuation(tp.getBigDecimal("EQ_VALUATION"));
