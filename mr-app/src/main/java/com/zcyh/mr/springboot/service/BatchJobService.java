@@ -581,7 +581,8 @@ public class BatchJobService {
         clearExistingResultTableWithRetry("TB_OUT_CALC_RULE_META", batchId);
         clearExistingResultTableWithRetry("TB_OUT_IMA_MODELLABLE_SCENARIO_PNL", batchId);
         clearExistingResultTableWithRetry("TB_OUT_IMA_NMRF_SCENARIO_PNL", batchId);
-        clearExistingResultTableWithRetry("TB_OUT_IMA_ES_RESULT_DETAIL", batchId);
+        clearExistingResultTableWithRetry("TB_OUT_IMA_ES_RESULT", batchId);
+        clearExistingResultTableWithRetry("TB_OUT_IMA_NMRF_RESULT", batchId);
         clearExistingResultTableWithRetry("TB_OUT_IMA_CAPITAL_RESULT", batchId);
     }
 

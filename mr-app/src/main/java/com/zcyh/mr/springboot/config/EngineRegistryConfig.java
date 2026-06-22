@@ -16,6 +16,7 @@ import com.zcyh.mr.springboot.service.ImaCapitalResultPersistService;
 import com.zcyh.mr.springboot.service.ImaEsResultDetailPersistService;
 import com.zcyh.mr.springboot.service.ImaModellablePnlPersistService;
 import com.zcyh.mr.springboot.service.ImaNmrfPnlPersistService;
+import com.zcyh.mr.springboot.service.ImaNmrfResultPersistService;
 import com.zcyh.mr.springboot.service.ImaRfetSnapshotService;
 import com.zcyh.mr.springboot.service.BatchTradeDataLoader;
 import com.zcyh.mr.springboot.service.CalcRuleMetaPersistService;
@@ -115,7 +116,8 @@ public class EngineRegistryConfig {
             CalcRuleMetaPersistService calcRuleMetaPersistService,
             FrtbSbaSummaryService frtbSbaSummaryService,
             ImaCapitalResultPersistService imaCapitalResultPersistService,
-            ImaEsResultDetailPersistService imaEsResultDetailPersistService) {
+            ImaEsResultDetailPersistService imaEsResultDetailPersistService,
+            ImaNmrfResultPersistService imaNmrfResultPersistService) {
         return new ImaCapitalEngineAdapter(
                 engineDbJdbcTemplate,
                 engineResultDbJdbcTemplate,
@@ -123,7 +125,8 @@ public class EngineRegistryConfig {
                 calcRuleMetaPersistService,
                 frtbSbaSummaryService,
                 imaCapitalResultPersistService,
-                imaEsResultDetailPersistService);
+                imaEsResultDetailPersistService,
+                imaNmrfResultPersistService);
     }
 
     @Bean

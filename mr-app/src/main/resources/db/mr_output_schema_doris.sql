@@ -493,9 +493,9 @@ PROPERTIES (
     "enable_unique_key_merge_on_write" = "true"
 );
 
--- IMA ES 中间明细结果表（Phase2 输出）
+-- IMA ES 中间结果表（Phase2 输出）
 -- 每行对应一个汇总节点下，一个情景类型、一个置信水平、一个流动性期限的 ES 结果。
-CREATE TABLE IF NOT EXISTS TB_OUT_IMA_ES_RESULT_DETAIL (
+CREATE TABLE IF NOT EXISTS TB_OUT_IMA_ES_RESULT (
     ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
     BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
     DATA_DATE               VARCHAR(16)                              COMMENT '计算基准日期',
@@ -514,6 +514,32 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_ES_RESULT_DETAIL (
     COMM_ES                 DECIMAL(38, 10)                          COMMENT '大宗商品风险ES',
     CREATED_AT              VARCHAR(32)                              COMMENT '创建时间',
     UPDATED_AT              VARCHAR(32)                              COMMENT '更新时间'
+)
+UNIQUE KEY(ID)
+DISTRIBUTED BY HASH(ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
+-- IMA 不可建模中间结果表（Phase2 输出）
+-- 每行对应一个汇总节点下，一个 NMRF bucket 的 UP/DOWN 聚合损益与最终压力损失。
+CREATE TABLE IF NOT EXISTS TB_OUT_IMA_NMRF_RESULT (
+    ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
+    BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
+    DATA_DATE               VARCHAR(16)                              COMMENT '计算基准日期',
+    RULE_ID                 VARCHAR(128)                             COMMENT 'IMA汇总规则ID',
+    GROUP_TYPE              VARCHAR(64)                              COMMENT '汇总维度类型',
+    GROUP_VALUE             VARCHAR(512)                             COMMENT '汇总维度路径值',
+    GROUP_ORDER             INT                                      COMMENT '汇总维度顺序',
+    NMRF_TYPE               VARCHAR(32)                              COMMENT 'NMRF分类：IDIO_CREDIT / IDIO_EQUITY / OTHER',
+    RFET_BUCKET_ID          VARCHAR(256)                             COMMENT 'RFET bucket ID',
+    RISK_FACTOR_ID          VARCHAR(256)                             COMMENT '不可建模风险因子ID',
+    UP_PNL                  DECIMAL(38, 10)                          COMMENT 'UP方向PnL合计',
+    DOWN_PNL                DECIMAL(38, 10)                          COMMENT 'DOWN方向PnL合计',
+    STRESS_LOSS             DECIMAL(38, 10)                          COMMENT '压力损失：max(abs(UP_PNL), abs(DOWN_PNL))',
+    SELECTED_DIRECTION      VARCHAR(16)                              COMMENT '压力损失采用方向：UP / DOWN',
+    CREATED_AT              VARCHAR(32)                              COMMENT '创建时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
