@@ -9,8 +9,6 @@
         "TRADE": {
             "PAY_CURRENCY_CODE": "string",
             "REC_CURRENCY_CODE": "string",
-            "PAY_INTEREST_TYPE": "domain:Fixed|Floating",
-            "REC_INTEREST_TYPE": "domain:Fixed|Floating",
             "START_DATE": "date",
             "MATURITY_DATE": "date",
             "PAY_FREQ": "string",
@@ -18,35 +16,24 @@
             "PAY_NOTIONAL": "number",
             "REC_NOTIONAL": "number",
             "PAY_DISCOUNT_CURVE": "string",
-            "REC_DISCOUNT_CURVE": "string",
-            "PAY_DAY_COUNT_BASIS": "string",
-            "REC_DAY_COUNT_BASIS": "string"
+            "REC_DISCOUNT_CURVE": "string"
         }
     },
     "BOND": {
         "TRADE": {
             "CURRENCY_CODE": "string",
-            "INTEREST_TYPE": "domain:Fixed|Floating",
-            "DAY_COUNT_BASIS": "string",
             "ISSUE_DATE": "date",
             "MATURITY_DATE": "date",
             "PAY_FREQ": "string",
-            "NOTIONAL": "number",
-            "POSITION_TRADE": "number",
-            "INTEREST_RATE": "number"
+            "DISCOUNT_CURVE": "string"
         }
     },
     "WILLOW_BOND": {
         "TRADE": {
             "CURRENCY_CODE": "string",
-            "INTEREST_TYPE": "domain:Fixed",
-            "DAY_COUNT_BASIS": "string",
             "ISSUE_DATE": "date",
             "MATURITY_DATE": "date",
             "PAY_FREQ": "string",
-            "NOTIONAL": "number",
-            "POSITION_TRADE": "number",
-            "INTEREST_RATE": "number",
             "DISCOUNT_CURVE": "string",
             "WILLOW_REFERENCE_CURVE": "string",
             "WILLOW_MODEL_TYPE": "domain:NORMAL|LOG_NORMAL",
@@ -61,17 +48,17 @@
     "BOND_FUTURE": {
         "TRADE": {
             "MATURITY_DATE": "date",
-            "UNDERLYING_POSITION": "number"
+            "CURRENCY_CODE": "string",
+            "DISCOUNT_CURVE": "string",
+            "CONVERT_FACTORS": "array"
         },
         "UNDERLYING_DATA": {
-            "CURRENCY": "string",
-            "INTEREST_TYPE": "domain:Fixed|Floating",
-            "DAY_COUNT_BASIS": "string",
-            "EFFECTIVE_DATE": "date",
+            "BOND_ID": "string",
+            "CURRENCY_CODE": "string",
+            "ISSUE_DATE": "date",
             "MATURITY_DATE": "date",
-            "INTEREST_FREQ": "string",
-            "NOTIONAL": "number",
-            "INTEREST_RATE": "number"
+            "PAY_FREQ": "string",
+            "DISCOUNT_CURVE": "string"
         }
     },
     "CDS": {
@@ -83,34 +70,45 @@
             "NOTIONAL": "number",
             "DISCOUNT_CURVE": "string",
             "UNDERLYING_BOND_ID": "string",
-            "RECOVERY_RATE": "number",
-            "FIXED_RATE": "number"
+            "DAY_COUNT_BASIS": "string",
+            "INTEREST_STUB": "string",
+            "SETTLE_CALENDAR": "string"
         },
         "UNDERLYING_DATA": {
+            "BOND_ID": "string",
             "CURRENCY_CODE": "string",
-            "INTEREST_TYPE": "domain:Fixed|Floating",
             "ISSUE_DATE": "date",
             "MATURITY_DATE": "date",
-            "NOTIONAL": "number"
+            "PAY_FREQ": "string",
+            "DISCOUNT_CURVE": "string",
+            "CREDIT_SPREAD_CURVE": "string"
         }
     },
     "FXFWD": {
         "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
             "UNDERLYING_CURRENCY_CODE": "string",
             "BASE_CURRENCY_CODE": "string",
             "SETTLE_DATE": "date",
             "UNDERLYING_CURRENCY_NOTIONAL": "number",
-            "BASE_CURRENCY_NOTIONAL": "number"
+            "BASE_CURRENCY_NOTIONAL": "number",
+            "UNDERLYING_DISCOUNT_CURVE": "string",
+            "BASE_DISCOUNT_CURVE": "string"
         }
     },
     "FXSWAP": {
         "TRADE": {
+            "BUY_OR_SELL": "domain:B|S",
             "UNDERLYING_CURRENCY_CODE": "string",
             "BASE_CURRENCY_CODE": "string",
-            "FWD_SETTLE_DATE": "date",
             "SPOT_SETTLE_DATE": "date",
+            "FWD_SETTLE_DATE": "date",
             "UNDERLYING_CURRENCY_NOTIONAL_SPOT": "number",
-            "BASE_CURRENCY_NOTIONAL_SPOT": "number"
+            "BASE_CURRENCY_NOTIONAL_SPOT": "number",
+            "UNDERLYING_CURRENCY_NOTIONAL_FWD": "number",
+            "BASE_CURRENCY_NOTIONAL_FWD": "number",
+            "UNDERLYING_DISCOUNT_CURVE": "string",
+            "BASE_DISCOUNT_CURVE": "string"
         }
     },
     "STD_IRS": {
@@ -120,22 +118,34 @@
             "TRADE_PRICE": "number",
             "NOTIONAL": "number",
             "MATURITY_DATE": "date",
-            "REFERENCE_CURVE": "string"
+            "REFERENCE_CURVE": "string",
+            "TERM_CODE": "string",
+            "DAY_COUNT_BASIS": "string",
+            "SETTLE_CALENDAR": "string"
         }
     },
     "COMMFWD": {
         "TRADE": {
-            "TRADE_DATE": "date",
+            "BUY_OR_SELL": "domain:B|S",
+            "UNDERLYING_CODE": "string",
+            "CONTRACT_SIZE": "number",
             "SETTLE_DATE": "date",
-            "UNDERLYING_CODE": "string"
+            "STRIKE_PRICE": "number",
+            "REFERENCE_CURVE": "string",
+            "DISCOUNT_CURVE": "string"
         }
     },
     "COMMSWAP": {
         "TRADE": {
-            "TRADE_DATE": "date",
+            "BUY_OR_SELL": "domain:B|S",
+            "UNDERLYING_CODE": "string",
+            "CONTRACT_SIZE": "number",
+            "SPOT_STRIKE": "number",
             "SPOT_SETTLE_DATE": "date",
+            "FWD_STRIKE": "number",
             "FWD_SETTLE_DATE": "date",
-            "UNDERLYING_CODE": "string"
+            "REFERENCE_CURVE": "string",
+            "DISCOUNT_CURVE": "string"
         }
     },
     "FX_SPREADOPT": {
@@ -144,11 +154,9 @@
             "OPTION_TYPE": "domain:Call|Put",
             "UNDERLYING_CURRENCY_CODE": "string",
             "BASE_CURRENCY_CODE": "string",
-            "CONTRACT_SIZE": "number",
             "START_DATE": "date",
             "MATURITY_DATE": "date",
             "SETTLE_DATE": "date",
-            "SETTLE_TYPE": "string",
             "BASE_DISCOUNT_CURVE": "string",
             "UNDERLYING_DISCOUNT_CURVE": "string",
             "VOLATILITY_SURFACE": "string",
@@ -203,11 +211,9 @@
         "TRADE": {
             "BUY_OR_SELL": "domain:B|S",
             "OPTION_TYPE": "domain:Call|Put",
-            "CONTRACT_SIZE": "number",
             "START_DATE": "date",
             "MATURITY_DATE": "date",
             "SETTLE_DATE": "date",
-            "SETTLE_TYPE": "string",
             "DISCOUNT_CURVE": "string",
             "REFERENCE_CURVE": "string",
             "VOLATILITY_SURFACE": "string",
@@ -222,11 +228,9 @@
         "TRADE": {
             "BUY_OR_SELL": "domain:B|S",
             "OPTION_TYPE": "domain:Call|Put",
-            "CONTRACT_SIZE": "number",
             "START_DATE": "date",
             "MATURITY_DATE": "date",
             "SETTLE_DATE": "date",
-            "SETTLE_TYPE": "string",
             "DISCOUNT_CURVE": "string",
             "REFERENCE_CURVE": "string",
             "VOLATILITY_SURFACE": "string",
@@ -240,7 +244,6 @@
     "FX_SHARKFIN": {
         "TRADE": {
             "BUY_OR_SELL": "domain:B|S",
-            "CONTRACT_SIZE": "number",
             "OPTION_TYPE": "string",
             "UNDERLYING_CODE": "string",
             "TOUCH_RATE": "number",
@@ -387,7 +390,6 @@
     "IR_SHARKFIN": {
         "TRADE": {
             "BUY_OR_SELL": "domain:B|S",
-            "CONTRACT_SIZE": "number",
             "OPTION_TYPE": "string",
             "TOUCH_RATE": "number",
             "BASE_RATE": "number",
@@ -428,7 +430,9 @@
             "STRIKE_RATE": "number",
             "DISCOUNT_CURVE": "string",
             "REFERENCE_CURVE": "string",
-            "VOLATILITY_SURFACE": "string"
+            "VOLATILITY_SURFACE": "string",
+            "CAP_OR_FLOOR": "domain:CAP|FLOOR",
+            "PAY_FREQ": "string"
         }
     },
     "FXOPT": {
@@ -471,12 +475,11 @@
             "BUY_OR_SELL": "domain:B|S",
             "CURRENCY_CODE": "string",
             "DISCOUNT_CURVE": "string",
-            "PAYOFF_TYPE": "string",
+            "UNDERLYING_TYPE": "domain:FX|EQ|COMM",
+            "PAYOFF_TYPE": "domain:AUTO_CALL",
             "START_DATE": "date",
             "SETTLE_DATE": "date",
-            "OBS_DATES": "string",
-            "UNDERLYING_TYPE": "string",
-            "VOLATILITY_SURFACE": "string"
+            "OBS_DATES": "string"
         }
     },
     "IR_SPREADOPT": {
@@ -614,7 +617,16 @@
             "FIXED_RATE": "number",
             "DISCOUNT_CURVE": "string",
             "REFERENCE_CURVE": "string",
-            "VOLATILITY_SURFACE": "string"
+            "VOLATILITY_SURFACE": "string",
+            "UNDERLYING_FREQ": "string",
+            "UNDERLYING_SETTLE_CALENDAR": "string",
+            "UNDERLYING_SETTLE_RULE": "string",
+            "UNDERLYING_SETTLE_DAYOFF": "number",
+            "FIXED_DAY_COUNT_BASIS": "string",
+            "FIXING_CALENDAR": "string",
+            "FIXING_RULE": "string",
+            "FIXING_DAYOFF": "number",
+            "FIXING_FREQ": "string"
         }
     },
     "TRS": {
@@ -627,7 +639,22 @@
             "UNDERLYING_CURRENCY_CODE": "string",
             "DISCOUNT_CURVE": "string",
             "UNDERLYING_CURRENCY_DISCOUNT_CURVE": "string",
-            "UNDERLYING_BOND_ID": "string"
+            "UNDERLYING_BOND_ID": "string",
+            "RECOVERY_RATE": "number",
+            "INTEREST_TYPE": "domain:Fixed|Floating",
+            "PAY_FREQ": "string",
+            "DAY_COUNT_BASIS": "string",
+            "INTEREST_STUB": "string",
+            "SETTLE_CALENDAR": "string"
+        },
+        "UNDERLYING_DATA": {
+            "BOND_ID": "string",
+            "CURRENCY_CODE": "string",
+            "ISSUE_DATE": "date",
+            "MATURITY_DATE": "date",
+            "PAY_FREQ": "string",
+            "DISCOUNT_CURVE": "string",
+            "CREDIT_SPREAD_CURVE": "string"
         }
     },
     "IR_RANGE_ACCURE": {
