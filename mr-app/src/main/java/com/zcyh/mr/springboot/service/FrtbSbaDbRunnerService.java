@@ -84,7 +84,7 @@ public class FrtbSbaDbRunnerService {
         if (inputList.isEmpty()) {
             throw new IllegalArgumentException("规则汇总后未生成有效的 frtb_sba 输入数据");
         }
-        Map<String, List<FrtbInput>> tasks = inputQueryService.groupByTreeIdAndGroupValue(inputList);
+        Map<String, List<FrtbInput>> tasks = inputQueryService.groupByRuleIdAndGroupValue(inputList);
         if (tasks.isEmpty()) {
             throw new IllegalArgumentException("规则汇总后未生成有效的 frtb_sba 组批任务");
         }
@@ -140,7 +140,7 @@ public class FrtbSbaDbRunnerService {
         if (inputList.isEmpty()) {
             throw new IllegalArgumentException("规则汇总后未生成有效的 frtb_sba 输入数据");
         }
-        Map<String, List<FrtbInput>> tasks = inputQueryService.groupByTreeIdAndGroupValue(inputList);
+        Map<String, List<FrtbInput>> tasks = inputQueryService.groupByRuleIdAndGroupValue(inputList);
         if (tasks.isEmpty()) {
             throw new IllegalArgumentException("规则汇总后未生成有效的 frtb_sba 组批任务");
         }
@@ -183,13 +183,13 @@ public class FrtbSbaDbRunnerService {
             }
 
             FrtbInput sample = taskInputs.get(0);
-            String treeId = trimToNull(sample.getTreeId());
+            String ruleId = trimToNull(sample.getRuleId());
             String groupType = normalizeGroupType(sample.getGroupType(), sample.getGroupValue());
             String groupValue = normalizeGroupValue(sample.getGroupValue());
 
-            Map<String, List<?>> pojoResult = aggregator.buildResults(calcResult, treeId, groupType, groupValue);
+            Map<String, List<?>> pojoResult = aggregator.buildResults(calcResult, ruleId, groupType, groupValue);
             Map<String, Object> detailEntry = new LinkedHashMap<String, Object>();
-            detailEntry.put("treeId", treeId);
+            detailEntry.put("ruleId", ruleId);
             detailEntry.put("groupType", groupType);
             detailEntry.put("groupValue", groupValue);
             detailEntry.put("rows", buildRawDetailRows(pojoResult.get("posResults")));
@@ -463,7 +463,7 @@ public class FrtbSbaDbRunnerService {
                 FrtbInput input = grouped.get(aggregateKey);
                 if (input == null) {
                     input = new FrtbInput();
-                    input.setTreeId(rule.getRuleId());
+                    input.setRuleId(rule.getRuleId());
                     input.setGroupType(groupType);
                     input.setGroupValue(groupValue);
                     input.setRiskFactorId(trimToNull(stringValue(row.get("RISK_FACTOR_ID"))));
@@ -499,9 +499,9 @@ public class FrtbSbaDbRunnerService {
         return sumField;
     }
 
-    private static String buildAggregateKey(String treeId, String groupType, String groupValue, Map<String, Object> row) {
+    private static String buildAggregateKey(String ruleId, String groupType, String groupValue, Map<String, Object> row) {
         StringBuilder builder = new StringBuilder();
-        builder.append(nullSafe(treeId)).append('|')
+        builder.append(nullSafe(ruleId)).append('|')
                 .append(nullSafe(groupType)).append('|')
                 .append(nullSafe(groupValue)).append('|')
                 .append(nullSafe(row.get("RISK_FACTOR_ID"))).append('|')

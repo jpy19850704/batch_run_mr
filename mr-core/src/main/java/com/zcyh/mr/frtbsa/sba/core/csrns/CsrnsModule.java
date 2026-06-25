@@ -172,7 +172,7 @@ public class CsrnsModule {
     }
 
     private void fillDimensionContext(Map<String, Object> pos, FrtbInput model) {
-        pos.put("treeId", model.getTreeId());
+        pos.put("ruleId", model.getRuleId());
         pos.put("groupType", model.getGroupType());
         pos.put("groupValue", model.getGroupValue());
     }

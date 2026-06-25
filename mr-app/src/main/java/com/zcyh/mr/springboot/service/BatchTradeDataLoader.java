@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,6 +48,8 @@ public class BatchTradeDataLoader {
             row.instrumentId = rs.getString("instrument_id");
             row.productCode = rs.getString("product_code");
             row.tradeContentText = rs.getString("trade_content_text");
+            row.rraoType = trimToNull(rs.getString("rrao_type"));
+            row.rraoNotional = rs.getBigDecimal("rrao_notional");
             for (String column : TRADE_DIMENSION_COLUMNS) {
                 String value = trimToNull(rs.getString(column));
                 if (value != null) {
@@ -264,6 +267,8 @@ public class BatchTradeDataLoader {
         public String instrumentId;
         public String productCode;
         public String tradeContentText;
+        public String rraoType;
+        public BigDecimal rraoNotional;
         public Map<String, String> tradeDimensions = new LinkedHashMap<String, String>();
     }
 
@@ -311,7 +316,9 @@ public class BatchTradeDataLoader {
         sql.append(prefix).append("id AS id, ");
         sql.append(prefix).append("instrument_id AS instrument_id, ");
         sql.append(prefix).append("product_code AS product_code, ");
-        sql.append(prefix).append("trade_content_text AS trade_content_text");
+        sql.append(prefix).append("trade_content_text AS trade_content_text, ");
+        sql.append(prefix).append("rrao_type AS rrao_type, ");
+        sql.append(prefix).append("rrao_notional AS rrao_notional");
         for (String column : TRADE_DIMENSION_COLUMNS) {
             sql.append(", ").append(prefix).append(column).append(" AS ").append(column);
         }

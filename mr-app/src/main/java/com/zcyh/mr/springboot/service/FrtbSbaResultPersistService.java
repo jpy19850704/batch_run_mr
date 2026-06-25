@@ -22,7 +22,7 @@ public class FrtbSbaResultPersistService {
     private static final int DEFAULT_BATCH_SIZE = 5000;
     private static final String TARGET_TABLE = "TB_OUT_FRTB_SBA_CLASS_RESULT";
     private static final String STREAM_LOAD_COLUMNS =
-            "BATCH_ID,DATA_DATE,RULE_ID,TREE_ID,GROUP_TYPE,GROUP_VALUE,"
+            "BATCH_ID,DATA_DATE,RULE_ID,GROUP_TYPE,GROUP_VALUE,"
                     + "RISK_FACTOR_CLASS,MAX_SIGN,CAPITAL_TYPE,RISK_CHARGE,"
                     + "NORMAL_DELTA,HIGH_DELTA,LOW_DELTA,"
                     + "NORMAL_VEGA,HIGH_VEGA,LOW_VEGA,"
@@ -66,7 +66,7 @@ public class FrtbSbaResultPersistService {
             // NONADDITIVE：SBA 独立计算资本（含相关性矩阵）
             buffer.appendRow(
                     batchId, dataDate, ruleId,
-                    cr.getTreeId(), cr.getGroupType(), cr.getGroupValue(),
+                    cr.getGroupType(), cr.getGroupValue(),
                     cr.getRiskFactorClass(), cr.getMaxSign(),
                     "NONADDITIVE", DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getRiskCharge())),
                     DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getNormalDelta())),
@@ -84,7 +84,7 @@ public class FrtbSbaResultPersistService {
             BigDecimal allocCharge = computeAllocRiskCharge(cr);
             buffer.appendRow(
                     batchId, dataDate, ruleId,
-                    cr.getTreeId(), cr.getGroupType(), cr.getGroupValue(),
+                    cr.getGroupType(), cr.getGroupValue(),
                     cr.getRiskFactorClass(), cr.getMaxSign(),
                     "ADDITIVE", DorisCsvStreamLoadBuffer.decimalText(decVal(allocCharge)),
                     DorisCsvStreamLoadBuffer.decimalText(decVal(cr.getAllocDeltaNormal())),

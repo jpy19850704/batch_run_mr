@@ -1,0 +1,526 @@
+package com.zcyh.mr.springboot.service;
+
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.JSONWriter;
+import com.zcyh.mr.springboot.model.AggregationRule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * FRTB RRAO 汇总服务。
+ */
+@Service
+public class FrtbRraoSummaryService {
+    private static final Logger log = LoggerFactory.getLogger(FrtbRraoSummaryService.class);
+    private static final String RULE_TYPE_RRAO = "FRTB_RRAO";
+    private static final String CALC_TYPE_RRAO = "RRAO";
+    private static final String TARGET_TABLE = "TB_OUT_TRADE_RRAO_RESULT";
+    private static final String STREAM_LOAD_COLUMNS =
+            "BATCH_ID,DATA_DATE,RULE_ID,GROUP_TYPE,GROUP_VALUE,RRAO_TYPE,TRADE_COUNT,RRAO_NOTIONAL,RRAO_CAPITAL,CREATED_AT";
+    private static final BigDecimal EXOTIC_WEIGHT = new BigDecimal("0.01");
+    private static final BigDecimal OTHER_WEIGHT = new BigDecimal("0.001");
+    private static final int DEFAULT_BATCH_SIZE = 5000;
+
+    private final JdbcTemplate engineDbJdbcTemplate;
+    private final JdbcTemplate engineResultDbJdbcTemplate;
+    private final DorisStreamLoadService dorisStreamLoadService;
+    private final CalcRuleMetaPersistService calcRuleMetaPersistService;
+
+    public FrtbRraoSummaryService(@Qualifier("engineDbJdbcTemplate") JdbcTemplate engineDbJdbcTemplate,
+                                  @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate,
+                                  DorisStreamLoadService dorisStreamLoadService,
+                                  CalcRuleMetaPersistService calcRuleMetaPersistService) {
+        this.engineDbJdbcTemplate = engineDbJdbcTemplate;
+        this.engineResultDbJdbcTemplate = engineResultDbJdbcTemplate;
+        this.dorisStreamLoadService = dorisStreamLoadService;
+        this.calcRuleMetaPersistService = calcRuleMetaPersistService;
+    }
+
+    public JSONObject summarize(JSONObject request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request 不能为空");
+        }
+        String batchId = readRequiredString(request, "batch_id");
+        String dataDate = readRequiredString(request, "data_date");
+        boolean persistResult = readBoolean(request, true, "persist_result");
+        JSONArray ruleList = resolveRuleList(request);
+
+        if (persistResult) {
+            calcRuleMetaPersistService.deleteByBatchAndCalcType(batchId, dataDate, CALC_TYPE_RRAO);
+        }
+
+        JSONArray results = new JSONArray();
+        for (int i = 0; i < ruleList.size(); i++) {
+            JSONObject ruleItem = ruleList.getJSONObject(i);
+            if (ruleItem == null) {
+                throw new IllegalArgumentException("rule_list[" + i + "] 不能为空对象");
+            }
+            RuleExecution execution = resolveRuleExecution(ruleItem);
+            if ("db".equals(execution.sourceType)) {
+                execution.ruleJson = loadRuleSnapshot(execution.ruleId);
+            }
+            JSONArray summary = executeOne(batchId, dataDate, execution.ruleId, execution.ruleJson);
+            if (persistResult) {
+                persist(batchId, dataDate, execution.ruleId, summary);
+                persistRuleMeta(batchId, dataDate, execution);
+            }
+
+            JSONObject resultItem = new JSONObject();
+            resultItem.put("rule_id", execution.ruleId);
+            resultItem.put("source_type", execution.sourceType);
+            resultItem.put("summary", summary);
+            results.add(resultItem);
+        }
+
+        JSONObject response = new JSONObject();
+        response.put("batch_id", batchId);
+        response.put("data_date", dataDate);
+        response.put("results", results);
+        return response;
+    }
+
+    private JSONArray executeOne(String batchId, String dataDate, String ruleId, JSONObject ruleJson) {
+        AggregationRule rule = parseRule(ruleId, ruleJson);
+        List<Map<String, Object>> detailRows = queryRraoRows(batchId, dataDate, rule);
+        JSONArray output = new JSONArray();
+        for (String level : rule.getBuildOrder()) {
+            String groupType = normalizeGroupType(level);
+            Map<GroupKey, RraoAggregate> grouped = aggregateRows(detailRows, groupType);
+            for (RraoAggregate aggregate : grouped.values()) {
+                output.add(aggregate.toJson(batchId, dataDate, ruleId, groupType));
+            }
+        }
+        return output;
+    }
+
+    private JSONObject loadRuleSnapshot(String ruleId) {
+        String safeRuleId = trimToNull(ruleId);
+        if (safeRuleId == null) {
+            throw new IllegalArgumentException("ruleId 不能为空");
+        }
+        try {
+            List<Map<String, Object>> rows = engineDbJdbcTemplate.queryForList(
+                    "SELECT RULE_ID, RULE_TYPE, RULE_NAME, RULE_JSON FROM MR_AGG_RULE WHERE RULE_TYPE=? AND RULE_ID=?",
+                    RULE_TYPE_RRAO, safeRuleId);
+            if (rows.isEmpty()) {
+                throw new IllegalArgumentException("未找到 FRTB RRAO 汇总规则: " + safeRuleId);
+            }
+            String ruleJson = trimToNull(stringValue(rows.get(0).get("RULE_JSON")));
+            if (ruleJson == null) {
+                throw new IllegalArgumentException("FRTB RRAO 汇总规则内容为空: " + safeRuleId);
+            }
+            JSONObject json = JSON.parseObject(ruleJson);
+            if (json == null) {
+                throw new IllegalArgumentException("FRTB RRAO 汇总规则解析失败: " + safeRuleId);
+            }
+            json.put("rule_id", safeRuleId);
+            json.put("rule_type", RULE_TYPE_RRAO);
+            return json;
+        } catch (DataAccessException ex) {
+            throw new IllegalStateException("读取 MR_AGG_RULE 中 FRTB RRAO 规则失败，请确认规则表已创建且可访问: " + ex.getMessage(), ex);
+        }
+    }
+
+    private static AggregationRule parseRule(String ruleId, JSONObject ruleJson) {
+        if (ruleJson == null) {
+            throw new IllegalArgumentException("FRTB RRAO 汇总规则不能为空: " + ruleId);
+        }
+        AggregationRule rule = JSON.parseObject(ruleJson.toJSONString(), AggregationRule.class);
+        if (rule == null) {
+            throw new IllegalArgumentException("FRTB RRAO 汇总规则解析失败: " + ruleId);
+        }
+        rule.setRuleId(ruleId);
+        rule.setRuleType(RULE_TYPE_RRAO);
+        if (rule.getBuildOrder() == null || rule.getBuildOrder().isEmpty()) {
+            throw new IllegalArgumentException("FRTB RRAO 汇总规则必须配置 build_order: " + ruleId);
+        }
+        return rule;
+    }
+
+    private List<Map<String, Object>> queryRraoRows(String batchId, String dataDate, AggregationRule rule) {
+        List<Object> params = new ArrayList<Object>();
+        Set<String> selectedFields = new LinkedHashSet<String>();
+        for (String level : rule.getBuildOrder()) {
+            String groupType = normalizeGroupType(level);
+            if (!"TOTAL".equals(groupType)) {
+                selectedFields.add(groupType);
+            }
+        }
+        collectFilterTreeFields(rule.getFilterTree(), selectedFields);
+        boolean usePortfolioFlatView = RuleColumnSqlResolver.requiresPortfolioFlatView(selectedFields);
+
+        StringBuilder sql = new StringBuilder()
+                .append("SELECT r.INSTRUMENT_ID, r.RRAO_TYPE, r.RRAO_NOTIONAL");
+        for (String field : selectedFields) {
+            String column = resolveRuleColumn(field);
+            if (column == null) {
+                throw new IllegalArgumentException("RRAO 规则字段无法映射到交易结果明细: " + field);
+            }
+            sql.append(", ").append(column).append(" AS ").append(field);
+        }
+        sql.append(" FROM TB_OUT_TRADE_RESULT_DETAIL r ");
+        if (usePortfolioFlatView) {
+            sql.append("LEFT JOIN ").append(RuleColumnSqlResolver.PORTFOLIO_FLAT_VIEW)
+                    .append(" p ON p.BATCH_ID = r.BATCH_ID AND p.DATA_DATE = r.DATA_DATE AND p.PORTFOLIO_CODE = r.PORTFOLIO ");
+        }
+        sql.append("WHERE r.BATCH_ID = ? AND r.DATA_DATE = ? ")
+                .append("AND r.RRAO_TYPE IS NOT NULL AND r.RRAO_NOTIONAL IS NOT NULL");
+        params.add(batchId);
+        params.add(dataDate);
+        AggregationFilterSqlBuilder.appendWhereClause(sql, params, rule, new AggregationFilterSqlBuilder.ColumnResolver() {
+            @Override
+            public String resolve(String field) {
+                return resolveRuleColumn(field);
+            }
+        });
+        sql.append(" ORDER BY r.INSTRUMENT_ID");
+
+        try {
+            return engineResultDbJdbcTemplate.queryForList(sql.toString(), params.toArray());
+        } catch (DataAccessException ex) {
+            throw new IllegalStateException("读取 RRAO 汇总底层明细失败，请确认交易结果明细已生成且可访问: " + ex.getMessage(), ex);
+        }
+    }
+
+    private static Map<GroupKey, RraoAggregate> aggregateRows(List<Map<String, Object>> rows, String groupType) {
+        Map<GroupKey, RraoAggregate> grouped = new LinkedHashMap<GroupKey, RraoAggregate>();
+        if (rows == null || rows.isEmpty()) {
+            return grouped;
+        }
+        for (Map<String, Object> row : rows) {
+            String rraoType = trimToNull(stringValue(row.get("RRAO_TYPE")));
+            BigDecimal notional = toBigDecimal(row.get("RRAO_NOTIONAL"));
+            if (rraoType == null || notional == null) {
+                continue;
+            }
+            BigDecimal weight = resolveWeight(rraoType);
+            String groupValue = resolveGroupValue(row, groupType);
+            GroupKey key = new GroupKey(groupValue, rraoType);
+            RraoAggregate aggregate = grouped.get(key);
+            if (aggregate == null) {
+                aggregate = new RraoAggregate(groupValue, rraoType);
+                grouped.put(key, aggregate);
+            }
+            aggregate.tradeCount++;
+            aggregate.notional = aggregate.notional.add(notional);
+            aggregate.capital = aggregate.capital.add(notional.multiply(weight));
+        }
+        return grouped;
+    }
+
+    private static String resolveGroupValue(Map<String, Object> row, String groupType) {
+        if ("TOTAL".equals(groupType)) {
+            return "TOTAL";
+        }
+        String value = trimToNull(stringValue(row.get(groupType)));
+        if (value == null) {
+            throw new IllegalArgumentException("RRAO 分组字段为空: " + groupType);
+        }
+        return value;
+    }
+
+    private void persist(String batchId, String dataDate, String ruleId, JSONArray summary) {
+        int deleted = engineResultDbJdbcTemplate.update(
+                "DELETE FROM TB_OUT_TRADE_RRAO_RESULT WHERE BATCH_ID=? AND DATA_DATE=? AND RULE_ID=?",
+                batchId, dataDate, ruleId);
+        if (deleted > 0) {
+            log.info("清理 RRAO 汇总历史结果: batchId={}, dataDate={}, ruleId={}, deleted={}", batchId, dataDate, ruleId, deleted);
+        }
+        if (summary == null || summary.isEmpty()) {
+            log.info("RRAO 汇总结果为空: batchId={}, dataDate={}, ruleId={}", batchId, dataDate, ruleId);
+            return;
+        }
+
+        String now = ResultPersistTime.nowText();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                TARGET_TABLE,
+                STREAM_LOAD_COLUMNS,
+                "frtb_rrao_" + batchId + "_" + dataDate + "_" + ruleId,
+                DEFAULT_BATCH_SIZE);
+        for (int i = 0; i < summary.size(); i++) {
+            JSONObject row = summary.getJSONObject(i);
+            buffer.appendRow(
+                    row.getString("BATCH_ID"),
+                    row.getString("DATA_DATE"),
+                    row.getString("RULE_ID"),
+                    row.getString("GROUP_TYPE"),
+                    row.getString("GROUP_VALUE"),
+                    row.getString("RRAO_TYPE"),
+                    row.getLong("TRADE_COUNT"),
+                    DorisCsvStreamLoadBuffer.decimalText(row.getBigDecimal("RRAO_NOTIONAL")),
+                    DorisCsvStreamLoadBuffer.decimalText(row.getBigDecimal("RRAO_CAPITAL")),
+                    now
+            );
+        }
+        buffer.flush();
+        log.info("RRAO 汇总结果落库完成: batchId={}, dataDate={}, ruleId={}, rows={}", batchId, dataDate, ruleId, summary.size());
+    }
+
+    private void persistRuleMeta(String batchId, String dataDate, RuleExecution execution) {
+        String ruleJsonStr = execution.ruleJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
+        calcRuleMetaPersistService.persist(batchId, dataDate, CALC_TYPE_RRAO, execution.ruleId, ruleJsonStr);
+    }
+
+    private static JSONArray resolveRuleList(JSONObject request) {
+        JSONArray ruleList = request.getJSONArray("rule_list");
+        if (ruleList != null && !ruleList.isEmpty()) {
+            return ruleList;
+        }
+        JSONArray single = new JSONArray();
+        JSONObject item = new JSONObject();
+        String ruleId = readString(request, "rule_id");
+        JSONObject rule = request.getJSONObject("rule");
+        if (ruleId != null) {
+            item.put("rule_id", ruleId);
+            single.add(item);
+            return single;
+        }
+        if (rule != null) {
+            item.put("rule", rule);
+            single.add(item);
+            return single;
+        }
+        throw new IllegalArgumentException("FRTB RRAO 汇总必须显式提供 rule_id、rule 或 rule_list");
+    }
+
+    private static RuleExecution resolveRuleExecution(JSONObject ruleItem) {
+        JSONObject rule = ruleItem.getJSONObject("rule");
+        String ruleId = readString(ruleItem, "rule_id");
+        if (rule == null) {
+            if (ruleId == null) {
+                throw new IllegalArgumentException("rule_list 项必须提供 rule_id 或 rule");
+            }
+            return RuleExecution.db(ruleId);
+        }
+        if (ruleId == null) {
+            ruleId = readString(rule, "rule_id");
+        }
+        if (ruleId == null) {
+            throw new IllegalArgumentException("FRTB RRAO inline rule 必须显式提供 rule_id");
+        }
+        rule.put("rule_id", ruleId);
+        rule.put("rule_type", RULE_TYPE_RRAO);
+        return RuleExecution.inline(ruleId, rule);
+    }
+
+    private static String resolveRuleColumn(String field) {
+        String safeField = RuleColumnSqlResolver.normalizeField(field);
+        if (safeField == null) {
+            return null;
+        }
+        if (RuleColumnSqlResolver.isPortfolioFlatField(safeField)) {
+            return "p." + safeField;
+        }
+        if ("BATCH_ID".equals(safeField)) {
+            return "r.BATCH_ID";
+        }
+        if ("DATA_DATE".equals(safeField)) {
+            return "r.DATA_DATE";
+        }
+        if ("INSTRUMENT_ID".equals(safeField)) {
+            return "r.INSTRUMENT_ID";
+        }
+        if ("PRODUCT_CODE".equals(safeField)) {
+            return "r.PRODUCT_CODE";
+        }
+        if ("PORTFOLIO".equals(safeField)) {
+            return "r.PORTFOLIO";
+        }
+        if ("DESK".equals(safeField)) {
+            return "r.DESK";
+        }
+        if ("TRADER".equals(safeField)) {
+            return "r.TRADER";
+        }
+        if ("VALUATION_CCY".equals(safeField)) {
+            return "r.VALUATION_CCY";
+        }
+        if ("RRAO_TYPE".equals(safeField)) {
+            return "r.RRAO_TYPE";
+        }
+        if ("RRAO_NOTIONAL".equals(safeField)) {
+            return "r.RRAO_NOTIONAL";
+        }
+        return null;
+    }
+
+    private static void collectFilterTreeFields(AggregationRule.FilterExpression node, Set<String> fields) {
+        if (node == null || fields == null) {
+            return;
+        }
+        String field = trimToNull(node.getField());
+        if (field != null) {
+            fields.add(RuleColumnSqlResolver.normalizeField(field));
+        }
+        if (node.getChildren() == null) {
+            return;
+        }
+        for (AggregationRule.FilterExpression child : node.getChildren()) {
+            collectFilterTreeFields(child, fields);
+        }
+    }
+
+    private static String normalizeGroupType(String value) {
+        String safeValue = trimToNull(value);
+        if (safeValue == null) {
+            throw new IllegalArgumentException("RRAO build_order 不能包含空值");
+        }
+        String groupType = safeValue.toUpperCase(Locale.ROOT);
+        if (resolveRuleColumn(groupType) == null && !"TOTAL".equals(groupType)) {
+            throw new IllegalArgumentException("RRAO build_order 字段不支持: " + value);
+        }
+        return groupType;
+    }
+
+    private static BigDecimal resolveWeight(String rraoType) {
+        if ("EXOTIC".equals(rraoType)) {
+            return EXOTIC_WEIGHT;
+        }
+        if ("OTHER".equals(rraoType)) {
+            return OTHER_WEIGHT;
+        }
+        throw new IllegalArgumentException("RRAO_TYPE 不支持: " + rraoType);
+    }
+
+    private static BigDecimal toBigDecimal(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof BigDecimal) {
+            return (BigDecimal) value;
+        }
+        if (value instanceof Number) {
+            return new BigDecimal(String.valueOf(value));
+        }
+        String text = trimToNull(String.valueOf(value));
+        return text == null ? null : new BigDecimal(text);
+    }
+
+    private static boolean readBoolean(JSONObject request, boolean defaultValue, String key) {
+        if (key != null && request.containsKey(key)) {
+            Boolean value = request.getBoolean(key);
+            if (value != null) {
+                return value;
+            }
+        }
+        return defaultValue;
+    }
+
+    private static String readRequiredString(JSONObject request, String key) {
+        String value = readString(request, key);
+        if (value == null) {
+            throw new IllegalArgumentException("参数缺失: " + key);
+        }
+        return value;
+    }
+
+    private static String readString(JSONObject request, String key) {
+        if (request == null || key == null) {
+            return null;
+        }
+        return trimToNull(request.getString(key));
+    }
+
+    private static String stringValue(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private static String trimToNull(String text) {
+        if (text == null) {
+            return null;
+        }
+        String value = text.trim();
+        return value.isEmpty() ? null : value;
+    }
+
+    private static class GroupKey {
+        private final String groupValue;
+        private final String rraoType;
+
+        GroupKey(String groupValue, String rraoType) {
+            this.groupValue = groupValue;
+            this.rraoType = rraoType;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof GroupKey)) {
+                return false;
+            }
+            GroupKey other = (GroupKey) obj;
+            return groupValue.equals(other.groupValue) && rraoType.equals(other.rraoType);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * groupValue.hashCode() + rraoType.hashCode();
+        }
+    }
+
+    private static class RraoAggregate {
+        private final String groupValue;
+        private final String rraoType;
+        private long tradeCount;
+        private BigDecimal notional = BigDecimal.ZERO;
+        private BigDecimal capital = BigDecimal.ZERO;
+
+        RraoAggregate(String groupValue, String rraoType) {
+            this.groupValue = groupValue;
+            this.rraoType = rraoType;
+        }
+
+        JSONObject toJson(String batchId, String dataDate, String ruleId, String groupType) {
+            JSONObject json = new JSONObject();
+            json.put("BATCH_ID", batchId);
+            json.put("DATA_DATE", dataDate);
+            json.put("RULE_ID", ruleId);
+            json.put("GROUP_TYPE", groupType);
+            json.put("GROUP_VALUE", groupValue);
+            json.put("RRAO_TYPE", rraoType);
+            json.put("TRADE_COUNT", tradeCount);
+            json.put("RRAO_NOTIONAL", notional);
+            json.put("RRAO_CAPITAL", capital);
+            return json;
+        }
+    }
+
+    private static class RuleExecution {
+        private String ruleId;
+        private String sourceType;
+        private JSONObject ruleJson;
+
+        static RuleExecution db(String ruleId) {
+            RuleExecution execution = new RuleExecution();
+            execution.ruleId = ruleId;
+            execution.sourceType = "db";
+            return execution;
+        }
+
+        static RuleExecution inline(String ruleId, JSONObject ruleJson) {
+            RuleExecution execution = new RuleExecution();
+            execution.ruleId = ruleId;
+            execution.sourceType = "db_inline";
+            execution.ruleJson = ruleJson;
+            return execution;
+        }
+    }
+}

@@ -69,7 +69,7 @@ public class FrtbSaEngineAdapter implements EngineAdapter {
 
     private static FrtbInput parseFrtbInput(JSONObject obj, String path, int index) {
         FrtbInput input = new FrtbInput();
-        input.setTreeId(trimToNull(obj.getString("tree_id")));
+        input.setRuleId(requireString(obj, "rule_id", path, index));
         input.setGroupType(trimToNull(obj.getString("group_type")));
         input.setGroupValue(trimToNull(obj.getString("group_value")));
         input.setRiskFactorId(requireString(obj, "risk_factor_id", path, index));

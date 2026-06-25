@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 public class FRTBPosResult {
 
     // === 维度标识 ===
-    public String treeId;
+    public String ruleId;
     public String groupType;
     public String groupValue;
 
@@ -47,12 +47,12 @@ public class FRTBPosResult {
 
     // ========== 访问器方法 ==========
 
-    public String getTreeId() {
-        return treeId;
+    public String getRuleId() {
+        return ruleId;
     }
 
-    public void setTreeId(String treeId) {
-        this.treeId = treeId;
+    public void setRuleId(String ruleId) {
+        this.ruleId = ruleId;
     }
 
     public String getGroupType() {

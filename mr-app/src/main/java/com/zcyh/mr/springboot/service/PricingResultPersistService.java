@@ -56,6 +56,8 @@ public class PricingResultPersistService {
             "VALUATION",
             "VALUATION_CCY",
             "VALUATION_CNY",
+            "RRAO_TYPE",
+            "RRAO_NOTIONAL",
             "PV01",
             "DELTA",
             "GAMMA",
@@ -229,6 +231,7 @@ public class PricingResultPersistService {
             }
         }
         context.tradeDimension = payload.getJSONObject("trade_dimension");
+        context.tradeRrao = payload.getJSONObject("trade_rrao");
         return context;
     }
 
@@ -256,16 +259,18 @@ public class PricingResultPersistService {
                 continue;
             }
             String instrumentId = trimToNull(trade.getString("INSTRUMENT_ID"));
-            // 从输入侧 payload 提取原始交易和市场数据依赖（沿用 tradeDimension 的设计模式）
+            // 从输入侧 payload 提取原始交易和市场数据依赖。
             JSONObject inputTrade = (instrumentId == null || inputTradeIndex == null)
                     ? null : inputTradeIndex.get(instrumentId);
-            buffer.appendRow(buildTradeResultRow(context, trade, instrumentId, inputTrade));
+            JSONObject inputRrao = (instrumentId == null || context.tradeRrao == null)
+                    ? null : context.tradeRrao.getJSONObject(instrumentId);
+            buffer.appendRow(buildTradeResultRow(context, trade, instrumentId, inputTrade, inputRrao));
         }
         buffer.flush();
     }
 
     private Object[] buildTradeResultRow(PersistContext context, JSONObject trade, String instrumentId,
-                                         JSONObject inputTrade) {
+                                         JSONObject inputTrade, JSONObject inputRrao) {
         return new Object[]{
                 context.requestId,
                 context.jobId,
@@ -283,6 +288,8 @@ public class PricingResultPersistService {
                 DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VALUATION"))),
                 trimToNull(trade.getString("VALUATION_CCY")),
                 DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("VALUATION_CNY"))),
+                inputRrao == null ? null : trimToNull(inputRrao.getString("RRAO_TYPE")),
+                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(inputRrao == null ? null : inputRrao.get("RRAO_NOTIONAL"))),
                 DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("PV01"))),
                 DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("DELTA"))),
                 DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("GAMMA"))),
@@ -997,5 +1004,6 @@ public class PricingResultPersistService {
         private String createdAt;
         private String updatedAt;
         private JSONObject tradeDimension;
+        private JSONObject tradeRrao;
     }
 }

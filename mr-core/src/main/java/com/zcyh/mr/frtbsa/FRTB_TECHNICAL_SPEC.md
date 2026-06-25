@@ -95,7 +95,7 @@ mr-core/src/main/resources/com/zcyh/mr/frtbsa/param.json
 
 | 字段 | 含义 |
 |------|------|
-| `treeId` | 计算批次或树 ID |
+| `ruleId` | 规则 ID |
 | `groupType` | 汇总维度，如 `TOTAL`、`PORTFOLIO`、`TRADER` |
 | `groupValue` | 维度值 |
 | `riskFactorId` | 风险因子 ID |
@@ -116,7 +116,7 @@ Spring Boot 同步接口输入使用 snake_case：
   "need_decompose": true,
   "frtb_input_list": [
     {
-      "tree_id": "20251231_EOD_BATCH",
+      "rule_id": "20251231_EOD_RULE",
       "group_type": "TOTAL",
       "group_value": "TOTAL",
       "risk_factor_class": "GIRR",

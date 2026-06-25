@@ -128,7 +128,7 @@ public class FrtbSbaSummaryService {
                 continue;
             }
             Map<String, Object> rawDetail = requireRawDetail(rawDetails, taskKey);
-            String treeId = requireRawDetailText(rawDetail, "treeId", taskKey);
+            String detailRuleId = requireRawDetailText(rawDetail, "ruleId", taskKey);
             String groupType = requireRawDetailText(rawDetail, "groupType", taskKey);
             String groupValue = requireRawDetailText(rawDetail, "groupValue", taskKey);
             Object calcResult = entry.getValue();
@@ -136,7 +136,7 @@ public class FrtbSbaSummaryService {
                 throw new IllegalArgumentException("FRTB SBA 任务结果格式异常: taskKey=" + taskKey);
             }
             Map<String, List<?>> pojoResult = frtbAggregator.buildResults(
-                    (Map<String, Object>) calcResult, treeId, groupType, groupValue);
+                    (Map<String, Object>) calcResult, detailRuleId, groupType, groupValue);
             List<?> classResults = pojoResult.get("classResults");
             if (classResults != null && !classResults.isEmpty()) {
                 frtbSbaResultPersistService.persist(

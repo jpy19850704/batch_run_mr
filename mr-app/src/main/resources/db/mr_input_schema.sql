@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS MR_TRADE_INPUT (
     portfolio VARCHAR(128),
     desk VARCHAR(64),
     trader VARCHAR(64),
+    rrao_type VARCHAR(64),
+    rrao_notional DECIMAL(38, 10),
     created_at BIGINT NOT NULL,
     updated_at BIGINT NOT NULL,
     CONSTRAINT uk_MR_TRADE_INPUT UNIQUE (data_date, instrument_id, version_no)
@@ -215,13 +217,14 @@ WHERE CALENDAR IS NOT NULL
   AND HOL_DATE IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS MR_AGG_RULE (
-    rule_id VARCHAR(128) PRIMARY KEY,
+    rule_id VARCHAR(128) NOT NULL,
     rule_type VARCHAR(64) NOT NULL,
     rule_name VARCHAR(256),
     rule_json CLOB NOT NULL,
     modifier VARCHAR(128),
     created_at BIGINT NOT NULL,
-    updated_at BIGINT NOT NULL
+    updated_at BIGINT NOT NULL,
+    PRIMARY KEY (rule_type, rule_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_MR_AGG_RULE_type

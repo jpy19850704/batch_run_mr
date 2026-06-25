@@ -1,0 +1,3 @@
+ALTER TABLE MR_TRADE_INPUT
+    ADD COLUMN rrao_type VARCHAR(64) NULL AFTER trader,
+    ADD COLUMN rrao_notional DECIMAL(38, 10) NULL AFTER rrao_type;

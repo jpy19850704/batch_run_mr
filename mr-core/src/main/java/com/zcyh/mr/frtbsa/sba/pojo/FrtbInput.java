@@ -13,8 +13,8 @@ import java.math.BigDecimal;
  */
 public class FrtbInput implements Serializable {
 
-    /** 计算批次 ID */
-    private String treeId;
+    /** 规则 ID */
+    private String ruleId;
 
     /** 维度类型，如 "TOTAL", "portfolio", "trader" */
     private String groupType;
@@ -54,12 +54,12 @@ public class FrtbInput implements Serializable {
 
     // ========== 访问器方法 ==========
 
-    public String getTreeId() {
-        return treeId;
+    public String getRuleId() {
+        return ruleId;
     }
 
-    public void setTreeId(String treeId) {
-        this.treeId = treeId;
+    public void setRuleId(String ruleId) {
+        this.ruleId = ruleId;
     }
 
     public String getGroupType() {

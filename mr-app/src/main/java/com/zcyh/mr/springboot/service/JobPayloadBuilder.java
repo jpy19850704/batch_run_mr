@@ -138,6 +138,29 @@ public class JobPayloadBuilder {
         if (!tradeDimension.isEmpty()) {
             payload.put("trade_dimension", tradeDimension);
         }
+
+        JSONObject tradeRrao = new JSONObject();
+        for (BatchTradeDataLoader.TradeRow trade : chunkTrades) {
+            String dimInstrumentId = trimToNull(trade.instrumentId);
+            if (dimInstrumentId == null) {
+                continue;
+            }
+            String rraoType = trimToNull(trade.rraoType);
+            if (rraoType == null && trade.rraoNotional == null) {
+                continue;
+            }
+            JSONObject rrao = new JSONObject();
+            if (rraoType != null) {
+                rrao.put("RRAO_TYPE", rraoType);
+            }
+            if (trade.rraoNotional != null) {
+                rrao.put("RRAO_NOTIONAL", trade.rraoNotional);
+            }
+            tradeRrao.put(dimInstrumentId, rrao);
+        }
+        if (!tradeRrao.isEmpty()) {
+            payload.put("trade_rrao", tradeRrao);
+        }
         return payload;
     }
 

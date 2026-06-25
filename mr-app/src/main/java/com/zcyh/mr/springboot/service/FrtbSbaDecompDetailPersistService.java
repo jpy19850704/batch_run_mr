@@ -20,7 +20,7 @@ public class FrtbSbaDecompDetailPersistService {
     private static final int DEFAULT_BATCH_SIZE = 10000;
     private static final String TARGET_TABLE = "TB_OUT_FRTB_SBA_DECOMP_DETAIL";
     private static final String STREAM_LOAD_COLUMNS =
-            "BATCH_ID,DATA_DATE,RULE_ID,TREE_ID,GROUP_TYPE,GROUP_VALUE,"
+            "BATCH_ID,DATA_DATE,RULE_ID,GROUP_TYPE,GROUP_VALUE,"
                     + "RISK_FACTOR_CLASS,RISK_FACTOR_BUCKET,RISK_FACTOR_ID,"
                     + "RISK_FACTOR_VERTEX_1,RISK_FACTOR_VERTEX_2,RISK_FACTOR_TYPE,"
                     + "SENSITIVITY_TYPE,UNIT_CONTRIBUTION,CREATED_AT,UPDATED_AT";
@@ -59,7 +59,7 @@ public class FrtbSbaDecompDetailPersistService {
             }
             buffer.appendRow(
                     batchId, dataDate, ruleId,
-                    pr.getTreeId(), pr.getGroupType(), pr.getGroupValue(),
+                    pr.getGroupType(), pr.getGroupValue(),
                     pr.getRiskFactorClass(), pr.getRiskFactorBucket(), pr.getRiskFactorId(),
                     pr.getRiskFactorVertex1(), pr.getRiskFactorVertex2(), pr.getRiskFactorType(),
                     pr.getSensitivityType(),

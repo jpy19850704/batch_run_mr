@@ -6,6 +6,7 @@ import com.zcyh.mr.springboot.model.ApiResponse;
 import com.zcyh.mr.springboot.service.AlertService;
 import com.zcyh.mr.springboot.service.AuditLogService;
 import com.zcyh.mr.springboot.service.FrtbDrcSummaryService;
+import com.zcyh.mr.springboot.service.FrtbRraoSummaryService;
 import com.zcyh.mr.springboot.service.FrtbSbaSummaryService;
 import com.zcyh.mr.springboot.service.VarSummaryService;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,17 +23,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class MrSummaryController {
     private final FrtbSbaSummaryService frtbSbaSummaryService;
     private final FrtbDrcSummaryService frtbDrcSummaryService;
+    private final FrtbRraoSummaryService frtbRraoSummaryService;
     private final VarSummaryService varSummaryService;
     private final AuditLogService auditLogService;
     private final AlertService alertService;
 
     public MrSummaryController(FrtbSbaSummaryService frtbSbaSummaryService,
                                FrtbDrcSummaryService frtbDrcSummaryService,
+                               FrtbRraoSummaryService frtbRraoSummaryService,
                                VarSummaryService varSummaryService,
                                AuditLogService auditLogService,
                                AlertService alertService) {
         this.frtbSbaSummaryService = frtbSbaSummaryService;
         this.frtbDrcSummaryService = frtbDrcSummaryService;
+        this.frtbRraoSummaryService = frtbRraoSummaryService;
         this.varSummaryService = varSummaryService;
         this.auditLogService = auditLogService;
         this.alertService = alertService;
@@ -92,6 +96,36 @@ public class MrSummaryController {
                     batchId,
                     "frtb_drc",
                     "SUMMARY_FRTB_DRC_FAILED",
+                    ex.getMessage(),
+                    System.currentTimeMillis() - start);
+            throw ex;
+        }
+    }
+
+    @PostMapping("/frtb/rrao")
+    public ApiResponse<Object> rraoSummary(@RequestBody JSONObject request) {
+        long start = System.currentTimeMillis();
+        String batchId = readBatchId(request);
+        RequestContextHolder.setBatchId(batchId);
+        RequestContextHolder.setEngineCode("frtb_rrao");
+        try {
+            JSONObject result = frtbRraoSummaryService.summarize(request);
+            auditLogService.recordSuccess(
+                    "SUMMARY_FRTB_RRAO",
+                    "SUMMARY",
+                    batchId,
+                    "frtb_rrao",
+                    "FRTB RRAO 汇总成功",
+                    System.currentTimeMillis() - start);
+            return ApiResponse.ok(result);
+        } catch (RuntimeException ex) {
+            alertService.error("SUMMARY_FRTB_RRAO_FAILED", "FRTB RRAO 汇总失败，batchId=" + batchId, ex);
+            auditLogService.recordFailure(
+                    "SUMMARY_FRTB_RRAO",
+                    "SUMMARY",
+                    batchId,
+                    "frtb_rrao",
+                    "SUMMARY_FRTB_RRAO_FAILED",
                     ex.getMessage(),
                     System.currentTimeMillis() - start);
             throw ex;

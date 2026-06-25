@@ -21,6 +21,10 @@ public class AggregationRule {
     private List<String> groupByFields = new ArrayList<String>();
     @JSONField(name = "sum_fields")
     private List<String> sumFields = new ArrayList<String>();
+    @JSONField(name = "virtual_selection_mode")
+    private String virtualSelectionMode;
+    @JSONField(name = "virtual_trade_ids")
+    private List<String> virtualTradeIds = new ArrayList<String>();
     private FilterExpression filterTree;
 
     public String getRuleId() {
@@ -69,6 +73,22 @@ public class AggregationRule {
 
     public void setSumFields(List<String> sumFields) {
         this.sumFields = sumFields == null ? new ArrayList<String>() : sumFields;
+    }
+
+    public String getVirtualSelectionMode() {
+        return virtualSelectionMode;
+    }
+
+    public void setVirtualSelectionMode(String virtualSelectionMode) {
+        this.virtualSelectionMode = virtualSelectionMode;
+    }
+
+    public List<String> getVirtualTradeIds() {
+        return virtualTradeIds;
+    }
+
+    public void setVirtualTradeIds(List<String> virtualTradeIds) {
+        this.virtualTradeIds = virtualTradeIds == null ? new ArrayList<String>() : virtualTradeIds;
     }
 
     public FilterExpression getFilterTree() {

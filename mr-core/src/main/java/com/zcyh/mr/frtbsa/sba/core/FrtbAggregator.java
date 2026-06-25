@@ -374,17 +374,17 @@ public class FrtbAggregator {
      *
      * @param rawList       原始数据列表
      * @param needDecompose 是否需要资本分解
-     * @param treeId        计算批次 ID
+     * @param ruleId        规则 ID
      * @param groupType     维度类型（如 "TOTAL", "portfolio"）
      * @param groupValue    维度值（如 "ALL", "Book_A"）
      * @return Map 包含 "classResults", "bucketResults", "posResults" 三个列表
      */
     public Map<String, List<?>> calculateAsPojo(
             List<FrtbInput> rawList, boolean needDecompose,
-            String treeId, String groupType, String groupValue) {
+            String ruleId, String groupType, String groupValue) {
 
         Map<String, Object> mapResult = calculateAsMap(rawList, needDecompose);
-        return buildResults(mapResult, treeId, groupType, groupValue);
+        return buildResults(mapResult, ruleId, groupType, groupValue);
     }
 
     /**
@@ -393,7 +393,7 @@ public class FrtbAggregator {
     @SuppressWarnings("unchecked")
     public Map<String, List<?>> buildResults(
             Map<String, Object> mapResult,
-            String treeId, String groupType, String groupValue) {
+            String ruleId, String groupType, String groupValue) {
 
         List<com.zcyh.mr.frtbsa.sba.pojo.FRTBClassResult> classResults = new ArrayList<>();
         List<com.zcyh.mr.frtbsa.sba.pojo.FRTBBucketResult> bucketResults = new ArrayList<>();
@@ -410,7 +410,7 @@ public class FrtbAggregator {
 
             // 构建 ClassResult
             com.zcyh.mr.frtbsa.sba.pojo.FRTBClassResult cr = new com.zcyh.mr.frtbsa.sba.pojo.FRTBClassResult();
-            cr.setTreeId(treeId);
+            cr.setRuleId(ruleId);
             cr.setGroupType(groupType);
             cr.setGroupValue(groupValue);
             cr.setRiskFactorClass(riskClass);
@@ -454,7 +454,7 @@ public class FrtbAggregator {
                 if (bucketList != null) {
                     for (Map<String, Object> bkt : bucketList) {
                         com.zcyh.mr.frtbsa.sba.pojo.FRTBBucketResult br = new com.zcyh.mr.frtbsa.sba.pojo.FRTBBucketResult();
-                        br.setTreeId(treeId);
+                        br.setRuleId(ruleId);
                         br.setGroupType(groupType);
                         br.setGroupValue(groupValue);
                         br.setRiskFactorClass(riskClass);
@@ -529,7 +529,7 @@ public class FrtbAggregator {
                         }
 
                         if ("Curvature".equals(sensType)) {
-                            addCurvaturePosResult(posResults, treeId, groupType, groupValue, riskClass, pos,
+                            addCurvaturePosResult(posResults, ruleId, groupType, groupValue, riskClass, pos,
                                     FrtbConstants.SENS_CURVATURE, activeCvr, contribution);
                             continue;
                         }
@@ -539,7 +539,7 @@ public class FrtbAggregator {
                         double ws = toDouble(pos.get("ws"));
 
                         com.zcyh.mr.frtbsa.sba.pojo.FRTBPosResult pr = buildBasePosResult(
-                                treeId, groupType, groupValue, riskClass, sensType, pos);
+                                ruleId, groupType, groupValue, riskClass, sensType, pos);
                         pr.setSensitivityValRptCurrCny(toBigDecimal(origSens));
                         pr.setRiskWeight(toBigDecimal(rw));
                         pr.setWs(toBigDecimal(ws));
@@ -705,11 +705,11 @@ public class FrtbAggregator {
 
     private void addCurvaturePosResult(
             List<com.zcyh.mr.frtbsa.sba.pojo.FRTBPosResult> posResults,
-            String treeId, String groupType, String groupValue, String riskClass,
+            String ruleId, String groupType, String groupValue, String riskClass,
             Map<String, Object> pos, String sensitivityType, Double curvatureValue,
             Double contribution) {
         com.zcyh.mr.frtbsa.sba.pojo.FRTBPosResult pr = buildBasePosResult(
-                treeId, groupType, groupValue, riskClass, sensitivityType, pos);
+                ruleId, groupType, groupValue, riskClass, sensitivityType, pos);
         if (curvatureValue != null) {
             pr.setSensitivityValRptCurrCny(toBigDecimal(curvatureValue));
             pr.setWs(toBigDecimal(curvatureValue));
@@ -751,10 +751,10 @@ public class FrtbAggregator {
     }
 
     private com.zcyh.mr.frtbsa.sba.pojo.FRTBPosResult buildBasePosResult(
-            String treeId, String groupType, String groupValue,
+            String ruleId, String groupType, String groupValue,
             String riskClass, String sensitivityType, Map<String, Object> pos) {
         com.zcyh.mr.frtbsa.sba.pojo.FRTBPosResult pr = new com.zcyh.mr.frtbsa.sba.pojo.FRTBPosResult();
-        pr.setTreeId(treeId);
+        pr.setRuleId(ruleId);
         pr.setGroupType(groupType);
         pr.setGroupValue(groupValue);
         pr.setRiskFactorId(str(pos.get("riskFactorId")));
