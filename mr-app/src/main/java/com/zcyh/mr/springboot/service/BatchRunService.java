@@ -115,7 +115,7 @@ public class BatchRunService {
         }
         String user = trimToNull(request.getUser());
         String regularScenarioIdList = trimToNull(request.getRegularScenarioIdList());
-        String riskClassDecompScenarioIdList = trimToNull(request.getRiskClassDecompScenarioIdList());
+        String varScenarioIdList = trimToNull(request.getVarScenarioIdList());
         String normalFullScenarioIdList = trimToNull(request.getNormalFullScenarioIdList());
         String normalReducedScenarioIdList = trimToNull(request.getNormalReducedScenarioIdList());
         String stressReducedScenarioIdList = trimToNull(request.getStressReducedScenarioIdList());
@@ -136,13 +136,13 @@ public class BatchRunService {
         context.setDataDate(dataDate);
         context.setUser(user == null ? DEFAULT_USER : user);
         context.setRegularScenarioIdList(regularScenarioIdList);
-        context.setRiskClassDecompScenarioIdList(riskClassDecompScenarioIdList);
+        context.setVarScenarioIdList(varScenarioIdList);
         context.setNormalFullScenarioIdList(normalFullScenarioIdList);
         context.setNormalReducedScenarioIdList(normalReducedScenarioIdList);
         context.setStressReducedScenarioIdList(stressReducedScenarioIdList);
         context.setNmrfScenarioIdList(nmrfScenarioIdList);
         context.setScenarioMode(regularScenarioIdList != null
-                || riskClassDecompScenarioIdList != null
+                || varScenarioIdList != null
                 || normalFullScenarioIdList != null
                 || normalReducedScenarioIdList != null
                 || stressReducedScenarioIdList != null

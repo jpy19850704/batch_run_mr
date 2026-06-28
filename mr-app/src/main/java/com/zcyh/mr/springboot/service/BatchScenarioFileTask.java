@@ -76,7 +76,7 @@ public class BatchScenarioFileTask implements BatchRunTask {
 
             Set<String> requestedScenarioIds = mergeScenarioIds(
                     context.getRegularScenarioIdList(),
-                    context.getRiskClassDecompScenarioIdList(),
+                    context.getVarScenarioIdList(),
                     context.getNormalFullScenarioIdList(),
                     context.getNormalReducedScenarioIdList(),
                     context.getStressReducedScenarioIdList(),

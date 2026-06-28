@@ -18,7 +18,7 @@ public class BatchRunWorkflowContext {
     private String dataDate;
     private String user;
     private String regularScenarioIdList;
-    private String riskClassDecompScenarioIdList;
+    private String varScenarioIdList;
     private String normalFullScenarioIdList;
     private String normalReducedScenarioIdList;
     private String stressReducedScenarioIdList;
@@ -82,12 +82,12 @@ public class BatchRunWorkflowContext {
         this.regularScenarioIdList = regularScenarioIdList;
     }
 
-    public String getRiskClassDecompScenarioIdList() {
-        return riskClassDecompScenarioIdList;
+    public String getVarScenarioIdList() {
+        return varScenarioIdList;
     }
 
-    public void setRiskClassDecompScenarioIdList(String riskClassDecompScenarioIdList) {
-        this.riskClassDecompScenarioIdList = riskClassDecompScenarioIdList;
+    public void setVarScenarioIdList(String varScenarioIdList) {
+        this.varScenarioIdList = varScenarioIdList;
     }
 
     public String getNormalFullScenarioIdList() {

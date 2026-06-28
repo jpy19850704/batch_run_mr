@@ -1,4 +1,4 @@
-﻿# Calc 流程与功能说明（重构基线）
+# Calc 流程与功能说明（重构基线）
 
 ## 1. 文档目标
 
@@ -12,8 +12,11 @@
 
 - `src/main/java/com/zcyh/mr/calc/Calc.java`
 - `src/main/java/com/zcyh/mr/calc/OperModeControl.java`
+- `src/main/java/com/zcyh/mr/calc/result/CalcResultProcessService.java`（结果处理工具类）
+- `src/main/java/com/zcyh/mr/calc/scenario/CalcScenarioProcessService.java`（场景数据解析与分发）
+- `src/main/java/com/zcyh/mr/calc/scenario/ScenarioProcessConstants.java`（场景处理口径常量）
 - `src/main/java/com/zcyh/mr/loader/Loader.java`
-- `src/main/java/com/zcyh/mr/outer/engine/MrCalcEngineAdapter.java`（输入适配与批量封装）
+- `mr-app/.../com/zcyh/mr/springboot/engine/MrCalcEngineAdapter.java`（输入适配与批量封装）
 
 不展开：
 
@@ -29,10 +32,9 @@
 ### 3.2 外层服务入口
 
 - `MrCalcEngineAdapter.calculate(inputJson)`
-- 支持：
-  - 单任务
+- 适配器负责：
+  - 加载四类情景引用列表对应的情景文件，写入 `ScenarioCache` 后再调用 `Calc`
   - `batch_tasks` 已不再作为 calc 入口支持
-- 对四类情景引用列表，适配器负责加载情景文件并写入 `cache_key` 后再调用 `Calc`
 
 ## 4. 输入契约（当前）
 
@@ -48,7 +50,7 @@
 适配器扩展字段：
 
 - `regular_scenario_ref_list`
-- `risk_decomp_scenario_ref_list`
+- `var_scenario_ref_list`
 - `ima_modellable_scenario_ref_list`
 - `ima_nmrf_scenario_ref_list`
 
@@ -82,19 +84,26 @@
 
 ## 6.2 运行阶段（`Calc.run()`）
 
-1. `OperModeControl.init(rawCalcMode)` 初始化模式上下文。
-2. 调用 `runWithMarketData(...)` 执行一次基准估值。
-3. 若非场景模式：直接返回基准结果。
-4. 若场景模式：
-   - 解析基准 `trade_data`
-   - 识别不支持场景复算的产品并写 `log_data`（不再整体失败）
-   - 基于市场数据建立 impact key 索引
+1. `OperModeControl.init(rawCalcMode)` + `FrtbCalcControl.init(frtbDisabled)` 初始化模式上下文。
+2. 执行 `applyCurveGeneration()` 处理曲线生成。
+3. 若 `OperModeControl.isCurveGenerationOnly()`：
+   - 由 `CalcResultProcessService.buildCurveGenerationOnlyResult()` 构造曲线生成结果直接返回。
+4. 调用 `runWithMarketData(...)` 执行基准估值，同时收集计算器实例和可场景复用的产品类型。
+5. 由 `CalcResultProcessService.appendCurveGenerationOutput()` 将曲线生成结果附加到基准结果中。
+6. 若无场景数据：直接返回基准结果。
+7. 若场景模式：
+   - 从缓存的计算器中筛选实现 `ScenarioCapable` 的实例
+   - 由 `CalcResultProcessService.buildEffectiveBaseTrades()` 构建有效基准交易列表（包含错误占位）
+   - 由 `CalcResultProcessService.collectUnsupportedScenarioProducts()` 识别不支持场景复算的产品并记日志
+   - 构建 `RiskFactorMatcher` 索引，用于逐笔判断交易是否受场景影响
    - 遍历每个场景：
-     - 命中 fast-skip 时返回零损益
-     - 否则构造场景市场并调用所有 `ScenarioCapable` 计算器
-     - 按 `INSTRUMENT_ID` 对齐基准/场景并计算 PnL
-   - 组装 `scenario_result`
-5. `finally` 中 `OperModeControl.clear()` 清理上下文。
+     - 解析受影响交易集合（`affectedIds`）
+     - 全部不受影响时由 `CalcResultProcessService.buildZeroPnlResults()` 返回零损益
+     - 否则构造场景市场并调用 `ScenarioCapable.calcScenario(scenarioMd, affectedIds)` 仅重估受影响交易
+     - 由 `CalcResultProcessService.buildPnlResults()` 按 `INSTRUMENT_ID` 对齐并计算 PnL
+     - 由 `CalcResultProcessService.buildScenarioItem()` 组装场景条目，写入 `SCENARIO_PROCESS_TYPE`、`SCENARIO_TAG` 和 `RESULT_KIND`
+   - 将 `scenarioResults` 写入 `data.scenario_result`
+8. `finally` 中 `OperModeControl.clear()` + `FrtbCalcControl.clear()` 清理上下文。
 
 ## 6.3 基准调度（`runWithMarketData`）
 
@@ -131,7 +140,15 @@
 - 场景市场数据（解析后 `MarketData`）
 - `impactKeys`（可选）
 
-补充来源：`MrCalcEngineAdapter` 可根据四类情景引用列表加载情景文件，并由 `CalcScenarioProcessService` 按列表类型生成对应处理口径。
+补充来源：`MrCalcEngineAdapter` 根据四类情景引用列表加载情景文件写入 `ScenarioCache`，`CalcScenarioProcessService.resolveScenarioData()` 在 Calc 构造阶段从 cache 中读取并按列表类型（`REGULAR` / `VAR` / `IMA_MODELLABLE` / `IMA_NMRF`）生成对应的 `ScenarioEntry`。
+
+每条 `ScenarioEntry` 携带 `ScenarioProcessMetadata`，包含：
+
+- `processType`：场景处理口径（取值见 `ScenarioProcessConstants`）
+- `tag`：附加标签（如 `riskClass`、`lh`、`imaRiskClass`）
+- `entryKey`：场景唯一标识
+- `nmrfRiskFactorId`（仅 IMA_NMRF）
+- `nmrfType`（仅 IMA_NMRF）
 
 ## 7.2 场景复算接口
 
@@ -173,6 +190,16 @@
 - `SCENARIO_NAME`
 - `trade_data`（PnL 列表）
 
+## 7.5 场景输出元数据
+
+每条场景条目由 `CalcResultProcessService.buildScenarioItem()` 构建，输出字段包括：
+
+- `SCENARIO_ID`、`SUBSCENARIO_ID`、`SCENARIO_NAME`
+- `SCENARIO_PROCESS_TYPE`：场景处理口径（`REGULAR` / `VAR` / `IMA_MODELLABLE` / `IMA_NMRF`），由 `ScenarioProcessMetadata.processType` 携带
+- `SCENARIO_TAG`：附加分组标签（如 `{"riskClass": "IR", "lh": 10}`），用于下游按风险类别和流动性期限聚合
+- `RESULT_KIND`：当前固定为 `"SCENARIO"`
+- `trade_data`：PnL 列表
+
 ## 8. 错误与日志口径
 
 ## 8.1 Loader 校验层
@@ -195,16 +222,16 @@
 
 ## 9. 当前注册产品清单
 
-`Calc.REGISTRY` 当前注册产品数：46。
+`Calc.REGISTRY` 当前注册产品数：48。
 
-- COMMFWD, COMMSWAP, BOND, FXFWD, FXSWAP, COMMOPT, IRSCCS, CAPFLOOR, FXOPT, FX_ASIAN, EQ_ASIAN, COMM_ASIAN, AUTO_CALL, FX_SPREADOPT, EQ_SPREADOPT, COMM_SPREADOPT, IR_SPREADOPT, IR_BARRIER, EQ_BARRIER, FX_BARRIER, COMM_BARRIER, IR_DIGITAL, EQ_DIGITAL, FX_DIGITAL, COMM_DIGITAL, FX_SHARKFIN, FX_WEDDING_CAKE, EQ_WEDDING_CAKE, COMM_WEDDING_CAKE, IR_WEDDING_CAKE, EQ_SHARKFIN, COMM_SHARKFIN, IR_SHARKFIN, SWAPTION, BOND_FUTURE, CDS, TRS, IR_RANGE_ACCURE, IR_STEP_UP, EQ_RANGE_ACCURE, EQ_STEP_UP, COMM_RANGE_ACCURE, COMM_STEP_UP, FX_RANGE_ACCURE, FX_STEP_UP, STD_IRS
+- COMMFWD, COMMSWAP, BOND, WILLOW_BOND, FXFWD, FXSWAP, COMMOPT, IRSCCS, CAPFLOOR, FXOPT, FX_ASIAN, EQ_ASIAN, COMM_ASIAN, AUTO_CALL, COMPOSITE, FX_SPREADOPT, EQ_SPREADOPT, COMM_SPREADOPT, IR_SPREADOPT, IR_BARRIER, EQ_BARRIER, FX_BARRIER, COMM_BARRIER, IR_DIGITAL, EQ_DIGITAL, FX_DIGITAL, COMM_DIGITAL, FX_SHARKFIN, FX_WEDDING_CAKE, EQ_WEDDING_CAKE, COMM_WEDDING_CAKE, IR_WEDDING_CAKE, EQ_SHARKFIN, COMM_SHARKFIN, IR_SHARKFIN, SWAPTION, BOND_FUTURE, CDS, TRS, IR_RANGE_ACCURE, IR_STEP_UP, EQ_RANGE_ACCURE, EQ_STEP_UP, COMM_RANGE_ACCURE, COMM_STEP_UP, FX_RANGE_ACCURE, FX_STEP_UP, STD_IRS
 
 ## 10. 当前结构性问题（重构驱动）
 
 1. `*Calc` 包装层重复模板代码较多：
    - `calc/run/calcTrade` 结构重复
    - 结果封装与日志处理重复
-2. 分发层仍使用反射调用 `calc()`。
+2. 分发层仍使用反射调用 `calc()`（已通过 `AbstractCalc` 部分缓解，但未完全消除）。
 3. 各产品异常输出格式不完全统一。
 4. 场景能力仅部分产品实现，行为存在分层差异。
 5. 个别产品预处理逻辑（如 `UNDERLYING_DATA` 重建）与通用流程耦合。

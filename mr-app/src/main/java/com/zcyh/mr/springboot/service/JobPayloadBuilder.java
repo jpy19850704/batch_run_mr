@@ -32,7 +32,7 @@ public class JobPayloadBuilder {
      * @param batchId           批次 ID
      * @param seqNo             分片序号
      * @param regularScenarioIdList 普通情景集 ID（仅 SCENARIO 模式）
-     * @param riskClassDecompScenarioIdList 风险类别分解情景集 ID（仅 SCENARIO 模式）
+     * @param varScenarioIdList VaR 情景集 ID（仅 SCENARIO 模式）
      * @param persistResult     是否写入结果库
      * @param frtbDisabled      是否关闭 FRTB 计量
      * @return 组装好的 payload JSON
@@ -46,7 +46,7 @@ public class JobPayloadBuilder {
             String batchId,
             int seqNo,
             String regularScenarioIdList,
-            String riskClassDecompScenarioIdList,
+            String varScenarioIdList,
             boolean persistResult,
             boolean frtbDisabled
     ) {
@@ -59,7 +59,7 @@ public class JobPayloadBuilder {
                 batchId,
                 seqNo,
                 regularScenarioIdList,
-                riskClassDecompScenarioIdList,
+                varScenarioIdList,
                 null,
                 null,
                 null,
@@ -77,7 +77,7 @@ public class JobPayloadBuilder {
             String batchId,
             int seqNo,
             String regularScenarioIdList,
-            String riskClassDecompScenarioIdList,
+            String varScenarioIdList,
             String normalFullScenarioIdList,
             String normalReducedScenarioIdList,
             String stressReducedScenarioIdList,
@@ -131,7 +131,7 @@ public class JobPayloadBuilder {
         payload.put("batch_meta", batchMeta);
 
         putScenarioRefList(payload, ScenarioProcessConstants.REGULAR_SCENARIO_REF_LIST, regularScenarioIdList);
-        putScenarioRefList(payload, ScenarioProcessConstants.RISK_DECOMP_SCENARIO_REF_LIST, riskClassDecompScenarioIdList);
+        putScenarioRefList(payload, ScenarioProcessConstants.VAR_SCENARIO_REF_LIST, varScenarioIdList);
         putScenarioRefList(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST, normalFullScenarioIdList);
         putScenarioRefList(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST, normalReducedScenarioIdList);
         putScenarioRefList(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST, stressReducedScenarioIdList);

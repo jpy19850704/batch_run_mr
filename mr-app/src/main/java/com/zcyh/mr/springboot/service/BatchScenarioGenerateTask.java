@@ -27,13 +27,13 @@ public class BatchScenarioGenerateTask implements BatchRunTask {
         }
         String mergedScenarioIdList = mergeScenarioIdLists(
                 context.getRegularScenarioIdList(),
-                context.getRiskClassDecompScenarioIdList(),
+                context.getVarScenarioIdList(),
                 context.getNormalFullScenarioIdList(),
                 context.getNormalReducedScenarioIdList(),
                 context.getStressReducedScenarioIdList(),
                 context.getNmrfScenarioIdList());
         if (mergedScenarioIdList == null) {
-            throw new IllegalStateException("SCENARIO 模式缺少 regularScenarioIdList 或 riskClassDecompScenarioIdList");
+            throw new IllegalStateException("SCENARIO 模式缺少 regularScenarioIdList 或 varScenarioIdList");
         }
         JSONObject payload = new JSONObject();
         payload.put("mode", "service");

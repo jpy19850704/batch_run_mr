@@ -76,7 +76,7 @@ public class MrCalcEngineAdapter implements EngineAdapter {
         }
         LocalDate date = LocalDate.parse(dataDate, DateTimeFormatter.BASIC_ISO_DATE);
         injectScenarioRefList(payload, ScenarioProcessConstants.REGULAR_SCENARIO_REF_LIST, batchId, date);
-        injectScenarioRefList(payload, ScenarioProcessConstants.RISK_DECOMP_SCENARIO_REF_LIST, batchId, date);
+        injectScenarioRefList(payload, ScenarioProcessConstants.VAR_SCENARIO_REF_LIST, batchId, date);
         injectScenarioRefList(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST, batchId, date);
         injectScenarioRefList(payload, ScenarioProcessConstants.IMA_NMRF_SCENARIO_REF_LIST, batchId, date);
         return payload;
@@ -111,7 +111,7 @@ public class MrCalcEngineAdapter implements EngineAdapter {
 
     private static boolean hasScenarioRefList(JSONObject payload) {
         return hasArray(payload, ScenarioProcessConstants.REGULAR_SCENARIO_REF_LIST)
-                || hasArray(payload, ScenarioProcessConstants.RISK_DECOMP_SCENARIO_REF_LIST)
+                || hasArray(payload, ScenarioProcessConstants.VAR_SCENARIO_REF_LIST)
                 || hasArray(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST)
                 || hasArray(payload, ScenarioProcessConstants.IMA_NMRF_SCENARIO_REF_LIST);
     }

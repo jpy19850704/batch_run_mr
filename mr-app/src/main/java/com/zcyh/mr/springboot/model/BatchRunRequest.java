@@ -13,8 +13,8 @@ public class BatchRunRequest {
     private String user;
     @JsonProperty("regular_scenario_id_list")
     private String regularScenarioIdList;
-    @JsonProperty("risk_class_decomp_scenario_id_list")
-    private String riskClassDecompScenarioIdList;
+    @JsonProperty("var_scenario_id_list")
+    private String varScenarioIdList;
     @JsonProperty("normal_full_scenario_id_list")
     private String normalFullScenarioIdList;
     @JsonProperty("normal_reduced_scenario_id_list")
@@ -74,12 +74,12 @@ public class BatchRunRequest {
         this.regularScenarioIdList = regularScenarioIdList;
     }
 
-    public String getRiskClassDecompScenarioIdList() {
-        return riskClassDecompScenarioIdList;
+    public String getVarScenarioIdList() {
+        return varScenarioIdList;
     }
 
-    public void setRiskClassDecompScenarioIdList(String riskClassDecompScenarioIdList) {
-        this.riskClassDecompScenarioIdList = riskClassDecompScenarioIdList;
+    public void setVarScenarioIdList(String varScenarioIdList) {
+        this.varScenarioIdList = varScenarioIdList;
     }
 
     public String getNormalFullScenarioIdList() {

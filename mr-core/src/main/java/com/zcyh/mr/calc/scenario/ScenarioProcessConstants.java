@@ -5,12 +5,12 @@ package com.zcyh.mr.calc.scenario;
  */
 public final class ScenarioProcessConstants {
     public static final String REGULAR = "REGULAR";
-    public static final String RISK_DECOMP = "RISK_DECOMP";
+    public static final String VAR = "VAR";
     public static final String IMA_MODELLABLE = "IMA_MODELLABLE";
     public static final String IMA_NMRF = "IMA_NMRF";
 
     public static final String REGULAR_SCENARIO_REF_LIST = "regular_scenario_ref_list";
-    public static final String RISK_DECOMP_SCENARIO_REF_LIST = "risk_decomp_scenario_ref_list";
+    public static final String VAR_SCENARIO_REF_LIST = "var_scenario_ref_list";
     public static final String IMA_MODELLABLE_SCENARIO_REF_LIST = "ima_modellable_scenario_ref_list";
     public static final String IMA_NMRF_SCENARIO_REF_LIST = "ima_nmrf_scenario_ref_list";
 
@@ -23,7 +23,7 @@ public final class ScenarioProcessConstants {
 
     public static boolean isValidProcessType(String processType) {
         return REGULAR.equals(processType)
-                || RISK_DECOMP.equals(processType)
+                || VAR.equals(processType)
                 || IMA_MODELLABLE.equals(processType)
                 || IMA_NMRF.equals(processType);
     }

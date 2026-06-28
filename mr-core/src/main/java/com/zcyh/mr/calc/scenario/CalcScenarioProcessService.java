@@ -21,7 +21,7 @@ import java.util.Set;
  */
 public final class CalcScenarioProcessService {
     private static final String RISK_CLASS_ALL = "ALL";
-    private static final String[] RISK_DECOMP_CLASSES = {"IR", "FX", "EQ", "COMM", "ALL"};
+    private static final String[] VAR_RISK_CLASSES = {"IR", "FX", "EQ", "COMM", "ALL"};
 
     private CalcScenarioProcessService() {
     }
@@ -41,8 +41,8 @@ public final class CalcScenarioProcessService {
         if (jo != null) {
             appendScenarioRefList(result, jo, ScenarioProcessConstants.REGULAR_SCENARIO_REF_LIST,
                     ScenarioProcessConstants.REGULAR);
-            appendScenarioRefList(result, jo, ScenarioProcessConstants.RISK_DECOMP_SCENARIO_REF_LIST,
-                    ScenarioProcessConstants.RISK_DECOMP);
+            appendScenarioRefList(result, jo, ScenarioProcessConstants.VAR_SCENARIO_REF_LIST,
+                    ScenarioProcessConstants.VAR);
             appendScenarioRefList(result, jo, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST,
                     ScenarioProcessConstants.IMA_MODELLABLE);
             appendScenarioRefList(result, jo, ScenarioProcessConstants.IMA_NMRF_SCENARIO_REF_LIST,
@@ -83,8 +83,8 @@ public final class CalcScenarioProcessService {
             case ScenarioProcessConstants.REGULAR:
                 appendCopiedEntries(target, cached, ScenarioProcessConstants.REGULAR, itemIndex);
                 return;
-            case ScenarioProcessConstants.RISK_DECOMP:
-                appendRiskDecompEntries(target, cached, itemIndex);
+            case ScenarioProcessConstants.VAR:
+                appendVarEntries(target, cached, itemIndex);
                 return;
             case ScenarioProcessConstants.IMA_MODELLABLE:
                 appendImaModellableEntries(target, cached, payload, itemIndex);
@@ -114,9 +114,9 @@ public final class CalcScenarioProcessService {
         }
     }
 
-    private static void appendRiskDecompEntries(List<Loader.ScenarioEntry> target,
-                                                List<Loader.ScenarioEntry> entries,
-                                                int itemIndex) {
+    private static void appendVarEntries(List<Loader.ScenarioEntry> target,
+                                         List<Loader.ScenarioEntry> entries,
+                                         int itemIndex) {
         if (entries == null) {
             return;
         }
@@ -125,15 +125,15 @@ public final class CalcScenarioProcessService {
             if (raw == null) {
                 continue;
             }
-            String entryKey = ScenarioProcessConstants.RISK_DECOMP + ":" + itemIndex + ":" + i;
-            for (String riskClass : RISK_DECOMP_CLASSES) {
+            String entryKey = ScenarioProcessConstants.VAR + ":" + itemIndex + ":" + i;
+            for (String riskClass : VAR_RISK_CLASSES) {
                 MarketData sliced = ScenarioCache.sliceByGroup(raw.marketData, riskClass);
                 Set<String> impactKeys = RISK_CLASS_ALL.equals(riskClass)
                         ? raw.impactKeys
                         : ScenarioCache.deriveKeysFromSlice(sliced, riskClass);
                 JSONObject tag = new JSONObject();
                 tag.put(ScenarioProcessConstants.TAG_RISK_CLASS, riskClass);
-                target.add(copyScenarioEntry(raw, ScenarioProcessConstants.RISK_DECOMP, tag, entryKey,
+                target.add(copyScenarioEntry(raw, ScenarioProcessConstants.VAR, tag, entryKey,
                         sliced, impactKeys));
             }
         }

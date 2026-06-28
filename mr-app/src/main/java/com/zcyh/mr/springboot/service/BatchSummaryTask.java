@@ -41,10 +41,10 @@ public class BatchSummaryTask implements BatchRunTask {
         } else {
             log.info("批次已关闭 FRTB 明细计量，跳过 FRTB SBA/DRC 汇总，batchId={}", context.getBatchId());
         }
-        if (hasRiskClassDecompScenario(context)) {
+        if (hasVarScenario(context)) {
             runVarSummary(context);
         } else {
-            log.info("批次未生成风险类别分解情景结果，跳过 VaR/ES 汇总，batchId={}", context.getBatchId());
+            log.info("批次未生成 VaR 情景结果，跳过 VaR/ES 汇总，batchId={}", context.getBatchId());
         }
         RequestContextHolder.setEngineCode("MR_CALC");
     }
@@ -96,8 +96,8 @@ public class BatchSummaryTask implements BatchRunTask {
         return request;
     }
 
-    private static boolean hasRiskClassDecompScenario(BatchRunWorkflowContext context) {
-        String scenarioIdList = context.getRiskClassDecompScenarioIdList();
+    private static boolean hasVarScenario(BatchRunWorkflowContext context) {
+        String scenarioIdList = context.getVarScenarioIdList();
         return scenarioIdList != null && !scenarioIdList.trim().isEmpty();
     }
 
