@@ -19,8 +19,6 @@ import java.util.List;
  * 继承 SpreadOptBase，实现 FX 特有的市场数据获取和校验。
  */
 public class FxSpreadOpt extends SpreadOptBase<FxSpreadOpt.SpreadOptInfo, FxSpreadOpt.SpreadOptMeasure> {
-    private boolean frtbScenarioPricing;
-
     public FxSpreadOpt(LocalDate dataDate, SpreadOptInfo tradeInfo, MarketData marketData) {
         super(dataDate, tradeInfo, marketData);
     }
@@ -31,11 +29,8 @@ public class FxSpreadOpt extends SpreadOptBase<FxSpreadOpt.SpreadOptInfo, FxSpre
     }
 
     @Override
-    public FxSpreadOpt.SpreadOptMeasure calc(MarketData marketData) {
-        FxSpreadOpt.SpreadOptMeasure measure = super.calc(marketData);
-        if (frtbScenarioPricing) {
-            return measure;
-        }
+    public FxSpreadOpt.SpreadOptMeasure calc() {
+        FxSpreadOpt.SpreadOptMeasure measure = super.calc();
         if ("SUCCESS".equalsIgnoreCase(measure.status)) {
             measure.sensitivityList = buildFxFrtbSensListCommon(
                     measure,
@@ -46,19 +41,9 @@ public class FxSpreadOpt extends SpreadOptBase<FxSpreadOpt.SpreadOptInfo, FxSpre
                     info.baseDiscountCurve,
                     info.underlyingDiscountCurve,
                     info.volatilitySurface,
-                    this::calcForFrtbScenario);
+                    this::calc);
         }
         return measure;
-    }
-
-    private SpreadOptMeasure calcForFrtbScenario(MarketData shockedMarketData) {
-        boolean old = frtbScenarioPricing;
-        frtbScenarioPricing = true;
-        try {
-            return calc(shockedMarketData);
-        } finally {
-            frtbScenarioPricing = old;
-        }
     }
 
     @Override

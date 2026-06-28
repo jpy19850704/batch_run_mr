@@ -131,8 +131,6 @@ public class Calc {
                                 (op, dt, tr, md, cal, oth) -> new FxDigOptCalc(op, dt, tr, md));
                 REGISTRY.put(Constants.PRODUCT_CODE.COMM_DIGITAL,
                                 (op, dt, tr, md, cal, oth) -> new CommDigOptCalc(op, dt, tr, md));
-                REGISTRY.put(Constants.PRODUCT_CODE.FX_SHARKFIN,
-                                (op, dt, tr, md, cal, oth) -> new FxSharkFinCalc(op, dt, tr, md));
                 REGISTRY.put(Constants.PRODUCT_CODE.FX_WEDDING_CAKE,
                                 (op, dt, tr, md, cal, oth) -> new FxWeddingCakeCalc(op, dt, tr, md));
                 REGISTRY.put(Constants.PRODUCT_CODE.EQ_WEDDING_CAKE,
@@ -282,7 +280,6 @@ public class Calc {
                                 }
 
                                 MarketData scenMarket = MarketData.updateMarketData(this.marketData, entry.marketData);
-
                                 // 汇总当前场景下的交易结果（仅重估受影响的交易）
                                 JSONArray scenTradeResults = new JSONArray();
                                 for (ScenarioCapable sc : scenarioCalcs) {

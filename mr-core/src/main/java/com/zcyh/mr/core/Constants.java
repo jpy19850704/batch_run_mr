@@ -33,7 +33,6 @@ final public class Constants {
         public final static String FX_SPREADOPT = "FX_SPREADOPT";
         public final static String EQ_SPREADOPT = "EQ_SPREADOPT";
         public final static String COMM_SPREADOPT = "COMM_SPREADOPT";
-        public final static String FX_SHARKFIN = "FX_SHARKFIN";
         public final static String FX_WEDDING_CAKE = "FX_WEDDING_CAKE";
         public final static String EQ_WEDDING_CAKE = "EQ_WEDDING_CAKE";
         public final static String COMM_WEDDING_CAKE = "COMM_WEDDING_CAKE";

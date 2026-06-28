@@ -391,7 +391,11 @@ public abstract class SharkFinBase<T extends SharkFinBase.SharkFinBaseInfo, M ex
     }
 
     public M calc() {
-        return calc(this.marketData);
+        M measure = calc(this.marketData);
+        if ("SUCCESS".equalsIgnoreCase(measure.status)) {
+            postProcessOptionOutput(measure);
+        }
+        return measure;
     }
 
     public M calc(MarketData marketData) {
@@ -453,7 +457,6 @@ public abstract class SharkFinBase<T extends SharkFinBase.SharkFinBaseInfo, M ex
             measure.status = "SUCCESS";
             measure.logs = new ArrayList<>();
             measure.detail = buildDetail(pricingResult);
-            postProcessOptionOutput(measure);
             return measure;
         } catch (Exception ex) {
             return buildErrorMeasure(measure, "计算异常: " + ex.getClass().getSimpleName() + ": " + ex.getMessage());

@@ -41,7 +41,7 @@
   - 属于线性产品；
   - 可产生：`FX Delta`、`GIRR Delta`；
   - 不产生：`FX Vega / FX Curvature / GIRR Vega / GIRR Curvature`。
-- `AUTO_CALL(UNDERLYING_TYPE=FX)`、`FX_BARRIER`、`FX_DIGITAL`、`FX_SHARKFIN`、`FX_SPREADOPT`、`FX_WEDDING_CAKE`
+- `AUTO_CALL(UNDERLYING_TYPE=FX)`、`FX_BARRIER`、`FX_DIGITAL`、`FX_SPREADOPT`、`FX_WEDDING_CAKE`
   - 属于含权产品，主标的风险类别为 `FX`；
   - `FX` 产生：`Delta / Vega / Curvature`；
   - `GIRR` 如交易真实依赖贴现或利率曲线，仅产生：`Delta`。

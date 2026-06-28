@@ -70,7 +70,7 @@ public class GenericMcCalc implements Runnable, Calc.ScenarioCapable {
             if (affectedIds != null && (instrumentId == null || !affectedIds.contains(String.valueOf(instrumentId)))) {
                 continue;
             }
-            scenarioResult.add(calcOne(tradeData, md));
+            scenarioResult.add(genericMc.priceScenario(tradeData, md));
         }
         return scenarioResult;
     }

@@ -354,7 +354,11 @@ public abstract class WeddingCakeBase<T extends WeddingCakeBase.WeddingCakeBaseI
 
     public M calc() {
         try {
-            return calc(this.marketData);
+            M measure = calc(this.marketData);
+            if ("SUCCESS".equalsIgnoreCase(measure.status)) {
+                postProcessOptionOutput(measure);
+            }
+            return measure;
         } catch (Exception ex) {
             return buildErrorMeasure(ex);
         }
@@ -430,7 +434,6 @@ public abstract class WeddingCakeBase<T extends WeddingCakeBase.WeddingCakeBaseI
         measure.cashFlowList = null;
         measure.sensitivityList = null;
         measure.detail = buildDetail(rs, usedState);
-        postProcessOptionOutput(measure);
         return measure;
     }
 

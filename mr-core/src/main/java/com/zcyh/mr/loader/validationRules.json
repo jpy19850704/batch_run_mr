@@ -241,25 +241,6 @@
             "INITIAL_PRICE": "number"
         }
     },
-    "FX_SHARKFIN": {
-        "TRADE": {
-            "BUY_OR_SELL": "domain:B|S",
-            "OPTION_TYPE": "string",
-            "UNDERLYING_CODE": "string",
-            "TOUCH_RATE": "number",
-            "BASE_RATE": "number",
-            "NOTIONAL": "number",
-            "MATURITY_DATE": "date",
-            "START_DATE": "date",
-            "VOLATILITY_SURFACE": "string",
-            "CURRENCY_CODE": "string",
-            "DOWN_BARRIER": "number",
-            "UPPER_BARRIER": "number",
-            "SETTLE_DATE": "date",
-            "STRIKE_PRICE": "number",
-            "DISCOUNT_CURVE": "string"
-        }
-    },
     "FX_WEDDING_CAKE": {
         "TRADE": {
             "BUY_OR_SELL": "domain:B|S",

@@ -3,17 +3,17 @@ package com.zcyh.mr.product.basic.option;
 import org.apache.commons.math3.distribution.NormalDistribution;
 
 public class OptUtil {
+    private static final ThreadLocal<NormalDistribution> STANDARD_NORMAL =
+            ThreadLocal.withInitial(NormalDistribution::new);
+
     public static double cdf(double x) {
-        NormalDistribution normalDistribution = new NormalDistribution();
-        return normalDistribution.cumulativeProbability(x);
+        return STANDARD_NORMAL.get().cumulativeProbability(x);
     }
     public static double pdf(double x) {
-        NormalDistribution normalDistribution = new NormalDistribution();
-        return normalDistribution.density(x);
+        return STANDARD_NORMAL.get().density(x);
     }
     public static double ppf(double x) {
-        NormalDistribution normalDistribution = new NormalDistribution();
-        return normalDistribution.inverseCumulativeProbability(x);
+        return STANDARD_NORMAL.get().inverseCumulativeProbability(x);
     }
     public static double BS(boolean call,boolean cash, double s,double k, double rd, double rf, double sigma, double maturityT, double settleT,String model) {
         double w = call ? 1 : -1;

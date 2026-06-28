@@ -42,6 +42,11 @@ public final class GenericMc {
         return price(input, marketData, true);
     }
 
+    public OptionMeasure priceScenario(Map<String, Object> tradeData, MarketData marketData) {
+        GenericMcInfo input = GenericMcInfo.fromTradeMap(tradeData);
+        return price(input, marketData, false);
+    }
+
     private OptionMeasure priceWithoutFrtb(GenericMcInfo input, MarketData marketData) {
         return price(input, marketData, false);
     }
