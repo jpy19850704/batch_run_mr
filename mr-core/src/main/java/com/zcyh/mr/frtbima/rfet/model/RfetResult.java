@@ -18,7 +18,7 @@ import java.util.Set;
  * <p>调用方（mr-app）从结果构建：
  * <ul>
  *   <li>modellable=true 的桶 → 加入 {@code RfetModellableIndex}，供 SubsetScenarioRunner 范围过滤
- *   <li>modellable=false 的桶 → 构建 NmrfBucketMeta，进入 NmrfScenarioRunner
+ *   <li>modellable=false 的桶 → 情景生成阶段转换为 IMA_NMRF UP/DOWN 情景
  * </ul>
  */
 public class RfetResult {
@@ -54,6 +54,9 @@ public class RfetResult {
 
     /** delta 上界（null=一维桶） */
     private Double deltaMax;
+
+    /** 是否为 delta 分桶 */
+    private boolean deltaBucketFlag;
 
     /**
      * 是否属于 Reduced Set（来自 RfBucketDefinition.reducedSet，透传自 RF_CONFIG）。
@@ -133,6 +136,9 @@ public class RfetResult {
 
     public Double getDeltaMax() { return deltaMax; }
     public void setDeltaMax(Double deltaMax) { this.deltaMax = deltaMax; }
+
+    public boolean isDeltaBucketFlag() { return deltaBucketFlag; }
+    public void setDeltaBucketFlag(boolean deltaBucketFlag) { this.deltaBucketFlag = deltaBucketFlag; }
 
     public boolean isReducedSet() { return reducedSet; }
     public void setReducedSet(boolean reducedSet) { this.reducedSet = reducedSet; }

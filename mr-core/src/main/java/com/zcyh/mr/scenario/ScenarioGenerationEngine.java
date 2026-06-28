@@ -31,6 +31,12 @@ public class ScenarioGenerationEngine {
     private final ExecutorService executor;
 
     public ScenarioGenerationEngine(ExecutorService executor, Calendar holidayCalendar) {
+        this(executor, holidayCalendar, null);
+    }
+
+    public ScenarioGenerationEngine(ExecutorService executor,
+                                    Calendar holidayCalendar,
+                                    Map<String, ScenarioStrategy> strategyOverrides) {
         if (executor == null) {
             throw new IllegalArgumentException("scenarioExecutor 不能为空");
         }
@@ -48,6 +54,9 @@ public class ScenarioGenerationEngine {
         strategies.put("IMA_NMRF", historicalStrategy);
         strategies.put("MC", new McScenarioStrategy(holidayCalendar));
         strategies.put("KEY_RATE", customStrategy);
+        if (strategyOverrides != null && !strategyOverrides.isEmpty()) {
+            strategies.putAll(strategyOverrides);
+        }
     }
 
     public List<ScenarioGeneratedRecord> generate(ScenarioGenerationRequest request) {

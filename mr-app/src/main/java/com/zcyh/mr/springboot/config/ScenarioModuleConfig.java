@@ -2,15 +2,22 @@ package com.zcyh.mr.springboot.config;
 
 import com.zcyh.mr.core.Calendar;
 import com.zcyh.mr.scenario.ScenarioGenerationEngine;
+import com.zcyh.mr.scenario.strategy.ScenarioStrategy;
+import com.zcyh.mr.springboot.ima.ImaRfetDataRepository;
+import com.zcyh.mr.springboot.ima.ImaRfetScenarioAnnotator;
+import com.zcyh.mr.springboot.ima.ImaScenarioStrategy;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
 import com.zcyh.mr.springboot.scenario.mapper.ScenarioMapper;
 import com.zcyh.mr.springboot.service.AlertService;
+import com.zcyh.mr.springboot.service.ImaRiskFactorConfigService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -30,12 +37,16 @@ public class ScenarioModuleConfig {
             ScenarioMapper scenarioMapper,
             @Qualifier("mrHolidayCalendar") Calendar mrHolidayCalendar,
             AlertService alertService,
+            ImaRfetDataRepository imaRfetDataRepository,
+            ImaRiskFactorConfigService imaRiskFactorConfigService,
             @Value("${mr.calendar.default-code:}") String defaultHolidayCalendarCode,
             @Value("${mr.fx-spot.base-currency:USD}") String fxSpotBaseCurrency) {
         return new ScenarioRequestAssembler(
                 scenarioMapper,
                 mrHolidayCalendar,
                 alertService,
+                imaRfetDataRepository,
+                imaRiskFactorConfigService,
                 defaultHolidayCalendarCode,
                 fxSpotBaseCurrency);
     }
@@ -65,8 +76,14 @@ public class ScenarioModuleConfig {
     @ConditionalOnBean({ScenarioRequestAssembler.class, ExecutorService.class, Calendar.class})
     public ScenarioGenerationEngine scenarioGenerationEngine(
             @Qualifier("scenarioExecutor") ExecutorService scenarioExecutor,
-            @Qualifier("mrHolidayCalendar") Calendar mrHolidayCalendar) {
-        return new ScenarioGenerationEngine(scenarioExecutor, mrHolidayCalendar);
+            @Qualifier("mrHolidayCalendar") Calendar mrHolidayCalendar,
+            ImaRfetScenarioAnnotator imaRfetScenarioAnnotator) {
+        Map<String, ScenarioStrategy> overrides = new LinkedHashMap<String, ScenarioStrategy>();
+        ScenarioStrategy imaScenarioStrategy = new ImaScenarioStrategy(mrHolidayCalendar, imaRfetScenarioAnnotator);
+        overrides.put("IMA_NORMAL", imaScenarioStrategy);
+        overrides.put("IMA_STRESS", imaScenarioStrategy);
+        overrides.put("IMA_NMRF", imaScenarioStrategy);
+        return new ScenarioGenerationEngine(scenarioExecutor, mrHolidayCalendar, overrides);
     }
 
     private ThreadFactory namedThreadFactory(String prefix) {

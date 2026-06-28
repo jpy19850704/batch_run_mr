@@ -36,7 +36,8 @@ public class LiquidityHorizonTable {
 
     /** curveId → riskClass，来自 RF_CONFIG */
     private final Map<String, String> riskClassByCurveId;
-    private final Map<String, Integer> lhDaysByCurveId;
+    private final Map<String, Integer> lhDaysByCurveKey;
+    private final Map<String, String> imaRiskClassByCurveKey;
     private final boolean explicitMode;
 
     /**
@@ -44,18 +45,47 @@ public class LiquidityHorizonTable {
      */
     public LiquidityHorizonTable(Map<String, String> riskClassByCurveId) {
         this.riskClassByCurveId = normalizeTextMap(riskClassByCurveId);
-        this.lhDaysByCurveId = new HashMap<>();
+        this.lhDaysByCurveKey = new HashMap<>();
+        this.imaRiskClassByCurveKey = new HashMap<>();
         this.explicitMode = false;
     }
 
     private LiquidityHorizonTable(Map<String, Integer> lhDaysByCurveId, boolean explicitMode) {
         this.riskClassByCurveId = new HashMap<>();
-        this.lhDaysByCurveId = normalizeLhMap(lhDaysByCurveId);
+        this.lhDaysByCurveKey = normalizeLhMap(lhDaysByCurveId);
+        this.imaRiskClassByCurveKey = new HashMap<>();
         this.explicitMode = explicitMode;
+    }
+
+    private LiquidityHorizonTable(Map<String, Integer> lhDaysByCurveKey,
+                                  Map<String, String> imaRiskClassByCurveKey) {
+        Map<String, Integer> normalizedLhDaysByCurveKey = normalizeLhMap(lhDaysByCurveKey);
+        Map<String, String> normalizedImaRiskClassByCurveKey = normalizeImaRiskClassMap(imaRiskClassByCurveKey);
+        if (!normalizedLhDaysByCurveKey.keySet().equals(normalizedImaRiskClassByCurveKey.keySet())) {
+            throw new IllegalArgumentException("IMA风险因子配置中的LH和风险大类曲线集合不一致");
+        }
+        this.riskClassByCurveId = new HashMap<>();
+        this.lhDaysByCurveKey = normalizedLhDaysByCurveKey;
+        this.imaRiskClassByCurveKey = normalizedImaRiskClassByCurveKey;
+        this.explicitMode = true;
     }
 
     public static LiquidityHorizonTable fromCurveLiquidityHorizonDays(Map<String, Integer> lhDaysByCurveId) {
         return new LiquidityHorizonTable(lhDaysByCurveId, true);
+    }
+
+    public static LiquidityHorizonTable fromCurveConfig(Map<String, Integer> lhDaysByCurveKey,
+                                                        Map<String, String> imaRiskClassByCurveKey) {
+        return new LiquidityHorizonTable(lhDaysByCurveKey, imaRiskClassByCurveKey);
+    }
+
+    public static String curveKey(String curveType, String curveId) {
+        String normalizedType = normalizeKey(curveType);
+        String normalizedCurveId = normalizeKey(curveId);
+        if (normalizedType == null || normalizedCurveId == null) {
+            return null;
+        }
+        return normalizedType + "|" + normalizedCurveId;
     }
 
     /**
@@ -67,7 +97,7 @@ public class LiquidityHorizonTable {
     public int getLhDays(String curveId) {
         String normalizedCurveId = normalizeKey(curveId);
         if (explicitMode) {
-            Integer lhDays = lhDaysByCurveId.get(normalizedCurveId);
+            Integer lhDays = lhDaysByCurveKey.get(normalizedCurveId);
             if (lhDays == null) {
                 throw new IllegalStateException("IMA风险因子流动性期限未配置: curveId=" + curveId);
             }
@@ -78,6 +108,32 @@ public class LiquidityHorizonTable {
             return ImaConstants.LH_BASE;
         }
         return LH_BY_RISK_CLASS.getOrDefault(riskClass, ImaConstants.LH_BASE);
+    }
+
+    public int getLhDays(String curveType, String curveId) {
+        if (!explicitMode) {
+            return getLhDays(curveId);
+        }
+        String key = curveKey(curveType, curveId);
+        Integer lhDays = lhDaysByCurveKey.get(key);
+        if (lhDays == null) {
+            throw new IllegalStateException("IMA风险因子流动性期限未配置: curveType="
+                    + curveType + ", curveId=" + curveId);
+        }
+        return lhDays;
+    }
+
+    public String getImaRiskClass(String curveType, String curveId) {
+        if (!explicitMode) {
+            return riskClassByCurveId.get(normalizeKey(curveId));
+        }
+        String key = curveKey(curveType, curveId);
+        String riskClass = imaRiskClassByCurveKey.get(key);
+        if (riskClass == null) {
+            throw new IllegalStateException("IMA风险因子监管风险大类未配置: curveType="
+                    + curveType + ", curveId=" + curveId);
+        }
+        return riskClass;
     }
 
     /**
@@ -121,9 +177,33 @@ public class LiquidityHorizonTable {
         return result;
     }
 
+    private static Map<String, String> normalizeImaRiskClassMap(Map<String, String> raw) {
+        Map<String, String> result = new HashMap<>();
+        if (raw == null) {
+            return result;
+        }
+        for (Map.Entry<String, String> entry : raw.entrySet()) {
+            String key = normalizeKey(entry.getKey());
+            String value = normalizeKey(entry.getValue());
+            if (key == null || value == null) {
+                continue;
+            }
+            validateImaRiskClass(value, key);
+            result.put(key, value);
+        }
+        return result;
+    }
+
     private static void validateLhDays(int value, String curveId) {
         if (!(value == 10 || value == 20 || value == 40 || value == 60 || value == 120)) {
             throw new IllegalArgumentException("流动性期限仅支持10/20/40/60/120: curveId=" + curveId);
+        }
+    }
+
+    private static void validateImaRiskClass(String value, String curveKey) {
+        if (!("GIRR".equals(value) || "CSR".equals(value) || "FX".equals(value)
+                || "EQ".equals(value) || "COMM".equals(value))) {
+            throw new IllegalArgumentException("IMA风险大类仅支持GIRR/CSR/FX/EQ/COMM: curveKey=" + curveKey);
         }
     }
 

@@ -1,5 +1,7 @@
 package com.zcyh.mr.scenario.model;
 
+import com.zcyh.mr.frtbima.rfet.model.RfetResult;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -17,6 +19,7 @@ public class ScenarioTaskRequest {
     private List<String> warnings = new ArrayList<String>();
     private Map<String, List<ScenarioMarketSeries>> currentMarketData = new LinkedHashMap<String, List<ScenarioMarketSeries>>();
     private Map<String, Map<LocalDate, List<ScenarioMarketSeries>>> historicalMarketData = new LinkedHashMap<String, Map<LocalDate, List<ScenarioMarketSeries>>>();
+    private List<RfetResult> imaRfetResults = new ArrayList<RfetResult>();
 
     public String getScenarioId() {
         return scenarioId;
@@ -76,5 +79,13 @@ public class ScenarioTaskRequest {
         this.historicalMarketData = historicalMarketData == null
                 ? new LinkedHashMap<String, Map<LocalDate, List<ScenarioMarketSeries>>>()
                 : historicalMarketData;
+    }
+
+    public List<RfetResult> getImaRfetResults() {
+        return imaRfetResults;
+    }
+
+    public void setImaRfetResults(List<RfetResult> imaRfetResults) {
+        this.imaRfetResults = imaRfetResults == null ? new ArrayList<RfetResult>() : imaRfetResults;
     }
 }
