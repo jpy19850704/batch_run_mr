@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
+import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
 import com.zcyh.mr.springboot.model.EngineRunResult;
 import org.slf4j.Logger;
@@ -45,7 +46,6 @@ public class PricingResultPersistService {
             "BATCH_ID",
             "SEQ_NO",
             "DATA_DATE",
-            "OP_CODE",
             "INSTRUMENT_ID",
             "PRODUCT_CODE",
             "PORTFOLIO",
@@ -79,23 +79,32 @@ public class PricingResultPersistService {
     private static final Map<String, String> TRADE_RESULT_DIMENSION_SOURCE_COLUMNS = buildTradeResultDimensionSourceColumns();
     private static final String SCENARIO_RESULT_TABLE = "TB_OUT_TRADE_SCENARIO_RESULT_DETAIL";
     private static final String SCENARIO_RESULT_COLUMNS =
-            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,INSTRUMENT_ID,PRODUCT_CODE,"
+            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,INSTRUMENT_ID,PRODUCT_CODE,"
                     + "BASE_VALUATION_CNY,SCENARIO_VALUATION_CNY,PNL,ERROR,DETAIL,LOGS_JSON,RESULT_JSON,CREATED_AT,UPDATED_AT";
     private static final String DECOMP_RESULT_COLUMNS =
-            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,INSTRUMENT_ID,PRODUCT_CODE,"
+            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,INSTRUMENT_ID,PRODUCT_CODE,"
                     + "BASE_VALUATION_CNY,IR_VALUATION,IR_PNL,FX_VALUATION,FX_PNL,EQ_VALUATION,EQ_PNL,COMM_VALUATION,COMM_PNL,ALL_VALUATION,ALL_PNL,"
                     + "LOGS_JSON,RESULT_JSON,CREATED_AT,UPDATED_AT";
     private static final String FRTB_SENSITIVITY_TABLE = "TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL";
     private static final String FRTB_SENSITIVITY_COLUMNS =
-            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,INSTRUMENT_ID,PRODUCT_CODE,RISK_FACTOR_ID,RISK_FACTOR_VERTEX_1,RISK_FACTOR_VERTEX_2,"
+            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,INSTRUMENT_ID,PRODUCT_CODE,RISK_FACTOR_ID,RISK_FACTOR_VERTEX_1,RISK_FACTOR_VERTEX_2,"
                     + "RISK_FACTOR_CLASS,RISK_FACTOR_BUCKET,RISK_FACTOR_TYPE,SENSITIVITY_TYPE,SENSITIVITY_VAL_INST_CURR,INSTRUMENT_CURRENCY,SENSITIVITY_VAL_INST_CURR_CNY,DETAIL_JSON,CREATED_AT,UPDATED_AT";
     private static final String DRC_DETAIL_TABLE = "TB_OUT_TRADE_DRC_DETAIL";
     private static final String DRC_DETAIL_COLUMNS =
-            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,OP_CODE,INSTRUMENT_ID,PRODUCT_CODE,PORTFOLIO_CODE,SECURITY_ID,SECURITY_TYPE,LEGAL_ENTITY,"
+            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,INSTRUMENT_ID,PRODUCT_CODE,PORTFOLIO_CODE,SECURITY_ID,SECURITY_TYPE,LEGAL_ENTITY,"
                     + "DRC_BUCKET,JTD_TYPE,SENIORITY,TERM_TO_MATURITY,MODIFIED_REMAIN_TERM,RISK_WEIGHT,JTD,JTD_CNY,INSTRUMENT_VALUE,FRTB_LGD,NOTIONAL,DETAIL_JSON,CREATED_AT,UPDATED_AT";
     private static final String MARKET_DATA_TABLE = "TB_OUT_MARKET_DATA_DETAIL";
     private static final String MARKET_DATA_COLUMNS =
-            "BATCH_ID,DATA_DATE,OP_CODE,CURVE_TYPE,CURVE_ID,CURVE_DATA_JSON,CREATED_AT,UPDATED_AT";
+            "BATCH_ID,DATA_DATE,CURVE_TYPE,CURVE_ID,CURVE_DATA_JSON,CREATED_AT,UPDATED_AT";
+    private static final String IMA_MODELLABLE_SCENARIO_TABLE = "TB_OUT_IMA_MODELLABLE_SCENARIO_PNL";
+    private static final String IMA_MODELLABLE_SCENARIO_COLUMNS =
+            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,"
+                    + "INSTRUMENT_ID,PRODUCT_CODE,LH_DAYS,BASE_VALUATION_CNY,IR_VALUATION,IR_PNL,CS_VALUATION,CS_PNL,FX_VALUATION,FX_PNL,"
+                    + "EQ_VALUATION,EQ_PNL,COMM_VALUATION,COMM_PNL,ALL_VALUATION,ALL_PNL,CREATED_AT,UPDATED_AT";
+    private static final String IMA_NMRF_SCENARIO_TABLE = "TB_OUT_IMA_NMRF_SCENARIO_PNL";
+    private static final String IMA_NMRF_SCENARIO_COLUMNS =
+            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,"
+                    + "INSTRUMENT_ID,PRODUCT_CODE,RISK_FACTOR_ID,NMRF_TYPE,BASE_VALUATION_CNY,STRESS_VALUATION_CNY,PNL,CREATED_AT,UPDATED_AT";
     private static final String RESULT_KIND_SCENARIO = "SCENARIO";
     private static final String RESULT_KIND_RISK_CLASS_DECOMP = "RISK_CLASS_DECOMP";
     private static final String SYNTHETIC_ERROR_TRADE_FLAG = "_SYNTHETIC_ERROR_TRADE";
@@ -146,6 +155,7 @@ public class PricingResultPersistService {
         JSONArray baseTrades = data.getJSONArray("trade_data");
         JSONArray logData = data.getJSONArray("log_data");
         JSONArray scenarioResults = data.getJSONArray("scenario_result");
+        JSONArray imaModellableScenarioResults = data.getJSONArray("ima_modellable_scenario_result");
 
         // 从输入侧 payload 提取原始交易数据和市场数据（沿用已有的非计量指标写入模式）
         JSONObject payload = parseObjectSafely(payloadJson);
@@ -161,6 +171,7 @@ public class PricingResultPersistService {
         insertDrcDetails(context, effectiveBaseTrades);
         insertFrtbSensitivityDetails(context, effectiveBaseTrades);
         insertScenarioResults(context, scenarioResults, baseTradeIndex, decompTableExists);
+        insertImaModellableScenarioResults(context, imaModellableScenarioResults);
     }
 
     /**
@@ -176,26 +187,26 @@ public class PricingResultPersistService {
             }
             verifyTableColumns(TRADE_RESULT_TABLE, String.join(", ", TRADE_RESULT_COLUMN_LIST));
             verifyTableColumns("TB_OUT_TRADE_SCENARIO_RESULT_DETAIL",
-                    "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+                    "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, "
                             + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, SCENARIO_TYPE, INSTRUMENT_ID, PRODUCT_CODE, "
                             + "BASE_VALUATION_CNY, SCENARIO_VALUATION_CNY, PNL, ERROR, DETAIL, LOGS_JSON, RESULT_JSON, CREATED_AT, UPDATED_AT");
             verifyTableColumns(DECOMP_TABLE,
-                    "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+                    "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, "
                             + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, INSTRUMENT_ID, PRODUCT_CODE, "
                             + "BASE_VALUATION_CNY, IR_VALUATION, IR_PNL, FX_VALUATION, FX_PNL, EQ_VALUATION, EQ_PNL, COMM_VALUATION, COMM_PNL, "
                             + "ALL_VALUATION, ALL_PNL, LOGS_JSON, RESULT_JSON, CREATED_AT, UPDATED_AT");
             verifyTableColumns("TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL",
-                    "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+                    "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, "
                             + "INSTRUMENT_ID, PRODUCT_CODE, RISK_FACTOR_ID, RISK_FACTOR_VERTEX_1, RISK_FACTOR_VERTEX_2, "
                             + "RISK_FACTOR_CLASS, RISK_FACTOR_BUCKET, RISK_FACTOR_TYPE, SENSITIVITY_TYPE, "
                             + "SENSITIVITY_VAL_INST_CURR, INSTRUMENT_CURRENCY, SENSITIVITY_VAL_INST_CURR_CNY, DETAIL_JSON, CREATED_AT, UPDATED_AT");
             verifyTableColumns("TB_OUT_TRADE_DRC_DETAIL",
-                    "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+                    "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, "
                             + "INSTRUMENT_ID, PRODUCT_CODE, PORTFOLIO_CODE, SECURITY_ID, SECURITY_TYPE, LEGAL_ENTITY, "
                             + "DRC_BUCKET, JTD_TYPE, SENIORITY, TERM_TO_MATURITY, MODIFIED_REMAIN_TERM, "
                             + "RISK_WEIGHT, JTD, JTD_CNY, INSTRUMENT_VALUE, FRTB_LGD, NOTIONAL, DETAIL_JSON, CREATED_AT, UPDATED_AT");
             verifyTableColumns("TB_OUT_MARKET_DATA_DETAIL",
-                    "BATCH_ID, DATA_DATE, OP_CODE, CURVE_TYPE, CURVE_ID, CURVE_DATA_JSON, CREATED_AT, UPDATED_AT");
+                    "BATCH_ID, DATA_DATE, CURVE_TYPE, CURVE_ID, CURVE_DATA_JSON, CREATED_AT, UPDATED_AT");
             requiredSchemaVerified = true;
         }
     }
@@ -221,8 +232,6 @@ public class PricingResultPersistService {
             return context;
         }
         context.dataDate = normalizeDataDate(payload.getString("data_date"));
-        context.opCode = trimToNull(payload.getString("oper_code"));
-
         JSONObject batchMeta = payload.getJSONObject("batch_meta");
         if (batchMeta != null) {
             context.batchId = trimToNull(batchMeta.getString("batch_id"));
@@ -277,7 +286,6 @@ public class PricingResultPersistService {
                 context.batchId,
                 context.seqNo,
                 normalizeDataDate(context.dataDate),
-                context.opCode,
                 instrumentId,
                 trimToNull(trade.getString("PRODUCT_CODE")),
                 resolveTradeResultDimensionField(context.tradeDimension, instrumentId, "PORTFOLIO"),
@@ -313,6 +321,9 @@ public class PricingResultPersistService {
         if (scenarioResults == null || scenarioResults.isEmpty()) {
             return;
         }
+        List<JSONObject> riskDecompScenarios = new java.util.ArrayList<JSONObject>();
+        List<JSONObject> imaModellableScenarios = new java.util.ArrayList<JSONObject>();
+        List<JSONObject> imaNmrfScenarios = new java.util.ArrayList<JSONObject>();
         DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
                 dorisStreamLoadService,
                 SCENARIO_RESULT_TABLE,
@@ -328,6 +339,19 @@ public class PricingResultPersistService {
                 if (decompTableExists) {
                     insertScenarioDecompResults(context, scenario, baseTradeIndex);
                 }
+                continue;
+            }
+            String processType = resolveScenarioProcessType(scenario);
+            if (ScenarioProcessConstants.RISK_DECOMP.equals(processType)) {
+                riskDecompScenarios.add(scenario);
+                continue;
+            }
+            if (ScenarioProcessConstants.IMA_MODELLABLE.equals(processType)) {
+                imaModellableScenarios.add(scenario);
+                continue;
+            }
+            if (ScenarioProcessConstants.IMA_NMRF.equals(processType)) {
+                imaNmrfScenarios.add(scenario);
                 continue;
             }
             JSONArray tradeData = scenario.getJSONArray("trade_data");
@@ -347,7 +371,6 @@ public class PricingResultPersistService {
                         context.batchId,
                         context.seqNo,
                         normalizeDataDate(context.dataDate),
-                        context.opCode,
                         trimToNull(scenario.getString("SCENARIO_ID")),
                         trimToNull(scenario.getString("SUBSCENARIO_ID")),
                         trimToNull(scenario.getString("SCENARIO_NAME")),
@@ -367,6 +390,339 @@ public class PricingResultPersistService {
             }
         }
         buffer.flush();
+        if (decompTableExists) {
+            insertProcessedScenarioDecompResults(context, riskDecompScenarios, baseTradeIndex);
+        }
+        insertImaModellableScenarioResults(context,
+                buildImaModellableRowsFromScenarioResults(context, imaModellableScenarios, baseTradeIndex));
+        insertImaNmrfScenarioResults(context,
+                buildImaNmrfRowsFromScenarioResults(context, imaNmrfScenarios, baseTradeIndex));
+    }
+
+    private static String resolveScenarioProcessType(JSONObject scenario) {
+        String processType = trimToNull(scenario == null ? null : scenario.getString("SCENARIO_PROCESS_TYPE"));
+        if (processType == null) {
+            throw new IllegalStateException("scenario_result 缺少 SCENARIO_PROCESS_TYPE");
+        }
+        String upper = processType.toUpperCase(java.util.Locale.ROOT);
+        if (ScenarioProcessConstants.isValidProcessType(upper)) {
+            return upper;
+        }
+        throw new IllegalStateException("scenario_result.SCENARIO_PROCESS_TYPE 无效: " + processType);
+    }
+
+    private void insertProcessedScenarioDecompResults(PersistContext context,
+                                                      List<JSONObject> scenarios,
+                                                      Map<String, JSONObject> baseTradeIndex) {
+        if (scenarios == null || scenarios.isEmpty()) {
+            return;
+        }
+        LinkedHashMap<String, JSONObject> rows = new LinkedHashMap<String, JSONObject>();
+        for (JSONObject scenario : scenarios) {
+            JSONObject tag = scenario.getJSONObject("SCENARIO_TAG");
+            String riskClass = trimToNull(tag == null ? null : tag.getString(ScenarioProcessConstants.TAG_RISK_CLASS));
+            String prefix = mapDecompRiskClassToColumnPrefix(riskClass);
+            JSONArray tradeData = scenario.getJSONArray("trade_data");
+            if (tradeData == null || tradeData.isEmpty()) {
+                continue;
+            }
+            for (int i = 0; i < tradeData.size(); i++) {
+                JSONObject trade = tradeData.getJSONObject(i);
+                if (trade == null) {
+                    continue;
+                }
+                String instrumentId = trimToNull(trade.getString("INSTRUMENT_ID"));
+                if (instrumentId == null) {
+                    continue;
+                }
+                JSONObject baseTrade = baseTradeIndex.get(instrumentId);
+                String rowKey = scenarioRowKey(scenario, instrumentId);
+                JSONObject row = rows.get(rowKey);
+                if (row == null) {
+                    row = initDecompPersistRow(scenario, trade, baseTrade, instrumentId);
+                    rows.put(rowKey, row);
+                }
+                if (isScenarioErrorTrade(trade)) {
+                    appendPersistDecompLog(row, riskClass, trade.getJSONArray("LOGS"));
+                    continue;
+                }
+                row.put(prefix + "_VALUATION", toBigDecimal(trade.get("SCENARIO_VALUATION_CNY")));
+                row.put(prefix + "_PNL", toBigDecimal(trade.get("PNL")));
+            }
+        }
+        if (rows.isEmpty()) {
+            return;
+        }
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                DECOMP_TABLE,
+                DECOMP_RESULT_COLUMNS,
+                "scenario_decomp_" + context.batchId + "_" + context.jobId + "_processed",
+                DEFAULT_BATCH_SIZE);
+        for (JSONObject row : rows.values()) {
+            buffer.appendRow(
+                    context.requestId,
+                    context.jobId,
+                    context.batchId,
+                    context.seqNo,
+                    normalizeDataDate(context.dataDate),
+                    trimToNull(row.getString("SCENARIO_ID")),
+                    trimToNull(row.getString("SUBSCENARIO_ID")),
+                    trimToNull(row.getString("SCENARIO_NAME")),
+                    trimToNull(row.getString("INSTRUMENT_ID")),
+                    trimToNull(row.getString("PRODUCT_CODE")),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("BASE_VALUATION_CNY"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("IR_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("IR_PNL"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("FX_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("FX_PNL"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("EQ_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("EQ_PNL"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("COMM_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("COMM_PNL"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("ALL_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("ALL_PNL"))),
+                    toJsonString(row.get("LOGS")),
+                    toJsonString(row),
+                    context.createdAt,
+                    context.updatedAt
+            );
+        }
+        buffer.flush();
+    }
+
+    private static JSONObject initDecompPersistRow(JSONObject scenario,
+                                                   JSONObject trade,
+                                                   JSONObject baseTrade,
+                                                   String instrumentId) {
+        BigDecimal baseValuation = toBigDecimal(trade == null ? null : trade.get("BASE_VALUATION_CNY"));
+        if (baseValuation == null) {
+            baseValuation = BigDecimal.ZERO;
+        }
+        JSONObject row = new JSONObject();
+        row.put("SCENARIO_ID", trimToNull(scenario.getString("SCENARIO_ID")));
+        row.put("SUBSCENARIO_ID", trimToNull(scenario.getString("SUBSCENARIO_ID")));
+        row.put("SCENARIO_NAME", trimToNull(scenario.getString("SCENARIO_NAME")));
+        row.put("SCENARIO_ENTRY_KEY", trimToNull(scenario.getString("SCENARIO_ENTRY_KEY")));
+        row.put("SCENARIO_TAG", scenario.get("SCENARIO_TAG"));
+        row.put("INSTRUMENT_ID", instrumentId);
+        row.put("PRODUCT_CODE", baseTrade == null ? null : trimToNull(baseTrade.getString("PRODUCT_CODE")));
+        row.put("BASE_VALUATION_CNY", baseValuation);
+        row.put("IR_VALUATION", baseValuation);
+        row.put("IR_PNL", BigDecimal.ZERO);
+        row.put("FX_VALUATION", baseValuation);
+        row.put("FX_PNL", BigDecimal.ZERO);
+        row.put("EQ_VALUATION", baseValuation);
+        row.put("EQ_PNL", BigDecimal.ZERO);
+        row.put("COMM_VALUATION", baseValuation);
+        row.put("COMM_PNL", BigDecimal.ZERO);
+        row.put("ALL_VALUATION", baseValuation);
+        row.put("ALL_PNL", BigDecimal.ZERO);
+        return row;
+    }
+
+    private JSONArray buildImaModellableRowsFromScenarioResults(PersistContext context,
+                                                                List<JSONObject> scenarios,
+                                                                Map<String, JSONObject> baseTradeIndex) {
+        JSONArray result = new JSONArray();
+        if (scenarios == null || scenarios.isEmpty()) {
+            return result;
+        }
+        LinkedHashMap<String, JSONObject> rows = new LinkedHashMap<String, JSONObject>();
+        for (JSONObject scenario : scenarios) {
+            JSONObject tag = scenario.getJSONObject("SCENARIO_TAG");
+            Integer lhDays = tag == null ? null : tag.getInteger(ScenarioProcessConstants.TAG_LH);
+            if (lhDays == null) {
+                throw new IllegalStateException("IMA 可建模 scenario_result 缺少 SCENARIO_TAG.lh");
+            }
+            String imaRiskClass = trimToNull(tag.getString(ScenarioProcessConstants.TAG_IMA_RISK_CLASS));
+            String prefix = mapImaRiskClassToColumnPrefix(imaRiskClass);
+            JSONArray tradeData = scenario.getJSONArray("trade_data");
+            if (tradeData == null || tradeData.isEmpty()) {
+                continue;
+            }
+            for (int i = 0; i < tradeData.size(); i++) {
+                JSONObject trade = tradeData.getJSONObject(i);
+                if (trade == null) {
+                    continue;
+                }
+                String instrumentId = trimToNull(trade.getString("INSTRUMENT_ID"));
+                if (instrumentId == null) {
+                    continue;
+                }
+                JSONObject baseTrade = baseTradeIndex.get(instrumentId);
+                String rowKey = scenarioRowKey(scenario, instrumentId);
+                JSONObject row = rows.get(rowKey);
+                if (row == null) {
+                    row = initImaModellablePersistRow(context, scenario, trade, baseTrade, instrumentId, lhDays);
+                    rows.put(rowKey, row);
+                }
+                if (isScenarioErrorTrade(trade)) {
+                    continue;
+                }
+                row.put(prefix + "_VALUATION", toBigDecimal(trade.get("SCENARIO_VALUATION_CNY")));
+                row.put(prefix + "_PNL", toBigDecimal(trade.get("PNL")));
+            }
+        }
+        result.addAll(rows.values());
+        return result;
+    }
+
+    private JSONArray buildImaNmrfRowsFromScenarioResults(PersistContext context,
+                                                          List<JSONObject> scenarios,
+                                                          Map<String, JSONObject> baseTradeIndex) {
+        JSONArray result = new JSONArray();
+        if (scenarios == null || scenarios.isEmpty()) {
+            return result;
+        }
+        for (JSONObject scenario : scenarios) {
+            String riskFactorId = trimToNull(scenario == null ? null : scenario.getString("RISK_FACTOR_ID"));
+            if (riskFactorId == null) {
+                throw new IllegalStateException("IMA NMRF scenario_result 缺少 RISK_FACTOR_ID");
+            }
+            String nmrfType = trimToNull(scenario.getString("NMRF_TYPE"));
+            if (nmrfType == null) {
+                throw new IllegalStateException("IMA NMRF scenario_result 缺少 NMRF_TYPE");
+            }
+            JSONArray tradeData = scenario.getJSONArray("trade_data");
+            if (tradeData == null || tradeData.isEmpty()) {
+                continue;
+            }
+            for (int i = 0; i < tradeData.size(); i++) {
+                JSONObject trade = tradeData.getJSONObject(i);
+                if (trade == null) {
+                    continue;
+                }
+                String instrumentId = trimToNull(trade.getString("INSTRUMENT_ID"));
+                if (instrumentId == null) {
+                    continue;
+                }
+                BigDecimal baseValuation = requireDecimal(trade, "BASE_VALUATION_CNY", "IMA NMRF scenario_result");
+                BigDecimal stressValuation = requireDecimal(trade, "SCENARIO_VALUATION_CNY", "IMA NMRF scenario_result");
+                BigDecimal pnl = requireDecimal(trade, "PNL", "IMA NMRF scenario_result");
+                JSONObject baseTrade = baseTradeIndex.get(instrumentId);
+                JSONObject row = new JSONObject();
+                row.put("SEQ_NO", context.seqNo);
+                row.put("SCENARIO_ID", trimToNull(scenario.getString("SCENARIO_ID")));
+                row.put("SUBSCENARIO_ID", trimToNull(scenario.getString("SUBSCENARIO_ID")));
+                row.put("SCENARIO_NAME", trimToNull(scenario.getString("SCENARIO_NAME")));
+                row.put("INSTRUMENT_ID", instrumentId);
+                row.put("PRODUCT_CODE", baseTrade == null ? null : trimToNull(baseTrade.getString("PRODUCT_CODE")));
+                row.put("RISK_FACTOR_ID", riskFactorId);
+                row.put("NMRF_TYPE", nmrfType);
+                row.put("BASE_VALUATION_CNY", baseValuation);
+                row.put("STRESS_VALUATION_CNY", stressValuation);
+                row.put("PNL", pnl);
+                result.add(row);
+            }
+        }
+        return result;
+    }
+
+    private static JSONObject initImaModellablePersistRow(PersistContext context,
+                                                          JSONObject scenario,
+                                                          JSONObject trade,
+                                                          JSONObject baseTrade,
+                                                          String instrumentId,
+                                                          Integer lhDays) {
+        BigDecimal baseValuation = toBigDecimal(trade == null ? null : trade.get("BASE_VALUATION_CNY"));
+        if (baseValuation == null) {
+            baseValuation = BigDecimal.ZERO;
+        }
+        JSONObject row = new JSONObject();
+        row.put("SEQ_NO", context.seqNo);
+        row.put("SCENARIO_ID", trimToNull(scenario.getString("SCENARIO_ID")));
+        row.put("SUBSCENARIO_ID", trimToNull(scenario.getString("SUBSCENARIO_ID")));
+        row.put("SCENARIO_NAME", trimToNull(scenario.getString("SCENARIO_NAME")));
+        row.put("SCENARIO_TYPE", trimToNull(scenario.getString("SCENARIO_TYPE")));
+        row.put("INSTRUMENT_ID", instrumentId);
+        row.put("PRODUCT_CODE", baseTrade == null ? null : trimToNull(baseTrade.getString("PRODUCT_CODE")));
+        row.put("LH_DAYS", lhDays);
+        row.put("BASE_VALUATION_CNY", baseValuation);
+        row.put("IR_VALUATION", baseValuation);
+        row.put("IR_PNL", BigDecimal.ZERO);
+        row.put("CS_VALUATION", baseValuation);
+        row.put("CS_PNL", BigDecimal.ZERO);
+        row.put("FX_VALUATION", baseValuation);
+        row.put("FX_PNL", BigDecimal.ZERO);
+        row.put("EQ_VALUATION", baseValuation);
+        row.put("EQ_PNL", BigDecimal.ZERO);
+        row.put("COMM_VALUATION", baseValuation);
+        row.put("COMM_PNL", BigDecimal.ZERO);
+        row.put("ALL_VALUATION", baseValuation);
+        row.put("ALL_PNL", BigDecimal.ZERO);
+        return row;
+    }
+
+    private static String scenarioRowKey(JSONObject scenario, String instrumentId) {
+        String entryKey = trimToNull(scenario == null ? null : scenario.getString("SCENARIO_ENTRY_KEY"));
+        if (entryKey != null) {
+            return entryKey + "|" + instrumentId;
+        }
+        return trimToNull(scenario == null ? null : scenario.getString("SCENARIO_ID"))
+                + "|" + trimToNull(scenario == null ? null : scenario.getString("SUBSCENARIO_ID"))
+                + "|" + instrumentId;
+    }
+
+    private static String mapDecompRiskClassToColumnPrefix(String riskClass) {
+        String upper = normalizeRiskClass(riskClass);
+        if ("IR".equals(upper) || "FX".equals(upper) || "EQ".equals(upper)
+                || "COMM".equals(upper) || "ALL".equals(upper)) {
+            return upper;
+        }
+        throw new IllegalStateException("risk decomp 不支持的风险类别: " + riskClass);
+    }
+
+    private static String mapImaRiskClassToColumnPrefix(String riskClass) {
+        String upper = normalizeRiskClass(riskClass);
+        if ("GIRR".equals(upper)) {
+            return "IR";
+        }
+        if ("CSR".equals(upper)) {
+            return "CS";
+        }
+        if ("FX".equals(upper) || "EQ".equals(upper) || "COMM".equals(upper) || "ALL".equals(upper)) {
+            return upper;
+        }
+        throw new IllegalStateException("IMA 可建模不支持的风险类别: " + riskClass);
+    }
+
+    private static String normalizeRiskClass(String riskClass) {
+        String safe = trimToNull(riskClass);
+        if (safe == null) {
+            throw new IllegalStateException("scenario_result 缺少风险类别 tag");
+        }
+        return safe.toUpperCase(java.util.Locale.ROOT);
+    }
+
+    private static boolean isScenarioErrorTrade(JSONObject trade) {
+        return trade != null && "ERROR".equalsIgnoreCase(String.valueOf(trade.get("STATUS")));
+    }
+
+    private static void appendPersistDecompLog(JSONObject row, String riskClass, JSONArray sourceLogs) {
+        JSONArray logs = row.getJSONArray("LOGS");
+        if (logs == null) {
+            logs = new JSONArray();
+            row.put("LOGS", logs);
+        }
+        String prefix = trimToNull(riskClass) == null ? "UNKNOWN" : riskClass.trim();
+        if (sourceLogs == null || sourceLogs.isEmpty()) {
+            JSONObject logItem = new JSONObject();
+            logItem.put("level", "ERROR");
+            logItem.put("message", prefix + ": 风险类别分解计算异常");
+            logs.add(logItem);
+            return;
+        }
+        for (int i = 0; i < sourceLogs.size(); i++) {
+            JSONObject source = sourceLogs.getJSONObject(i);
+            if (source == null) {
+                continue;
+            }
+            JSONObject logItem = new JSONObject();
+            logItem.put("level", String.valueOf(source.getOrDefault("level", "ERROR")));
+            logItem.put("message", prefix + ": " + String.valueOf(source.getOrDefault("message", "")));
+            logs.add(logItem);
+        }
     }
 
     private static String resolveScenarioError(JSONObject trade) {
@@ -418,7 +774,6 @@ public class PricingResultPersistService {
                     context.batchId,
                     context.seqNo,
                     normalizeDataDate(context.dataDate),
-                    context.opCode,
                     trimToNull(scenario.getString("SCENARIO_ID")),
                     trimToNull(scenario.getString("SUBSCENARIO_ID")),
                     trimToNull(scenario.getString("SCENARIO_NAME")),
@@ -440,6 +795,92 @@ public class PricingResultPersistService {
                     context.createdAt,
                     context.updatedAt
             );
+        }
+        buffer.flush();
+    }
+
+    private void insertImaModellableScenarioResults(PersistContext context, JSONArray rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        String now = ResultPersistTime.nowText();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                IMA_MODELLABLE_SCENARIO_TABLE,
+                IMA_MODELLABLE_SCENARIO_COLUMNS,
+                "ima_modellable_" + context.batchId + "_" + context.jobId,
+                DEFAULT_BATCH_SIZE);
+        for (int i = 0; i < rows.size(); i++) {
+            JSONObject row = rows.getJSONObject(i);
+            if (row == null) {
+                continue;
+            }
+            buffer.appendRow(
+                    context.requestId,
+                    context.jobId,
+                    context.batchId,
+                    row.get("SEQ_NO"),
+                    normalizeDataDate(context.dataDate),
+                    trimToNull(row.getString("SCENARIO_ID")),
+                    trimToNull(row.getString("SUBSCENARIO_ID")),
+                    trimToNull(row.getString("SCENARIO_NAME")),
+                    trimToNull(row.getString("SCENARIO_TYPE")),
+                    trimToNull(row.getString("INSTRUMENT_ID")),
+                    trimToNull(row.getString("PRODUCT_CODE")),
+                    row.get("LH_DAYS"),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("BASE_VALUATION_CNY"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("IR_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("IR_PNL"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("CS_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("CS_PNL"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("FX_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("FX_PNL"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("EQ_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("EQ_PNL"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("COMM_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("COMM_PNL"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("ALL_VALUATION"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("ALL_PNL"))),
+                    resolveCreatedAt(row, now),
+                    now);
+        }
+        buffer.flush();
+    }
+
+    private void insertImaNmrfScenarioResults(PersistContext context, JSONArray rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        String now = ResultPersistTime.nowText();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                IMA_NMRF_SCENARIO_TABLE,
+                IMA_NMRF_SCENARIO_COLUMNS,
+                "ima_nmrf_" + context.batchId + "_" + context.jobId,
+                DEFAULT_BATCH_SIZE);
+        for (int i = 0; i < rows.size(); i++) {
+            JSONObject row = rows.getJSONObject(i);
+            if (row == null) {
+                continue;
+            }
+            buffer.appendRow(
+                    context.requestId,
+                    context.jobId,
+                    context.batchId,
+                    row.get("SEQ_NO"),
+                    normalizeDataDate(context.dataDate),
+                    trimToNull(row.getString("SCENARIO_ID")),
+                    trimToNull(row.getString("SUBSCENARIO_ID")),
+                    trimToNull(row.getString("SCENARIO_NAME")),
+                    trimToNull(row.getString("INSTRUMENT_ID")),
+                    trimToNull(row.getString("PRODUCT_CODE")),
+                    trimToNull(row.getString("RISK_FACTOR_ID")),
+                    trimToNull(row.getString("NMRF_TYPE")),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("BASE_VALUATION_CNY"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("STRESS_VALUATION_CNY"))),
+                    DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("PNL"))),
+                    resolveCreatedAt(row, now),
+                    now);
         }
         buffer.flush();
     }
@@ -477,7 +918,6 @@ public class PricingResultPersistService {
                         context.batchId,
                         context.seqNo,
                         normalizeDataDate(context.dataDate),
-                        context.opCode,
                         instrumentId,
                         productCode,
                         trimToNull(sensitivity.getString("RISK_FACTOR_ID")),
@@ -543,7 +983,6 @@ public class PricingResultPersistService {
                     context.batchId,
                     context.seqNo,
                     normalizeDataDate(context.dataDate),
-                    context.opCode,
                     instrumentId,
                     productCode,
                     trimToNull(drc.getString("PORTFOLIO_CODE")),
@@ -774,7 +1213,6 @@ public class PricingResultPersistService {
             buffer.appendRow(
                     context.batchId,
                     normalizeDataDate(context.dataDate),
-                    context.opCode,
                     resolveCurveType(curve),
                     resolveCurveId(curve),
                     toJsonString(curve),
@@ -897,6 +1335,14 @@ public class PricingResultPersistService {
         }
     }
 
+    private static BigDecimal requireDecimal(JSONObject row, String field, String source) {
+        BigDecimal value = toBigDecimal(row == null ? null : row.get(field));
+        if (value == null) {
+            throw new IllegalStateException(source + " 缺少 " + field);
+        }
+        return value;
+    }
+
     private static Integer toInteger(Object value) {
         if (value == null) {
             return null;
@@ -937,6 +1383,34 @@ public class PricingResultPersistService {
             return null;
         }
         return JSON.toJSONString(value, JSONWriter.Feature.WriteBigDecimalAsPlain);
+    }
+
+    private static String resolveCreatedAt(JSONObject row, String defaultText) {
+        if (row == null || row.get("CREATED_AT") == null) {
+            return defaultText;
+        }
+        Long epochMillis = toLong(row.get("CREATED_AT"));
+        if (epochMillis != null && epochMillis > 0) {
+            return ResultPersistTime.formatEpochMillis(epochMillis);
+        }
+        return defaultText;
+    }
+
+    private static Long toLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            if (value instanceof Long) {
+                return (Long) value;
+            }
+            if (value instanceof Number) {
+                return ((Number) value).longValue();
+            }
+            return Long.valueOf(String.valueOf(value));
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     private static Map<String, String> buildTradeResultDimensionSourceColumns() {
@@ -1000,7 +1474,6 @@ public class PricingResultPersistService {
         private String batchId;
         private Long seqNo;
         private String dataDate;
-        private String opCode;
         private String createdAt;
         private String updatedAt;
         private JSONObject tradeDimension;

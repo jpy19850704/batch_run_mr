@@ -146,7 +146,6 @@ public final class RuleColumnSqlResolver {
         map.put("SCENARIO_ID", "d.SCENARIO_ID");
         map.put("SUBSCENARIO_ID", "d.SUBSCENARIO_ID");
         map.put("SCENARIO_NAME", "d.SCENARIO_NAME");
-        map.put("OP_CODE", "d.OP_CODE");
         map.put("ALL_PNL", "d.ALL_PNL");
         map.put("IR_PNL", "d.IR_PNL");
         map.put("FX_PNL", "d.FX_PNL");

@@ -107,11 +107,12 @@ public class FrtbSbaResultPersistService {
     /**
      * 删除指定批次的历史结果（重跑前清理）。
      */
-    public void deleteByBatch(String batchId) {
+    public void deleteByBatchAndDataDate(String batchId, String dataDate) {
         int deleted = jdbcTemplate.update(
-                "DELETE FROM TB_OUT_FRTB_SBA_CLASS_RESULT WHERE BATCH_ID = ?", batchId);
+                "DELETE FROM TB_OUT_FRTB_SBA_CLASS_RESULT WHERE BATCH_ID = ? AND DATA_DATE = ?",
+                batchId, dataDate);
         if (deleted > 0) {
-            log.info("清理 FRTB SBA 历史结果: batchId={}, deleted={}", batchId, deleted);
+            log.info("清理 FRTB SBA 历史结果: batchId={}, dataDate={}, deleted={}", batchId, dataDate, deleted);
         }
     }
 

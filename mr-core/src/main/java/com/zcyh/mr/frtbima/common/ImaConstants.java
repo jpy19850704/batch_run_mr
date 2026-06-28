@@ -45,19 +45,19 @@ public final class ImaConstants {
 
     /**
      * 压力期缩减因子集情景（MAR33.5，用于计算 ES_S_reduced）。
-     * Phase1 落库时 scenario_type 字段应使用此值（缩减集批次）。
+     * 情景 PnL 落库时 scenario_type 字段应使用此值（缩减集批次）。
      */
     public static final String SCENARIO_TYPE_STRESS_REDUCED = "STRESS_REDUCED";
 
     /**
      * 当前期全量因子集情景（MAR33.4，用于计算 ES_C_full）。
-     * Phase1 落库时 scenario_type 字段应使用此值。
+     * 情景 PnL 落库时 scenario_type 字段应使用此值。
      */
     public static final String SCENARIO_TYPE_NORMAL_FULL = "NORMAL_FULL";
 
     /**
      * 当前期缩减因子集情景（MAR33.5，用于计算 ES_C_reduced）。
-     * Phase1 落库时 scenario_type 字段应使用此值（缩减集批次）。
+     * 情景 PnL 落库时 scenario_type 字段应使用此值（缩减集批次）。
      */
     public static final String SCENARIO_TYPE_NORMAL_REDUCED = "NORMAL_REDUCED";
 

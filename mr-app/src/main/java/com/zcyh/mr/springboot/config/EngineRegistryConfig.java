@@ -5,7 +5,6 @@ import com.zcyh.mr.springboot.engine.EngineRegistry;
 import com.zcyh.mr.springboot.engine.FrtbDrcEngineAdapter;
 import com.zcyh.mr.springboot.engine.FrtbSaEngineAdapter;
 import com.zcyh.mr.springboot.engine.ImaCapitalEngineAdapter;
-import com.zcyh.mr.springboot.engine.ImaScenarioEngineAdapter;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
 import com.zcyh.mr.springboot.engine.VarEngineAdapter;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
@@ -14,10 +13,7 @@ import com.zcyh.mr.springboot.engine.ScenarioEngineAdapter;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
 import com.zcyh.mr.springboot.service.ImaCapitalResultPersistService;
 import com.zcyh.mr.springboot.service.ImaEsResultDetailPersistService;
-import com.zcyh.mr.springboot.service.ImaModellablePnlPersistService;
-import com.zcyh.mr.springboot.service.ImaNmrfPnlPersistService;
 import com.zcyh.mr.springboot.service.ImaNmrfResultPersistService;
-import com.zcyh.mr.springboot.service.ImaRfetSnapshotService;
 import com.zcyh.mr.springboot.service.BatchTradeDataLoader;
 import com.zcyh.mr.springboot.service.CalcRuleMetaPersistService;
 import com.zcyh.mr.springboot.service.FrtbSbaSummaryService;
@@ -89,23 +85,12 @@ public class EngineRegistryConfig {
             ObjectProvider<ScenarioGenerationEngine> scenarioGenerationEngineProvider,
             ObjectProvider<ScenarioRequestAssembler> scenarioRequestAssemblerProvider,
             ObjectProvider<ScenarioGeneratedPersistService> scenarioGeneratedPersistServiceProvider,
-            ObjectProvider<ScenarioResultCacheService> scenarioResultCacheServiceProvider,
-            ObjectProvider<ImaRfetSnapshotService> imaRfetSnapshotServiceProvider) {
+            ObjectProvider<ScenarioResultCacheService> scenarioResultCacheServiceProvider) {
         return new ScenarioEngineAdapter(
                 scenarioGenerationEngineProvider.getIfAvailable(),
                 scenarioRequestAssemblerProvider.getIfAvailable(),
                 scenarioGeneratedPersistServiceProvider.getIfAvailable(),
-                scenarioResultCacheServiceProvider.getIfAvailable(),
-                imaRfetSnapshotServiceProvider.getIfAvailable());
-    }
-
-    @Bean
-    public ImaScenarioEngineAdapter imaScenarioEngineAdapter(
-            ImaModellablePnlPersistService imaModellablePnlPersistService,
-            ImaNmrfPnlPersistService imaNmrfPnlPersistService) {
-        return new ImaScenarioEngineAdapter(
-                imaModellablePnlPersistService,
-                imaNmrfPnlPersistService);
+                scenarioResultCacheServiceProvider.getIfAvailable());
     }
 
     @Bean

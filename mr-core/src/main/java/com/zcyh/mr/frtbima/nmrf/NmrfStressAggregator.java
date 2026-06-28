@@ -26,13 +26,14 @@ public class NmrfStressAggregator {
      * @return 每个桶的压力损失列表
      */
     public List<NmrfStressResult> aggregate(List<NmrfPnlRecord> nmrfRecords) {
-        // 按 bucketId（scenarioId）分组
         // subscenarioId 格式：{bucketId}_UP 或 {bucketId}_DOWN
         Map<String, BucketPnlAccum> accumMap = new HashMap<>();
 
         for (NmrfPnlRecord rec : nmrfRecords) {
-            if (rec == null || rec.getScenarioId() == null) continue;
-            String bucketId = rec.getScenarioId();
+            if (rec == null) {
+                continue;
+            }
+            String bucketId = resolveBucketId(rec.getSubscenarioId());
             BucketPnlAccum accum = accumMap.computeIfAbsent(bucketId,
                     k -> new BucketPnlAccum(bucketId, rec.getRiskFactorId(), rec.getNmrfType()));
 
@@ -59,6 +60,21 @@ public class NmrfStressAggregator {
                     stressLoss));
         }
         return results;
+    }
+
+    private static String resolveBucketId(String subscenarioId) {
+        if (subscenarioId == null || subscenarioId.trim().isEmpty()) {
+            throw new IllegalArgumentException("NMRF 结果缺少 SUBSCENARIO_ID");
+        }
+        String safe = subscenarioId.trim();
+        if (safe.endsWith("_UP")) {
+            return safe.substring(0, safe.length() - 3);
+        }
+        if (safe.endsWith("_DOWN")) {
+            return safe.substring(0, safe.length() - 5);
+        }
+        throw new IllegalArgumentException("NMRF SUBSCENARIO_ID 必须为 {rfetBucketId}_UP 或 {rfetBucketId}_DOWN: "
+                + subscenarioId);
     }
 
     private static class BucketPnlAccum {

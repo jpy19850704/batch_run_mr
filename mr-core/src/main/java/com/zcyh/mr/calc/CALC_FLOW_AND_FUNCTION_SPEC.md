@@ -31,36 +31,38 @@
 - `MrCalcEngineAdapter.calculate(inputJson)`
 - 支持：
   - 单任务
-  - 批任务（`batch_tasks` + 可选 `base_payload`）
-- 对 `oper_code=SCENARIO`，适配器可基于 `scenario_ref` 自动注入 `scenario_data` 再调用 `Calc`
+  - `batch_tasks` 已不再作为 calc 入口支持
+- 对四类情景引用列表，适配器负责加载情景文件并写入 `cache_key` 后再调用 `Calc`
 
 ## 4. 输入契约（当前）
 
 `Calc/Loader` 消费的主字段：
 
-- `oper_code`
+- `calc_mode`
 - `data_date`
 - `trade_data`
 - `market_data`
 - `other_data`（可选）
-- `scenario_data`（可选，仅在场景模式生效）
+- `scenario_data`（可选，按普通情景处理）
 
 适配器扩展字段：
 
-- `scenario_ref`（由 `MrCalcEngineAdapter` 解析并转换成 `scenario_data`）
+- `regular_scenario_ref_list`
+- `risk_decomp_scenario_ref_list`
+- `ima_modellable_scenario_ref_list`
+- `ima_nmrf_scenario_ref_list`
 
-## 5. oper_code 语义与控制
+## 5. calc_mode 语义与控制
 
 模式由 `OperModeControl`（ThreadLocal）统一控制：
 
-- `PRICING`：仅估值
-- `FRTB`：估值 + 保留 FRTB 输出
-- `SCENARIO`：估值 + 生成 `scenario_result`
+- `PRICING`：估值；存在 `scenario_data` 或情景引用列表时生成 `scenario_result`
+- `CURVE_GENERATION`：曲线生成
 
 关键点：
 
 - `Calc` 下发到产品计算器的执行码会被统一归一成 `PRICING`。
-- 产品内部是否输出 FRTB 字段、是否走场景流程，依赖 `OperModeControl` 上下文，而不是原始 `oper_code` 字符串直传。
+- 是否输出 FRTB 字段由 `frtb_disable` 控制；是否走情景流程由是否存在情景数据决定。
 
 ## 6. 主流程
 
@@ -71,8 +73,8 @@
 - trades
 - marketData
 - dataDate
-- rawOperCode
-- 归一后的 operCode（给下游执行）
+- rawCalcMode
+- 归一后的 calcMode（给下游执行）
 - calendar
 - otherData
 - scenarioDataList
@@ -80,7 +82,7 @@
 
 ## 6.2 运行阶段（`Calc.run()`）
 
-1. `OperModeControl.init(rawOperCode)` 初始化模式上下文。
+1. `OperModeControl.init(rawCalcMode)` 初始化模式上下文。
 2. 调用 `runWithMarketData(...)` 执行一次基准估值。
 3. 若非场景模式：直接返回基准结果。
 4. 若场景模式：
@@ -129,7 +131,7 @@
 - 场景市场数据（解析后 `MarketData`）
 - `impactKeys`（可选）
 
-补充来源：`MrCalcEngineAdapter` 可根据 `scenario_ref` 文件注入 `scenario_data`。
+补充来源：`MrCalcEngineAdapter` 可根据四类情景引用列表加载情景文件，并由 `CalcScenarioProcessService` 按列表类型生成对应处理口径。
 
 ## 7.2 场景复算接口
 

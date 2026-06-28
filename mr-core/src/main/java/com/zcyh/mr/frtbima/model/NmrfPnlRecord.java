@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 /**
  * NMRF 情景 PnL 记录（对应 TB_OUT_IMA_NMRF_SCENARIO_PNL 一行）。
- * 由 NmrfScenarioRunner 生成，ImaNmrfPnlPersistService 落库。
+ * 由 MR_CALC 情景结果映射生成，并随结果处理链路统一落库。
  *
  * 每个桶生成两行：subscenarioId = bucketId_UP 和 bucketId_DOWN
  */
@@ -15,7 +15,6 @@ public class NmrfPnlRecord {
     private String batchId;
     private long seqNo;
     private String dataDate;
-    private String opCode;
 
     /** 情景集ID（即 bucketId，如 CNY_SWAP_1826_999999） */
     private String scenarioId;
@@ -55,9 +54,6 @@ public class NmrfPnlRecord {
 
     public String getDataDate() { return dataDate; }
     public void setDataDate(String dataDate) { this.dataDate = dataDate; }
-
-    public String getOpCode() { return opCode; }
-    public void setOpCode(String opCode) { this.opCode = opCode; }
 
     public String getScenarioId() { return scenarioId; }
     public void setScenarioId(String scenarioId) { this.scenarioId = scenarioId; }

@@ -266,18 +266,6 @@
         <appender-ref ref="ERROR_FILE"/>
         <appender-ref ref="PERSIST_RESULT_FILE"/>
     </logger>
-    <logger name="com.zcyh.mr.springboot.service.ImaModellablePnlPersistService" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="APP_FILE"/>
-        <appender-ref ref="ERROR_FILE"/>
-        <appender-ref ref="PERSIST_RESULT_FILE"/>
-    </logger>
-    <logger name="com.zcyh.mr.springboot.service.ImaNmrfPnlPersistService" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="APP_FILE"/>
-        <appender-ref ref="ERROR_FILE"/>
-        <appender-ref ref="PERSIST_RESULT_FILE"/>
-    </logger>
     <logger name="com.zcyh.mr.springboot.service.CalcRuleMetaPersistService" level="INFO" additivity="false">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="APP_FILE"/>

@@ -25,7 +25,7 @@ import java.util.Locale;
 public class Loader {
     private List<HashMap<String, Object>> trades = new ArrayList<>();
     private MarketData marketData;
-    private String operCode;
+    private String calcMode;
     private LocalDate dataDate;
     private Calendar calendar;
     private JSONObject otherData;
@@ -41,8 +41,23 @@ public class Loader {
         public String subScenarioId;
         public String scenarioName;
         public String scenarioType;
+        public ScenarioProcessMetadata processMetadata;
         public MarketData marketData;
         public java.util.Set<String> impactKeys;
+
+        public static class ScenarioProcessMetadata {
+            public String processType;
+            public JSONObject tag;
+            public String entryKey;
+            public String nmrfRiskFactorId;
+            public String nmrfType;
+
+            public ScenarioProcessMetadata(String processType, JSONObject tag, String entryKey) {
+                this.processType = processType;
+                this.tag = tag;
+                this.entryKey = entryKey;
+            }
+        }
 
         public ScenarioEntry(String scenarioName, MarketData marketData) {
             this(null, null, scenarioName, marketData, new java.util.LinkedHashSet<>());
@@ -59,10 +74,17 @@ public class Loader {
 
         public ScenarioEntry(String scenarioId, String subScenarioId, String scenarioName, String scenarioType,
                 MarketData marketData, java.util.Set<String> impactKeys) {
+            this(scenarioId, subScenarioId, scenarioName, scenarioType, null, null, null, marketData, impactKeys);
+        }
+
+        public ScenarioEntry(String scenarioId, String subScenarioId, String scenarioName, String scenarioType,
+                String scenarioProcessType, JSONObject scenarioTag, String scenarioEntryKey,
+                MarketData marketData, java.util.Set<String> impactKeys) {
             this.scenarioId = scenarioId;
             this.subScenarioId = subScenarioId;
             this.scenarioName = scenarioName;
             this.scenarioType = scenarioType;
+            this.processMetadata = new ScenarioProcessMetadata(scenarioProcessType, scenarioTag, scenarioEntryKey);
             this.marketData = marketData;
             this.impactKeys = impactKeys == null ? new java.util.LinkedHashSet<>() : impactKeys;
         }
@@ -94,7 +116,7 @@ public class Loader {
         this.calendar = SystemCalendarCache.resolve(calendar);
 
         JSONObject payload = parsePayload(data);
-        operCode = payload.getString("oper_code");
+        calcMode = payload.getString("calc_mode");
         dataDate = parseDataDate(payload);
         otherData = payload.getJSONObject("other_data");
 
@@ -150,8 +172,8 @@ public class Loader {
         return value.trim().toUpperCase(Locale.ROOT);
     }
 
-    public String getOperCode() {
-        return operCode;
+    public String getCalcMode() {
+        return calcMode;
     }
 
     public LocalDate getDataDate() {

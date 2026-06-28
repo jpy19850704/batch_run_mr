@@ -36,13 +36,15 @@ public class MetadataQueryService {
      * 从结果表和敏感性明细表联合查询。
      * 返回：[{col, label, domains:[...]}]
      */
-    public List<Map<String, Object>> listDimDomains(String batchId) {
+    public List<Map<String, Object>> listDimDomains(String batchId, String dataDate) {
+        String normalizedDataDate = normalizeDataDate(dataDate);
         List<Map<String, Object>> result = new ArrayList<>();
         for (MetadataDomainRegistry.MetadataDomainDef def : MetadataDomainRegistry.listDomainDefs()) {
             List<String> domains = metadataQueryMapper.listDomains(
                     def.getTableName(),
                     def.getColumnName(),
-                    batchId
+                    batchId,
+                    normalizedDataDate
             );
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("col", def.getColumnName());
@@ -57,16 +59,16 @@ public class MetadataQueryService {
      * 查询指定批次下的情景 ID 列表。
      * 返回：[{scenario_id, scenario_name, count}]
      */
-    public List<Map<String, Object>> listScenarios(String batchId) {
-        return metadataQueryMapper.listScenarios(batchId);
+    public List<Map<String, Object>> listScenarios(String batchId, String dataDate) {
+        return metadataQueryMapper.listScenarios(batchId, normalizeDataDate(dataDate));
     }
 
     /**
      * 查询指定批次下的 instrumentId 列表。
      * 返回：[{instrument_id, product_code}]
      */
-    public List<Map<String, Object>> listInstrumentIds(String batchId) {
-        return metadataQueryMapper.listInstrumentIds(batchId);
+    public List<Map<String, Object>> listInstrumentIds(String batchId, String dataDate) {
+        return metadataQueryMapper.listInstrumentIds(batchId, normalizeDataDate(dataDate));
     }
 
     /**
@@ -80,11 +82,11 @@ public class MetadataQueryService {
             case "batches":
                 return listBatches();
             case "dimDomains":
-                return listDimDomains(requireParam(params, "batch_id"));
+                return listDimDomains(requireParam(params, "batch_id"), requireParam(params, "data_date"));
             case "scenarios":
-                return listScenarios(requireParam(params, "batch_id"));
+                return listScenarios(requireParam(params, "batch_id"), requireParam(params, "data_date"));
             case "instrumentIds":
-                return listInstrumentIds(requireParam(params, "batch_id"));
+                return listInstrumentIds(requireParam(params, "batch_id"), requireParam(params, "data_date"));
             default:
                 throw new IllegalArgumentException("不支持的 metadata scope: " + scope);
         }
@@ -96,5 +98,19 @@ public class MetadataQueryService {
             throw new IllegalArgumentException("缺少必选参数: " + key);
         }
         return value.trim();
+    }
+
+    private static String normalizeDataDate(String value) {
+        String text = value == null ? null : value.trim();
+        if (text == null || text.isEmpty()) {
+            throw new IllegalArgumentException("缺少必选参数: data_date");
+        }
+        if (text.matches("\\d{8}")) {
+            return text;
+        }
+        if (text.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            return text.replace("-", "");
+        }
+        throw new IllegalArgumentException("data_date 格式必须为 yyyyMMdd 或 yyyy-MM-dd: " + text);
     }
 }

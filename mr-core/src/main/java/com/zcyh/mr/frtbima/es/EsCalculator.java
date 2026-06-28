@@ -15,7 +15,7 @@ import java.util.Map;
 /**
  * ES 计算器（MAR33.4）。
  *
- * <p>从 Phase1 输出的 SubsetPnlRecord 列表中，
+ * <p>从可建模情景 PnL 明细中，
  * 按 (scenarioType, riskClass, lhDays) 维度分组后
  * 计算 97.5% 置信度的 Expected Shortfall（条件均值尾部）。
  *

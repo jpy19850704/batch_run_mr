@@ -40,11 +40,11 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * IMA Phase2 引擎适配器。
+ * IMA 资本汇总引擎适配器。
  *
  * <p>职责：
  * <ol>
- *   <li>从 Doris 读取 Phase1 输出（modellable PnL + NMRF PnL）。</li>
+ *   <li>从 Doris 读取情景 PnL 输出（modellable PnL + NMRF PnL）。</li>
  *   <li>调用 {@link ImaCapitalCalculator} 计算 IMCC、SES、总资本。</li>
  *   <li>将 {@link ImaCapitalResult} 落库。</li>
  * </ol>
@@ -76,23 +76,23 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
 
     /** 查询可建模 PnL */
     private static final String QUERY_MODELLABLE =
-            "SELECT REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+            "SELECT REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, "
             + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, SCENARIO_TYPE, "
             + "INSTRUMENT_ID, PRODUCT_CODE, LH_DAYS, "
             + "BASE_VALUATION_CNY, IR_VALUATION, IR_PNL, CS_VALUATION, CS_PNL, FX_VALUATION, FX_PNL, "
             + "EQ_VALUATION, EQ_PNL, COMM_VALUATION, COMM_PNL, "
             + "ALL_VALUATION, ALL_PNL, CREATED_AT "
             + "FROM TB_OUT_IMA_MODELLABLE_SCENARIO_PNL "
-            + "WHERE BATCH_ID = ?";
+            + "WHERE BATCH_ID = ? AND DATA_DATE = ?";
 
     /** 查询 NMRF PnL */
     private static final String QUERY_NMRF =
-            "SELECT REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, OP_CODE, "
+            "SELECT REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, "
             + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, "
             + "INSTRUMENT_ID, PRODUCT_CODE, RISK_FACTOR_ID, NMRF_TYPE, "
             + "BASE_VALUATION_CNY, STRESS_VALUATION_CNY, PNL, CREATED_AT "
             + "FROM TB_OUT_IMA_NMRF_SCENARIO_PNL "
-            + "WHERE BATCH_ID = ?";
+            + "WHERE BATCH_ID = ? AND DATA_DATE = ?";
 
     private final JdbcTemplate engineDbJdbcTemplate;
     private final JdbcTemplate resultDbJdbcTemplate;
@@ -152,11 +152,11 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
         Set<String> amberDesks = parseStringSet(req, "amber_desks");
         Set<String> greenDesks = parseStringSet(req, "green_desks");
 
-        // 从 Doris 读取 Phase1 结果
-        List<SubsetPnlRecord> subsetPnls = queryModellablePnl(batchId);
-        List<NmrfPnlRecord> nmrfPnls = queryNmrfPnl(batchId);
+        // 从 Doris 读取情景 PnL 结果
+        List<SubsetPnlRecord> subsetPnls = queryModellablePnl(batchId, dataDate);
+        List<NmrfPnlRecord> nmrfPnls = queryNmrfPnl(batchId, dataDate);
 
-        log.info("IMA Phase2 开始: batchId={}, modellableRows={}, nmrfRows={}",
+        log.info("IMA 资本汇总开始: batchId={}, modellableRows={}, nmrfRows={}",
                 batchId, subsetPnls.size(), nmrfPnls.size());
 
         List<ImaCapitalResult> capitalResults = new ArrayList<ImaCapitalResult>();
@@ -184,9 +184,9 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
         }
 
         // 落库
-        capitalPersistService.deleteByBatch(batchId);
-        esResultDetailPersistService.deleteByBatch(batchId);
-        nmrfResultPersistService.deleteByBatch(batchId);
+        capitalPersistService.deleteByBatchAndDataDate(batchId, dataDate);
+        esResultDetailPersistService.deleteByBatchAndDataDate(batchId, dataDate);
+        nmrfResultPersistService.deleteByBatchAndDataDate(batchId, dataDate);
         capitalPersistService.persist(capitalResults);
         esResultDetailPersistService.persist(esResultDetails);
         nmrfResultPersistService.persist(nmrfResults);
@@ -242,8 +242,8 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
             RuleCapitalResults ruleResults = calculateByRule(
                     trialRule,
                     buildDimensionRows(localDataDate, trialRule),
-                    queryModellablePnl(batchId),
-                    queryNmrfPnl(batchId),
+                    queryModellablePnl(batchId, dataDate),
+                    queryNmrfPnl(batchId, dataDate),
                     allDeskSa.capitalByDesk,
                     amberDesks,
                     greenDesks,
@@ -583,7 +583,7 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
             }
         }
         if (grouped.isEmpty()) {
-            throw new IllegalStateException("IMA 汇总规则未匹配到 Phase1 结果: ruleId=" + rule.getRuleId());
+            throw new IllegalStateException("IMA 汇总规则未匹配到情景 PnL 结果: ruleId=" + rule.getRuleId());
         }
 
         RuleCapitalResults results = new RuleCapitalResults();
@@ -614,10 +614,10 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
                                                  String batchId) {
         Map<String, NmrfBucketPnlAccum> accumMap = new LinkedHashMap<String, NmrfBucketPnlAccum>();
         for (NmrfPnlRecord record : input.nmrfPnls) {
-            if (record == null || record.getScenarioId() == null) {
+            if (record == null) {
                 continue;
             }
-            String bucketId = record.getScenarioId();
+            String bucketId = resolveNmrfBucketId(record.getSubscenarioId());
             NmrfBucketPnlAccum accum = accumMap.get(bucketId);
             if (accum == null) {
                 accum = new NmrfBucketPnlAccum(bucketId, record.getRiskFactorId(), record.getNmrfType());
@@ -917,7 +917,7 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
 
     // ==================== 数据查询 ====================
 
-    private List<SubsetPnlRecord> queryModellablePnl(String batchId) {
+    private List<SubsetPnlRecord> queryModellablePnl(String batchId, String dataDate) {
         return resultDbJdbcTemplate.query(QUERY_MODELLABLE, (rs, i) -> {
             SubsetPnlRecord r = new SubsetPnlRecord();
             r.setRequestId(rs.getString("REQUEST_ID"));
@@ -925,7 +925,6 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
             r.setBatchId(rs.getString("BATCH_ID"));
             r.setSeqNo(rs.getLong("SEQ_NO"));
             r.setDataDate(rs.getString("DATA_DATE"));
-            r.setOpCode(rs.getString("OP_CODE"));
             r.setScenarioId(rs.getString("SCENARIO_ID"));
             r.setSubscenarioId(rs.getString("SUBSCENARIO_ID"));
             r.setScenarioName(rs.getString("SCENARIO_NAME"));
@@ -947,10 +946,10 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
             r.setAllValuation(rs.getBigDecimal("ALL_VALUATION"));
             r.setAllPnl(rs.getBigDecimal("ALL_PNL"));
             return r;
-        }, batchId);
+        }, batchId, dataDate);
     }
 
-    private List<NmrfPnlRecord> queryNmrfPnl(String batchId) {
+    private List<NmrfPnlRecord> queryNmrfPnl(String batchId, String dataDate) {
         return resultDbJdbcTemplate.query(QUERY_NMRF, (rs, i) -> {
             NmrfPnlRecord r = new NmrfPnlRecord();
             r.setRequestId(rs.getString("REQUEST_ID"));
@@ -958,7 +957,6 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
             r.setBatchId(rs.getString("BATCH_ID"));
             r.setSeqNo(rs.getLong("SEQ_NO"));
             r.setDataDate(rs.getString("DATA_DATE"));
-            r.setOpCode(rs.getString("OP_CODE"));
             r.setScenarioId(rs.getString("SCENARIO_ID"));
             r.setSubscenarioId(rs.getString("SUBSCENARIO_ID"));
             r.setScenarioName(rs.getString("SCENARIO_NAME"));
@@ -970,7 +968,7 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
             r.setStressValuationCny(rs.getBigDecimal("STRESS_VALUATION_CNY"));
             r.setPnl(rs.getBigDecimal("PNL"));
             return r;
-        }, batchId);
+        }, batchId, dataDate);
     }
 
     // ==================== JSON 工具 ====================
@@ -1012,6 +1010,21 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
 
     private static String stringValue(Object value) {
         return value == null ? null : String.valueOf(value);
+    }
+
+    private static String resolveNmrfBucketId(String subscenarioId) {
+        String safe = trimToNull(subscenarioId);
+        if (safe == null) {
+            throw new IllegalArgumentException("NMRF 结果缺少 SUBSCENARIO_ID");
+        }
+        if (safe.endsWith("_UP")) {
+            return safe.substring(0, safe.length() - 3);
+        }
+        if (safe.endsWith("_DOWN")) {
+            return safe.substring(0, safe.length() - 5);
+        }
+        throw new IllegalArgumentException("NMRF SUBSCENARIO_ID 必须为 {rfetBucketId}_UP 或 {rfetBucketId}_DOWN: "
+                + subscenarioId);
     }
 
     private static class LoadedRule {

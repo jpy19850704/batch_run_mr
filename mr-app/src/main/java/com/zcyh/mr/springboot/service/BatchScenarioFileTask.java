@@ -76,7 +76,11 @@ public class BatchScenarioFileTask implements BatchRunTask {
 
             Set<String> requestedScenarioIds = mergeScenarioIds(
                     context.getRegularScenarioIdList(),
-                    context.getRiskClassDecompScenarioIdList());
+                    context.getRiskClassDecompScenarioIdList(),
+                    context.getNormalFullScenarioIdList(),
+                    context.getNormalReducedScenarioIdList(),
+                    context.getStressReducedScenarioIdList(),
+                    context.getNmrfScenarioIdList());
             Map<String, List<ScenarioGeneratedRecord>> grouped = groupByScenarioId(records);
 
             for (String scenarioId : requestedScenarioIds) {

@@ -196,7 +196,7 @@ public class BatchJobService {
             return;
         }
         ensureBatchNotRunning(batchId);
-        clearExistingBatchData(batchId);
+        clearExistingBatchData(batchId, dataDate);
         insertBatchJob(batchId, requestId, engineCode, opCode, dataDate, portfolio, desk, totalTrades, totalJobs, now);
     }
 
@@ -209,11 +209,12 @@ public class BatchJobService {
             String portfolio,
             String desk,
             long now,
-            String message,
-            boolean clearResultData) {
+                String message,
+                boolean clearResultData) {
+        ensureNoOtherWorkflowRunning(batchId);
         ensureWorkflowNotRunning(batchId);
         ensureBatchNotRunning(batchId);
-        clearExistingBatchData(batchId, clearResultData);
+        clearExistingBatchData(batchId, dataDate, clearResultData);
         insertBatchJob(batchId, requestId, engineCode, opCode, dataDate, portfolio, desk, 0, 0, now);
         updateBatchStatus(batchId, BATCH_PENDING, 0, 0, 0, 0, 0, now, message);
     }
@@ -288,7 +289,7 @@ public class BatchJobService {
 
         ensureWorkflowNotRunning(batchId);
         ensureBatchNotRunning(batchId);
-        clearExistingBatchData(batchId);
+        clearExistingBatchData(batchId, dataDate);
 
         List<List<BatchTradeDataLoader.TradeRow>> chunks = chunkSplitter.splitChunks(trades, weightBudget);
         List<MrMarketDataSliceService.CurveSliceSource> curveSources = JobPayloadBuilder.toCurveSliceSources(curves);
@@ -541,11 +542,24 @@ public class BatchJobService {
         }
     }
 
-    private void clearExistingBatchData(String batchId) {
-        clearExistingBatchData(batchId, true);
+    private void ensureNoOtherWorkflowRunning(String batchId) {
+        List<String> activeBatchIds = jdbcTemplate.queryForList(
+                "SELECT batch_id FROM MR_ASYNC_BATCH_JOB "
+                        + "WHERE batch_id<>? AND status IN ('PENDING','SUBMITTED','RUNNING')",
+                String.class,
+                batchId
+        );
+        if (activeBatchIds != null && !activeBatchIds.isEmpty()) {
+            throw new IllegalStateException("已有批次工作流正在运行，不能同时启动新的批次: "
+                    + activeBatchIds.get(0));
+        }
     }
 
-    private void clearExistingBatchData(String batchId, boolean clearResultData) {
+    private void clearExistingBatchData(String batchId, LocalDate dataDate) {
+        clearExistingBatchData(batchId, dataDate, true);
+    }
+
+    private void clearExistingBatchData(String batchId, LocalDate dataDate, boolean clearResultData) {
         List<String> oldJobIds = jdbcTemplate.queryForList(
                 "SELECT job_id FROM MR_ASYNC_BATCH_ITEM WHERE batch_id=? ORDER BY seq_no",
                 String.class,
@@ -553,7 +567,7 @@ public class BatchJobService {
         );
 
         if (clearResultData) {
-            clearExistingResultData(batchId);
+            clearExistingResultData(batchId, dataDate);
         }
 
         jdbcTemplate.update("DELETE FROM MR_ASYNC_BATCH_ITEM WHERE batch_id=?", batchId);
@@ -569,36 +583,37 @@ public class BatchJobService {
         jdbcTemplate.update("DELETE FROM MR_ASYNC_JOB WHERE job_id IN (SELECT job_id FROM MR_ASYNC_BATCH_ITEM WHERE batch_id=?)", batchId);
     }
 
-    private void clearExistingResultData(String batchId) {
-        clearExistingResultTableWithRetry("TB_OUT_TRADE_RESULT_DETAIL", batchId);
-        clearExistingResultTableWithRetry("TB_OUT_TRADE_SCENARIO_RESULT_DETAIL", batchId);
-        clearExistingResultTableWithRetry("TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL", batchId);
-        clearExistingResultTableWithRetry("TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL", batchId);
-        clearExistingResultTableWithRetry("TB_OUT_TRADE_DRC_DETAIL", batchId);
-        clearExistingResultTableWithRetry("TB_OUT_TRADE_DRC_RESULT", batchId);
-        clearExistingResultTableWithRetry("TB_OUT_MARKET_DATA_DETAIL", batchId);
-        clearExistingResultTableWithRetry("TB_OUT_PORTFOLIO_HIERARCHY", batchId);
-        clearExistingResultTableWithRetry("TB_OUT_CALC_RULE_META", batchId);
-        clearExistingResultTableWithRetry("TB_OUT_IMA_MODELLABLE_SCENARIO_PNL", batchId);
-        clearExistingResultTableWithRetry("TB_OUT_IMA_NMRF_SCENARIO_PNL", batchId);
-        clearExistingResultTableWithRetry("TB_OUT_IMA_ES_RESULT", batchId);
-        clearExistingResultTableWithRetry("TB_OUT_IMA_NMRF_RESULT", batchId);
-        clearExistingResultTableWithRetry("TB_OUT_IMA_CAPITAL_RESULT", batchId);
+    private void clearExistingResultData(String batchId, LocalDate dataDate) {
+        clearExistingResultTableWithRetry("TB_OUT_TRADE_RESULT_DETAIL", batchId, dataDate);
+        clearExistingResultTableWithRetry("TB_OUT_TRADE_SCENARIO_RESULT_DETAIL", batchId, dataDate);
+        clearExistingResultTableWithRetry("TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL", batchId, dataDate);
+        clearExistingResultTableWithRetry("TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL", batchId, dataDate);
+        clearExistingResultTableWithRetry("TB_OUT_TRADE_DRC_DETAIL", batchId, dataDate);
+        clearExistingResultTableWithRetry("TB_OUT_TRADE_DRC_RESULT", batchId, dataDate);
+        clearExistingResultTableWithRetry("TB_OUT_MARKET_DATA_DETAIL", batchId, dataDate);
+        clearExistingResultTableWithRetry("TB_OUT_PORTFOLIO_HIERARCHY", batchId, dataDate);
+        clearExistingResultTableWithRetry("TB_OUT_CALC_RULE_META", batchId, dataDate);
+        clearExistingResultTableWithRetry("TB_OUT_IMA_MODELLABLE_SCENARIO_PNL", batchId, dataDate);
+        clearExistingResultTableWithRetry("TB_OUT_IMA_NMRF_SCENARIO_PNL", batchId, dataDate);
+        clearExistingResultTableWithRetry("TB_OUT_IMA_ES_RESULT", batchId, dataDate);
+        clearExistingResultTableWithRetry("TB_OUT_IMA_NMRF_RESULT", batchId, dataDate);
+        clearExistingResultTableWithRetry("TB_OUT_IMA_CAPITAL_RESULT", batchId, dataDate);
     }
 
-    private void clearExistingResultTableWithRetry(String tableName, String batchId) {
-        String sql = "DELETE FROM " + tableName + " WHERE BATCH_ID=?";
+    private void clearExistingResultTableWithRetry(String tableName, String batchId, LocalDate dataDate) {
+        String resultDataDate = formatResultDataDate(dataDate);
+        String sql = "DELETE FROM " + tableName + " WHERE BATCH_ID=? AND DATA_DATE=?";
         for (int attempt = 1; attempt <= RESULT_DB_CLEAR_MAX_ATTEMPTS; attempt++) {
             try {
-                engineResultDbJdbcTemplate.update(sql, batchId);
+                engineResultDbJdbcTemplate.update(sql, batchId, resultDataDate);
                 return;
             } catch (DataAccessException ex) {
                 if (!isTransientResultDbUnavailable(ex) || attempt >= RESULT_DB_CLEAR_MAX_ATTEMPTS) {
                     throw ex;
                 }
                 long delayMillis = RESULT_DB_CLEAR_RETRY_INTERVAL_MILLIS * attempt;
-                log.warn("Doris结果表清理失败，准备重试，batchId={}, table={}, attempt={}, delayMillis={}, error={}",
-                        batchId, tableName, attempt, delayMillis, rootMessage(ex));
+                log.warn("Doris结果表清理失败，准备重试，batchId={}, dataDate={}, table={}, attempt={}, delayMillis={}, error={}",
+                        batchId, resultDataDate, tableName, attempt, delayMillis, rootMessage(ex));
                 sleepBeforeResultDbRetry(delayMillis);
             }
         }
@@ -644,15 +659,23 @@ public class BatchJobService {
         }
     }
 
+    private static String formatResultDataDate(LocalDate dataDate) {
+        if (dataDate == null) {
+            throw new IllegalArgumentException("结果表清理缺少 dataDate");
+        }
+        return dataDate.format(DateTimeFormatter.BASIC_ISO_DATE);
+    }
+
     void syncPortfolioHierarchySnapshot(String batchId, LocalDate dataDate) {
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_PORTFOLIO_HIERARCHY WHERE BATCH_ID=?", batchId);
+        String normalizedDataDate = formatResultDataDate(dataDate);
+        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_PORTFOLIO_HIERARCHY WHERE BATCH_ID=? AND DATA_DATE=?",
+                batchId, normalizedDataDate);
         List<Map<String, Object>> hierarchyRows = jdbcTemplate.queryForList(
                 "SELECT PORTFOLIO_CODE, PORTFOLIO_NAME, UPPER_LEVEL_PORTFOLIO, LEVEL_CODE FROM V_PORTFOLIO_HIERARCHY");
         if (hierarchyRows.isEmpty()) {
             return;
         }
 
-        String normalizedDataDate = dataDate == null ? null : dataDate.format(DateTimeFormatter.BASIC_ISO_DATE);
         String now = ResultPersistTime.nowText();
         Set<String> uniqueKeys = new java.util.LinkedHashSet<String>();
         DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
@@ -898,9 +921,7 @@ public class BatchJobService {
 
     private static List<String> buildSupportedBatchOpCodes() {
         List<String> supported = new ArrayList<>();
-        supported.add(Constants.OPER_CODE.PRICING);
-        supported.add(Constants.OPER_CODE.SCENARIO);
-        supported.add(Constants.OPER_CODE.FRTB);
+        supported.add(Constants.CALC_MODE.PRICING);
         return Collections.unmodifiableList(supported);
     }
 

@@ -54,8 +54,8 @@ public class FrtbSbaSummaryService {
         JSONArray ruleList = resolveRuleList(request);
 
         if (persistResult) {
-            frtbSbaResultPersistService.deleteByBatch(batchId);
-            frtbSbaDecompDetailPersistService.deleteByBatch(batchId);
+            frtbSbaResultPersistService.deleteByBatchAndDataDate(batchId, dataDate);
+            frtbSbaDecompDetailPersistService.deleteByBatchAndDataDate(batchId, dataDate);
             calcRuleMetaPersistService.deleteByBatchAndCalcType(batchId, dataDate, CALC_TYPE_FRTB_SBA);
         }
 

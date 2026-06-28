@@ -53,7 +53,7 @@ public class TrsCalc implements Runnable, Calc.ScenarioCapable {
 
     @Override
     public void run() {
-        if (Constants.OPER_CODE.PRICING.equalsIgnoreCase(operCode)) {
+        if (Constants.CALC_MODE.PRICING.equalsIgnoreCase(operCode)) {
             for (HashMap<String, Object> trade : trades) {
                 try {
                     calcTrade(trade);

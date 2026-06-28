@@ -16,7 +16,7 @@ public class MetadataQuerySqlProvider {
         validateWhitelist(tableName, columnName);
         return "SELECT DISTINCT " + columnName
                 + " FROM " + tableName
-                + " WHERE BATCH_ID = #{batchId} AND " + columnName + " IS NOT NULL"
+                + " WHERE BATCH_ID = #{batchId} AND DATA_DATE = #{dataDate} AND " + columnName + " IS NOT NULL"
                 + " ORDER BY " + columnName;
     }
 

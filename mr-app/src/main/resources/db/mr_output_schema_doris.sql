@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS TB_OUT_SCENARIO_FILE_DETAIL (
     BATCH_ID            VARCHAR(64),
     SEQ_NO              BIGINT,
     DATA_DATE           VARCHAR(16),
-    OP_CODE             VARCHAR(64),
     SCENARIO_ID         VARCHAR(128),
     SUBSCENARIO_ID      VARCHAR(128),
     SCENARIO_NAME       VARCHAR(256),
@@ -49,7 +48,6 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_RESULT_DETAIL (
     BATCH_ID        VARCHAR(64),
     SEQ_NO          BIGINT,
     DATA_DATE       VARCHAR(16),
-    OP_CODE         VARCHAR(64),
     INSTRUMENT_ID   VARCHAR(128),
     PRODUCT_CODE    VARCHAR(64),
     PORTFOLIO       VARCHAR(128),
@@ -94,7 +92,6 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_RESULT_DETAIL (
     BATCH_ID                VARCHAR(64),
     SEQ_NO                  BIGINT,
     DATA_DATE               VARCHAR(16),
-    OP_CODE                 VARCHAR(64),
     SCENARIO_ID             VARCHAR(128),
     SUBSCENARIO_ID          VARCHAR(128),
     SCENARIO_NAME           VARCHAR(256),
@@ -126,7 +123,6 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL (
     BATCH_ID            VARCHAR(64),
     SEQ_NO              BIGINT,
     DATA_DATE           VARCHAR(16),
-    OP_CODE             VARCHAR(64),
     SCENARIO_ID         VARCHAR(128),
     SUBSCENARIO_ID      VARCHAR(128),
     SCENARIO_NAME       VARCHAR(256),
@@ -163,7 +159,6 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL (
     BATCH_ID                        VARCHAR(64),
     SEQ_NO                          BIGINT,
     DATA_DATE                       VARCHAR(16),
-    OP_CODE                         VARCHAR(64),
     INSTRUMENT_ID                   VARCHAR(128),
     PRODUCT_CODE                    VARCHAR(64),
     RISK_FACTOR_ID                  VARCHAR(256),
@@ -291,7 +286,6 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_DRC_DETAIL (
     BATCH_ID            VARCHAR(64),
     SEQ_NO              BIGINT,
     DATA_DATE           VARCHAR(16),
-    OP_CODE             VARCHAR(64),
     INSTRUMENT_ID       VARCHAR(128),
     PRODUCT_CODE        VARCHAR(64),
     PORTFOLIO_CODE      VARCHAR(128),
@@ -396,7 +390,6 @@ CREATE TABLE IF NOT EXISTS TB_OUT_MARKET_DATA_DETAIL (
     ID              BIGINT          NOT NULL AUTO_INCREMENT,
     BATCH_ID        VARCHAR(64),
     DATA_DATE       VARCHAR(16),
-    OP_CODE         VARCHAR(64),
     CURVE_TYPE      VARCHAR(64)     COMMENT '曲线类型: IR_SPOT/FX_SPOT/EQ_SPOT/COMM_SPOT/IR_VOL/FX_VOL/EQ_VOL/COMM_VOL/FIXING',
     CURVE_ID        VARCHAR(256)    COMMENT '曲线ID / FIXING_ID',
     CURVE_DATA_JSON TEXT            COMMENT '完整曲线 JSON（含 CURVE_DATA 等全部结构，前端解析）',
@@ -412,14 +405,14 @@ PROPERTIES (
 
 -- =====================================================================
 -- FRTB IMA 内部模型法结果表
--- Phase1：分批重定价 → 情景 PnL 落库
--- Phase2：从库读取 → ES → IMCC → 资本汇总
+-- 情景 PnL：分批重定价 → 情景 PnL 落库
+-- 资本汇总：从库读取 → ES → IMCC → 资本汇总
 -- =====================================================================
 
--- IMA 可建模风险因子情景 PnL 明细表（Phase1 输出）
+-- IMA 可建模风险因子情景 PnL 明细表
 -- 每行对应一笔交易在某一流动性期限子集（LH_SUBSET 1-5）下的情景重定价损益。
 -- SCENARIO_TYPE 区分 STRESS（压力期）/ NORMAL（当前期）/ REDUCED_SET（缩减集，MAR33.5）。
--- ES 聚合在 Phase2 中从本表读取，按 SCENARIO_TYPE+SCENARIO_ID+SUBSCENARIO_ID+LH_DAYS 分组。
+-- ES 聚合从本表读取，按 SCENARIO_TYPE+SCENARIO_ID+SUBSCENARIO_ID+LH_DAYS 分组。
 -- 风险类别损益按列拆分（对齐 TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL），ALL_PNL 为全风险类别合计。
 CREATE TABLE IF NOT EXISTS TB_OUT_IMA_MODELLABLE_SCENARIO_PNL (
     ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
@@ -428,7 +421,6 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_MODELLABLE_SCENARIO_PNL (
     BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
     SEQ_NO                  BIGINT                                   COMMENT '序号',
     DATA_DATE               VARCHAR(16)                              COMMENT '计算基准日期',
-    OP_CODE                 VARCHAR(64)                              COMMENT '操作码',
     SCENARIO_ID             VARCHAR(128)                             COMMENT '情景集ID',
     SUBSCENARIO_ID          VARCHAR(128)                             COMMENT '子情景ID（单条历史情景序号）',
     SCENARIO_NAME           VARCHAR(256)                             COMMENT '情景名称',
@@ -460,10 +452,10 @@ PROPERTIES (
     "enable_unique_key_merge_on_write" = "true"
 );
 
--- IMA 不可建模风险因子情景 PnL 明细表（Phase1 输出）
+-- IMA 不可建模风险因子情景 PnL 明细表
 -- 每行对应一笔交易在某一 NMRF 因子单独压力冲击下的情景损益。
 -- NMRF_TYPE 区分 IDIO_CREDIT / IDIO_EQUITY / OTHER，用于 SES 聚合公式（MAR33.17）。
--- SES 聚合在 Phase2 中从本表读取，按 RISK_FACTOR_ID 分组取最大损失作为压力场景损失。
+-- SES 聚合从本表读取，按 RISK_FACTOR_ID 分组取最大损失作为压力场景损失。
 CREATE TABLE IF NOT EXISTS TB_OUT_IMA_NMRF_SCENARIO_PNL (
     ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
     REQUEST_ID              VARCHAR(128)                             COMMENT '请求ID',
@@ -471,7 +463,6 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_NMRF_SCENARIO_PNL (
     BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
     SEQ_NO                  BIGINT                                   COMMENT '序号',
     DATA_DATE               VARCHAR(16)                              COMMENT '计算基准日期',
-    OP_CODE                 VARCHAR(64)                              COMMENT '操作码',
     SCENARIO_ID             VARCHAR(128)                             COMMENT '情景集ID（NMRF压力情景集）',
     SUBSCENARIO_ID          VARCHAR(128)                             COMMENT '子情景ID（单条压力情景）',
     SCENARIO_NAME           VARCHAR(256)                             COMMENT '情景名称',
@@ -816,4 +807,95 @@ PROPERTIES (
     "enable_unique_key_merge_on_write" = "true"
 );
 
+-- IMA 外部接入分组 PnL 表
+-- 外部表只保存按规则分组确认后的日度 PnL，不保存 VaR 等 Engine 计算结果。
+CREATE TABLE IF NOT EXISTS TB_EXTERNAL_IMA_GROUP_PNL (
+    DATA_DATE               VARCHAR(16)      COMMENT '数据日期',
+    RULE_ID                 VARCHAR(128)     COMMENT '规则ID',
+    GROUP_TYPE              VARCHAR(64)      COMMENT '汇总维度类型',
+    GROUP_VALUE             VARCHAR(512)     COMMENT '汇总维度值',
+    ACTUAL_PNL              DECIMAL(38, 10)  COMMENT '实际损益',
+    HYPOTHETICAL_PNL        DECIMAL(38, 10)  COMMENT '假设损益',
+    RISK_THEORETICAL_PNL    DECIMAL(38, 10)  COMMENT '风险理论损益',
+    VALUATION_CCY           VARCHAR(32)      COMMENT '估值币种',
+    CREATED_AT              VARCHAR(32)      COMMENT '创建时间'
+)
+UNIQUE KEY(DATA_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE)
+DISTRIBUTED BY HASH(RULE_ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
 
+-- IMA 返回检验汇总结果表
+CREATE TABLE IF NOT EXISTS TB_OUT_IMA_BACKTEST_RESULT (
+    BATCH_ID                VARCHAR(64)      COMMENT '批次ID',
+    DATA_DATE               VARCHAR(16)      COMMENT '检验基准日',
+    RULE_ID                 VARCHAR(128)     COMMENT '规则ID',
+    GROUP_TYPE              VARCHAR(64)      COMMENT '汇总维度类型',
+    GROUP_VALUE             VARCHAR(512)     COMMENT '汇总维度值',
+    QUANTILE                VARCHAR(32)      COMMENT 'VaR置信水平',
+    VAR_SCENARIO_ID         VARCHAR(128)     COMMENT 'VaR情景ID',
+    START_DATE              VARCHAR(16)      COMMENT '检验窗口开始日期',
+    END_DATE                VARCHAR(16)      COMMENT '检验窗口结束日期',
+    SAMPLE_SIZE             INT              COMMENT '样本天数',
+    ACTUAL_EXCEPTION_COUNT  INT              COMMENT '实际损益突破次数',
+    HYPO_EXCEPTION_COUNT    INT              COMMENT '假设损益突破次数',
+    OVERALL_EXCEPTION_COUNT INT              COMMENT '整体突破次数',
+    TRAFFIC_LIGHT_ZONE      VARCHAR(16)      COMMENT '返回检验交通灯区间',
+    MULTIPLIER_ADD_ON       DECIMAL(38, 10)  COMMENT '乘数附加值',
+    CREATED_AT              VARCHAR(32)      COMMENT '创建时间'
+)
+UNIQUE KEY(BATCH_ID, DATA_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE, QUANTILE, VAR_SCENARIO_ID)
+DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
+-- IMA 返回检验突破明细表
+CREATE TABLE IF NOT EXISTS TB_OUT_IMA_BACKTEST_EXCEPTION_DETAIL (
+    BATCH_ID                VARCHAR(64)      COMMENT '批次ID',
+    DATA_DATE               VARCHAR(16)      COMMENT '检验基准日',
+    EXCEPTION_DATE          VARCHAR(16)      COMMENT '突破日期',
+    RULE_ID                 VARCHAR(128)     COMMENT '规则ID',
+    GROUP_TYPE              VARCHAR(64)      COMMENT '汇总维度类型',
+    GROUP_VALUE             VARCHAR(512)     COMMENT '汇总维度值',
+    QUANTILE                VARCHAR(32)      COMMENT 'VaR置信水平',
+    VAR_SCENARIO_ID         VARCHAR(128)     COMMENT 'VaR情景ID',
+    PNL_TYPE                VARCHAR(32)      COMMENT '突破PnL类型：ACTUAL / HYPOTHETICAL',
+    START_DATE              VARCHAR(16)      COMMENT '检验窗口开始日期',
+    END_DATE                VARCHAR(16)      COMMENT '检验窗口结束日期',
+    PNL                     DECIMAL(38, 10)  COMMENT '突破PnL',
+    VAR_VALUE               DECIMAL(38, 10)  COMMENT '匹配的前一可用日VaR值',
+    THRESHOLD               DECIMAL(38, 10)  COMMENT '突破阈值',
+    CREATED_AT              VARCHAR(32)      COMMENT '创建时间'
+)
+UNIQUE KEY(BATCH_ID, DATA_DATE, EXCEPTION_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE, QUANTILE, VAR_SCENARIO_ID, PNL_TYPE)
+DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
+-- IMA KS 检验结果表
+CREATE TABLE IF NOT EXISTS TB_OUT_IMA_KS_RESULT (
+    BATCH_ID                VARCHAR(64)      COMMENT '批次ID',
+    DATA_DATE               VARCHAR(16)      COMMENT '检验基准日',
+    RULE_ID                 VARCHAR(128)     COMMENT '规则ID',
+    GROUP_TYPE              VARCHAR(64)      COMMENT '汇总维度类型',
+    GROUP_VALUE             VARCHAR(512)     COMMENT '汇总维度值',
+    START_DATE              VARCHAR(16)      COMMENT '检验窗口开始日期',
+    END_DATE                VARCHAR(16)      COMMENT '检验窗口结束日期',
+    SAMPLE_SIZE             INT              COMMENT 'KS样本天数',
+    KS_STATISTIC            DECIMAL(38, 10)  COMMENT 'KS统计量',
+    KS_ZONE                 VARCHAR(16)      COMMENT 'KS区间：GREEN / AMBER / RED',
+    PASSED                  VARCHAR(8)       COMMENT '是否通过：Y / N',
+    CREATED_AT              VARCHAR(32)      COMMENT '创建时间'
+)
+UNIQUE KEY(BATCH_ID, DATA_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE)
+DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);

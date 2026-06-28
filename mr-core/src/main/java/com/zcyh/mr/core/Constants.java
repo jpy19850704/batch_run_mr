@@ -70,12 +70,8 @@ final public class Constants {
 
     }
 
-    final public class OPER_CODE {
+    final public class CALC_MODE {
         public final static String PRICING = "PRICING";
-        /** 估值 + FRTB 计量（Sensitivity + DRC） */
-        public final static String FRTB = "FRTB";
-        /** 估值 + 情景损益，不做 FRTB */
-        public final static String SCENARIO = "SCENARIO";
         /** 仅执行曲线生成并返回生成后的市场数据 */
         public final static String CURVE_GENERATION = "CURVE_GENERATION";
     }

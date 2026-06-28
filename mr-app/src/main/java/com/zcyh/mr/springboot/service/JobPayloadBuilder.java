@@ -4,7 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -21,11 +21,10 @@ import java.util.Set;
  */
 @Component
 public class JobPayloadBuilder {
-
     /**
      * 构建单个 Job 的引擎 payload。
      *
-     * @param opCode            操作码（PRICING/SCENARIO/FRTB）
+     * @param calcMode          计量模式（PRICING/CURVE_GENERATION）
      * @param dataDate          数据日期
      * @param chunkTrades       本 chunk 的交易列表
      * @param curves            切片后的市场曲线
@@ -39,7 +38,7 @@ public class JobPayloadBuilder {
      * @return 组装好的 payload JSON
      */
     public JSONObject buildPayload(
-            String opCode,
+            String calcMode,
             LocalDate dataDate,
             List<BatchTradeDataLoader.TradeRow> chunkTrades,
             List<MrMarketDataSliceService.CurveSliceSource> curves,
@@ -48,6 +47,41 @@ public class JobPayloadBuilder {
             int seqNo,
             String regularScenarioIdList,
             String riskClassDecompScenarioIdList,
+            boolean persistResult,
+            boolean frtbDisabled
+    ) {
+        return buildPayload(
+                calcMode,
+                dataDate,
+                chunkTrades,
+                curves,
+                tradeMarketDataKeys,
+                batchId,
+                seqNo,
+                regularScenarioIdList,
+                riskClassDecompScenarioIdList,
+                null,
+                null,
+                null,
+                null,
+                persistResult,
+                frtbDisabled);
+    }
+
+    public JSONObject buildPayload(
+            String calcMode,
+            LocalDate dataDate,
+            List<BatchTradeDataLoader.TradeRow> chunkTrades,
+            List<MrMarketDataSliceService.CurveSliceSource> curves,
+            Map<String, Set<String>> tradeMarketDataKeys,
+            String batchId,
+            int seqNo,
+            String regularScenarioIdList,
+            String riskClassDecompScenarioIdList,
+            String normalFullScenarioIdList,
+            String normalReducedScenarioIdList,
+            String stressReducedScenarioIdList,
+            String nmrfScenarioIdList,
             boolean persistResult,
             boolean frtbDisabled
     ) {
@@ -82,7 +116,7 @@ public class JobPayloadBuilder {
         }
 
         JSONObject payload = new JSONObject();
-        payload.put("oper_code", opCode);
+        payload.put("calc_mode", calcMode);
         payload.put("data_date", dataDate.format(DateTimeFormatter.BASIC_ISO_DATE));
         payload.put("trade_data", tradeData);
         payload.put("market_data", marketData);
@@ -96,23 +130,12 @@ public class JobPayloadBuilder {
         batchMeta.put("trade_count", chunkTrades.size());
         payload.put("batch_meta", batchMeta);
 
-        // 情景引用（仅 SCENARIO 模式）
-        if (Constants.OPER_CODE.SCENARIO.equalsIgnoreCase(opCode)) {
-            String safeRegularScenarioIdList = trimToNull(regularScenarioIdList);
-            String safeRiskClassDecompScenarioIdList = trimToNull(riskClassDecompScenarioIdList);
-            if (safeRegularScenarioIdList != null || safeRiskClassDecompScenarioIdList != null) {
-                JSONObject scenarioRef = new JSONObject();
-                scenarioRef.put("data_date", dataDate.format(DateTimeFormatter.BASIC_ISO_DATE));
-                scenarioRef.put("batch_id", batchId);
-                if (safeRegularScenarioIdList != null) {
-                    scenarioRef.put("scenario_set_id", safeRegularScenarioIdList);
-                }
-                if (safeRiskClassDecompScenarioIdList != null) {
-                    scenarioRef.put("risk_class_decomp_scenario_set_id", safeRiskClassDecompScenarioIdList);
-                }
-                payload.put("scenario_ref", scenarioRef);
-            }
-        }
+        putScenarioRefList(payload, ScenarioProcessConstants.REGULAR_SCENARIO_REF_LIST, regularScenarioIdList);
+        putScenarioRefList(payload, ScenarioProcessConstants.RISK_DECOMP_SCENARIO_REF_LIST, riskClassDecompScenarioIdList);
+        putScenarioRefList(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST, normalFullScenarioIdList);
+        putScenarioRefList(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST, normalReducedScenarioIdList);
+        putScenarioRefList(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST, stressReducedScenarioIdList);
+        putScenarioRefList(payload, ScenarioProcessConstants.IMA_NMRF_SCENARIO_REF_LIST, nmrfScenarioIdList);
 
         // 维度映射表使用输入表字段名。
         JSONObject tradeDimension = new JSONObject();
@@ -162,6 +185,21 @@ public class JobPayloadBuilder {
             payload.put("trade_rrao", tradeRrao);
         }
         return payload;
+    }
+
+    private void putScenarioRefList(JSONObject payload, String fieldName, String scenarioIdList) {
+        String safeScenarioIdList = trimToNull(scenarioIdList);
+        if (safeScenarioIdList == null) {
+            return;
+        }
+        JSONArray items = payload.getJSONArray(fieldName);
+        if (items == null) {
+            items = new JSONArray();
+            payload.put(fieldName, items);
+        }
+        JSONObject item = new JSONObject();
+        item.put("scenario_set_id", safeScenarioIdList);
+        items.add(item);
     }
 
     /**

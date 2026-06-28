@@ -17,8 +17,8 @@ public class BatchWorkflowConfig {
 
     @Bean(destroyMethod = "shutdown")
     public ExecutorService batchRunWorkflowExecutor(
-            @Value("${mr.batch.workflow-executor.core-size:2}") int coreSize,
-            @Value("${mr.batch.workflow-executor.max-size:4}") int maxSize,
+            @Value("${mr.batch.workflow-executor.core-size:1}") int coreSize,
+            @Value("${mr.batch.workflow-executor.max-size:1}") int maxSize,
             @Value("${mr.batch.workflow-executor.queue-capacity:128}") int queueCapacity) {
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
                 Math.max(1, coreSize),

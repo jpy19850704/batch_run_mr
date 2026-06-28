@@ -103,6 +103,7 @@ public class BatchResultFileService {
 
             List<Map<String, Object>> sections = new ArrayList<Map<String, Object>>();
             Map<String, Object> batchJob = queryBatchJob(batchId, engineDbJdbcTemplate);
+            String dataDate = requireBatchDataDate(batchJob, batchId);
             writeSingleJson(directory.resolve("batch_job.json"), batchJob);
             sections.add(sectionMeta("batch_job", "batch_job.json", batchJob == null ? 0 : 1, "json"));
 
@@ -118,24 +119,24 @@ public class BatchResultFileService {
                     batchId,
                     engineDbJdbcTemplate));
             sections.add(writeJsonlGzipSection(directory, "trade_result_detail",
-                    "SELECT * FROM TB_OUT_TRADE_RESULT_DETAIL WHERE batch_id=? ORDER BY seq_no, id",
-                    batchId,
+                    "SELECT * FROM TB_OUT_TRADE_RESULT_DETAIL WHERE batch_id=? AND data_date=? ORDER BY seq_no, id",
+                    new Object[]{batchId, dataDate},
                     engineResultDbJdbcTemplate));
             sections.add(writeJsonlGzipSection(directory, "trade_frtb_sensitivity_detail",
-                    "SELECT * FROM TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL WHERE batch_id=? ORDER BY seq_no, id",
-                    batchId,
+                    "SELECT * FROM TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL WHERE batch_id=? AND data_date=? ORDER BY seq_no, id",
+                    new Object[]{batchId, dataDate},
                     engineResultDbJdbcTemplate));
             sections.add(writeJsonlGzipSection(directory, "trade_drc_detail",
-                    "SELECT * FROM TB_OUT_TRADE_DRC_DETAIL WHERE batch_id=? ORDER BY seq_no, id",
-                    batchId,
+                    "SELECT * FROM TB_OUT_TRADE_DRC_DETAIL WHERE batch_id=? AND data_date=? ORDER BY seq_no, id",
+                    new Object[]{batchId, dataDate},
                     engineResultDbJdbcTemplate));
             sections.add(writeJsonlGzipSection(directory, "trade_drc_result",
-                    "SELECT * FROM TB_OUT_TRADE_DRC_RESULT WHERE batch_id=? ORDER BY data_date, capital_type, agg_level, drc_type, drc_bucket, legal_entity",
-                    batchId,
+                    "SELECT * FROM TB_OUT_TRADE_DRC_RESULT WHERE batch_id=? AND data_date=? ORDER BY data_date, capital_type, agg_level, drc_type, drc_bucket, legal_entity",
+                    new Object[]{batchId, dataDate},
                     engineResultDbJdbcTemplate));
             sections.add(writeJsonlGzipSection(directory, "calc_rule_meta",
-                    "SELECT * FROM TB_OUT_CALC_RULE_META WHERE batch_id=? ORDER BY data_date, calc_type, rule_id",
-                    batchId,
+                    "SELECT * FROM TB_OUT_CALC_RULE_META WHERE batch_id=? AND data_date=? ORDER BY data_date, calc_type, rule_id",
+                    new Object[]{batchId, dataDate},
                     engineResultDbJdbcTemplate));
 
             Map<String, Object> manifest = new LinkedHashMap<String, Object>();
@@ -186,13 +187,22 @@ public class BatchResultFileService {
 
     private Map<String, Object> writeJsonlGzipSection(Path directory, String sectionName, String sql, String batchId,
                                                       JdbcTemplate jdbcTemplate) {
+        return writeJsonlGzipSection(directory, sectionName, sql, new Object[]{batchId}, jdbcTemplate);
+    }
+
+    private Map<String, Object> writeJsonlGzipSection(Path directory, String sectionName, String sql, Object[] args,
+                                                      JdbcTemplate jdbcTemplate) {
         String fileName = sectionName + ".jsonl.gz";
         Path file = directory.resolve(fileName);
         final long[] rowCount = new long[]{0L};
         try (OutputStream out = new GZIPOutputStream(new BufferedOutputStream(Files.newOutputStream(file)))) {
             jdbcTemplate.query(
                     sql,
-                    ps -> ps.setString(1, batchId),
+                    ps -> {
+                        for (int i = 0; i < args.length; i++) {
+                            ps.setObject(i + 1, args[i]);
+                        }
+                    },
                     rs -> {
                         try {
                             ResultSetMetaData metaData = rs.getMetaData();
@@ -234,6 +244,27 @@ public class BatchResultFileService {
             return null;
         }
         return rows.get(0);
+    }
+
+    private static String requireBatchDataDate(Map<String, Object> batchJob, String batchId) {
+        if (batchJob == null || batchJob.isEmpty()) {
+            throw new IllegalStateException("未找到批次控制记录: " + batchId);
+        }
+        Object value = batchJob.get("data_date");
+        if (value == null) {
+            value = batchJob.get("DATA_DATE");
+        }
+        String text = value == null ? null : value.toString().trim();
+        if (text == null || text.isEmpty()) {
+            throw new IllegalStateException("批次控制记录缺少 data_date: " + batchId);
+        }
+        if (text.matches("\\d{8}")) {
+            return text;
+        }
+        if (text.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            return text.replace("-", "");
+        }
+        throw new IllegalStateException("批次控制记录 data_date 格式错误: " + text);
     }
 
     private List<Map<String, Object>> queryForList(String sql, String batchId, JdbcTemplate jdbcTemplate) {

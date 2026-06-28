@@ -19,6 +19,10 @@ public class BatchRunWorkflowContext {
     private String user;
     private String regularScenarioIdList;
     private String riskClassDecompScenarioIdList;
+    private String normalFullScenarioIdList;
+    private String normalReducedScenarioIdList;
+    private String stressReducedScenarioIdList;
+    private String nmrfScenarioIdList;
     private boolean scenarioMode;
     private String runMode;
     private boolean whatifMode;
@@ -84,6 +88,38 @@ public class BatchRunWorkflowContext {
 
     public void setRiskClassDecompScenarioIdList(String riskClassDecompScenarioIdList) {
         this.riskClassDecompScenarioIdList = riskClassDecompScenarioIdList;
+    }
+
+    public String getNormalFullScenarioIdList() {
+        return normalFullScenarioIdList;
+    }
+
+    public void setNormalFullScenarioIdList(String normalFullScenarioIdList) {
+        this.normalFullScenarioIdList = normalFullScenarioIdList;
+    }
+
+    public String getNormalReducedScenarioIdList() {
+        return normalReducedScenarioIdList;
+    }
+
+    public void setNormalReducedScenarioIdList(String normalReducedScenarioIdList) {
+        this.normalReducedScenarioIdList = normalReducedScenarioIdList;
+    }
+
+    public String getStressReducedScenarioIdList() {
+        return stressReducedScenarioIdList;
+    }
+
+    public void setStressReducedScenarioIdList(String stressReducedScenarioIdList) {
+        this.stressReducedScenarioIdList = stressReducedScenarioIdList;
+    }
+
+    public String getNmrfScenarioIdList() {
+        return nmrfScenarioIdList;
+    }
+
+    public void setNmrfScenarioIdList(String nmrfScenarioIdList) {
+        this.nmrfScenarioIdList = nmrfScenarioIdList;
     }
 
     public boolean isScenarioMode() {

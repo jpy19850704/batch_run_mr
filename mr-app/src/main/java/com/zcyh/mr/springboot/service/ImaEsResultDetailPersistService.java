@@ -34,12 +34,16 @@ public class ImaEsResultDetailPersistService {
     }
 
     @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
-    public void deleteByBatch(String batchId) {
+    public void deleteByBatchAndDataDate(String batchId, String dataDate) {
         if (batchId == null || batchId.trim().isEmpty()) {
             throw new IllegalArgumentException("IMA ES 中间结果清理缺少 BATCH_ID");
         }
-        int deleted = jdbcTemplate.update("DELETE FROM " + TARGET_TABLE + " WHERE BATCH_ID=?", batchId);
-        log.info("清理 IMA ES 中间历史结果: batchId={}, deleted={}", batchId, deleted);
+        if (dataDate == null || dataDate.trim().isEmpty()) {
+            throw new IllegalArgumentException("IMA ES 中间结果清理缺少 DATA_DATE");
+        }
+        int deleted = jdbcTemplate.update("DELETE FROM " + TARGET_TABLE + " WHERE BATCH_ID=? AND DATA_DATE=?",
+                batchId, dataDate);
+        log.info("清理 IMA ES 中间历史结果: batchId={}, dataDate={}, deleted={}", batchId, dataDate, deleted);
     }
 
     @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)

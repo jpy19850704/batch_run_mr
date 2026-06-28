@@ -137,6 +137,18 @@ public class ScenarioCache {
     }
 
     /**
+     * 清理指定批次的情景缓存。
+     */
+    public static void evictByBatchId(String batchId) {
+        String safeBatchId = firstNonBlank(batchId);
+        if (safeBatchId == null) {
+            return;
+        }
+        String batchToken = ":" + safeBatchId + ":";
+        CACHE.keySet().removeIf(key -> key != null && key.contains(batchToken));
+    }
+
+    /**
      * 清空所有缓存。
      */
     public static void clear() {
@@ -430,7 +442,7 @@ public class ScenarioCache {
      * SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, SCENARIO_TYPE,
      * CURVE_TYPE, CURVE_CODE, TERM_DAYS, DIMENSION2, CHANGED_RATE 等标准字段。
      *
-     * 处理流程：按 SUBSCENARIO_ID 分组 → 每组内按 CURVE_TYPE 构建替换型情景 MarketData → 输出 ScenarioEntry。
+     * 处理流程：按 SCENARIO_ID + SUBSCENARIO_ID 分组 → 每组内按 CURVE_TYPE 构建替换型情景 MarketData → 输出 ScenarioEntry。
      *
      * @param scenArray 场景记录 JSON 数组，每个元素是扁平的键值对
      * @param dataDate  基准日期
@@ -442,7 +454,7 @@ public class ScenarioCache {
             return result;
         }
 
-        // 按 SUBSCENARIO_ID 分组（同一子情景下有多条曲线记录）
+        // 原始文件记录按场景业务标识分组成一个 ScenarioEntry。
         java.util.LinkedHashMap<String, List<JSONObject>> groups = new java.util.LinkedHashMap<>();
         for (int i = 0; i < scenArray.size(); i++) {
             Object rawObj = scenArray.get(i);
@@ -458,7 +470,7 @@ public class ScenarioCache {
             if (subScenarioId == null) {
                 throw new IllegalArgumentException("场景记录缺少 SUBSCENARIO_ID，无法解析: index=" + i);
             }
-            String groupKey = subScenarioId;
+            String groupKey = scenarioId + "|" + subScenarioId;
             groups.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(row);
         }
 

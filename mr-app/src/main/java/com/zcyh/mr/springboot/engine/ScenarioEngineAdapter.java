@@ -8,7 +8,6 @@ import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.scenario.model.ScenarioGenerationRequest;
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
-import com.zcyh.mr.springboot.service.ImaRfetSnapshotService;
 import com.zcyh.mr.springboot.service.ScenarioGeneratedPersistService;
 import com.zcyh.mr.springboot.service.ScenarioResultCacheService;
 import org.slf4j.Logger;
@@ -33,19 +32,16 @@ public class ScenarioEngineAdapter implements EngineAdapter {
     private final ScenarioRequestAssembler scenarioRequestAssembler;
     private final ScenarioGeneratedPersistService scenarioGeneratedPersistService;
     private final ScenarioResultCacheService scenarioResultCacheService;
-    private final ImaRfetSnapshotService imaRfetSnapshotService;
 
     public ScenarioEngineAdapter(
             ScenarioGenerationEngine scenarioGenerationEngine,
             ScenarioRequestAssembler scenarioRequestAssembler,
             ScenarioGeneratedPersistService scenarioGeneratedPersistService,
-            ScenarioResultCacheService scenarioResultCacheService,
-            ImaRfetSnapshotService imaRfetSnapshotService) {
+            ScenarioResultCacheService scenarioResultCacheService) {
         this.scenarioGenerationEngine = scenarioGenerationEngine;
         this.scenarioRequestAssembler = scenarioRequestAssembler;
         this.scenarioGeneratedPersistService = scenarioGeneratedPersistService;
         this.scenarioResultCacheService = scenarioResultCacheService;
-        this.imaRfetSnapshotService = imaRfetSnapshotService;
     }
 
     @Override
@@ -103,9 +99,6 @@ public class ScenarioEngineAdapter implements EngineAdapter {
                     user,
                     "mr-app");
             List<ScenarioGeneratedRecord> result = scenarioGenerationEngine.generate(request);
-            if (imaRfetSnapshotService != null) {
-                imaRfetSnapshotService.annotate(batchId, result);
-            }
             log.info("Scenario 生成完成: scenario_id_list={}, data_date={}, batch_id={}, record_count={}, scenario_summary={}, elapsedMs={}",
                     scenarioIdList, dataDate, batchId, result == null ? 0 : result.size(),
                     summarizeScenarioIds(result), System.currentTimeMillis() - startTime);

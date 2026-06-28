@@ -39,7 +39,7 @@ import java.util.Map;
  * <p>调用方（mr-app）从 {@code List<RfetResult>} 构建：
  * <ul>
  *   <li>modellable=true 的桶 → 将 tenorDays 合并到 modellableTenorsByCurve
- *   <li>modellable=false 的桶 → 构建 NmrfBucketMeta，进入 NmrfScenarioRunner
+ *   <li>modellable=false 的桶 → 情景生成阶段转换为 IMA_NMRF UP/DOWN 情景
  * </ul>
  */
 public class RfetChecker {

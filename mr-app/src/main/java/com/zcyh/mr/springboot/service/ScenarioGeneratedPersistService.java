@@ -9,8 +9,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -20,7 +18,6 @@ import java.util.List;
 @Service
 public class ScenarioGeneratedPersistService {
     private static final Logger log = LoggerFactory.getLogger(ScenarioGeneratedPersistService.class);
-    private static final DateTimeFormatter DATE_8_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
     private static final String TARGET_TABLE = "TB_OUT_SCENARIO_FILE_DETAIL";
     private static final String STREAM_LOAD_COLUMNS = "BATCH_ID,DATA_DATE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,"
             + "RISKFACTOR_TYPE,RISKFACTOR_ID,RISKFACTOR_VERTEX1,TERM_DAYS,RISKFACTOR_VERTEX2,CHANGE_VALUE,"
@@ -56,10 +53,15 @@ public class ScenarioGeneratedPersistService {
             log.warn("情景生成结果落库跳过: batchId={}, dataDate={}, reason=records为空", safeBatchId, dataDate);
             return;
         }
+        String normalizedDataDate = trimToNull(dataDate);
+        if (normalizedDataDate == null) {
+            throw new IllegalArgumentException("情景生成结果落库缺少 dataDate");
+        }
 
         String now = ResultPersistTime.nowText();
-        int deleted = jdbcTemplate.update("DELETE FROM TB_OUT_SCENARIO_FILE_DETAIL WHERE BATCH_ID=?", safeBatchId);
-        log.info("清理情景生成历史结果: batchId={}, deleted={}", safeBatchId, deleted);
+        int deleted = jdbcTemplate.update("DELETE FROM TB_OUT_SCENARIO_FILE_DETAIL WHERE BATCH_ID=? AND DATA_DATE=?",
+                safeBatchId, normalizedDataDate);
+        log.info("清理情景生成历史结果: batchId={}, dataDate={}, deleted={}", safeBatchId, normalizedDataDate, deleted);
 
         DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
                 dorisStreamLoadService,
@@ -73,7 +75,7 @@ public class ScenarioGeneratedPersistService {
             }
             buffer.appendRow(
                     safeBatchId,
-                    normalizeDataDate(record.getDataDate(), dataDate),
+                    normalizedDataDate,
                     trimToNull(record.getScenarioId()),
                     trimToNull(record.getSubScenarioId()),
                     trimToNull(record.getScenarioName()),
@@ -98,7 +100,7 @@ public class ScenarioGeneratedPersistService {
         }
         buffer.flush();
         log.info("情景生成结果落库完成: batchId={}, dataDate={}, rows={}",
-                safeBatchId, dataDate, records.size());
+                safeBatchId, normalizedDataDate, records.size());
     }
 
     /**
@@ -126,13 +128,6 @@ public class ScenarioGeneratedPersistService {
         }
         Integer termDays = record.getTermDays();
         return termDays == null ? null : String.valueOf(termDays);
-    }
-
-    private static String normalizeDataDate(LocalDate localDate, String fallback) {
-        if (localDate != null) {
-            return localDate.format(DATE_8_FORMATTER);
-        }
-        return trimToNull(fallback);
     }
 
     private static String toPlainString(BigDecimal value) {

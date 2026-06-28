@@ -1,9 +1,11 @@
 package com.zcyh.mr.springboot.engine;
 
 import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.calc.Calc;
+import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
 import com.zcyh.mr.scenario.ScenarioCache;
 
 import java.time.LocalDate;
@@ -62,56 +64,67 @@ public class MrCalcEngineAdapter implements EngineAdapter {
         if (payload == null) {
             return null;
         }
-        String operCode = payload.getString("oper_code");
-        if (operCode == null || !"SCENARIO".equalsIgnoreCase(operCode.trim())) {
-            return payload;
-        }
-        boolean hasInlineScenarioData = payload.getJSONArray("scenario_data") != null
-                && !payload.getJSONArray("scenario_data").isEmpty();
-        JSONObject scenarioRef = payload.getJSONObject("scenario_ref");
-        if (hasInlineScenarioData && scenarioRef != null && !scenarioRef.isEmpty()) {
-            throw new IllegalArgumentException("scenario_data 与 scenario_ref 不能同时传入");
-        }
-        if (hasInlineScenarioData) {
+        if (!hasScenarioRefList(payload)) {
             return payload;
         }
 
-        if (scenarioRef == null || scenarioRef.isEmpty()) {
-            return payload;
+        String dataDate = requiredPayloadField(payload, "data_date");
+        JSONObject batchMeta = payload.getJSONObject("batch_meta");
+        String batchId = batchMeta == null ? null : trimToNull(batchMeta.getString("batch_id"));
+        if (batchId == null) {
+            throw new IllegalArgumentException("batch_meta.batch_id 必填");
         }
-
-        String existingCacheKey = scenarioRef.getString("cache_key");
-        if (existingCacheKey != null && !existingCacheKey.trim().isEmpty()
-                && ScenarioCache.contains(existingCacheKey.trim())) {
-            return payload;
-        }
-
-        String dataDate = requiredRefField(scenarioRef, "data_date");
-        String batchId = requiredRefField(scenarioRef, "batch_id");
-
         LocalDate date = LocalDate.parse(dataDate, DateTimeFormatter.BASIC_ISO_DATE);
-        String scenarioSetId = trimToNull(scenarioRef.getString("scenario_set_id"));
-        if (scenarioSetId != null) {
-            String cacheKey = buildCacheKey("scenario", batchId, scenarioSetId);
-            ScenarioCache.loadFromFiles(cacheKey, resolveScenarioPaths(scenarioSetId, batchId), date);
-            scenarioRef.put("cache_key", cacheKey);
-        }
-
-        String decompSetId = scenarioRef.getString("risk_class_decomp_scenario_set_id");
-        if (decompSetId != null && !decompSetId.trim().isEmpty()) {
-            decompSetId = decompSetId.trim();
-            String decompCacheKey = buildCacheKey("decomp", batchId, decompSetId);
-            ScenarioCache.loadFromFiles(decompCacheKey, resolveScenarioPaths(decompSetId, batchId), date);
-            scenarioRef.put("decomp_cache_key", decompCacheKey);
-        }
-
+        injectScenarioRefList(payload, ScenarioProcessConstants.REGULAR_SCENARIO_REF_LIST, batchId, date);
+        injectScenarioRefList(payload, ScenarioProcessConstants.RISK_DECOMP_SCENARIO_REF_LIST, batchId, date);
+        injectScenarioRefList(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST, batchId, date);
+        injectScenarioRefList(payload, ScenarioProcessConstants.IMA_NMRF_SCENARIO_REF_LIST, batchId, date);
         return payload;
     }
 
-    private static String requiredRefField(JSONObject ref, String key) {
-        String val = ref.getString(key);
+    private void injectScenarioRefList(JSONObject payload,
+                                       String fieldName,
+                                       String batchId,
+                                       LocalDate date) {
+        JSONArray items = payload.getJSONArray(fieldName);
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < items.size(); i++) {
+            JSONObject item = items.getJSONObject(i);
+            if (item == null) {
+                throw new IllegalArgumentException(fieldName + "[" + i + "] 必须是 JSON 对象");
+            }
+            String existingCacheKey = trimToNull(item.getString("cache_key"));
+            if (existingCacheKey != null && ScenarioCache.contains(existingCacheKey)) {
+                continue;
+            }
+            String scenarioSetId = trimToNull(item.getString("scenario_set_id"));
+            if (scenarioSetId == null) {
+                throw new IllegalArgumentException(fieldName + "[" + i + "].scenario_set_id 必填");
+            }
+            String cacheKey = existingCacheKey == null ? buildCacheKey(fieldName, batchId, scenarioSetId) : existingCacheKey;
+            ScenarioCache.loadFromFiles(cacheKey, resolveScenarioPaths(scenarioSetId, batchId), date);
+            item.put("cache_key", cacheKey);
+        }
+    }
+
+    private static boolean hasScenarioRefList(JSONObject payload) {
+        return hasArray(payload, ScenarioProcessConstants.REGULAR_SCENARIO_REF_LIST)
+                || hasArray(payload, ScenarioProcessConstants.RISK_DECOMP_SCENARIO_REF_LIST)
+                || hasArray(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST)
+                || hasArray(payload, ScenarioProcessConstants.IMA_NMRF_SCENARIO_REF_LIST);
+    }
+
+    private static boolean hasArray(JSONObject payload, String fieldName) {
+        JSONArray arr = payload == null ? null : payload.getJSONArray(fieldName);
+        return arr != null && !arr.isEmpty();
+    }
+
+    private static String requiredPayloadField(JSONObject payload, String key) {
+        String val = payload.getString(key);
         if (val == null || val.trim().isEmpty()) {
-            throw new IllegalArgumentException("scenario_ref." + key + " 必填");
+            throw new IllegalArgumentException(key + " 必填");
         }
         return val.trim();
     }

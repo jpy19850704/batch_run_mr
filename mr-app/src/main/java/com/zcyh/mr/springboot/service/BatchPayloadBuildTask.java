@@ -1,6 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
 import com.alibaba.fastjson2.JSONObject;
+import com.zcyh.mr.core.Constants;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -36,7 +37,7 @@ public class BatchPayloadBuildTask implements BatchRunTask {
                     JobPayloadBuilder.toTradeSliceSources(chunkTrades),
                     curveSources);
             JSONObject payload = payloadBuilder.buildPayload(
-                    context.isScenarioMode() ? "SCENARIO" : "PRICING",
+                    resolveCalcMode(context),
                     dataDate,
                     chunkTrades,
                     sliceResult.getCurves(),
@@ -45,6 +46,10 @@ public class BatchPayloadBuildTask implements BatchRunTask {
                     seqNo,
                     context.getRegularScenarioIdList(),
                     context.getRiskClassDecompScenarioIdList(),
+                    context.getNormalFullScenarioIdList(),
+                    context.getNormalReducedScenarioIdList(),
+                    context.getStressReducedScenarioIdList(),
+                    context.getNmrfScenarioIdList(),
                     context.isPersistResult(),
                     context.isFrtbDisabled());
             if (context.getRunMode() != null) {
@@ -60,5 +65,9 @@ public class BatchPayloadBuildTask implements BatchRunTask {
             jobPayloads.add(jobPayload);
         }
         context.setJobPayloads(jobPayloads);
+    }
+
+    private static String resolveCalcMode(BatchRunWorkflowContext context) {
+        return Constants.CALC_MODE.PRICING;
     }
 }

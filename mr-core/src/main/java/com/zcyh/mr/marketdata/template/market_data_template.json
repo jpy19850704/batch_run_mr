@@ -1,5 +1,5 @@
 {
-  "oper_code": "PRICING",
+  "calc_mode": "PRICING",
   "data_date": "20241231",
   "trade_data": [],
   "other_data": {},

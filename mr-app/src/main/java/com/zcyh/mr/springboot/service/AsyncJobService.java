@@ -788,10 +788,6 @@ public class AsyncJobService {
         if (payload == null) {
             return;
         }
-        String opCode = trimToNull(payload.getString("oper_code"));
-        if (opCode == null || !"SCENARIO".equalsIgnoreCase(opCode)) {
-            return;
-        }
         if (!payload.getBooleanValue("cache_scenario_result")) {
             return;
         }

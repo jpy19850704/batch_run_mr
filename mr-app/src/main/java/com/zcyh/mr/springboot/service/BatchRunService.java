@@ -1,6 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
 import com.zcyh.mr.springboot.context.RequestContextHolder;
+import com.zcyh.mr.scenario.ScenarioCache;
 import com.zcyh.mr.springboot.model.BatchRunRequest;
 import com.zcyh.mr.springboot.model.BatchRunResult;
 import org.slf4j.Logger;
@@ -18,6 +19,7 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 /**
@@ -33,12 +35,12 @@ public class BatchRunService {
     private static final Pattern BATCH_ID_PATTERN = Pattern.compile("^[A-Za-z0-9._-]+$");
     private static final DateTimeFormatter GENERATED_BATCH_TIME_FORMATTER = DateTimeFormatter.ofPattern("HHmmssSSS");
     private static final String ENGINE_CODE = "MR_CALC";
+    private final AtomicReference<String> runningBatchId = new AtomicReference<String>();
 
     private final List<BatchRunTask> batchPrepareTasks;
     private final List<BatchRunTask> scenarioTasks;
     private final List<BatchRunTask> payloadTasks;
     private final List<BatchRunTask> calcTasks;
-    private final List<BatchRunTask> summaryTasks;
     private final BatchJobService batchJobService;
     private final AlertService alertService;
     private final TradeFilterResolver tradeFilterResolver;
@@ -54,7 +56,6 @@ public class BatchRunService {
             BatchPayloadBuildTask payloadBuildTask,
             BatchCalcSubmitTask calcSubmitTask,
             BatchCalcWaitTask calcWaitTask,
-            BatchSummaryTask summaryTask,
             BatchJobService batchJobService,
             AlertService alertService,
             TradeFilterResolver tradeFilterResolver,
@@ -71,7 +72,6 @@ public class BatchRunService {
         this.calcTasks = Arrays.<BatchRunTask>asList(
                 calcSubmitTask,
                 calcWaitTask);
-        this.summaryTasks = Arrays.<BatchRunTask>asList(summaryTask);
         this.batchJobService = batchJobService;
         this.alertService = alertService;
         this.tradeFilterResolver = tradeFilterResolver;
@@ -80,18 +80,25 @@ public class BatchRunService {
 
     public BatchRunResult run(BatchRunRequest request) {
         BatchRunWorkflowContext context = buildContext(request);
-        initializeWorkflow(context);
+        claimBatchRunSlot(context);
+        boolean submitted = false;
         try {
+            initializeWorkflow(context);
             batchRunWorkflowExecutor.execute(new Runnable() {
                 @Override
                 public void run() {
                     runWorkflow(context);
                 }
             });
+            submitted = true;
         } catch (RejectedExecutionException ex) {
             batchJobService.markWorkflowFailed(context.getBatchId(), "批次工作流提交失败: 执行队列已满");
             alertService.error("BATCH_RUN_REJECTED", "批次工作流提交失败，batchId=" + context.getBatchId(), ex);
             throw new IllegalStateException("批次工作流提交失败，执行队列已满，请稍后重试");
+        } finally {
+            if (!submitted) {
+                releaseBatchRunSlot(context);
+            }
         }
         return buildAcceptedResult(context);
     }
@@ -109,6 +116,10 @@ public class BatchRunService {
         String user = trimToNull(request.getUser());
         String regularScenarioIdList = trimToNull(request.getRegularScenarioIdList());
         String riskClassDecompScenarioIdList = trimToNull(request.getRiskClassDecompScenarioIdList());
+        String normalFullScenarioIdList = trimToNull(request.getNormalFullScenarioIdList());
+        String normalReducedScenarioIdList = trimToNull(request.getNormalReducedScenarioIdList());
+        String stressReducedScenarioIdList = trimToNull(request.getStressReducedScenarioIdList());
+        String nmrfScenarioIdList = trimToNull(request.getNmrfScenarioIdList());
         String runMode = normalizeRunMode(request.getRunMode());
         String dataDate = normalizeDataDate(request.getDataDate());
         String externalBatchId = trimToNull(request.getBatchId());
@@ -126,7 +137,16 @@ public class BatchRunService {
         context.setUser(user == null ? DEFAULT_USER : user);
         context.setRegularScenarioIdList(regularScenarioIdList);
         context.setRiskClassDecompScenarioIdList(riskClassDecompScenarioIdList);
-        context.setScenarioMode(regularScenarioIdList != null || riskClassDecompScenarioIdList != null);
+        context.setNormalFullScenarioIdList(normalFullScenarioIdList);
+        context.setNormalReducedScenarioIdList(normalReducedScenarioIdList);
+        context.setStressReducedScenarioIdList(stressReducedScenarioIdList);
+        context.setNmrfScenarioIdList(nmrfScenarioIdList);
+        context.setScenarioMode(regularScenarioIdList != null
+                || riskClassDecompScenarioIdList != null
+                || normalFullScenarioIdList != null
+                || normalReducedScenarioIdList != null
+                || stressReducedScenarioIdList != null
+                || nmrfScenarioIdList != null);
         context.setRunMode(runMode);
         context.setWhatifMode(RUN_MODE_WHATIF.equals(runMode));
         context.setExternalBatchIdProvided(externalBatchId != null);
@@ -158,6 +178,7 @@ public class BatchRunService {
     private void initializeWorkflow(BatchRunWorkflowContext context) {
         RequestContextHolder.setBatchId(context.getBatchId());
         RequestContextHolder.setEngineCode(ENGINE_CODE);
+        ScenarioCache.evictByBatchId(context.getBatchId());
         batchJobService.initializeWorkflowBatch(
                 context.getBatchId(),
                 context.getBatchId(),
@@ -180,7 +201,6 @@ public class BatchRunService {
             executeTaskGroup("SCENARIO_RUNNING", scenarioTasks, context);
             executeTaskGroup("PAYLOAD_BUILDING", payloadTasks, context);
             executeTaskGroup("CALC_RUNNING", calcTasks, context);
-            executeTaskGroup("SUMMARY_RUNNING", summaryTasks, context);
             batchJobService.markWorkflowSuccess(context.getBatchId(), "批次工作流执行完成");
             log.info("批次工作流异步执行完成，batchId={}", context.getBatchId());
         } catch (Throwable ex) {
@@ -188,7 +208,26 @@ public class BatchRunService {
             batchJobService.markWorkflowFailed(context.getBatchId(), "批次工作流执行失败: " + message);
             alertService.error("BATCH_RUN_FAILED", "批次工作流异步执行失败，batchId=" + context.getBatchId(), ex);
         } finally {
+            ScenarioCache.evictByBatchId(context.getBatchId());
+            releaseBatchRunSlot(context);
             RequestContextHolder.clear();
+        }
+    }
+
+    private void claimBatchRunSlot(BatchRunWorkflowContext context) {
+        String batchId = context.getBatchId();
+        if (!runningBatchId.compareAndSet(null, batchId)) {
+            String activeBatchId = runningBatchId.get();
+            throw new IllegalStateException("已有批次工作流正在运行，当前运行批次=" + activeBatchId
+                    + "，请等待完成后再提交");
+        }
+        log.info("批次工作流运行槽已占用，batchId={}", batchId);
+    }
+
+    private void releaseBatchRunSlot(BatchRunWorkflowContext context) {
+        String batchId = context == null ? null : context.getBatchId();
+        if (batchId != null && runningBatchId.compareAndSet(batchId, null)) {
+            log.info("批次工作流运行槽已释放，batchId={}", batchId);
         }
     }
 

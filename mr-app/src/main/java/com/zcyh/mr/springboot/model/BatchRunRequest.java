@@ -15,6 +15,14 @@ public class BatchRunRequest {
     private String regularScenarioIdList;
     @JsonProperty("risk_class_decomp_scenario_id_list")
     private String riskClassDecompScenarioIdList;
+    @JsonProperty("normal_full_scenario_id_list")
+    private String normalFullScenarioIdList;
+    @JsonProperty("normal_reduced_scenario_id_list")
+    private String normalReducedScenarioIdList;
+    @JsonProperty("stress_reduced_scenario_id_list")
+    private String stressReducedScenarioIdList;
+    @JsonProperty("nmrf_scenario_id_list")
+    private String nmrfScenarioIdList;
     @JsonProperty("run_mode")
     private String runMode;
     @JsonProperty("persist_scenario")
@@ -72,6 +80,38 @@ public class BatchRunRequest {
 
     public void setRiskClassDecompScenarioIdList(String riskClassDecompScenarioIdList) {
         this.riskClassDecompScenarioIdList = riskClassDecompScenarioIdList;
+    }
+
+    public String getNormalFullScenarioIdList() {
+        return normalFullScenarioIdList;
+    }
+
+    public void setNormalFullScenarioIdList(String normalFullScenarioIdList) {
+        this.normalFullScenarioIdList = normalFullScenarioIdList;
+    }
+
+    public String getNormalReducedScenarioIdList() {
+        return normalReducedScenarioIdList;
+    }
+
+    public void setNormalReducedScenarioIdList(String normalReducedScenarioIdList) {
+        this.normalReducedScenarioIdList = normalReducedScenarioIdList;
+    }
+
+    public String getStressReducedScenarioIdList() {
+        return stressReducedScenarioIdList;
+    }
+
+    public void setStressReducedScenarioIdList(String stressReducedScenarioIdList) {
+        this.stressReducedScenarioIdList = stressReducedScenarioIdList;
+    }
+
+    public String getNmrfScenarioIdList() {
+        return nmrfScenarioIdList;
+    }
+
+    public void setNmrfScenarioIdList(String nmrfScenarioIdList) {
+        this.nmrfScenarioIdList = nmrfScenarioIdList;
     }
 
     public String getRunMode() {

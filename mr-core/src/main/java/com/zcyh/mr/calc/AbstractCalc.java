@@ -71,7 +71,7 @@ public abstract class AbstractCalc implements Runnable, Calc.ScenarioCapable {
      */
     @Override
     public void run() {
-        if (Constants.OPER_CODE.PRICING.equalsIgnoreCase(operCode)) {
+        if (Constants.CALC_MODE.PRICING.equalsIgnoreCase(operCode)) {
             for (HashMap<String, Object> t : trades) {
                 try {
                     calcTrade(t);

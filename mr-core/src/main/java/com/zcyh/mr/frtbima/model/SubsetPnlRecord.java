@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 /**
  * 可建模情景 PnL 记录（对应 TB_OUT_IMA_MODELLABLE_SCENARIO_PNL 一行）。
- * 由 SubsetScenarioRunner 生成，ImaModellablePnlPersistService 落库。
+ * 由 SubsetScenarioRunner 生成，并随 MR_CALC 结果统一落库。
  */
 public class SubsetPnlRecord {
 
@@ -13,7 +13,6 @@ public class SubsetPnlRecord {
     private String batchId;
     private long seqNo;
     private String dataDate;
-    private String opCode;
 
     /** 情景集ID */
     private String scenarioId;
@@ -72,9 +71,6 @@ public class SubsetPnlRecord {
 
     public String getDataDate() { return dataDate; }
     public void setDataDate(String dataDate) { this.dataDate = dataDate; }
-
-    public String getOpCode() { return opCode; }
-    public void setOpCode(String opCode) { this.opCode = opCode; }
 
     public String getScenarioId() { return scenarioId; }
     public void setScenarioId(String scenarioId) { this.scenarioId = scenarioId; }
@@ -156,7 +152,6 @@ public class SubsetPnlRecord {
         copy.batchId = this.batchId;
         copy.seqNo = this.seqNo;
         copy.dataDate = this.dataDate;
-        copy.opCode = this.opCode;
         copy.scenarioId = this.scenarioId;
         copy.subscenarioId = this.subscenarioId;
         copy.scenarioName = this.scenarioName;
