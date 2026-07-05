@@ -203,7 +203,7 @@ public class BondFuture implements FrtbDrcInterface {
         measure.pv01 = 0.0;
         measure.status = "ERROR";
         measure.logs = new ArrayList<>();
-        measure.logs.add(Measure.errorLog(message));
+        measure.addErrorLog(message);
         measure.sensitivityList = new ArrayList<>();
         measure.cashFlowList = null;
         measure.detail = null;

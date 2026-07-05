@@ -514,7 +514,7 @@ PROPERTIES (
 );
 
 -- IMA 不可建模中间结果表（Phase2 输出）
--- 每行对应一个汇总节点下，一个 NMRF bucket 的 UP/DOWN 聚合损益与最终压力损失。
+-- 每行对应一个汇总节点下的 NMRF SES 汇总结果。
 CREATE TABLE IF NOT EXISTS TB_OUT_IMA_NMRF_RESULT (
     ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
     BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
@@ -523,13 +523,12 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_NMRF_RESULT (
     GROUP_TYPE              VARCHAR(64)                              COMMENT '汇总维度类型',
     GROUP_VALUE             VARCHAR(512)                             COMMENT '汇总维度路径值',
     GROUP_ORDER             INT                                      COMMENT '汇总维度顺序',
-    NMRF_TYPE               VARCHAR(32)                              COMMENT 'NMRF分类：IDIO_CREDIT / IDIO_EQUITY / OTHER',
-    RFET_BUCKET_ID          VARCHAR(256)                             COMMENT 'RFET bucket ID',
-    RISK_FACTOR_ID          VARCHAR(256)                             COMMENT '不可建模风险因子ID',
-    UP_PNL                  DECIMAL(38, 10)                          COMMENT 'UP方向PnL合计',
-    DOWN_PNL                DECIMAL(38, 10)                          COMMENT 'DOWN方向PnL合计',
-    STRESS_LOSS             DECIMAL(38, 10)                          COMMENT '压力损失：max(abs(UP_PNL), abs(DOWN_PNL))',
-    SELECTED_DIRECTION      VARCHAR(16)                              COMMENT '压力损失采用方向：UP / DOWN',
+    SES                     DECIMAL(38, 10)                          COMMENT 'NMRF SES汇总结果',
+    IDIO_CREDIT_SUM_SQ      DECIMAL(38, 10)                          COMMENT '特异信用NMRF平方和项',
+    IDIO_EQUITY_SUM_SQ      DECIMAL(38, 10)                          COMMENT '特异权益NMRF平方和项',
+    OTHER_CORR_TERM         DECIMAL(38, 10)                          COMMENT '其他NMRF相关项',
+    OTHER_IDIO_TERM         DECIMAL(38, 10)                          COMMENT '其他NMRF特异项',
+    NMRF_COUNT              INT                                      COMMENT '纳入该维度汇总的NMRF bucket数量',
     CREATED_AT              VARCHAR(32)                              COMMENT '创建时间'
 )
 UNIQUE KEY(ID)
@@ -553,6 +552,12 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_CAPITAL_RESULT (
     SES                     DECIMAL(38, 10)                          COMMENT '不可建模风险因子压力情景资本 SES',
     AMBER_SURCHARGE_RATIO   DECIMAL(38, 10)                          COMMENT 'Amber 区附加资本比例',
     ACR_TOTAL               DECIMAL(38, 10)                          COMMENT 'IMA 总资本',
+    IMCC_ALL                DECIMAL(38, 10)                          COMMENT '全风险类别组合IMCC输入项',
+    IMCC_IR                 DECIMAL(38, 10)                          COMMENT '利率风险类别IMCC输入项',
+    IMCC_CS                 DECIMAL(38, 10)                          COMMENT '信用利差风险类别IMCC输入项',
+    IMCC_FX                 DECIMAL(38, 10)                          COMMENT '外汇风险类别IMCC输入项',
+    IMCC_EQ                 DECIMAL(38, 10)                          COMMENT '权益风险类别IMCC输入项',
+    IMCC_COMM               DECIMAL(38, 10)                          COMMENT '商品风险类别IMCC输入项',
     RESULT_JSON             TEXT                                     COMMENT '完整资本结果JSON',
     CREATED_AT              VARCHAR(32)                              COMMENT '创建时间',
     UPDATED_AT              VARCHAR(32)                              COMMENT '更新时间'
@@ -567,15 +572,18 @@ PROPERTIES (
 -- SA-CCR 交易对手信用风险 EAD 结果表（BCBS 279）
 CREATE TABLE IF NOT EXISTS TB_OUT_SACCR_RESULT (
     ID                  BIGINT          NOT NULL AUTO_INCREMENT,
-    JOB_ID              VARCHAR(64)     COMMENT '任务ID',
+    BATCH_ID            VARCHAR(64)     COMMENT '批次ID',
     DATA_DATE           VARCHAR(16)     COMMENT '计算基准日期',
+    NETTING_MODE        VARCHAR(32)     COMMENT '净额模式：NETTING_SET/TRADE',
     NETTING_SET_ID      VARCHAR(128)    COMMENT '净额结算集合ID',
     COUNTERPARTY_ID     VARCHAR(128)    COMMENT '交易对手ID',
-    IS_MARGINED         TINYINT         COMMENT '是否有保证金协议(1=是,0=否)',
-    IS_CLEARED          TINYINT         COMMENT '是否集中清算(1=是,0=否)',
-    IS_QCCP             TINYINT         COMMENT '是否QCCP(1=是,0=否)',
+    TRADE_COUNT         INT             COMMENT '交易笔数',
+    MARGIN_TYPE         VARCHAR(32)     COMMENT '保证金协议类型',
     SUM_MTM             DECIMAL(38,10)  COMMENT 'ΣV_i：净额结算集合内所有交易MTM之和',
     COLLATERAL_C        DECIMAL(38,10)  COMMENT '净收取抵押品C（银行收取为正）',
+    THRESHOLD_CNY       DECIMAL(38,10)  COMMENT 'TH折人民币金额',
+    MTA_CNY             DECIMAL(38,10)  COMMENT 'MTA折人民币金额',
+    NICA_CNY            DECIMAL(38,10)  COMMENT 'NICA折人民币金额',
     RC                  DECIMAL(38,10)  COMMENT '替代成本RC',
     ADDON_IR            DECIMAL(38,10)  COMMENT '利率AddOn',
     ADDON_FX            DECIMAL(38,10)  COMMENT '外汇AddOn',
@@ -586,13 +594,74 @@ CREATE TABLE IF NOT EXISTS TB_OUT_SACCR_RESULT (
     MULTIPLIER          DECIMAL(38,10)  COMMENT '乘数multiplier（[0.05,1.0]）',
     PFE                 DECIMAL(38,10)  COMMENT '潜在未来风险暴露PFE',
     EAD                 DECIMAL(38,10)  COMMENT '风险敞口EAD=1.4×(RC+PFE)',
-    RISK_WEIGHT         DECIMAL(38,10)  COMMENT '适用风险权重RW',
-    RWA_CCR             DECIMAL(38,10)  COMMENT 'CCR风险加权资产RWA=EAD×RW',
-    CAPITAL_CCR         DECIMAL(38,10)  COMMENT 'CCR资本要求=RWA×8%',
     CREATE_TIME         VARCHAR(32)     COMMENT '落库时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 4
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
+-- SA-CCR 交易级明细结果表
+CREATE TABLE IF NOT EXISTS TB_OUT_SACCR_TRADE_DETAIL (
+    ID                      BIGINT          NOT NULL AUTO_INCREMENT,
+    BATCH_ID                VARCHAR(64)     COMMENT '批次ID',
+    DATA_DATE               VARCHAR(16)     COMMENT '计算基准日期',
+    INSTRUMENT_ID           VARCHAR(128)    COMMENT '交易唯一标识',
+    COUNTERPARTY_ID         VARCHAR(128)    COMMENT '交易对手ID',
+    NETTING_MODE            VARCHAR(32)     COMMENT '净额模式：NETTING_SET/TRADE',
+    NETTING_SET_ID          VARCHAR(128)    COMMENT '净额集合ID',
+    PRODUCT_CODE            VARCHAR(64)     COMMENT '产品代码',
+    ASSET_CLASS             VARCHAR(32)     COMMENT '资产类别',
+    DIRECTION               INT             COMMENT '交易方向',
+    MTM_CNY                 DECIMAL(38,10)  COMMENT '交易MTM人民币金额',
+    NOTIONAL                DECIMAL(38,10)  COMMENT '名义本金',
+    CURRENCY                VARCHAR(8)      COMMENT '币种',
+    START_DATE              DATE            COMMENT '起始日期',
+    END_DATE                DATE            COMMENT '到期日期',
+    REFERENCE_ENTITY        VARCHAR(256)    COMMENT '参考主体',
+    CREDIT_RATING           VARCHAR(64)     COMMENT '信用评级',
+    IS_INDEX                TINYINT         COMMENT '是否指数',
+    CURRENCY_PAIR           VARCHAR(32)     COMMENT '货币对',
+    COMMODITY_BUCKET        VARCHAR(64)     COMMENT '商品桶',
+    COMMODITY_TYPE          VARCHAR(128)    COMMENT '商品品种',
+    IS_OPTION               TINYINT         COMMENT '是否期权',
+    OPTION_TYPE             VARCHAR(16)     COMMENT 'CALL/PUT',
+    OPTION_EXPIRY           DATE            COMMENT '期权到期日',
+    STRIKE_PRICE            DECIMAL(38,10)  COMMENT '行权价',
+    UNDERLYING_PRICE        DECIMAL(38,10)  COMMENT '标的价格',
+    QUANTITY                DECIMAL(38,10)  COMMENT '数量',
+    MEASURE_FACTOR_JSON     TEXT            COMMENT '交易级中间计量要素JSON',
+    CREATE_TIME             VARCHAR(32)     COMMENT '落库时间'
+)
+UNIQUE KEY(ID)
+DISTRIBUTED BY HASH(ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
+-- SA-CCR 押品计量审计结果表
+CREATE TABLE IF NOT EXISTS TB_OUT_SACCR_COLLATERAL_DETAIL (
+    ID                      BIGINT          NOT NULL AUTO_INCREMENT,
+    BATCH_ID                VARCHAR(64)     COMMENT '批次ID',
+    DATA_DATE               VARCHAR(16)     COMMENT '计算基准日期',
+    COLLATERAL_ID           VARCHAR(128)    COMMENT '押品唯一标识',
+    COLLATERAL_SCOPE        VARCHAR(32)     COMMENT 'NETTING_SET/TRADE',
+    NETTING_SET_ID          VARCHAR(128)    COMMENT '净额集合ID',
+    INSTRUMENT_ID           VARCHAR(128)    COMMENT '交易唯一标识',
+    COLLATERAL_TYPE         VARCHAR(32)     COMMENT '押品类型',
+    DIRECTION               VARCHAR(16)     COMMENT 'RECEIVED/POSTED',
+    COLLATERAL_CCY          VARCHAR(8)      COMMENT '押品币种',
+    MARKET_VALUE            DECIMAL(38,10)  COMMENT '押品市值',
+    FX_RATE_TO_CNY          DECIMAL(38,10)  COMMENT '押品币种兑人民币汇率',
+    HAIRCUT_RATE            DECIMAL(18,10)  COMMENT '折扣率',
+    ADJUSTED_VALUE_CNY      DECIMAL(38,10)  COMMENT '计入COLLATERAL_C的折后人民币金额',
+    CREATE_TIME             VARCHAR(32)     COMMENT '落库时间'
+)
+UNIQUE KEY(ID)
+DISTRIBUTED BY HASH(ID) BUCKETS 8
 PROPERTIES (
     "replication_allocation" = "tag.location.default: 1",
     "enable_unique_key_merge_on_write" = "true"

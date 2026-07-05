@@ -65,18 +65,26 @@ public class ImaValidationService {
         boolean persistResult = readBoolean(request, "persist_result", true);
 
         List<String> observationDates = queryObservationDates(dataDate, ruleId);
-        if (observationDates.size() != REQUIRED_OBSERVATION_COUNT) {
+        if (VALIDATION_TYPE_KS.equals(validationType) && observationDates.size() != REQUIRED_OBSERVATION_COUNT) {
             throw new IllegalArgumentException("IMA 返回检验需要最近250个有效观测日: data_date=" + dataDate
                     + ", rule_id=" + ruleId + ", actual_count=" + observationDates.size());
         }
-        String startDate = observationDates.get(0);
-        String endDate = observationDates.get(observationDates.size() - 1);
+        String startDate = observationDates.isEmpty() ? dataDate : observationDates.get(0);
+        String endDate = observationDates.isEmpty() ? dataDate : observationDates.get(observationDates.size() - 1);
 
-        Map<GroupKey, List<ExternalPnlRow>> pnlRows = queryExternalPnl(startDate, endDate, ruleId);
         Map<GroupKey, TreeMap<LocalDate, BigDecimal>> varByGroup =
                 VALIDATION_TYPE_BACKTEST.equals(validationType)
-                        ? queryVarRows(batchId, endDate, ruleId, quantile, varScenarioId) : null;
-        if (pnlRows.isEmpty()) {
+                        ? queryVarRows(batchId, dataDate, ruleId, quantile, varScenarioId) : null;
+        if (VALIDATION_TYPE_BACKTEST.equals(validationType)) {
+            if (varByGroup.isEmpty()) {
+                throw new IllegalArgumentException("未查询到匹配的 VaR 结果: rule_id=" + ruleId
+                        + ", batch_id=" + batchId + ", data_date=" + dataDate);
+            }
+            startDate = minVarDate(varByGroup);
+            endDate = maxVarDate(varByGroup);
+        }
+        Map<GroupKey, List<ExternalPnlRow>> pnlRows = queryExternalPnl(startDate, endDate, ruleId);
+        if (VALIDATION_TYPE_KS.equals(validationType) && pnlRows.isEmpty()) {
             throw new IllegalArgumentException("未查询到 IMA 外部接入分组 PnL: rule_id=" + ruleId);
         }
 
@@ -93,19 +101,12 @@ public class ImaValidationService {
         JSONArray responseExceptionRows = new JSONArray();
         JSONArray responseKsRows = new JSONArray();
 
-        for (Map.Entry<GroupKey, List<ExternalPnlRow>> entry : pnlRows.entrySet()) {
-            GroupKey groupKey = entry.getKey();
-            List<ExternalPnlRow> rows = entry.getValue();
-            rows.sort(Comparator.comparing(row -> row.dataDate));
-            validateGroupObservationCount(rows, groupKey);
-
-            if (VALIDATION_TYPE_BACKTEST.equals(validationType)) {
-                TreeMap<LocalDate, BigDecimal> groupVarRows = varByGroup.get(groupKey);
-                if (groupVarRows == null || groupVarRows.isEmpty()) {
-                    throw new IllegalArgumentException("未查询到匹配的 VaR 结果: rule_id=" + ruleId
-                            + ", group_type=" + groupKey.groupType + ", group_value=" + groupKey.groupValue);
-                }
-                List<DailyPnl> series = buildDailySeries(rows, groupVarRows);
+        if (VALIDATION_TYPE_BACKTEST.equals(validationType)) {
+            Map<GroupKey, TreeMap<LocalDate, ExternalPnlRow>> pnlByGroupDate = indexPnlRows(pnlRows);
+            for (Map.Entry<GroupKey, TreeMap<LocalDate, BigDecimal>> entry : varByGroup.entrySet()) {
+                GroupKey groupKey = entry.getKey();
+                TreeMap<LocalDate, BigDecimal> groupVarRows = entry.getValue();
+                List<DailyPnl> series = buildDailySeries(groupVarRows, pnlByGroupDate.get(groupKey));
                 BacktestResult backtestResult = backtest.run(series);
                 ImaValidationResultPersistService.BacktestRow backtestRow =
                         toBacktestRow(batchId, dataDate, startDate, endDate, ruleId, groupKey, quantile,
@@ -121,8 +122,15 @@ public class ImaValidationService {
                     responseExceptionRows.add(toExceptionJson(exceptionRow));
                 }
             }
+        }
+
+        for (Map.Entry<GroupKey, List<ExternalPnlRow>> entry : pnlRows.entrySet()) {
+            GroupKey groupKey = entry.getKey();
+            List<ExternalPnlRow> rows = entry.getValue();
+            rows.sort(Comparator.comparing(row -> row.dataDate));
 
             if (VALIDATION_TYPE_KS.equals(validationType)) {
+                validateGroupObservationCount(rows, groupKey);
                 BigDecimal ksStatistic = ksTest.compute(readHypotheticalSeries(rows), readRiskTheoreticalSeries(rows));
                 String ksZone = evaluateKsZone(ksStatistic);
                 ImaValidationResultPersistService.KsRow ksRow =
@@ -222,20 +230,29 @@ public class ImaValidationService {
                                                                        String ruleId,
                                                                        String quantile,
                                                                        String varScenarioId) {
+        List<String> varDates = queryVarObservationDates(batchId, endDate, ruleId, quantile, varScenarioId);
+        Map<GroupKey, TreeMap<LocalDate, BigDecimal>> result = new LinkedHashMap<GroupKey, TreeMap<LocalDate, BigDecimal>>();
+        if (varDates.isEmpty()) {
+            return result;
+        }
         String sql = "SELECT DATA_DATE, GROUP_TYPE, GROUP_VALUE, VAR "
                 + "FROM TB_OUT_VAR_RESULT "
                 + "WHERE BATCH_ID=? AND RULE_ID=? AND QUANTILE=? AND SCENARIO_ID=? "
-                + "AND RISK_CLASS=? AND DATA_DATE < ? "
+                + "AND RISK_CLASS=? AND DATA_DATE IN (" + placeholders(varDates.size()) + ") "
                 + "ORDER BY GROUP_TYPE, GROUP_VALUE, DATA_DATE";
+        List<Object> params = new ArrayList<Object>();
+        params.add(batchId);
+        params.add(ruleId);
+        params.add(quantile);
+        params.add(varScenarioId);
+        params.add(RISK_CLASS_ALL);
+        params.addAll(varDates);
         List<VarRow> rows = jdbcTemplate.query(
                 sql,
                 ps -> {
-                    ps.setString(1, batchId);
-                    ps.setString(2, ruleId);
-                    ps.setString(3, quantile);
-                    ps.setString(4, varScenarioId);
-                    ps.setString(5, RISK_CLASS_ALL);
-                    ps.setString(6, endDate);
+                    for (int i = 0; i < params.size(); i++) {
+                        ps.setObject(i + 1, params.get(i));
+                    }
                 },
                 (rs, rowNum) -> {
                     VarRow row = new VarRow();
@@ -247,7 +264,6 @@ public class ImaValidationService {
                     return row;
                 });
 
-        Map<GroupKey, TreeMap<LocalDate, BigDecimal>> result = new LinkedHashMap<GroupKey, TreeMap<LocalDate, BigDecimal>>();
         for (VarRow row : rows) {
             GroupKey key = new GroupKey(row.groupType, row.groupValue);
             TreeMap<LocalDate, BigDecimal> dateValues = result.get(key);
@@ -260,25 +276,103 @@ public class ImaValidationService {
         return result;
     }
 
-    private List<DailyPnl> buildDailySeries(List<ExternalPnlRow> rows,
-                                            TreeMap<LocalDate, BigDecimal> groupVarRows) {
+    private List<String> queryVarObservationDates(String batchId,
+                                                  String endDate,
+                                                  String ruleId,
+                                                  String quantile,
+                                                  String varScenarioId) {
+        String sql = "SELECT DATA_DATE FROM ("
+                + "SELECT DISTINCT DATA_DATE FROM TB_OUT_VAR_RESULT "
+                + "WHERE BATCH_ID=? AND RULE_ID=? AND QUANTILE=? AND SCENARIO_ID=? "
+                + "AND RISK_CLASS=? AND DATA_DATE < ? "
+                + "ORDER BY DATA_DATE DESC LIMIT " + REQUIRED_OBSERVATION_COUNT
+                + ") t ORDER BY DATA_DATE";
+        return jdbcTemplate.query(
+                sql,
+                ps -> {
+                    ps.setString(1, batchId);
+                    ps.setString(2, ruleId);
+                    ps.setString(3, quantile);
+                    ps.setString(4, varScenarioId);
+                    ps.setString(5, RISK_CLASS_ALL);
+                    ps.setString(6, endDate);
+                },
+                (rs, rowNum) -> normalizeDate(rs.getString("DATA_DATE"), "DATA_DATE"));
+    }
+
+    private Map<GroupKey, TreeMap<LocalDate, ExternalPnlRow>> indexPnlRows(Map<GroupKey, List<ExternalPnlRow>> pnlRows) {
+        Map<GroupKey, TreeMap<LocalDate, ExternalPnlRow>> result =
+                new LinkedHashMap<GroupKey, TreeMap<LocalDate, ExternalPnlRow>>();
+        for (Map.Entry<GroupKey, List<ExternalPnlRow>> entry : pnlRows.entrySet()) {
+            TreeMap<LocalDate, ExternalPnlRow> dateRows = new TreeMap<LocalDate, ExternalPnlRow>();
+            for (ExternalPnlRow row : entry.getValue()) {
+                dateRows.put(row.dataDate, row);
+            }
+            result.put(entry.getKey(), dateRows);
+        }
+        return result;
+    }
+
+    private List<DailyPnl> buildDailySeries(TreeMap<LocalDate, BigDecimal> groupVarRows,
+                                            TreeMap<LocalDate, ExternalPnlRow> pnlRows) {
         List<DailyPnl> series = new ArrayList<DailyPnl>();
-        for (ExternalPnlRow row : rows) {
-            Map.Entry<LocalDate, BigDecimal> previousVar = groupVarRows.lowerEntry(row.dataDate);
-            if (previousVar == null) {
-                throw new IllegalArgumentException("未找到前一可用日 VaR: data_date=" + row.dataDateText
-                        + ", rule_id=" + row.ruleId
-                        + ", group_type=" + row.groupType
-                        + ", group_value=" + row.groupValue);
+        for (Map.Entry<LocalDate, BigDecimal> varEntry : groupVarRows.entrySet()) {
+            LocalDate date = varEntry.getKey();
+            BigDecimal varValue = varEntry.getValue();
+            ExternalPnlRow pnlRow = pnlRows == null ? null : pnlRows.get(date);
+            if (pnlRow == null) {
+                BigDecimal threshold = varValue.abs().negate();
+                BigDecimal missingPnl = threshold.subtract(new BigDecimal("0.01"));
+                series.add(new DailyPnl(date, missingPnl, null, null, varValue));
+                continue;
             }
             series.add(new DailyPnl(
-                    row.dataDate,
-                    row.actualPnl,
-                    row.hypotheticalPnl,
-                    row.riskTheoreticalPnl,
-                    previousVar.getValue()));
+                    date,
+                    pnlRow.actualPnl,
+                    pnlRow.hypotheticalPnl,
+                    pnlRow.riskTheoreticalPnl,
+                    varValue));
         }
         return series;
+    }
+
+    private static String minVarDate(Map<GroupKey, TreeMap<LocalDate, BigDecimal>> varByGroup) {
+        LocalDate min = null;
+        for (TreeMap<LocalDate, BigDecimal> rows : varByGroup.values()) {
+            if (rows == null || rows.isEmpty()) {
+                continue;
+            }
+            LocalDate first = rows.firstKey();
+            if (min == null || first.isBefore(min)) {
+                min = first;
+            }
+        }
+        return min == null ? null : min.format(BASIC_DATE);
+    }
+
+    private static String maxVarDate(Map<GroupKey, TreeMap<LocalDate, BigDecimal>> varByGroup) {
+        LocalDate max = null;
+        for (TreeMap<LocalDate, BigDecimal> rows : varByGroup.values()) {
+            if (rows == null || rows.isEmpty()) {
+                continue;
+            }
+            LocalDate last = rows.lastKey();
+            if (max == null || last.isAfter(max)) {
+                max = last;
+            }
+        }
+        return max == null ? null : max.format(BASIC_DATE);
+    }
+
+    private static String placeholders(int count) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            if (i > 0) {
+                builder.append(",");
+            }
+            builder.append("?");
+        }
+        return builder.toString();
     }
 
     private static void validateGroupObservationCount(List<ExternalPnlRow> rows, GroupKey groupKey) {

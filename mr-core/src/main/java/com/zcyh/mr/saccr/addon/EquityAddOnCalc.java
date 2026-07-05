@@ -41,13 +41,19 @@ public final class EquityAddOnCalc {
      */
     public static double calc(Map<String, Double> netDiPerEquity,
                               Map<String, EquityInfo> equityInfoMap) {
+        if (equityInfoMap == null) {
+            throw new IllegalArgumentException("权益主体信息不能为空");
+        }
         double systemicSum = 0.0;
         double idioSum = 0.0;
 
         for (Map.Entry<String, Double> entry : netDiPerEquity.entrySet()) {
             String equity = entry.getKey();
             double netDi = entry.getValue();
-            EquityInfo info = equityInfoMap.getOrDefault(equity, new EquityInfo(false));
+            EquityInfo info = equityInfoMap.get(equity);
+            if (info == null) {
+                throw new IllegalArgumentException("权益主体 " + equity + " 缺少 EquityInfo");
+            }
 
             double sf = SaccrSupervisoryParams.getSf("Equity", info.isIndex, false, null);
             double rho = SaccrSupervisoryParams.getRho("Equity", info.isIndex);

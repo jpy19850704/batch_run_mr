@@ -13,6 +13,10 @@ import java.util.Objects;
  */
 public class TradeJsonUtil {
 
+    /**
+     * 按 productModel.json 补齐产品可运行的默认参数。
+     * 这些默认值是引擎为避免非关键字段阻碍计量配置的合理口径，不属于字段兼容回退。
+     */
     public static JSONObject mergeTrade(JSONObject trade, String productCode, String node) {
         JSONObject model = JSON.parseObject(FileUtils.loadData("data/model/productModel.json"));
         JSONObject proMo = (JSONObject) model.get(productCode);

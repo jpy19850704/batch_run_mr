@@ -2,7 +2,7 @@ package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.basic.util.QL;
+import com.zcyh.mr.basic.util.EnginePreconditions;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
@@ -40,7 +40,7 @@ public class FxSwap {
      * 外汇掉期计量。
      */
     public FxSwapMeasure calc() {
-        QL.require(dataDate != null, "dataDate must be set");
+        EnginePreconditions.require(dataDate != null, "dataDate must be set");
 
         FxSwapMeasure result = calc(marketData);
         String uCurrency = fxSwapInfo.underlyingCurrencyCode;
@@ -92,7 +92,7 @@ public class FxSwap {
      * 外汇掉期计量。
      */
     public FxSwapMeasure calc(MarketData newMarketData) {
-        QL.require(dataDate != null, "dataDate must be set");
+        EnginePreconditions.require(dataDate != null, "dataDate must be set");
 
         LocalDate spotSettleDate = fxSwapInfo.spotSettleDate;
         LocalDate fwdSettleDate = fxSwapInfo.fwdSettleDate;

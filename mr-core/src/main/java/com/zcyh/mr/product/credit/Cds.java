@@ -182,7 +182,7 @@ public class Cds implements FrtbDrcInterface {
     }
 
     private List<LegCashFlow> buildPremiumLeg(MarketData marketData, Bond.BondInfo bondInfo,
-            LinkedList<StructuredCashflow.Cashflow> cashFlowFilterS) {
+            LinkedList<StructuredCashflow.Cashflow> cashFlowFilterS, CdsMeasure measure) {
         int units = cdsInfo.buyOrSell.equalsIgnoreCase("B") ? -1 : 1;
         if (marketData.irSpot == null || !marketData.irSpot.containsKey(cdsInfo.discountCurve)) {
             throw new IllegalArgumentException("折现曲线不存在: " + cdsInfo.discountCurve
@@ -230,12 +230,12 @@ public class Cds implements FrtbDrcInterface {
         try {
             fixedPremiums = JSON.parseArray(cdsInfo.fixedPremium.trim());
             if (fixedPremiums == null) {
-                System.err.println("[WARN] FIXED_PREMIUM 必须为数组格式，已跳过 (INSTRUMENT_ID="
+                measure.addWarningLog("FIXED_PREMIUM 必须为数组格式，已跳过 (INSTRUMENT_ID="
                         + cdsInfo.instrumentId + ")");
                 return swapFlagExpected;
             }
         } catch (Exception e) {
-            System.err.println("[WARN] FIXED_PREMIUM 格式解析失败（仅支持数组），已跳过 (INSTRUMENT_ID="
+            measure.addWarningLog("FIXED_PREMIUM 格式解析失败（仅支持数组），已跳过 (INSTRUMENT_ID="
                     + cdsInfo.instrumentId + "): " + e.getMessage());
             return swapFlagExpected;
         }
@@ -252,7 +252,7 @@ public class Cds implements FrtbDrcInterface {
                 fpDate = LocalDate.parse(fpDateStr);
                 fpCf = Double.parseDouble(fpCfStr);
             } catch (Exception e) {
-                System.err.println("[WARN] FIXED_PREMIUM 第 " + i + " 条数据格式错误，已跳过 (INSTRUMENT_ID="
+                measure.addWarningLog("FIXED_PREMIUM 第 " + i + " 条数据格式错误，已跳过 (INSTRUMENT_ID="
                         + cdsInfo.instrumentId + "): " + e.getMessage());
                 continue;
             }
@@ -361,7 +361,7 @@ public class Cds implements FrtbDrcInterface {
             LinkedList<StructuredCashflow.Cashflow> defaultCashFlows = buildDefaultPaymentCashflows(marketData, bondInfo);
             List<LegCashFlow> defaultPaymentExpected = buildDefaultLeg(marketData, bondInfo, defaultCashFlows);
             LinkedList<StructuredCashflow.Cashflow> premiumCashFlows = buildPremiumCashflows(marketData, premiumBondInfo);
-            List<LegCashFlow> swapFlagExpected = buildPremiumLeg(marketData, bondInfo, premiumCashFlows);
+            List<LegCashFlow> swapFlagExpected = buildPremiumLeg(marketData, bondInfo, premiumCashFlows, cdsMeasure);
 
             cdsMeasure.valuation = getValuation(defaultPaymentExpected, swapFlagExpected);
             if (!Double.isFinite(cdsMeasure.valuation)) {
@@ -406,7 +406,7 @@ public class Cds implements FrtbDrcInterface {
 
     private PricingOutcome failOutcome(PricingOutcome outcome, String errorMessage) {
         outcome.measure.status = "ERROR";
-        outcome.measure.logs.add(Measure.errorLog(errorMessage));
+        outcome.measure.addErrorLog(errorMessage);
         outcome.measure.cashFlowList = null;
         outcome.measure.detail = null;
         return outcome;

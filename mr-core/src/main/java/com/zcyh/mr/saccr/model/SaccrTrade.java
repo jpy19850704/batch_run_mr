@@ -52,14 +52,7 @@ public class SaccrTrade {
     public boolean isOption;
 
     /**
-     * 期权方向：true = 多头（λ=+1）；false = 空头（λ=-1）。
-     * 仅 isOption=true 时有效。
-     */
-    public boolean optionLong;
-
-    /**
      * 期权类型：{@code "CALL"} 或 {@code "PUT"}，大小写不敏感。
-     * 默认 "CALL"（null / 空串均视为 CALL）。
      * <p>Call 和 Put 对 Delta 符号的影响：
      * <ul>
      *   <li>多头 Call / 空头 Put → ω = +λ，Delta 为正（对标的价格正敏感）</li>
@@ -114,4 +107,24 @@ public class SaccrTrade {
 
     /** 货币对标识（外汇类使用，如 USD/CNY） */
     public String currencyPair;
+
+    // ==================== 交易级中间结果 ====================
+
+    public double delta;
+
+    public double adjustedNotional;
+
+    public double maturityFactor;
+
+    public double supervisoryDuration;
+
+    public double effectiveNotional;
+
+    public int mporDays;
+
+    public double startYears;
+
+    public double endYears;
+
+    public double optionTYears;
 }

@@ -1,8 +1,6 @@
 package com.zcyh.mr.saccr.addon;
 
 import com.zcyh.mr.saccr.params.SaccrSupervisoryParams;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
@@ -19,8 +17,6 @@ import java.util.Map;
  * 第一项为系统性项，第二项为特质性项。
  */
 public final class CreditAddOnCalc {
-
-    private static final Logger log = LoggerFactory.getLogger(CreditAddOnCalc.class);
 
     private CreditAddOnCalc() {
     }
@@ -57,9 +53,7 @@ public final class CreditAddOnCalc {
             double netDi = entry.getValue();
             EntityInfo info = entityInfoMap.get(entity);
             if (info == null) {
-                // 缺少主体信息时按保守口径降级为 SG，并记录告警。
-                log.warn("信用主体 {} 缺少 EntityInfo，已按 SG 口径降级（single=BB 档）", entity);
-                info = new EntityInfo("SG", false);
+                throw new IllegalArgumentException("信用主体缺少 EntityInfo: " + entity);
             }
 
             double sf;
@@ -67,9 +61,8 @@ public final class CreditAddOnCalc {
             if (info.isIndex) {
                 Boolean isIg = SaccrSupervisoryParams.resolveCreditIndexIgFlag(info.creditQuality);
                 if (isIg == null) {
-                    log.warn("信用指数主体 {} 的信用档位无法识别（value={}），已按 SG 降级",
-                            entity, info.creditQuality);
-                    isIg = Boolean.FALSE;
+                    throw new IllegalArgumentException("信用指数主体评级必须为 IG 或 SG: entity="
+                            + entity + ", value=" + info.creditQuality);
                 }
                 sf = SaccrSupervisoryParams.getCreditIndexSf(isIg);
                 rho = SaccrSupervisoryParams.RHO_CREDIT_INDEX;
@@ -77,10 +70,8 @@ public final class CreditAddOnCalc {
                 SaccrSupervisoryParams.CreditSingleBucket bucket =
                         SaccrSupervisoryParams.resolveCreditSingleBucket(info.creditQuality);
                 if (bucket == null) {
-                    // 单一主体评级无法识别时，按 SG 基准（BB 档）保守退化。
-                    log.warn("信用单一主体 {} 的评级无法识别（value={}），已按 SG 基准（BB 档）降级",
-                            entity, info.creditQuality);
-                    bucket = SaccrSupervisoryParams.CreditSingleBucket.BB;
+                    throw new IllegalArgumentException("信用单一主体评级无法识别: entity="
+                            + entity + ", value=" + info.creditQuality);
                 }
                 sf = SaccrSupervisoryParams.getCreditSingleSf(bucket);
                 rho = SaccrSupervisoryParams.RHO_CREDIT_SINGLE;

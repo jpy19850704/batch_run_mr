@@ -2,7 +2,7 @@ package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.basic.util.QL;
+import com.zcyh.mr.basic.util.EnginePreconditions;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.core.CommUtils;
@@ -40,7 +40,7 @@ public class CommSwap {
     }
 
     public CommSwapMeasure calc() {
-        QL.require(dataDate != null, "dataDate must be set");
+        EnginePreconditions.require(dataDate != null, "dataDate must be set");
         validateInputs(marketData);
         String valuationCurrency = resolveValuationCurrency();
         String strikeCurrency = resolveStrikeCurrency(valuationCurrency);
@@ -89,7 +89,7 @@ public class CommSwap {
     }
 
     public CommSwapMeasure calc(MarketData marketData) {
-        QL.require(dataDate != null, "dataDate must be set");
+        EnginePreconditions.require(dataDate != null, "dataDate must be set");
         validateInputs(marketData);
         String valuationCurrency = resolveValuationCurrency();
         String strikeCurrency = resolveStrikeCurrency(valuationCurrency);
@@ -151,7 +151,7 @@ public class CommSwap {
         String commBucket = hasText(commSwapInfo.frtbCommBucket) ? commSwapInfo.frtbCommBucket.trim() : null;
         boolean enableCmty = hasText(commBucket);
         if (!enableCmty) {
-            QL.error("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+            commSwapMeasure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
                     + (commSwapInfo.instrumentId == null ? "" : commSwapInfo.instrumentId) + ")");
         }
         HashMap<String,String> map = new HashMap<>();
@@ -235,7 +235,7 @@ public class CommSwap {
         if (hasText(commSwapInfo.strikeCurrencyCode)) {
             return commSwapInfo.strikeCurrencyCode;
         }
-        QL.require(false, "currencyCode and strikeCurrencyCode cannot both be empty");
+        EnginePreconditions.require(false, "currencyCode and strikeCurrencyCode cannot both be empty");
         return null;
     }
 

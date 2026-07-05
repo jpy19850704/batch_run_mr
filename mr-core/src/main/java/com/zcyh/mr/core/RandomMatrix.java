@@ -17,10 +17,16 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class RandomMatrix {
     private final static Map<String, double[][]> cache = new ConcurrentHashMap<>();
+    private final static Queue<String> cacheKeyOrder = new ConcurrentLinkedQueue<>();
+    private static final int MAX_RANDOM_MATRIX_CACHE_ENTRIES = Math.max(
+            1, Integer.getInteger("mr.random.matrix.cache.max-entries", 128));
 
     /**
      * 统一 Sobol 缓存矩阵（单一 bin 文件，维度/路径不足时自动扩展覆盖）。
@@ -42,7 +48,9 @@ public class RandomMatrix {
     public static double[][] generateRandomMatrix(int rows, int cols) {
         String key = rows + "," + cols;
 
+        AtomicBoolean created = new AtomicBoolean(false);
         double[][] matrix = cache.computeIfAbsent(key, k -> {
+            created.set(true);
             double[][] m = new double[rows][cols];
             RandomGenerator randomGenerator = new JDKRandomGenerator(rows * cols);
             NormalDistribution normalDistribution = new NormalDistribution(randomGenerator, 0, 1);
@@ -53,6 +61,10 @@ public class RandomMatrix {
             }
             return m;
         });
+        if (created.get()) {
+            cacheKeyOrder.offer(key);
+            trimRandomMatrixCache();
+        }
 
         // 返回拷贝，避免外部修改污染缓存
         double[][] copy = new double[matrix.length][];
@@ -60,6 +72,25 @@ public class RandomMatrix {
             copy[i] = Arrays.copyOf(matrix[i], matrix[i].length);
         }
         return copy;
+    }
+
+    public static int randomMatrixCacheSize() {
+        return cache.size();
+    }
+
+    public static void clearRandomMatrixCache() {
+        cache.clear();
+        cacheKeyOrder.clear();
+    }
+
+    private static void trimRandomMatrixCache() {
+        while (cache.size() > MAX_RANDOM_MATRIX_CACHE_ENTRIES) {
+            String key = cacheKeyOrder.poll();
+            if (key == null) {
+                return;
+            }
+            cache.remove(key);
+        }
     }
 
     /**

@@ -13,13 +13,12 @@ public class ImaNmrfResult {
     private String groupType;
     private String groupValue;
     private Integer groupOrder;
-    private String nmrfType;
-    private String rfetBucketId;
-    private String riskFactorId;
-    private BigDecimal upPnl;
-    private BigDecimal downPnl;
-    private BigDecimal stressLoss;
-    private String selectedDirection;
+    private BigDecimal ses;
+    private BigDecimal idioCreditSumSq;
+    private BigDecimal idioEquitySumSq;
+    private BigDecimal otherCorrTerm;
+    private BigDecimal otherIdioTerm;
+    private Integer nmrfCount;
 
     public String getBatchId() { return batchId; }
     public void setBatchId(String batchId) { this.batchId = batchId; }
@@ -39,24 +38,21 @@ public class ImaNmrfResult {
     public Integer getGroupOrder() { return groupOrder; }
     public void setGroupOrder(Integer groupOrder) { this.groupOrder = groupOrder; }
 
-    public String getNmrfType() { return nmrfType; }
-    public void setNmrfType(String nmrfType) { this.nmrfType = nmrfType; }
+    public BigDecimal getSes() { return ses; }
+    public void setSes(BigDecimal ses) { this.ses = ses; }
 
-    public String getRfetBucketId() { return rfetBucketId; }
-    public void setRfetBucketId(String rfetBucketId) { this.rfetBucketId = rfetBucketId; }
+    public BigDecimal getIdioCreditSumSq() { return idioCreditSumSq; }
+    public void setIdioCreditSumSq(BigDecimal idioCreditSumSq) { this.idioCreditSumSq = idioCreditSumSq; }
 
-    public String getRiskFactorId() { return riskFactorId; }
-    public void setRiskFactorId(String riskFactorId) { this.riskFactorId = riskFactorId; }
+    public BigDecimal getIdioEquitySumSq() { return idioEquitySumSq; }
+    public void setIdioEquitySumSq(BigDecimal idioEquitySumSq) { this.idioEquitySumSq = idioEquitySumSq; }
 
-    public BigDecimal getUpPnl() { return upPnl; }
-    public void setUpPnl(BigDecimal upPnl) { this.upPnl = upPnl; }
+    public BigDecimal getOtherCorrTerm() { return otherCorrTerm; }
+    public void setOtherCorrTerm(BigDecimal otherCorrTerm) { this.otherCorrTerm = otherCorrTerm; }
 
-    public BigDecimal getDownPnl() { return downPnl; }
-    public void setDownPnl(BigDecimal downPnl) { this.downPnl = downPnl; }
+    public BigDecimal getOtherIdioTerm() { return otherIdioTerm; }
+    public void setOtherIdioTerm(BigDecimal otherIdioTerm) { this.otherIdioTerm = otherIdioTerm; }
 
-    public BigDecimal getStressLoss() { return stressLoss; }
-    public void setStressLoss(BigDecimal stressLoss) { this.stressLoss = stressLoss; }
-
-    public String getSelectedDirection() { return selectedDirection; }
-    public void setSelectedDirection(String selectedDirection) { this.selectedDirection = selectedDirection; }
+    public Integer getNmrfCount() { return nmrfCount; }
+    public void setNmrfCount(Integer nmrfCount) { this.nmrfCount = nmrfCount; }
 }

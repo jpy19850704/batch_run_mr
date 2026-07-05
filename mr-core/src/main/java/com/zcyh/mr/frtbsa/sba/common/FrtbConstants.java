@@ -59,27 +59,9 @@ public class FrtbConstants {
     public static final double SCENARIO_HIGH_MULTIPLIER = 1.25;
     public static final double SCENARIO_LOW_MULTIPLIER = 0.75;
     public static final double CORRELATION_MAX = 1.0;
-    public static final double CORRELATION_MIN = 0.0;
 
     // ========================================
-    // 5. FX 主要货币集合
-    // ========================================
-    public static final java.util.Set<String> FX_MAJOR_CURRENCIES = java.util.Collections.unmodifiableSet(
-            new java.util.HashSet<>(java.util.Arrays.asList(
-                    "EUR", "USD", "GBP", "AUD", "JPY", "SEK", "CAD", "CNY")));
-
-    // ========================================
-    // 6. 其他通用常量
-    // ========================================
-    public static final String GROUP_TOTAL = "TOTAL";
-    public static final String TYPE_SPOT = "Spot";
-    public static final String TYPE_REPO = "Repo";
-
-    public static final double ZERO = 0.0;
-    public static final double DIVISOR_TWO = 2.0;
-
-    // ========================================
-    // 7. 工具方法
+    // 5. 工具方法
     // ========================================
 
     /**

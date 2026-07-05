@@ -17,21 +17,12 @@ import java.util.*;
  */
 public class FxImpliedCurveConstruct {
 
-    /** DAY_OFF=1 的特殊货币，其余全部默认 2 */
-    private static final Set<String> DAY_OFF_ONE = new HashSet<>(Arrays.asList("CAD"));
     /** 利率标准频率默认值 */
     private static final String DEFAULT_FREQ = "cont";
     /** 利率标准日算规则默认值 */
     private static final String DEFAULT_DCB = "actual/365";
     /** 期限比较容差 */
     private static final double TERM_EPS = 1e-8;
-
-    /**
-     * 获取 DAY_OFF 默认值
-     */
-    private int getDefaultDayOff(String currencyCode) {
-        return DAY_OFF_ONE.contains(currencyCode) ? 1 : 2;
-    }
 
     /**
      * 构建外汇隐含曲线
@@ -51,10 +42,11 @@ public class FxImpliedCurveConstruct {
 
         LocalDate dataDate = input.dataDate;
         String calName = input.calendar != null ? input.calendar : "";
-        String baseCurrency = input.baseCurrencyCode;
         String interpolateType = input.getInterpolateType();
-        int dayOff = input.dayOff != null ? input.dayOff : getDefaultDayOff(baseCurrency);
-        double fxSpot = input.fxSpot != null ? input.fxSpot : 0;
+        String baseTermCode = normalizeTermCode(input.baseTermCode);
+        if (baseTermCode == null) {
+            throw new IllegalArgumentException("FxImpliedCurveConstruct 缺少 BASE_TERM_CODE");
+        }
 
         // 获取基准零息曲线
         List<IrCurve> baseCurve = curvePool.getOrDefault(input.baseDiscountCurve, Collections.emptyList());
@@ -84,28 +76,24 @@ public class FxImpliedCurveConstruct {
 
         // ── 第 1 阶段：计算各期限的 cont/365 隐含利率 ──
         List<double[]> contPoints = new ArrayList<>(); // [termDays, fwdRate]
-        double spot0 = fxSpot;
+        double spot0 = resolveBaseForwardRate(input.curveData, baseTermCode);
+        LocalDate baseAdjustDate = resolveAdjustDate(baseTermCode, dataDate, calName, calendar);
 
         for (JSONObject jo : input.curveData) {
-            String termCode = jo.getString("TERM_CODE");
+            String termCode = normalizeTermCode(jo.getString("TERM_CODE"));
             double fwdRate = jo.getDoubleValue("FWD_RATE");
             if (fwdRate <= 0) {
                 throw new IllegalArgumentException("FWD_RATE 必须大于 0, TERM_CODE=" + termCode);
             }
-            LocalDate adjustDate = resolveAdjustDate(termCode, dataDate, calName, dayOff, calendar);
-            double termDays = ChronoUnit.DAYS.between(dataDate, adjustDate);
-
-            // ON 期限的远期汇率作为 spot 基准
-            if ("ON".equals(termCode)) {
-                spot0 = fwdRate;
-            }
+            LocalDate adjustDate = resolveAdjustDate(termCode, dataDate, calName, calendar);
+            double termDays = ChronoUnit.DAYS.between(baseAdjustDate, adjustDate);
 
             if (termDays <= 0)
                 continue;
             contPoints.add(new double[] { termDays, fwdRate });
         }
         if (spot0 <= 0) {
-            throw new IllegalArgumentException("FX_SPOT/ON 期限远期汇率必须大于 0");
+            throw new IllegalArgumentException("基础期限远期汇率必须大于 0, BASE_TERM_CODE=" + baseTermCode);
         }
         if (contPoints.isEmpty()) {
             return Collections.emptyList();
@@ -260,22 +248,41 @@ public class FxImpliedCurveConstruct {
      * 根据 termCode 计算起息日调整后日期
      * ON/SN/TN 为 FX 市场特殊处理，标准 termCode 委托给 Calendar.resolveTermDate
      */
+    private double resolveBaseForwardRate(List<JSONObject> curveData, String baseTermCode) {
+        for (JSONObject jo : curveData) {
+            String termCode = normalizeTermCode(jo.getString("TERM_CODE"));
+            if (baseTermCode.equals(termCode)) {
+                double fwdRate = jo.getDoubleValue("FWD_RATE");
+                if (fwdRate <= 0) {
+                    throw new IllegalArgumentException("基础期限 FWD_RATE 必须大于 0, BASE_TERM_CODE=" + baseTermCode);
+                }
+                return fwdRate;
+            }
+        }
+        throw new IllegalArgumentException("CURVE_DATA 缺少基础期限点: " + baseTermCode);
+    }
+
+    private String normalizeTermCode(String termCode) {
+        if (termCode == null || termCode.trim().isEmpty()) {
+            return null;
+        }
+        return termCode.trim().toUpperCase(Locale.ROOT);
+    }
+
     private LocalDate resolveAdjustDate(String termCode, LocalDate startDate,
-            String calName, int dayOff, Calendar calendar) {
+            String calName, Calendar calendar) {
         if ("ON".equals(termCode)) {
             return startDate;
         }
-        if ("SN".equals(termCode)) {
-            int skipDays = dayOff == 2 ? 3 : (dayOff == 1 ? 2 : 1);
-            return calendar.addBusinessDays(calName, startDate, skipDays);
-        }
         if ("TN".equals(termCode)) {
-            int skipDays = dayOff == 2 ? 1 : 0;
-            return calendar.addBusinessDays(calName, startDate, skipDays);
+            return calendar.addBusinessDays(calName, startDate, 1);
+        }
+        if ("SN".equals(termCode) || "SPOT".equals(termCode)) {
+            return calendar.addBusinessDays(calName, startDate, 2);
         }
 
-        // 标准 termCode：先跳 dayOff 个工作日到起息日，再加期限
-        LocalDate spotDate = calendar.addBusinessDays(calName, startDate, dayOff);
+        // 标准 termCode：先到 SPOT 起息日，再加期限
+        LocalDate spotDate = calendar.addBusinessDays(calName, startDate, 2);
         return calendar.resolveTermDate(calName, spotDate, termCode);
     }
 }

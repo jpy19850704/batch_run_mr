@@ -11,10 +11,12 @@ import com.zcyh.mr.frtbima.model.ImaCapitalResult;
 import com.zcyh.mr.frtbima.model.ImaEsResultDetail;
 import com.zcyh.mr.frtbima.model.ImaNmrfResult;
 import com.zcyh.mr.frtbima.model.NmrfPnlRecord;
+import com.zcyh.mr.frtbima.model.SesResult;
 import com.zcyh.mr.frtbima.model.SubsetPnlRecord;
 import com.zcyh.mr.springboot.model.AggregationRule;
 import com.zcyh.mr.springboot.service.BatchTradeDataLoader;
 import com.zcyh.mr.springboot.service.CalcRuleMetaPersistService;
+import com.zcyh.mr.springboot.service.DimensionAggregationService;
 import com.zcyh.mr.springboot.service.FrtbSbaSummaryService;
 import com.zcyh.mr.springboot.service.ImaCapitalResultPersistService;
 import com.zcyh.mr.springboot.service.ImaEsResultDetailPersistService;
@@ -72,7 +74,6 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
     private static final String TREATMENT_IMA_AMBER = "IMA_AMBER";
     private static final String TREATMENT_SA = "SA";
     private static final String TOTAL = "TOTAL";
-    private static final String NULL_DIMENSION_VALUE = "NULL";
 
     /** 查询可建模 PnL */
     private static final String QUERY_MODELLABLE =
@@ -98,6 +99,7 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
     private final JdbcTemplate resultDbJdbcTemplate;
     private final BatchTradeDataLoader tradeDataLoader;
     private final CalcRuleMetaPersistService calcRuleMetaPersistService;
+    private final DimensionAggregationService dimensionAggregationService;
     private final FrtbSbaSummaryService frtbSbaSummaryService;
     private final ImaCapitalResultPersistService capitalPersistService;
     private final ImaEsResultDetailPersistService esResultDetailPersistService;
@@ -110,6 +112,7 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
             @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate resultDbJdbcTemplate,
             BatchTradeDataLoader tradeDataLoader,
             CalcRuleMetaPersistService calcRuleMetaPersistService,
+            DimensionAggregationService dimensionAggregationService,
             FrtbSbaSummaryService frtbSbaSummaryService,
             ImaCapitalResultPersistService capitalPersistService,
             ImaEsResultDetailPersistService esResultDetailPersistService,
@@ -118,6 +121,7 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
         this.resultDbJdbcTemplate = resultDbJdbcTemplate;
         this.tradeDataLoader = tradeDataLoader;
         this.calcRuleMetaPersistService = calcRuleMetaPersistService;
+        this.dimensionAggregationService = dimensionAggregationService;
         this.frtbSbaSummaryService = frtbSbaSummaryService;
         this.capitalPersistService = capitalPersistService;
         this.esResultDetailPersistService = esResultDetailPersistService;
@@ -603,7 +607,7 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
             result.setGroupOrder(input.groupOrder);
             results.capitalResults.add(result);
             results.esResultDetails.addAll(buildEsResultDetails(rule, input, dataDate, batchId, esResults));
-            results.nmrfResults.addAll(buildNmrfResults(rule, input, dataDate, batchId));
+            results.nmrfResults.addAll(buildNmrfResults(rule, input, dataDate, batchId, result));
         }
         return results;
     }
@@ -611,48 +615,31 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
     private List<ImaNmrfResult> buildNmrfResults(AggregationRule rule,
                                                  GroupedCapitalInput input,
                                                  String dataDate,
-                                                 String batchId) {
-        Map<String, NmrfBucketPnlAccum> accumMap = new LinkedHashMap<String, NmrfBucketPnlAccum>();
+                                                 String batchId,
+                                                 ImaCapitalResult capitalResult) {
+        LinkedHashSet<String> bucketIds = new LinkedHashSet<String>();
         for (NmrfPnlRecord record : input.nmrfPnls) {
             if (record == null) {
                 continue;
             }
-            String bucketId = resolveNmrfBucketId(record.getSubscenarioId());
-            NmrfBucketPnlAccum accum = accumMap.get(bucketId);
-            if (accum == null) {
-                accum = new NmrfBucketPnlAccum(bucketId, record.getRiskFactorId(), record.getNmrfType());
-                accumMap.put(bucketId, accum);
-            }
-            BigDecimal pnl = record.getPnl() == null ? BigDecimal.ZERO : record.getPnl();
-            String subscenarioId = record.getSubscenarioId();
-            if (subscenarioId != null && subscenarioId.endsWith("_UP")) {
-                accum.upPnl = accum.upPnl.add(pnl);
-            } else if (subscenarioId != null && subscenarioId.endsWith("_DOWN")) {
-                accum.downPnl = accum.downPnl.add(pnl);
-            }
+            bucketIds.add(resolveNmrfBucketId(record.getSubscenarioId()));
         }
-
+        SesResult sesResult = capitalResult == null ? null : capitalResult.getSesResult();
+        ImaNmrfResult result = new ImaNmrfResult();
+        result.setBatchId(batchId);
+        result.setDataDate(dataDate);
+        result.setRuleId(rule.getRuleId());
+        result.setGroupType(input.groupType);
+        result.setGroupValue(input.groupValue);
+        result.setGroupOrder(input.groupOrder);
+        result.setSes(sesResult == null ? BigDecimal.ZERO : zeroIfNull(sesResult.getSes()));
+        result.setIdioCreditSumSq(sesResult == null ? BigDecimal.ZERO : zeroIfNull(sesResult.getIdioCreditSumSq()));
+        result.setIdioEquitySumSq(sesResult == null ? BigDecimal.ZERO : zeroIfNull(sesResult.getIdioEquitySumSq()));
+        result.setOtherCorrTerm(sesResult == null ? BigDecimal.ZERO : zeroIfNull(sesResult.getOtherCorrTerm()));
+        result.setOtherIdioTerm(sesResult == null ? BigDecimal.ZERO : zeroIfNull(sesResult.getOtherIdioTerm()));
+        result.setNmrfCount(bucketIds.size());
         List<ImaNmrfResult> results = new ArrayList<ImaNmrfResult>();
-        for (NmrfBucketPnlAccum accum : accumMap.values()) {
-            BigDecimal upAbs = accum.upPnl.abs();
-            BigDecimal downAbs = accum.downPnl.abs();
-            boolean selectUp = upAbs.compareTo(downAbs) >= 0;
-            ImaNmrfResult result = new ImaNmrfResult();
-            result.setBatchId(batchId);
-            result.setDataDate(dataDate);
-            result.setRuleId(rule.getRuleId());
-            result.setGroupType(input.groupType);
-            result.setGroupValue(input.groupValue);
-            result.setGroupOrder(input.groupOrder);
-            result.setNmrfType(accum.nmrfType);
-            result.setRfetBucketId(accum.bucketId);
-            result.setRiskFactorId(accum.riskFactorId);
-            result.setUpPnl(accum.upPnl);
-            result.setDownPnl(accum.downPnl);
-            result.setStressLoss(selectUp ? upAbs : downAbs);
-            result.setSelectedDirection(selectUp ? "UP" : "DOWN");
-            results.add(result);
-        }
+        results.add(result);
         return results;
     }
 
@@ -732,9 +719,9 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
                 groupType = TOTAL;
                 groupValue = TOTAL;
             } else {
-                pathValues.add(normalizeDimensionValue(row.get(level)));
+                pathValues.add(dimensionAggregationService.normalizeDimensionValue(row.get(level)));
                 groupType = level;
-                groupValue = buildGroupValue(pathValues);
+                groupValue = dimensionAggregationService.buildGroupValue(pathValues);
             }
             String key = rule.getRuleId() + "|" + groupType + "|" + groupValue;
             GroupedCapitalInput input = grouped.get(key);
@@ -844,19 +831,15 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
     }
 
     private List<String> normalizeBuildOrder(List<String> buildOrder) {
-        if (buildOrder == null || buildOrder.isEmpty()) {
+        List<String> normalizedRuleOrder = dimensionAggregationService.normalizeBuildOrder(buildOrder);
+        if (normalizedRuleOrder.isEmpty()) {
             throw new IllegalArgumentException("IMA AggregationRule.buildOrder 不能为空");
         }
         LinkedHashSet<String> seen = new LinkedHashSet<String>();
         List<String> normalized = new ArrayList<String>();
         seen.add(TOTAL);
         normalized.add(TOTAL);
-        for (String item : buildOrder) {
-            String level = trimToNull(item);
-            if (level == null) {
-                continue;
-            }
-            level = level.toUpperCase(Locale.ROOT);
+        for (String level : normalizedRuleOrder) {
             if (TOTAL.equals(level)) {
                 continue;
             }
@@ -898,21 +881,6 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
             throw new IllegalArgumentException("ima_rule_id_list 不能为空");
         }
         return new ArrayList<String>(values);
-    }
-
-    private static String buildGroupValue(List<String> pathValues) {
-        if (pathValues == null || pathValues.isEmpty()) {
-            return null;
-        }
-        return String.join("&", pathValues);
-    }
-
-    private static String normalizeDimensionValue(Object value) {
-        if (value == null) {
-            return NULL_DIMENSION_VALUE;
-        }
-        String safe = trimToNull(String.valueOf(value));
-        return safe == null ? NULL_DIMENSION_VALUE : safe;
     }
 
     // ==================== 数据查询 ====================
@@ -1071,20 +1039,6 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
         private final List<ImaCapitalResult> capitalResults = new ArrayList<ImaCapitalResult>();
         private final List<ImaEsResultDetail> esResultDetails = new ArrayList<ImaEsResultDetail>();
         private final List<ImaNmrfResult> nmrfResults = new ArrayList<ImaNmrfResult>();
-    }
-
-    private static class NmrfBucketPnlAccum {
-        private final String bucketId;
-        private final String riskFactorId;
-        private final String nmrfType;
-        private BigDecimal upPnl = BigDecimal.ZERO;
-        private BigDecimal downPnl = BigDecimal.ZERO;
-
-        private NmrfBucketPnlAccum(String bucketId, String riskFactorId, String nmrfType) {
-            this.bucketId = bucketId;
-            this.riskFactorId = riskFactorId;
-            this.nmrfType = nmrfType;
-        }
     }
 
     private static class SbaCapitalSnapshot {

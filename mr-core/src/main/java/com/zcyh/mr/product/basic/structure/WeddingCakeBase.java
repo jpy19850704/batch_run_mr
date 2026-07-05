@@ -444,8 +444,7 @@ public abstract class WeddingCakeBase<T extends WeddingCakeBase.WeddingCakeBaseI
         m.dataDate = dataDate;
         m.position = pos;
         m.status = "ERROR";
-        m.logs = new ArrayList<>();
-        m.logs.add(Measure.errorLog(ex == null || ex.getMessage() == null ? "UNKNOWN_ERROR" : ex.getMessage()));
+        m.addErrorLog(ex == null || ex.getMessage() == null ? "UNKNOWN_ERROR" : ex.getMessage());
         m.cashFlowList = null;
         m.detail = null;
         m.sensitivityList = null;

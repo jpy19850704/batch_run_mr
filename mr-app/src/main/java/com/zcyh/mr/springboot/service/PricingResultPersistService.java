@@ -5,6 +5,7 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
+import com.zcyh.mr.frtbima.common.ImaConstants;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
 import com.zcyh.mr.springboot.model.EngineRunResult;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -466,7 +467,7 @@ public class PricingResultPersistService {
         row.put("SCENARIO_ID", trimToNull(scenario.getString("SCENARIO_ID")));
         row.put("SUBSCENARIO_ID", trimToNull(scenario.getString("SUBSCENARIO_ID")));
         row.put("SCENARIO_NAME", trimToNull(scenario.getString("SCENARIO_NAME")));
-        row.put("SCENARIO_TYPE", trimToNull(scenario.getString("SCENARIO_TYPE")));
+        row.put("SCENARIO_TYPE", requireImaScenarioType(scenario));
         row.put("INSTRUMENT_ID", instrumentId);
         row.put("PRODUCT_CODE", baseTrade == null ? null : trimToNull(baseTrade.getString("PRODUCT_CODE")));
         row.put("LH_DAYS", lhDays);
@@ -517,6 +518,20 @@ public class PricingResultPersistService {
             return upper;
         }
         throw new IllegalStateException("IMA 可建模不支持的风险类别: " + riskClass);
+    }
+
+    private static String requireImaScenarioType(JSONObject scenario) {
+        JSONObject tag = scenario == null ? null : scenario.getJSONObject("SCENARIO_TAG");
+        String value = trimToNull(tag == null
+                ? null
+                : tag.getString(ScenarioProcessConstants.TAG_IMA_SCENARIO_TYPE));
+        if (ImaConstants.SCENARIO_TYPE_NORMAL_FULL.equals(value)
+                || ImaConstants.SCENARIO_TYPE_NORMAL_REDUCED.equals(value)
+                || ImaConstants.SCENARIO_TYPE_STRESS_REDUCED.equals(value)) {
+            return value;
+        }
+        throw new IllegalStateException("IMA 可建模 scenario_result 缺少合法 SCENARIO_TAG."
+                + ScenarioProcessConstants.TAG_IMA_SCENARIO_TYPE);
     }
 
     private static String normalizeRiskClass(String riskClass) {

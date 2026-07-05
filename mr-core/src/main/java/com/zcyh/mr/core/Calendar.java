@@ -4,6 +4,8 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -29,6 +31,8 @@ import java.util.TreeSet;
  * @date 2024/7/10 14:00
  */
 public class Calendar {
+    private static final Logger log = LoggerFactory.getLogger(Calendar.class);
+
     private final HashMap<String, Set<LocalDate>> addedHolidays = new HashMap<String, Set<LocalDate>>();
     private final HashMap<String, CalendarFileRecord> fileRecords = new HashMap<String, CalendarFileRecord>();
     private String storePath;
@@ -69,7 +73,7 @@ public class Calendar {
 
         Path root = Paths.get(storePath);
         if (!Files.exists(root) || !Files.isDirectory(root)) {
-            System.err.println("日历目录不存在，按全工作日处理: " + root);
+            log.warn("日历目录不存在，按全工作日处理: {}", root);
             clearFileBackedCalendars();
             return;
         }
@@ -91,7 +95,7 @@ public class Calendar {
 
             replaceFileBackedCalendars(loadedRecords);
         } catch (IOException ex) {
-            System.err.println("加载日历目录失败，保留现有缓存: " + ex.getMessage());
+            log.warn("加载日历目录失败，保留现有缓存: {}", ex.getMessage());
         }
     }
 
@@ -145,7 +149,7 @@ public class Calendar {
     }
 
     public boolean isBusinessDay(String calName, final LocalDate d) {
-        // 日历为空或未配置时，默认所有自然日都视为工作日。
+        // 日历为空或未配置时使用全工作日口径，这是引擎默认日历策略，不属于字段兼容回退。
         if (StringUtils.isBlank(calName) || !addedHolidays.containsKey(calName)) {
             return true;
         }
@@ -370,7 +374,7 @@ public class Calendar {
             String content = Files.readString(jsonFile, StandardCharsets.UTF_8);
             JSONObject root = JSON.parseObject(content);
             if (root == null) {
-                System.err.println("日历文件解析为空，跳过: " + jsonFile);
+                log.warn("日历文件解析为空，跳过: {}", jsonFile);
                 return null;
             }
 
@@ -382,7 +386,7 @@ public class Calendar {
                 }
             }
             if (calendarCode == null) {
-                System.err.println("日历文件缺少 calendarCode，跳过: " + jsonFile);
+                log.warn("日历文件缺少 calendarCode，跳过: {}", jsonFile);
                 return null;
             }
 
@@ -397,7 +401,7 @@ public class Calendar {
                     try {
                         holidays.add(LocalDate.parse(text));
                     } catch (Exception ex) {
-                        System.err.println("忽略非法节假日日期: file=" + jsonFile + ", value=" + text);
+                        log.warn("忽略非法节假日日期: file={}, value={}", jsonFile, text);
                     }
                 }
             }
@@ -411,7 +415,7 @@ public class Calendar {
             record.lastModified = Files.getLastModifiedTime(jsonFile).toMillis();
             return record;
         } catch (Exception ex) {
-            System.err.println("解析日历文件失败，跳过: " + jsonFile + ", " + ex.getMessage());
+            log.warn("解析日历文件失败，跳过: {}, {}", jsonFile, ex.getMessage());
             return null;
         }
     }

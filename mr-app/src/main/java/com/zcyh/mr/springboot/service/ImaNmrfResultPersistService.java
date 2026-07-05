@@ -20,8 +20,8 @@ public class ImaNmrfResultPersistService {
     private static final Logger log = LoggerFactory.getLogger(ImaNmrfResultPersistService.class);
     private static final String TARGET_TABLE = "TB_OUT_IMA_NMRF_RESULT";
     private static final String STREAM_LOAD_COLUMNS =
-            "BATCH_ID,DATA_DATE,RULE_ID,GROUP_TYPE,GROUP_VALUE,GROUP_ORDER,NMRF_TYPE,RFET_BUCKET_ID,"
-                    + "RISK_FACTOR_ID,UP_PNL,DOWN_PNL,STRESS_LOSS,SELECTED_DIRECTION,CREATED_AT";
+            "BATCH_ID,DATA_DATE,RULE_ID,GROUP_TYPE,GROUP_VALUE,GROUP_ORDER,SES,"
+                    + "IDIO_CREDIT_SUM_SQ,IDIO_EQUITY_SUM_SQ,OTHER_CORR_TERM,OTHER_IDIO_TERM,NMRF_COUNT,CREATED_AT";
 
     private final JdbcTemplate jdbcTemplate;
     private final DorisStreamLoadService dorisStreamLoadService;
@@ -72,13 +72,12 @@ public class ImaNmrfResultPersistService {
                     result.getGroupType(),
                     result.getGroupValue(),
                     result.getGroupOrder(),
-                    result.getNmrfType(),
-                    result.getRfetBucketId(),
-                    result.getRiskFactorId(),
-                    DorisCsvStreamLoadBuffer.decimalText(result.getUpPnl()),
-                    DorisCsvStreamLoadBuffer.decimalText(result.getDownPnl()),
-                    DorisCsvStreamLoadBuffer.decimalText(result.getStressLoss()),
-                    result.getSelectedDirection(),
+                    DorisCsvStreamLoadBuffer.decimalText(result.getSes()),
+                    DorisCsvStreamLoadBuffer.decimalText(result.getIdioCreditSumSq()),
+                    DorisCsvStreamLoadBuffer.decimalText(result.getIdioEquitySumSq()),
+                    DorisCsvStreamLoadBuffer.decimalText(result.getOtherCorrTerm()),
+                    DorisCsvStreamLoadBuffer.decimalText(result.getOtherIdioTerm()),
+                    result.getNmrfCount(),
                     now);
         }
         buffer.flush();

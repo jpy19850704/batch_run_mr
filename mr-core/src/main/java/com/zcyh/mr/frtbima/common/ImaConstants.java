@@ -1,6 +1,10 @@
 package com.zcyh.mr.frtbima.common;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * FRTB IMA 核心常量。
@@ -34,6 +38,16 @@ public final class ImaConstants {
      * 流动性期限基础值 LH_1=10（MAR33.4，ES 公式权重分母）。
      */
     public static final int LH_BASE = 10;
+
+    /**
+     * FX 10天流动性期限币种集合。
+     * 来源为 Basel SA 指定外汇货币对及其一阶交叉对应的币种范围，IMA 单独维护。
+     */
+    public static final Set<String> FX_LH_10_CURRENCIES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+            "AUD", "BRL", "CAD", "CHF", "CNY",
+            "EUR", "GBP", "HKD", "INR", "JPY",
+            "KRW", "MXN", "NOK", "NZD", "RUB",
+            "SEK", "SGD", "TRY", "USD", "ZAR")));
 
     /**
      * subScenarioId 中 LH 编码的分隔符。

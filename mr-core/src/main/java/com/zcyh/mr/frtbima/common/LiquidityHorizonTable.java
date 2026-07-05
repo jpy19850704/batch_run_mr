@@ -8,53 +8,15 @@ import java.util.Locale;
  * MAR33.6 流动性期限映射表。
  *
  * <p>IMA批量主流程使用风险因子树快照中的曲线级显式配置。
- * riskClass映射仅保留给历史单元测试和非主流程调用。
  */
 public class LiquidityHorizonTable {
 
-    /** MAR33.6 riskClass → LH 天数 */
-    private static final Map<String, Integer> LH_BY_RISK_CLASS = new HashMap<>();
-
-    static {
-        // 即期/现货类
-        LH_BY_RISK_CLASS.put("IR",           10);
-        LH_BY_RISK_CLASS.put("EQ_LARGE",     10);
-        LH_BY_RISK_CLASS.put("EQ_SMALL",     20);
-        LH_BY_RISK_CLASS.put("FX_MAJOR",     10);
-        LH_BY_RISK_CLASS.put("FX_OTHER",     20);
-        LH_BY_RISK_CLASS.put("CREDIT_NS",    40);
-        LH_BY_RISK_CLASS.put("CREDIT_SEC",   60);
-        LH_BY_RISK_CLASS.put("COMM_ENERGY",  20);
-        LH_BY_RISK_CLASS.put("COMM_METAL",   40);
-        LH_BY_RISK_CLASS.put("COMM_OTHER",   60);
-        // 波动率类统一 60（MAR33.6），COMM_VOL 为 120
-        LH_BY_RISK_CLASS.put("IR_VOL",       60);
-        LH_BY_RISK_CLASS.put("EQ_VOL",       60);
-        LH_BY_RISK_CLASS.put("FX_VOL",       60);
-        LH_BY_RISK_CLASS.put("COMM_VOL",    120);
-    }
-
-    /** curveId → riskClass，来自 RF_CONFIG */
-    private final Map<String, String> riskClassByCurveId;
     private final Map<String, Integer> lhDaysByCurveKey;
     private final Map<String, String> imaRiskClassByCurveKey;
-    private final boolean explicitMode;
 
-    /**
-     * @param riskClassByCurveId RF_CONFIG 中 curveId → riskClass 的映射
-     */
-    public LiquidityHorizonTable(Map<String, String> riskClassByCurveId) {
-        this.riskClassByCurveId = normalizeTextMap(riskClassByCurveId);
-        this.lhDaysByCurveKey = new HashMap<>();
-        this.imaRiskClassByCurveKey = new HashMap<>();
-        this.explicitMode = false;
-    }
-
-    private LiquidityHorizonTable(Map<String, Integer> lhDaysByCurveId, boolean explicitMode) {
-        this.riskClassByCurveId = new HashMap<>();
+    private LiquidityHorizonTable(Map<String, Integer> lhDaysByCurveId) {
         this.lhDaysByCurveKey = normalizeLhMap(lhDaysByCurveId);
         this.imaRiskClassByCurveKey = new HashMap<>();
-        this.explicitMode = explicitMode;
     }
 
     private LiquidityHorizonTable(Map<String, Integer> lhDaysByCurveKey,
@@ -64,14 +26,12 @@ public class LiquidityHorizonTable {
         if (!normalizedLhDaysByCurveKey.keySet().equals(normalizedImaRiskClassByCurveKey.keySet())) {
             throw new IllegalArgumentException("IMA风险因子配置中的LH和风险大类曲线集合不一致");
         }
-        this.riskClassByCurveId = new HashMap<>();
         this.lhDaysByCurveKey = normalizedLhDaysByCurveKey;
         this.imaRiskClassByCurveKey = normalizedImaRiskClassByCurveKey;
-        this.explicitMode = true;
     }
 
     public static LiquidityHorizonTable fromCurveLiquidityHorizonDays(Map<String, Integer> lhDaysByCurveId) {
-        return new LiquidityHorizonTable(lhDaysByCurveId, true);
+        return new LiquidityHorizonTable(lhDaysByCurveId);
     }
 
     public static LiquidityHorizonTable fromCurveConfig(Map<String, Integer> lhDaysByCurveKey,
@@ -88,6 +48,14 @@ public class LiquidityHorizonTable {
         return normalizedType + "|" + normalizedCurveId;
     }
 
+    public static int resolveFxLiquidityHorizonDays(String currencyPair) {
+        String[] currencies = parseFxCurrencyPair(currencyPair);
+        return ImaConstants.FX_LH_10_CURRENCIES.contains(currencies[0])
+                && ImaConstants.FX_LH_10_CURRENCIES.contains(currencies[1])
+                ? ImaConstants.LH_BASE
+                : 20;
+    }
+
     /**
      * 获取指定曲线对应的流动性期限天数。
      *
@@ -96,24 +64,14 @@ public class LiquidityHorizonTable {
      */
     public int getLhDays(String curveId) {
         String normalizedCurveId = normalizeKey(curveId);
-        if (explicitMode) {
-            Integer lhDays = lhDaysByCurveKey.get(normalizedCurveId);
-            if (lhDays == null) {
-                throw new IllegalStateException("IMA风险因子流动性期限未配置: curveId=" + curveId);
-            }
-            return lhDays;
+        Integer lhDays = lhDaysByCurveKey.get(normalizedCurveId);
+        if (lhDays == null) {
+            throw new IllegalStateException("IMA风险因子流动性期限未配置: curveId=" + curveId);
         }
-        String riskClass = riskClassByCurveId.get(normalizedCurveId);
-        if (riskClass == null) {
-            return ImaConstants.LH_BASE;
-        }
-        return LH_BY_RISK_CLASS.getOrDefault(riskClass, ImaConstants.LH_BASE);
+        return lhDays;
     }
 
     public int getLhDays(String curveType, String curveId) {
-        if (!explicitMode) {
-            return getLhDays(curveId);
-        }
         String key = curveKey(curveType, curveId);
         Integer lhDays = lhDaysByCurveKey.get(key);
         if (lhDays == null) {
@@ -124,9 +82,6 @@ public class LiquidityHorizonTable {
     }
 
     public String getImaRiskClass(String curveType, String curveId) {
-        if (!explicitMode) {
-            return riskClassByCurveId.get(normalizeKey(curveId));
-        }
         String key = curveKey(curveType, curveId);
         String riskClass = imaRiskClassByCurveKey.get(key);
         if (riskClass == null) {
@@ -134,30 +89,6 @@ public class LiquidityHorizonTable {
                     + curveType + ", curveId=" + curveId);
         }
         return riskClass;
-    }
-
-    /**
-     * 获取指定风险类别的 LH 天数（直接查 hardcoded 表）。
-     *
-     * @param riskClass 风险类别字符串
-     * @return LH 天数；未知则返回 10
-     */
-    public static int getLhDaysByRiskClass(String riskClass) {
-        return LH_BY_RISK_CLASS.getOrDefault(riskClass, ImaConstants.LH_BASE);
-    }
-
-    private static Map<String, String> normalizeTextMap(Map<String, String> raw) {
-        Map<String, String> result = new HashMap<>();
-        if (raw == null) {
-            return result;
-        }
-        for (Map.Entry<String, String> entry : raw.entrySet()) {
-            String key = normalizeKey(entry.getKey());
-            if (key != null && entry.getValue() != null) {
-                result.put(key, entry.getValue().trim().toUpperCase(Locale.ROOT));
-            }
-        }
-        return result;
     }
 
     private static Map<String, Integer> normalizeLhMap(Map<String, Integer> raw) {
@@ -213,5 +144,35 @@ public class LiquidityHorizonTable {
         }
         String text = value.trim();
         return text.isEmpty() ? null : text.toUpperCase(Locale.ROOT);
+    }
+
+    private static String[] parseFxCurrencyPair(String currencyPair) {
+        String normalizedPair = normalizeKey(currencyPair);
+        if (normalizedPair == null) {
+            throw new IllegalArgumentException("FX货币对不能为空");
+        }
+        String[] parts = normalizedPair.split("/");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("FX货币对格式必须为AAA/BBB: currencyPair=" + currencyPair);
+        }
+        String left = parts[0].trim();
+        String right = parts[1].trim();
+        if (!isCurrencyCode(left) || !isCurrencyCode(right)) {
+            throw new IllegalArgumentException("FX货币对币种必须为3位代码: currencyPair=" + currencyPair);
+        }
+        return new String[]{left, right};
+    }
+
+    private static boolean isCurrencyCode(String value) {
+        if (value == null || value.length() != 3) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (ch < 'A' || ch > 'Z') {
+                return false;
+            }
+        }
+        return true;
     }
 }

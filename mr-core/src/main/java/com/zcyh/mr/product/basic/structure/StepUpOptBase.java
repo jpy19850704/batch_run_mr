@@ -214,8 +214,7 @@ public abstract class StepUpOptBase<T, M extends OptionMeasure> {
         String message = (e == null || e.getMessage() == null || e.getMessage().trim().isEmpty())
                 ? String.valueOf(e)
                 : e.getMessage();
-        errorMeasure.logs = new ArrayList<>();
-        errorMeasure.logs.add(Measure.errorLog(message));
+        errorMeasure.addErrorLog(message);
         return errorMeasure;
     }
 

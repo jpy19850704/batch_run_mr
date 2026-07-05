@@ -38,6 +38,9 @@ import java.util.regex.Pattern;
  * 2) productModel.json（默认值模型）
  * 3) product 目录 Java 源码中的 @JSONField(name="...") + Info 类字段
  *
+ * 本类是临时主数据生成程序，不作为 engine 运行时配置入口。
+ * productModel 中的默认值用于生成可运行输入模型，不是字段兼容回退逻辑。
+ *
  * 输出文件：
  * 1) product_input_fields_auto.csv
  * 2) product_input_fields_auto_diff.md

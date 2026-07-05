@@ -17,6 +17,8 @@ public final class ScenarioProcessConstants {
     public static final String TAG_RISK_CLASS = "riskClass";
     public static final String TAG_LH = "lh";
     public static final String TAG_IMA_RISK_CLASS = "imaRiskClass";
+    public static final String TAG_IMA_SCENARIO_TYPE = "imaScenarioType";
+    public static final String SCENARIO_META = "scenario_meta";
 
     private ScenarioProcessConstants() {
     }

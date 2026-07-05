@@ -75,15 +75,6 @@ public class Bond implements FrtbDrcInterface {
             throw new IllegalArgumentException("折现曲线不存在: " + bondInfo.discountCurve);
         }
         // 浮息参考曲线缺失由 SCF 按零远期利率处理，并在交易级 LOGS 中记录警告。
-        // 空值防护：信用点差曲线如果配置了但市场数据中不存在，记录警告
-        // 不叠加点差，但保留字段以便 CSR 敏感度仍可回退到折现曲线计算
-        if (!StringUtils.isBlank(bondInfo.creditSpreadCurve)
-                && !marketData.irSpot.containsKey(bondInfo.creditSpreadCurve)) {
-            System.err.println("[WARN] 信用点差曲线 " + bondInfo.creditSpreadCurve
-                    + " 在市场数据中不存在，将忽略信用点差叠加，CSR 使用折现曲线计算 (INSTRUMENT_ID="
-                    + bondInfo.instrumentId + ")");
-        }
-
         // 含权债：在 SOY 校准前选取最优行权日
         if (bondInfo.optionBondFlag) {
             resolveCallPutMaturity();
@@ -522,11 +513,8 @@ public class Bond implements FrtbDrcInterface {
         if (measure == null || scf == null) {
             return;
         }
-        if (measure.logs == null) {
-            measure.logs = new ArrayList<>();
-        }
         for (String warning : scf.getWarnings()) {
-            measure.logs.add(Measure.warningLog(warning));
+            measure.addWarningLog(warning);
         }
     }
 
@@ -534,17 +522,14 @@ public class Bond implements FrtbDrcInterface {
         if (measure == null) {
             return;
         }
-        if (measure.logs == null) {
-            measure.logs = new ArrayList<>();
-        }
         if (StringUtils.isBlank(bondInfo.creditSpreadCurve)) {
-            measure.logs.add(Measure.warningLog("CREDIT_SPREAD_CURVE为空，CSR敏感性使用折现曲线计算: "
-                    + bondInfo.discountCurve));
+            measure.addWarningLog("CREDIT_SPREAD_CURVE为空，CSR敏感性使用折现曲线计算: "
+                    + bondInfo.discountCurve);
             return;
         }
         if (marketData.irSpot != null && !marketData.irSpot.containsKey(bondInfo.creditSpreadCurve)) {
-            measure.logs.add(Measure.warningLog("CREDIT_SPREAD_CURVE=" + bondInfo.creditSpreadCurve
-                    + " 在市场数据中不存在，CSR敏感性使用折现曲线计算: " + bondInfo.discountCurve));
+            measure.addWarningLog("CREDIT_SPREAD_CURVE=" + bondInfo.creditSpreadCurve
+                    + " 在市场数据中不存在，CSR敏感性使用折现曲线计算: " + bondInfo.discountCurve);
         }
     }
 

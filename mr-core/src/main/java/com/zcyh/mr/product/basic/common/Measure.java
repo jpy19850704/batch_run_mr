@@ -76,6 +76,26 @@ public class Measure {
         return errorLogs(Collections.singletonList(message));
     }
 
+    public void addWarningLog(String message) {
+        ensureMutableLogs();
+        logs.add(warningLog(message));
+    }
+
+    public void addErrorLog(String message) {
+        ensureMutableLogs();
+        logs.add(errorLog(message));
+    }
+
+    private void ensureMutableLogs() {
+        if (logs == null) {
+            logs = new ArrayList<>();
+            return;
+        }
+        if (!(logs instanceof ArrayList)) {
+            logs = new ArrayList<>(logs);
+        }
+    }
+
     public static class MeasureLog {
         @JSONField(name = "level")
         public String level;

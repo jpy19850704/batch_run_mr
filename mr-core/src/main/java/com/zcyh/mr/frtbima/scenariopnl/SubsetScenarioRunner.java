@@ -196,7 +196,7 @@ public class SubsetScenarioRunner {
         copied.curveData.clear();
         for (Map.Entry<String, Double> e : source.curveData.entrySet()) {
             String curveId = e.getKey();
-            if (!includeImaCurve(ImaConstants.RF_TYPE_FX_SPOT, curveId, lhDays, imaRiskClass, missingConfigLogged)) {
+            if (!includeFxSpotCurve(curveId, lhDays, imaRiskClass)) {
                 continue;
             }
             copied.curveData.put(curveId, e.getValue());
@@ -262,6 +262,15 @@ public class SubsetScenarioRunner {
             return false;
         }
         return "ALL".equals(imaRiskClass) || imaRiskClass.equals(configuredRiskClass);
+    }
+
+    private boolean includeFxSpotCurve(String currencyPair,
+                                       int lhDays,
+                                       String imaRiskClass) {
+        if (!"ALL".equals(imaRiskClass) && !"FX".equals(imaRiskClass)) {
+            return false;
+        }
+        return LiquidityHorizonTable.resolveFxLiquidityHorizonDays(currencyPair) >= lhDays;
     }
 
     private Integer readConfiguredLh(String curveType, String curveId, Set<String> missingConfigLogged) {
@@ -523,7 +532,7 @@ public class SubsetScenarioRunner {
         // Q(P,j)：因子 LH >= lhDays 才属于当前子集（MAR33.4）
         for (String pairKey : scenMD.fxSpot.curveData.keySet()) {
             if (modellableIndex.hasAnyModellableBucket(ImaConstants.RF_TYPE_FX_SPOT, pairKey, reducedSetOnly)
-                    && lhTable.getLhDays(ImaConstants.RF_TYPE_FX_SPOT, pairKey) >= lhDays) {
+                    && LiquidityHorizonTable.resolveFxLiquidityHorizonDays(pairKey) >= lhDays) {
                 merged.fxSpot = scenMD.fxSpot;
                 return;
             }

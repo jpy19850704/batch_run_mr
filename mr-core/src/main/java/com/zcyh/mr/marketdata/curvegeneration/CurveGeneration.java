@@ -70,6 +70,9 @@ public class CurveGeneration {
         @JSONField(name = "FX_SPOT")
         public Double fxSpot;
 
+        @JSONField(name = "BASE_TERM_CODE")
+        public String baseTermCode;
+
         /** 曲线相减：收益率曲线ID */
         @JSONField(name = "YC_CURVE_CODE")
         public String ycCurveCode;

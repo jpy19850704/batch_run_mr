@@ -1,20 +1,20 @@
 package com.zcyh.mr.springboot.service;
 
 import com.zcyh.mr.saccr.model.SaccrResult;
+import com.zcyh.mr.springboot.saccr.SaccrCollateralOutputRow;
+import com.zcyh.mr.springboot.saccr.SaccrTradeRow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
 /**
  * SA-CCR 计算结果落库服务。
- *
- * <p>写入目标：engine_result_db.TB_OUT_SACCR_RESULT（Doris）。
- * <p>策略：先按 job_id 全量 DELETE，再批量 INSERT（500 行/批）。
  */
 @Service
 public class SaccrResultPersistService {
@@ -23,13 +23,24 @@ public class SaccrResultPersistService {
 
     private static final int BATCH_SIZE = 5000;
 
-    private static final String DELETE_SQL =
-            "DELETE FROM TB_OUT_SACCR_RESULT WHERE JOB_ID = ?";
-    private static final String TARGET_TABLE = "TB_OUT_SACCR_RESULT";
-    private static final String STREAM_LOAD_COLUMNS =
-            "JOB_ID,DATA_DATE,NETTING_SET_ID,COUNTERPARTY_ID,IS_MARGINED,IS_CLEARED,IS_QCCP,SUM_MTM,COLLATERAL_C,"
-                    + "RC,ADDON_IR,ADDON_FX,ADDON_CREDIT,ADDON_EQUITY,ADDON_COMMODITY,ADDON_AGGREGATE,MULTIPLIER,PFE,EAD,"
-                    + "RISK_WEIGHT,RWA_CCR,CAPITAL_CCR,CREATE_TIME";
+    private static final String RESULT_TABLE = "TB_OUT_SACCR_RESULT";
+    private static final String TRADE_DETAIL_TABLE = "TB_OUT_SACCR_TRADE_DETAIL";
+    private static final String COLLATERAL_DETAIL_TABLE = "TB_OUT_SACCR_COLLATERAL_DETAIL";
+
+    private static final String RESULT_COLUMNS =
+            "BATCH_ID,DATA_DATE,NETTING_MODE,NETTING_SET_ID,COUNTERPARTY_ID,TRADE_COUNT,MARGIN_TYPE,"
+                    + "SUM_MTM,COLLATERAL_C,THRESHOLD_CNY,MTA_CNY,NICA_CNY,RC,ADDON_IR,ADDON_FX,"
+                    + "ADDON_CREDIT,ADDON_EQUITY,ADDON_COMMODITY,ADDON_AGGREGATE,MULTIPLIER,PFE,EAD,CREATE_TIME";
+
+    private static final String TRADE_DETAIL_COLUMNS =
+            "BATCH_ID,DATA_DATE,INSTRUMENT_ID,COUNTERPARTY_ID,NETTING_MODE,NETTING_SET_ID,PRODUCT_CODE,"
+                    + "ASSET_CLASS,DIRECTION,MTM_CNY,NOTIONAL,CURRENCY,START_DATE,END_DATE,REFERENCE_ENTITY,"
+                    + "CREDIT_RATING,IS_INDEX,CURRENCY_PAIR,COMMODITY_BUCKET,COMMODITY_TYPE,IS_OPTION,"
+                    + "OPTION_TYPE,OPTION_EXPIRY,STRIKE_PRICE,UNDERLYING_PRICE,QUANTITY,MEASURE_FACTOR_JSON,CREATE_TIME";
+
+    private static final String COLLATERAL_DETAIL_COLUMNS =
+            "BATCH_ID,DATA_DATE,COLLATERAL_ID,COLLATERAL_SCOPE,NETTING_SET_ID,INSTRUMENT_ID,COLLATERAL_TYPE,"
+                    + "DIRECTION,COLLATERAL_CCY,MARKET_VALUE,FX_RATE_TO_CNY,HAIRCUT_RATE,ADJUSTED_VALUE_CNY,CREATE_TIME";
 
     private final JdbcTemplate engineResultJdbc;
     private final DorisStreamLoadService dorisStreamLoadService;
@@ -41,71 +52,152 @@ public class SaccrResultPersistService {
         this.dorisStreamLoadService = dorisStreamLoadService;
     }
 
-    /**
-     * 持久化 SA-CCR 计算结果。
-     *
-     * @param jobId     任务 ID
-     * @param dataDate  计算基准日期
-     * @param results   SA-CCR 计算结果列表
-     * @param nsMetaMap key = nettingSetId，value = NettingSetMeta（补充 isMargined 等字段）
-     */
-    public void persist(String jobId, LocalDate dataDate, List<SaccrResult> results,
-                        java.util.Map<String, NettingSetMeta> nsMetaMap) {
-        // 1. 先删
-        engineResultJdbc.update(DELETE_SQL, jobId);
-        log.info("SA-CCR 结果落库：删除 jobId={} 旧数据完成", jobId);
+    public void persist(String batchId,
+                        String dataDate,
+                        List<SaccrResult> results,
+                        List<SaccrTradeRow> tradeRows,
+                        List<SaccrCollateralOutputRow> collateralRows) {
+        engineResultJdbc.update("DELETE FROM TB_OUT_SACCR_RESULT WHERE BATCH_ID = ? AND DATA_DATE = ?", batchId, dataDate);
+        engineResultJdbc.update("DELETE FROM TB_OUT_SACCR_TRADE_DETAIL WHERE BATCH_ID = ? AND DATA_DATE = ?", batchId, dataDate);
+        engineResultJdbc.update("DELETE FROM TB_OUT_SACCR_COLLATERAL_DETAIL WHERE BATCH_ID = ? AND DATA_DATE = ?", batchId, dataDate);
 
-        // 2. 批量插入
         String now = ResultPersistTime.nowText();
+        writeResults(batchId, dataDate, results, now);
+        writeTradeDetails(batchId, dataDate, tradeRows, now);
+        writeCollateralDetails(batchId, dataDate, collateralRows, now);
+
+        log.info("SA-CCR 结果落库完成：batchId={}，dataDate={}，结果={}，交易明细={}，押品明细={}",
+                batchId,
+                dataDate,
+                results == null ? 0 : results.size(),
+                tradeRows == null ? 0 : tradeRows.size(),
+                collateralRows == null ? 0 : collateralRows.size());
+    }
+
+    private void writeResults(String batchId, String dataDate, List<SaccrResult> results, String now) {
+        if (results == null || results.isEmpty()) {
+            return;
+        }
         DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
                 dorisStreamLoadService,
-                TARGET_TABLE,
-                STREAM_LOAD_COLUMNS,
-                "saccr_" + jobId,
+                RESULT_TABLE,
+                RESULT_COLUMNS,
+                "saccr_result_" + batchId,
                 BATCH_SIZE);
-
         for (SaccrResult r : results) {
-            NettingSetMeta meta = nsMetaMap != null
-                    ? nsMetaMap.getOrDefault(r.nettingSetId, new NettingSetMeta())
-                    : new NettingSetMeta();
-
             buffer.appendRow(
-                    jobId,
-                    dataDate.toString(),
+                    batchId,
+                    dataDate,
+                    r.nettingMode,
                     r.nettingSetId,
                     r.counterpartyId,
-                    meta.isMargined ? 1 : 0,
-                    meta.isCleared ? 1 : 0,
-                    meta.isQccp ? 1 : 0,
-                    r.sumMtm,
-                    r.collateralC,
-                    r.rc,
-                    r.addonIr,
-                    r.addonFx,
-                    r.addonCredit,
-                    r.addonEquity,
-                    r.addonCommodity,
-                    r.addonAggregate,
-                    r.multiplier,
-                    r.pfe,
-                    r.ead,
-                    r.riskWeight,
-                    r.rwaCcr,
-                    r.capitalCcr,
+                    r.tradeCount,
+                    r.marginType,
+                    decimal(r.sumMtm),
+                    decimal(r.collateralC),
+                    decimal(r.thresholdCny),
+                    decimal(r.mtaCny),
+                    decimal(r.nicaCny),
+                    decimal(r.rc),
+                    decimal(r.addonIr),
+                    decimal(r.addonFx),
+                    decimal(r.addonCredit),
+                    decimal(r.addonEquity),
+                    decimal(r.addonCommodity),
+                    decimal(r.addonAggregate),
+                    decimal(r.multiplier),
+                    decimal(r.pfe),
+                    decimal(r.ead),
                     now
             );
         }
         buffer.flush();
-
-        log.info("SA-CCR 结果落库完成：jobId={}，共 {} 条", jobId, results.size());
     }
 
-    /**
-     * 净额结算集合元数据，用于补充落库字段。
-     */
-    public static class NettingSetMeta {
-        public boolean isMargined;
-        public boolean isCleared;
-        public boolean isQccp;
+    private void writeTradeDetails(String batchId, String dataDate, List<SaccrTradeRow> rows, String now) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                TRADE_DETAIL_TABLE,
+                TRADE_DETAIL_COLUMNS,
+                "saccr_trade_detail_" + batchId,
+                BATCH_SIZE);
+        for (SaccrTradeRow row : rows) {
+            buffer.appendRow(
+                    batchId,
+                    dataDate,
+                    row.instrumentId,
+                    row.counterpartyId,
+                    row.nettingMode,
+                    row.nettingSetId,
+                    row.productCode,
+                    row.assetClass,
+                    row.direction,
+                    decimal(row.mtmCny),
+                    decimal(row.notional),
+                    row.currency,
+                    dateText(row.startDate),
+                    dateText(row.endDate),
+                    row.referenceEntity,
+                    row.creditRating,
+                    row.isIndex ? 1 : 0,
+                    row.currencyPair,
+                    row.commodityBucket,
+                    row.commodityType,
+                    row.isOption ? 1 : 0,
+                    row.optionType,
+                    dateText(row.optionExpiry),
+                    decimal(row.strikePrice),
+                    decimal(row.underlyingPrice),
+                    decimal(row.quantity),
+                    row.measureFactorJson(),
+                    now
+            );
+        }
+        buffer.flush();
+    }
+
+    private void writeCollateralDetails(String batchId,
+                                        String dataDate,
+                                        List<SaccrCollateralOutputRow> rows,
+                                        String now) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                COLLATERAL_DETAIL_TABLE,
+                COLLATERAL_DETAIL_COLUMNS,
+                "saccr_collateral_detail_" + batchId,
+                BATCH_SIZE);
+        for (SaccrCollateralOutputRow row : rows) {
+            buffer.appendRow(
+                    batchId,
+                    dataDate,
+                    row.collateralId,
+                    row.collateralScope,
+                    row.nettingSetId,
+                    row.instrumentId,
+                    row.collateralType,
+                    row.direction,
+                    row.collateralCcy,
+                    decimal(row.marketValue),
+                    decimal(row.fxRateToCny),
+                    decimal(row.haircutRate),
+                    decimal(row.adjustedValueCny),
+                    now
+            );
+        }
+        buffer.flush();
+    }
+
+    private static String decimal(double value) {
+        return DorisCsvStreamLoadBuffer.decimalText(BigDecimal.valueOf(value));
+    }
+
+    private static String dateText(LocalDate date) {
+        return date == null ? null : date.toString();
     }
 }

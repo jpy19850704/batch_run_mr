@@ -46,12 +46,6 @@ public final class SaccrSupervisoryParams {
     /** 信用：单一主体 CCC（含 CC/C/D） */
     public static final double SF_CREDIT_SINGLE_CCC = 0.0600;
 
-    /** 信用：单一主体，投资级 IG（兼容旧代码） */
-    public static final double SF_CREDIT_IG_SINGLE = SF_CREDIT_SINGLE_AAA;
-
-    /** 信用：单一主体，投机级 SG（兼容旧代码） */
-    public static final double SF_CREDIT_SG_SINGLE = SF_CREDIT_SINGLE_BB;
-
     /** 信用：指数，投资级 IG */
     public static final double SF_CREDIT_IG_INDEX = 0.0038;
 
@@ -173,8 +167,7 @@ public final class SaccrSupervisoryParams {
                 if (isIndex) {
                     return isIg ? SF_CREDIT_IG_INDEX : SF_CREDIT_SG_INDEX;
                 }
-                // 该分支仅用于兼容旧调用；信用单一主体建议改用 getCreditSingleSf + 评级分档。
-                return isIg ? SF_CREDIT_IG_SINGLE : SF_CREDIT_SG_SINGLE;
+                throw new IllegalArgumentException("信用单一主体监管因子必须按评级分档调用 getCreditSingleSf");
             case "EQUITY":
                 return isIndex ? SF_EQUITY_INDEX : SF_EQUITY_SINGLE;
             case "COMMODITY":
@@ -237,8 +230,7 @@ public final class SaccrSupervisoryParams {
     /**
      * 解析信用单一主体评级分档（AAA/AA/A/BBB/BB/B/CCC）。
      *
-     * <p>兼容映射：IG -> AAA 档；SG -> BB 档。
-     * <p>无法识别返回 null，由上层按业务规则降级并记录告警日志。
+     * <p>无法识别返回 null，由上层显式报错。
      */
     public static CreditSingleBucket resolveCreditSingleBucket(String rating) {
         if (rating == null || rating.isBlank()) return null;
@@ -252,8 +244,6 @@ public final class SaccrSupervisoryParams {
         if (r.startsWith("CCC") || r.startsWith("CC") || r.equals("C") || r.startsWith("D")) {
             return CreditSingleBucket.CCC;
         }
-        if ("IG".equals(r)) return CreditSingleBucket.AAA;
-        if ("SG".equals(r)) return CreditSingleBucket.BB;
         return null;
     }
 
@@ -271,14 +261,15 @@ public final class SaccrSupervisoryParams {
     }
 
     /**
-     * 判断信用输入是否属于投资级（兼容旧调用）。
+     * 判断信用单一主体评级是否属于投资级。
      *
-     * <p>该方法会优先按信用单一主体评级分档解析。
-     * <p>无法识别时返回 false（按 SG 口径保守）。
+     * <p>无法识别时直接报错。
      */
     public static boolean isInvestmentGrade(String rating) {
         CreditSingleBucket bucket = resolveCreditSingleBucket(rating);
-        if (bucket == null) return false;
+        if (bucket == null) {
+            throw new IllegalArgumentException("信用单一主体评级无法识别: " + rating);
+        }
         return bucket == CreditSingleBucket.AAA
                 || bucket == CreditSingleBucket.AA
                 || bucket == CreditSingleBucket.A

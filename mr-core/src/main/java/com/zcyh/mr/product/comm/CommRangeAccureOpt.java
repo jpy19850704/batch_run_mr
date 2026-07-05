@@ -1,7 +1,6 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.basic.util.QL;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
@@ -94,7 +93,7 @@ public class CommRangeAccureOpt extends RangeAccureOptBase<CommRangeAccureOpt.Co
     private List<FrtbSenes> getSensListCMTY() {
         String commBucket = hasText(rangeAccureInfo.frtbCommBucket) ? rangeAccureInfo.frtbCommBucket.trim() : null;
         if (!hasText(commBucket)) {
-            QL.error("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+            rangeAccureMeasure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
                     + getText(rangeAccureInfo.instrumentId) + ")");
             return new ArrayList<>();
         }

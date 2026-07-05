@@ -4,6 +4,8 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -15,35 +17,39 @@ import java.util.Set;
 
 /**
  * 交易数据字段校验器
- * 根据 validationRules.json 配置文件按产品类型校验交易字段
+ * 根据 data/model/validationRules.json 运行时资源按产品类型校验交易字段
  * 支持 string/number/date/array/domain 类型校验
  */
 public class TradeValidator {
 
+    private static final String VALIDATION_RULES_RESOURCE = "data/model/validationRules.json";
     private static final JSONObject rules;
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     static {
-        // 启动时加载校验规则配置文件，加载失败则不校验
-        JSONObject loaded = null;
-        try {
-            java.io.InputStream is = TradeValidator.class.getResourceAsStream("validationRules.json");
-            if (is != null) {
-                java.io.BufferedReader reader = new java.io.BufferedReader(
-                        new java.io.InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) sb.append(line);
-                reader.close();
-                String data = sb.toString();
-                if (!data.isEmpty()) {
-                    loaded = JSON.parseObject(data);
-                }
+        rules = loadRules();
+    }
+
+    private static JSONObject loadRules() {
+        // 校验规则是交易输入契约，资源缺失或解析失败必须中断，不能静默跳过校验。
+        try (InputStream is = TradeValidator.class.getClassLoader().getResourceAsStream(VALIDATION_RULES_RESOURCE)) {
+            if (is == null) {
+                throw new IllegalStateException("未找到交易校验规则资源: " + VALIDATION_RULES_RESOURCE);
             }
+            String data = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+            if (data.trim().isEmpty()) {
+                throw new IllegalStateException("交易校验规则资源为空: " + VALIDATION_RULES_RESOURCE);
+            }
+            JSONObject parsed = JSON.parseObject(data);
+            if (parsed == null || parsed.isEmpty()) {
+                throw new IllegalStateException("交易校验规则内容为空: " + VALIDATION_RULES_RESOURCE);
+            }
+            return parsed;
+        } catch (IllegalStateException e) {
+            throw e;
         } catch (Exception e) {
-            // 配置文件加载失败，不校验
+            throw new IllegalStateException("加载交易校验规则失败: " + VALIDATION_RULES_RESOURCE, e);
         }
-        rules = (loaded != null) ? loaded : new JSONObject();
     }
 
     /**
@@ -56,7 +62,7 @@ public class TradeValidator {
      */
     public static List<String> validate(JSONObject data, String productCode, String node) {
         List<String> errors = new ArrayList<>();
-        if (data == null || rules.isEmpty()) {
+        if (data == null) {
             return errors;
         }
 

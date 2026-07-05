@@ -2,6 +2,8 @@ package com.zcyh.mr.scenario;
 
 import com.zcyh.mr.core.SystemCalendarCache;
 import com.zcyh.mr.scenario.model.ScenarioDefinition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -16,6 +18,8 @@ import java.util.List;
  * app 侧查询规划与 core 侧计量逻辑都应复用这里的结果。
  */
 public class ScenarioRangeResolver {
+
+    private static final Logger log = LoggerFactory.getLogger(ScenarioRangeResolver.class);
 
     private final com.zcyh.mr.core.Calendar holidayCalendar;
 
@@ -276,16 +280,12 @@ public class ScenarioRangeResolver {
         String scenarioType = definition == null ? null : definition.getScenarioType();
         String curveType = definition == null ? null : definition.getCurveType();
         String curveCode = definition == null ? null : definition.getCurveCode();
-        System.err.println("情景区间解析跳过: scenarioId="
-                + safeValue(scenarioId)
-                + ", scenarioType="
-                + safeValue(scenarioType)
-                + ", curveType="
-                + safeValue(curveType)
-                + ", curveCode="
-                + safeValue(curveCode)
-                + ", reason="
-                + reason);
+        log.warn("情景区间解析跳过: scenarioId={}, scenarioType={}, curveType={}, curveCode={}, reason={}",
+                safeValue(scenarioId),
+                safeValue(scenarioType),
+                safeValue(curveType),
+                safeValue(curveCode),
+                reason);
     }
 
     private String safeValue(String value) {

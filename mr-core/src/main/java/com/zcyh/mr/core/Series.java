@@ -1,6 +1,6 @@
 package com.zcyh.mr.core;
 
-import com.zcyh.mr.basic.util.QL;
+import com.zcyh.mr.basic.util.EnginePreconditions;
 
 import java.io.Serializable;
 import java.util.*;
@@ -24,8 +24,8 @@ public class Series<K, V> implements NavigableMap<K, V>, Serializable {
     private final Class<V> classV;
 
     public Series(final Class<K> classK, final Class<V> classV) {
-        QL.require(classK != null, "Generic type <K> is null");
-        QL.require(classV != null, "Generic type <V> is null");
+        EnginePreconditions.require(classK != null, "Generic type <K> is null");
+        EnginePreconditions.require(classV != null, "Generic type <V> is null");
 
         this.classK = classK;
         this.classV = classV;

@@ -10,8 +10,17 @@ public class SaccrResult {
     /** 净额结算集合 ID */
     public String nettingSetId;
 
+    /** 净额模式：NETTING_SET / TRADE */
+    public String nettingMode;
+
     /** 交易对手 ID */
     public String counterpartyId;
+
+    /** 交易笔数 */
+    public int tradeCount;
+
+    /** 保证金协议类型 */
+    public String marginType;
 
     // ==================== 第三层中间值 ====================
 
@@ -20,6 +29,15 @@ public class SaccrResult {
 
     /** 净收取抵押品 C */
     public double collateralC;
+
+    /** TH 折 CNY 后金额 */
+    public double thresholdCny;
+
+    /** MTA 折 CNY 后金额 */
+    public double mtaCny;
+
+    /** NICA 折 CNY 后金额 */
+    public double nicaCny;
 
     /** 替代成本 RC */
     public double rc;
@@ -57,17 +75,4 @@ public class SaccrResult {
     /** 风险敞口 EAD = 1.4 × (RC + PFE) */
     public double ead;
 
-    // ==================== 第五层：资本（可选） ====================
-
-    /** 适用风险权重 RW（如未计算资本则为 0） */
-    public double riskWeight;
-
-    /** CCR 风险加权资产 RWA = EAD × RW */
-    public double rwaCcr;
-
-    /** CCR 资本要求 Capital = RWA × 8% */
-    public double capitalCcr;
-
-    /** 是否已输出资本层结果 */
-    public boolean capitalCalculated;
 }

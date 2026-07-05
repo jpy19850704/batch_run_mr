@@ -12,44 +12,16 @@ public class SaccrNettingSet {
     /** 净额结算集合唯一标识 */
     public String nettingSetId;
 
+    /** 净额模式：NETTING_SET / TRADE */
+    public String nettingMode;
+
     /** 交易对手标识 */
     public String counterpartyId;
-
-    /** 交易对手类型（用于风险权重查询）：Sovereign / Bank / Corporate / QCCP / NonQCCP */
-    public String counterpartyType;
-
-    /** 交易对手外部评级（如 AAA / A+ / BBB+ 等），用于资本计算 */
-    public String counterpartyRating;
 
     // ==================== 保证金协议字段 ====================
 
     /** 是否有保证金协议（Margined）*/
     public boolean isMargined;
-
-    /**
-     * 是否集中清算（通过 CCP 清算）。
-     * 影响 MPOR 取值（5天 vs ≥10天）。
-     */
-    public boolean isCleared;
-
-    /**
-     * 是否合格中央对手方（QCCP）。
-     * 仅 isCleared=true 时有意义，影响风险权重（2% vs 150%）。
-     */
-    public boolean isQccp;
-
-    /**
-     * 银行是否作为客户（Client）通过清算会员接入 CCP。
-     * true = 间接清算；false = 直接清算会员。
-     */
-    public boolean isClientClearing;
-
-    /**
-     * 客户清算是否满足可转移性保护条件（Portability）。
-     * 满足 → MPOR=5天，RW=2%；否则按双边处理。
-     * 仅 isClientClearing=true 时有效。
-     */
-    public boolean meetsPortabilityConditions;
 
     /**
      * 保证金协议类型：Bilateral（双向）/ OneWayBank（单向，银行缴纳）/ None。
@@ -77,17 +49,9 @@ public class SaccrNettingSet {
     public double collateralC;
 
     /**
-     * 自定义 MPOR 天数（工作日）。
-     * 设为 0 时由引擎按监管规则自动推算：
-     * 集中清算=5天，双边日频=10天，低频=10+超出天数。
+     * 显式 MPOR 天数（工作日），由输入侧按监管下限和行内规则确定。
      */
     public int mporDays;
-
-    /**
-     * 是否存在争议历史（Dispute History）。
-     * true → MPOR 翻倍（集中清算不适用）。
-     */
-    public boolean hasDisputeHistory;
 
     // ==================== 交易列表 ====================
 

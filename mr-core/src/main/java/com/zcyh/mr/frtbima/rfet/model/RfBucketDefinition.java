@@ -122,14 +122,6 @@ public class RfBucketDefinition {
         return true;
     }
 
-    /**
-     * 向后兼容方法：仅按期限天数判断（一维桶使用）。
-     * 等价于 containsPoint(tenorDays, null)。
-     */
-    public boolean containsTenor(int tenorDays) {
-        return containsPoint(tenorDays, null);
-    }
-
     /** 判断本桶是否为波动率曲面的二维桶（含 delta 维度） */
     public boolean hasDeltaDimension() {
         return deltaMin != null && deltaMax != null;

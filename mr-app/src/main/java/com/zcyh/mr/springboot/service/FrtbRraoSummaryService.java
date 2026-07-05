@@ -40,15 +40,18 @@ public class FrtbRraoSummaryService {
     private final JdbcTemplate engineResultDbJdbcTemplate;
     private final DorisStreamLoadService dorisStreamLoadService;
     private final CalcRuleMetaPersistService calcRuleMetaPersistService;
+    private final DimensionAggregationService dimensionAggregationService;
 
     public FrtbRraoSummaryService(@Qualifier("engineDbJdbcTemplate") JdbcTemplate engineDbJdbcTemplate,
                                   @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate,
                                   DorisStreamLoadService dorisStreamLoadService,
-                                  CalcRuleMetaPersistService calcRuleMetaPersistService) {
+                                  CalcRuleMetaPersistService calcRuleMetaPersistService,
+                                  DimensionAggregationService dimensionAggregationService) {
         this.engineDbJdbcTemplate = engineDbJdbcTemplate;
         this.engineResultDbJdbcTemplate = engineResultDbJdbcTemplate;
         this.dorisStreamLoadService = dorisStreamLoadService;
         this.calcRuleMetaPersistService = calcRuleMetaPersistService;
+        this.dimensionAggregationService = dimensionAggregationService;
     }
 
     public JSONObject summarize(JSONObject request) {
@@ -98,12 +101,9 @@ public class FrtbRraoSummaryService {
         AggregationRule rule = parseRule(ruleId, ruleJson);
         List<Map<String, Object>> detailRows = queryRraoRows(batchId, dataDate, rule);
         JSONArray output = new JSONArray();
-        for (String level : rule.getBuildOrder()) {
-            String groupType = normalizeGroupType(level);
-            Map<GroupKey, RraoAggregate> grouped = aggregateRows(detailRows, groupType);
-            for (RraoAggregate aggregate : grouped.values()) {
-                output.add(aggregate.toJson(batchId, dataDate, ruleId, groupType));
-            }
+        Map<GroupKey, RraoAggregate> grouped = aggregateRows(detailRows, rule.getBuildOrder());
+        for (RraoAggregate aggregate : grouped.values()) {
+            output.add(aggregate.toJson(batchId, dataDate, ruleId));
         }
         return output;
     }
@@ -136,7 +136,7 @@ public class FrtbRraoSummaryService {
         }
     }
 
-    private static AggregationRule parseRule(String ruleId, JSONObject ruleJson) {
+    private AggregationRule parseRule(String ruleId, JSONObject ruleJson) {
         if (ruleJson == null) {
             throw new IllegalArgumentException("FRTB RRAO 汇总规则不能为空: " + ruleId);
         }
@@ -146,9 +146,14 @@ public class FrtbRraoSummaryService {
         }
         rule.setRuleId(ruleId);
         rule.setRuleType(RULE_TYPE_RRAO);
-        if (rule.getBuildOrder() == null || rule.getBuildOrder().isEmpty()) {
+        List<String> buildOrder = dimensionAggregationService.normalizeBuildOrder(rule.getBuildOrder());
+        if (buildOrder.isEmpty()) {
             throw new IllegalArgumentException("FRTB RRAO 汇总规则必须配置 build_order: " + ruleId);
         }
+        for (String level : buildOrder) {
+            normalizeGroupType(level);
+        }
+        rule.setBuildOrder(buildOrder);
         return rule;
     }
 
@@ -197,7 +202,7 @@ public class FrtbRraoSummaryService {
         }
     }
 
-    private static Map<GroupKey, RraoAggregate> aggregateRows(List<Map<String, Object>> rows, String groupType) {
+    private Map<GroupKey, RraoAggregate> aggregateRows(List<Map<String, Object>> rows, List<String> buildOrder) {
         Map<GroupKey, RraoAggregate> grouped = new LinkedHashMap<GroupKey, RraoAggregate>();
         if (rows == null || rows.isEmpty()) {
             return grouped;
@@ -209,29 +214,31 @@ public class FrtbRraoSummaryService {
                 continue;
             }
             BigDecimal weight = resolveWeight(rraoType);
-            String groupValue = resolveGroupValue(row, groupType);
-            GroupKey key = new GroupKey(groupValue, rraoType);
-            RraoAggregate aggregate = grouped.get(key);
-            if (aggregate == null) {
-                aggregate = new RraoAggregate(groupValue, rraoType);
-                grouped.put(key, aggregate);
+            List<String> pathValues = new ArrayList<String>();
+            for (String level : buildOrder) {
+                String groupType;
+                String groupValue;
+                if ("TOTAL".equals(level)) {
+                    groupType = "TOTAL";
+                    groupValue = "TOTAL";
+                } else {
+                    String levelValue = dimensionAggregationService.normalizeDimensionValue(row.get(level));
+                    pathValues.add(levelValue);
+                    groupType = level;
+                    groupValue = dimensionAggregationService.buildGroupValue(pathValues);
+                }
+                GroupKey key = new GroupKey(groupType, groupValue, rraoType);
+                RraoAggregate aggregate = grouped.get(key);
+                if (aggregate == null) {
+                    aggregate = new RraoAggregate(groupType, groupValue, rraoType);
+                    grouped.put(key, aggregate);
+                }
+                aggregate.tradeCount++;
+                aggregate.notional = aggregate.notional.add(notional);
+                aggregate.capital = aggregate.capital.add(notional.multiply(weight));
             }
-            aggregate.tradeCount++;
-            aggregate.notional = aggregate.notional.add(notional);
-            aggregate.capital = aggregate.capital.add(notional.multiply(weight));
         }
         return grouped;
-    }
-
-    private static String resolveGroupValue(Map<String, Object> row, String groupType) {
-        if ("TOTAL".equals(groupType)) {
-            return "TOTAL";
-        }
-        String value = trimToNull(stringValue(row.get(groupType)));
-        if (value == null) {
-            throw new IllegalArgumentException("RRAO 分组字段为空: " + groupType);
-        }
-        return value;
     }
 
     private void persist(String batchId, String dataDate, String ruleId, JSONArray summary) {
@@ -450,10 +457,12 @@ public class FrtbRraoSummaryService {
     }
 
     private static class GroupKey {
+        private final String groupType;
         private final String groupValue;
         private final String rraoType;
 
-        GroupKey(String groupValue, String rraoType) {
+        GroupKey(String groupType, String groupValue, String rraoType) {
+            this.groupType = groupType;
             this.groupValue = groupValue;
             this.rraoType = rraoType;
         }
@@ -467,28 +476,35 @@ public class FrtbRraoSummaryService {
                 return false;
             }
             GroupKey other = (GroupKey) obj;
-            return groupValue.equals(other.groupValue) && rraoType.equals(other.rraoType);
+            return groupType.equals(other.groupType)
+                    && groupValue.equals(other.groupValue)
+                    && rraoType.equals(other.rraoType);
         }
 
         @Override
         public int hashCode() {
-            return 31 * groupValue.hashCode() + rraoType.hashCode();
+            int result = groupType.hashCode();
+            result = 31 * result + groupValue.hashCode();
+            result = 31 * result + rraoType.hashCode();
+            return result;
         }
     }
 
     private static class RraoAggregate {
+        private final String groupType;
         private final String groupValue;
         private final String rraoType;
         private long tradeCount;
         private BigDecimal notional = BigDecimal.ZERO;
         private BigDecimal capital = BigDecimal.ZERO;
 
-        RraoAggregate(String groupValue, String rraoType) {
+        RraoAggregate(String groupType, String groupValue, String rraoType) {
+            this.groupType = groupType;
             this.groupValue = groupValue;
             this.rraoType = rraoType;
         }
 
-        JSONObject toJson(String batchId, String dataDate, String ruleId, String groupType) {
+        JSONObject toJson(String batchId, String dataDate, String ruleId) {
             JSONObject json = new JSONObject();
             json.put("BATCH_ID", batchId);
             json.put("DATA_DATE", dataDate);

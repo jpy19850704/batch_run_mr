@@ -2,7 +2,6 @@ package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.basic.util.QL;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
@@ -78,7 +77,7 @@ public class CommVanillaOpt {
         measure.dataDate = dataDate;
         measure.productCode = commOptInfo.productCode;
         measure.status = "SUCCESS";
-        measure.logs = Collections.emptyList();
+        measure.logs = new ArrayList<>();
 
         Map<String, Object> detail = new LinkedHashMap<>();
         int days = (int) ChronoUnit.DAYS.between(dataDate, commOptInfo.maturityDate);
@@ -368,7 +367,7 @@ public class CommVanillaOpt {
             return bucket;
         }
         if (!commBucketMissingLogged) {
-            QL.error("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+            measure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
                     + getText(commOptInfo == null ? null : commOptInfo.instrumentId) + ")");
             commBucketMissingLogged = true;
         }

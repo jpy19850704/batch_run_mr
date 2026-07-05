@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class FrtbDrcSummaryService {
-    private static final String CALC_TYPE_DRC = "DRC";
+    private static final String CALC_TYPE_DRC = "FRTB_DRC";
 
     private final FrtbDrcDbRunnerService frtbDrcDbRunnerService;
     private final FrtbDrcResultPersistService frtbDrcResultPersistService;

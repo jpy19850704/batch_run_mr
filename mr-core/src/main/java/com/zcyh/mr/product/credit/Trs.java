@@ -384,7 +384,7 @@ public class Trs implements FrtbDrcInterface {
         // 跨币种且两条曲线代码相同时，D_xccy shock方向仍正确，但bucket归属存在歧义，
         // 输出WARN并复用融资币种bucket（girrMap已有该条目，无需重复添加）
         if (isCrossCurrency && effectiveAssetDiscountCurve.equals(trsInfo.discountCurve)) {
-            System.err.println("[WARN] TRS跨币种折现曲线退化：标的折现曲线(" + effectiveAssetDiscountCurve
+            measure.addWarningLog("TRS跨币种折现曲线退化：标的折现曲线(" + effectiveAssetDiscountCurve
                     + ")与融资折现曲线(" + trsInfo.discountCurve + ")相同，"
                     + "GIRR bucket归入融资币种(" + trsInfo.currencyCode + ") "
                     + "(INSTRUMENT_ID=" + trsInfo.instrumentId + ")");
@@ -495,7 +495,7 @@ public class Trs implements FrtbDrcInterface {
 
     private PricingOutcome failOutcome(PricingOutcome outcome, String errorMessage) {
         outcome.measure.status = "ERROR";
-        outcome.measure.logs.add(Measure.errorLog(errorMessage));
+        outcome.measure.addErrorLog(errorMessage);
         outcome.measure.cashFlowList = null;
         outcome.measure.detail = null;
         return outcome;

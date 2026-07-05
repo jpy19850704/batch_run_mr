@@ -6,10 +6,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.springboot.engine.EngineAdapter;
 import com.zcyh.mr.springboot.engine.EngineRegistry;
-import com.zcyh.mr.springboot.engine.FrtbDrcEngineAdapter;
-import com.zcyh.mr.springboot.engine.FrtbSaEngineAdapter;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
-import com.zcyh.mr.springboot.engine.VarEngineAdapter;
 import com.zcyh.mr.springboot.model.EngineRunRequest;
 import com.zcyh.mr.springboot.model.EngineRunResult;
 import org.springframework.stereotype.Service;
@@ -20,20 +17,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class EngineOrchestratorService {
     private final EngineRegistry registry;
-    private final FrtbSbaDbRunnerService frtbSbaDbRunnerService;
-    private final FrtbDrcDbRunnerService frtbDrcDbRunnerService;
-    private final VarDbRunnerService varDbRunnerService;
     private final GeneratedMarketDataPersistService generatedMarketDataPersistService;
 
     public EngineOrchestratorService(EngineRegistry registry,
-                                     FrtbSbaDbRunnerService frtbSbaDbRunnerService,
-                                     FrtbDrcDbRunnerService frtbDrcDbRunnerService,
-                                     VarDbRunnerService varDbRunnerService,
                                      GeneratedMarketDataPersistService generatedMarketDataPersistService) {
         this.registry = registry;
-        this.frtbSbaDbRunnerService = frtbSbaDbRunnerService;
-        this.frtbDrcDbRunnerService = frtbDrcDbRunnerService;
-        this.varDbRunnerService = varDbRunnerService;
         this.generatedMarketDataPersistService = generatedMarketDataPersistService;
     }
 
@@ -67,21 +55,7 @@ public class EngineOrchestratorService {
         }
 
         long start = System.currentTimeMillis();
-        String raw;
-        String sbaMode = detectFrtbSbaMode(engineCode, payloadJson);
-        String drcMode = detectFrtbDrcMode(engineCode, payloadJson);
-        String varMode = detectVarMode(engineCode, payloadJson);
-        if ("db".equals(sbaMode)) {
-            raw = frtbSbaDbRunnerService.calculateByRule(payloadJson);
-        } else if ("db_inline".equals(sbaMode)) {
-            raw = frtbSbaDbRunnerService.calculateByInlineRule(payloadJson);
-        } else if ("db".equals(drcMode)) {
-            raw = frtbDrcDbRunnerService.calculateByBatch(payloadJson);
-        } else if ("db_inline".equals(varMode)) {
-            raw = varDbRunnerService.calculateByInline(payloadJson);
-        } else {
-            raw = adapter.calculate(payloadJson);
-        }
+        String raw = adapter.calculate(payloadJson);
         long elapsed = System.currentTimeMillis() - start;
 
         Object parsedData = parseJsonSafely(raw);
@@ -105,72 +79,6 @@ public class EngineOrchestratorService {
             items.add(row);
         }
         return items;
-    }
-
-    /**
-     * 检测 FRTB SBA 模式：db（规则 ID 查库）、db_inline（前端传入完整 rule）、null（非 SBA 或 JSON 直传）
-     */
-    private static String detectFrtbSbaMode(String engineCode, String payloadJson) {
-        if (!FrtbSaEngineAdapter.CODE.equals(engineCode)) {
-            return null;
-        }
-        try {
-            JSONObject payload = JSON.parseObject(payloadJson);
-            if (payload == null) {
-                return null;
-            }
-            String sourceType = trimToNull(payload.getString("source_type"));
-            if ("db".equalsIgnoreCase(sourceType) || "db_inline".equalsIgnoreCase(sourceType)) {
-                return sourceType.toLowerCase();
-            }
-            return null;
-        } catch (Exception ex) {
-            return null;
-        }
-    }
-
-    /**
-     * 检测 FRTB DRC 模式：db（按 batch_id + data_date 查库）、null（JSON 直传）。
-     */
-    private static String detectFrtbDrcMode(String engineCode, String payloadJson) {
-        if (!FrtbDrcEngineAdapter.CODE.equals(engineCode)) {
-            return null;
-        }
-        try {
-            JSONObject payload = JSON.parseObject(payloadJson);
-            if (payload == null) {
-                return null;
-            }
-            String sourceType = trimToNull(payload.getString("source_type"));
-            if ("db".equalsIgnoreCase(sourceType)) {
-                return "db";
-            }
-            return null;
-        } catch (Exception ex) {
-            return null;
-        }
-    }
-
-    /**
-     * 检测 VaR 模式：db_inline（按 batch_id + data_date 查库）、null（其它模式）。
-     */
-    private static String detectVarMode(String engineCode, String payloadJson) {
-        if (!VarEngineAdapter.CODE.equals(engineCode)) {
-            return null;
-        }
-        try {
-            JSONObject payload = JSON.parseObject(payloadJson);
-            if (payload == null) {
-                return null;
-            }
-            String sourceType = trimToNull(payload.getString("source_type"));
-            if ("db_inline".equalsIgnoreCase(sourceType)) {
-                return "db_inline";
-            }
-            return null;
-        } catch (Exception ex) {
-            return null;
-        }
     }
 
     private static Object parseJsonSafely(String raw) {

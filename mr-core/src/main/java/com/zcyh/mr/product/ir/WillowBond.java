@@ -530,7 +530,7 @@ public class WillowBond {
         measure.status = "SUCCESS";
         measure.logs = new ArrayList<>();
         if (spreadResult.warning != null) {
-            measure.logs.add(Measure.warningLog(spreadResult.warning));
+            measure.addWarningLog(spreadResult.warning);
         }
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("willow_reference_curve", info.willowReferenceCurve);

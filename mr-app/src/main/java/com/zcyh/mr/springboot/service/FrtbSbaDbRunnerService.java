@@ -232,19 +232,12 @@ public class FrtbSbaDbRunnerService {
         return safeGroupValue == null ? "__EMPTY_GROUP__" : safeGroupValue;
     }
 
-    /**
-     * 若上游未显式传 groupType，则按 TOTAL/普通维度做兜底。
-     */
     private static String normalizeGroupType(String groupType, String groupValue) {
         String safeGroupType = trimToNull(groupType);
         if (safeGroupType != null) {
             return safeGroupType;
         }
-        String safeGroupValue = trimToNull(groupValue);
-        if (safeGroupValue == null || TOTAL.equalsIgnoreCase(safeGroupValue) || "__EMPTY_GROUP__".equals(safeGroupValue)) {
-            return TOTAL;
-        }
-        return "PORTFOLIO";
+        throw new IllegalStateException("FRTB SBA 原始明细缺少 groupType: groupValue=" + groupValue);
     }
 
     private static boolean parseNeedDecompose(JSONObject req) {

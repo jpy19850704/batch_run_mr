@@ -10,6 +10,8 @@ import com.zcyh.mr.frtbsa.sba.core.csrnc.CsrncModule;
 import com.zcyh.mr.frtbsa.sba.core.fx.FxModule;
 import com.zcyh.mr.frtbsa.sba.core.cmty.CmtyModule;
 import com.zcyh.mr.frtbsa.sba.core.csrctp.CsrctpModule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -27,6 +29,8 @@ import java.util.stream.Collectors;
  * @version 2.0
  */
 public class FrtbAggregator {
+
+    private static final Logger log = LoggerFactory.getLogger(FrtbAggregator.class);
 
     private static final String RISK_CLASS_ALL = "ALL";
     private static final String[] CLASS_RESULT_SENS_TYPES = { "Delta", "Vega", "Curvature" };
@@ -229,7 +233,7 @@ public class FrtbAggregator {
                         results.put(fe.getKey(),
                                 fe.getValue().get(TASK_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS));
                     } catch (java.util.concurrent.TimeoutException te) {
-                        System.err.println("任务超时: " + fe.getKey());
+                        log.warn("任务超时: {}", fe.getKey());
                         fe.getValue().cancel(true);
                         results.put(fe.getKey(), buildBatchErrorResult("TIMEOUT",
                                 "任务执行超过 " + TASK_TIMEOUT_SECONDS + " 秒"));

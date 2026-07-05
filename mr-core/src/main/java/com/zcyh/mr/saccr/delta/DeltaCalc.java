@@ -43,9 +43,16 @@ public final class DeltaCalc {
     }
 
     private static double calcOptionDelta(SaccrTrade trade, double optionT) {
-        double lambda = trade.optionLong ? 1.0 : -1.0;
-        // callSign = +1 for CALL（默认），-1 for PUT
-        boolean isPut = "PUT".equalsIgnoreCase(trade.optionType);
+        double lambda = trade.direction;
+        if (lambda != 1.0 && lambda != -1.0) {
+            throw new IllegalArgumentException("交易 " + trade.tradeId + " 的 DIRECTION 仅支持 1 或 -1");
+        }
+        String optionType = trade.optionType == null ? "" : trade.optionType.trim().toUpperCase();
+        if (!"CALL".equals(optionType) && !"PUT".equals(optionType)) {
+            throw new IllegalArgumentException("交易 " + trade.tradeId + " 的 OPTION_TYPE 仅支持 CALL 或 PUT");
+        }
+        // callSign = +1 for CALL，-1 for PUT
+        boolean isPut = "PUT".equals(optionType);
         double callSign = isPut ? -1.0 : 1.0;
         // ω 决定整体敏感性符号
         double omega = lambda * callSign;

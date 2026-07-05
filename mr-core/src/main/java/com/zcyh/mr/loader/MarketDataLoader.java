@@ -59,7 +59,7 @@ public class MarketDataLoader {
     }
 
     /**
-     * 加载情景市场数据，不执行基础市场数据的兜底补齐。
+     * 加载情景市场数据，不执行基础市场数据的默认元信息补齐。
      */
     public MarketData loadScenarioMarketData(JSONArray marketDataArray) {
         MarketData marketData = new MarketData();
@@ -75,7 +75,6 @@ public class MarketDataLoader {
             return;
         }
         boolean fxFlag = true;
-        System.err.println("[parseMarketData] 曲线总数=" + marketDataArray.size());
         for (int idx = 0; idx < marketDataArray.size(); idx++) {
             JSONObject marketJson = (JSONObject) marketDataArray.get(idx);
             String curveType = marketJson.getString("CURVE_TYPE");
@@ -83,7 +82,6 @@ public class MarketDataLoader {
             if (curveIdIn == null) {
                 curveIdIn = marketJson.getString("FIXING_ID");
             }
-            System.err.println("[parseMarketData] 处理曲线 " + idx + ": type=" + curveType + " id=" + curveIdIn);
 
             if (curveType == null || curveType.isEmpty()) {
                 logMkError("UNKNOWN", "", "CURVE_TYPE 为空");
@@ -436,8 +434,8 @@ public class MarketDataLoader {
     }
 
     /**
-     * 仅对原始 market_data 的 IR 曲线兜底频率与日计数。
-     * 该方法不会用于 scenario_data，避免情景数据被隐式修正。
+     * 仅对原始 market_data 的 IR 曲线补齐默认频率与日计数。
+     * 默认值是基础市场数据的标准运行口径，不作为字段兼容回退使用。
      */
     private static void normalizeBaseIrSpotMeta(MarketData baseMarketData) {
         if (baseMarketData == null || baseMarketData.irSpot == null || baseMarketData.irSpot.isEmpty()) {

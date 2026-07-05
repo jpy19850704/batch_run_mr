@@ -20,6 +20,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.Queue;
 import java.util.zip.GZIPInputStream;
 
 /**
@@ -32,10 +34,16 @@ public class ScenarioCache {
 
     private static final ConcurrentHashMap<String, List<Loader.ScenarioEntry>> CACHE =
             new ConcurrentHashMap<>();
+    private static final Queue<String> CACHE_KEY_ORDER = new ConcurrentLinkedQueue<>();
 
     /** 通用对象缓存，存储任意类型（如 PnL 结果列表、RfetModellableIndex 等） */
     private static final ConcurrentHashMap<String, Object> OBJECT_CACHE =
             new ConcurrentHashMap<>();
+    private static final Queue<String> OBJECT_CACHE_KEY_ORDER = new ConcurrentLinkedQueue<>();
+    private static final int MAX_SCENARIO_CACHE_ENTRIES = Math.max(
+            1, Integer.getInteger("mr.scenario.cache.max-entries", 512));
+    private static final int MAX_OBJECT_CACHE_ENTRIES = Math.max(
+            1, Integer.getInteger("mr.scenario.object-cache.max-entries", 512));
 
     /**
      * 从 CSV 场景文件加载并缓存场景数据。
@@ -54,7 +62,7 @@ public class ScenarioCache {
 
         JSONArray scenArray = readScenarioArray(path);
         List<Loader.ScenarioEntry> entries = parseScenarioList(scenArray, dataDate);
-        CACHE.put(cacheKey, Collections.unmodifiableList(entries));
+        putScenarioEntries(cacheKey, entries);
         return cacheKey;
     }
 
@@ -87,7 +95,7 @@ public class ScenarioCache {
             merged.addAll(readScenarioArray(Paths.get(safeFilePath)));
         }
         List<Loader.ScenarioEntry> entries = parseScenarioList(merged, dataDate);
-        CACHE.put(safeCacheKey, Collections.unmodifiableList(entries));
+        putScenarioEntries(safeCacheKey, entries);
         return safeCacheKey;
     }
 
@@ -104,7 +112,7 @@ public class ScenarioCache {
             return;
         }
         List<Loader.ScenarioEntry> entries = parseScenarioList(scenData, dataDate);
-        CACHE.put(cacheKey, Collections.unmodifiableList(entries));
+        putScenarioEntries(cacheKey, entries);
     }
 
     /**
@@ -154,13 +162,23 @@ public class ScenarioCache {
     public static void clear() {
         CACHE.clear();
         OBJECT_CACHE.clear();
+        CACHE_KEY_ORDER.clear();
+        OBJECT_CACHE_KEY_ORDER.clear();
     }
 
     /**
      * 直接存入已解析的场景条目列表。
      */
     public static void put(String cacheKey, List<Loader.ScenarioEntry> entries) {
-        CACHE.put(cacheKey, Collections.unmodifiableList(new ArrayList<>(entries)));
+        putScenarioEntries(cacheKey, entries);
+    }
+
+    public static int scenarioEntryCacheSize() {
+        return CACHE.size();
+    }
+
+    public static int objectCacheSize() {
+        return OBJECT_CACHE.size();
     }
 
     // ==================== 通用对象缓存 ====================
@@ -170,7 +188,12 @@ public class ScenarioCache {
      */
     public static void putObject(String cacheKey, Object value) {
         if (cacheKey != null && value != null) {
+            boolean existed = OBJECT_CACHE.containsKey(cacheKey);
             OBJECT_CACHE.put(cacheKey, value);
+            if (!existed) {
+                OBJECT_CACHE_KEY_ORDER.offer(cacheKey);
+                trimCache(OBJECT_CACHE, OBJECT_CACHE_KEY_ORDER, MAX_OBJECT_CACHE_ENTRIES);
+            }
         }
     }
 
@@ -190,6 +213,28 @@ public class ScenarioCache {
     public static void evictObject(String cacheKey) {
         if (cacheKey != null) {
             OBJECT_CACHE.remove(cacheKey);
+        }
+    }
+
+    private static void putScenarioEntries(String cacheKey, List<Loader.ScenarioEntry> entries) {
+        if (cacheKey == null) {
+            throw new IllegalArgumentException("scenario cache_key 不能为空");
+        }
+        boolean existed = CACHE.containsKey(cacheKey);
+        CACHE.put(cacheKey, Collections.unmodifiableList(new ArrayList<>(entries)));
+        if (!existed) {
+            CACHE_KEY_ORDER.offer(cacheKey);
+            trimCache(CACHE, CACHE_KEY_ORDER, MAX_SCENARIO_CACHE_ENTRIES);
+        }
+    }
+
+    private static void trimCache(ConcurrentHashMap<String, ?> cache, Queue<String> order, int maxEntries) {
+        while (cache.size() > maxEntries) {
+            String key = order.poll();
+            if (key == null) {
+                return;
+            }
+            cache.remove(key);
         }
     }
 

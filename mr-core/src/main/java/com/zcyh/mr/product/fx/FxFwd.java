@@ -2,7 +2,7 @@ package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.basic.util.QL;
+import com.zcyh.mr.basic.util.EnginePreconditions;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
@@ -40,7 +40,7 @@ public class FxFwd {
      * 外汇远期计量。
      */
     public FxFwdMeasure calc() {
-        QL.require(dataDate != null, "dataDate must be set");
+        EnginePreconditions.require(dataDate != null, "dataDate must be set");
 
         FxFwdMeasure result = calc(marketData);
         LocalDate settleDate = fxFwdInfo.settleDate;

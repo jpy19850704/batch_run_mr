@@ -2,6 +2,7 @@ package com.zcyh.mr.springboot.service;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONWriter;
+import com.zcyh.mr.frtbima.model.ImccResult;
 import com.zcyh.mr.frtbima.model.ImaCapitalResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +28,8 @@ public class ImaCapitalResultPersistService {
 
     private static final String TARGET_TABLE = "TB_OUT_IMA_CAPITAL_RESULT";
     private static final String STREAM_LOAD_COLUMNS =
-            "BATCH_ID,DATA_DATE,RULE_ID,GROUP_TYPE,GROUP_VALUE,GROUP_ORDER,IMCC,SES,AMBER_SURCHARGE_RATIO,ACR_TOTAL,RESULT_JSON,CREATED_AT,UPDATED_AT";
+            "BATCH_ID,DATA_DATE,RULE_ID,GROUP_TYPE,GROUP_VALUE,GROUP_ORDER,IMCC,SES,AMBER_SURCHARGE_RATIO,ACR_TOTAL,"
+                    + "IMCC_ALL,IMCC_IR,IMCC_CS,IMCC_FX,IMCC_EQ,IMCC_COMM,RESULT_JSON,CREATED_AT,UPDATED_AT";
 
     private final JdbcTemplate jdbcTemplate;
     private final DorisStreamLoadService dorisStreamLoadService;
@@ -80,6 +82,7 @@ public class ImaCapitalResultPersistService {
             if (!batchId.equals(resultBatchId)) {
                 throw new IllegalArgumentException("IMA 资本结果批次不一致: " + resultBatchId);
             }
+            ImccResult imccResult = result.getImccResult();
             String resultJson = JSON.toJSONString(result, JSONWriter.Feature.WriteBigDecimalAsPlain);
             buffer.appendRow(
                     resultBatchId,
@@ -92,6 +95,12 @@ public class ImaCapitalResultPersistService {
                     DorisCsvStreamLoadBuffer.decimalText(result.getSesResult() != null ? result.getSesResult().getSes() : null),
                     DorisCsvStreamLoadBuffer.decimalText(result.getAmberSurchargeRatio()),
                     DorisCsvStreamLoadBuffer.decimalText(result.getAcrTotal()),
+                    DorisCsvStreamLoadBuffer.decimalText(imccResult == null ? null : imccResult.getImccConstrained()),
+                    DorisCsvStreamLoadBuffer.decimalText(riskClassImcc(imccResult, "IR")),
+                    DorisCsvStreamLoadBuffer.decimalText(riskClassImcc(imccResult, "CS")),
+                    DorisCsvStreamLoadBuffer.decimalText(riskClassImcc(imccResult, "FX")),
+                    DorisCsvStreamLoadBuffer.decimalText(riskClassImcc(imccResult, "EQ")),
+                    DorisCsvStreamLoadBuffer.decimalText(riskClassImcc(imccResult, "COMM")),
                     resultJson,
                     now,
                     now);
@@ -99,6 +108,13 @@ public class ImaCapitalResultPersistService {
         buffer.flush();
 
         log.info("IMA 资本结果落库完成: batchId={}, rows={}", batchId, results.size());
+    }
+
+    private static java.math.BigDecimal riskClassImcc(ImccResult result, String riskClass) {
+        if (result == null || result.getRiskClassEs() == null) {
+            return null;
+        }
+        return result.getRiskClassEs().get(riskClass);
     }
 
     private static String requireBatchId(ImaCapitalResult result) {

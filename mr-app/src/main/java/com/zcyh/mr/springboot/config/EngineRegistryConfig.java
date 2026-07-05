@@ -6,6 +6,7 @@ import com.zcyh.mr.springboot.engine.FrtbDrcEngineAdapter;
 import com.zcyh.mr.springboot.engine.FrtbSaEngineAdapter;
 import com.zcyh.mr.springboot.engine.ImaCapitalEngineAdapter;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
+import com.zcyh.mr.springboot.engine.SaccrEngineAdapter;
 import com.zcyh.mr.springboot.engine.VarEngineAdapter;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
 import com.zcyh.mr.scenario.ScenarioGenerationEngine;
@@ -16,9 +17,15 @@ import com.zcyh.mr.springboot.service.ImaEsResultDetailPersistService;
 import com.zcyh.mr.springboot.service.ImaNmrfResultPersistService;
 import com.zcyh.mr.springboot.service.BatchTradeDataLoader;
 import com.zcyh.mr.springboot.service.CalcRuleMetaPersistService;
+import com.zcyh.mr.springboot.service.DimensionAggregationService;
+import com.zcyh.mr.springboot.service.FrtbDrcDbRunnerService;
+import com.zcyh.mr.springboot.service.FrtbSbaDbRunnerService;
 import com.zcyh.mr.springboot.service.FrtbSbaSummaryService;
 import com.zcyh.mr.springboot.service.ScenarioGeneratedPersistService;
 import com.zcyh.mr.springboot.service.ScenarioResultCacheService;
+import com.zcyh.mr.springboot.service.SaccrResultPersistService;
+import com.zcyh.mr.springboot.service.VarDbRunnerService;
+import com.zcyh.mr.springboot.saccr.SaccrInputQueryService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -66,18 +73,25 @@ public class EngineRegistryConfig {
     }
 
     @Bean
-    public FrtbSaEngineAdapter frtbSaEngineAdapter(FrtbAggregator frtbAggregator) {
-        return new FrtbSaEngineAdapter(frtbAggregator);
+    public FrtbSaEngineAdapter frtbSaEngineAdapter(FrtbAggregator frtbAggregator,
+                                                   FrtbSbaDbRunnerService frtbSbaDbRunnerService) {
+        return new FrtbSaEngineAdapter(frtbAggregator, frtbSbaDbRunnerService);
     }
 
     @Bean
-    public FrtbDrcEngineAdapter frtbDrcEngineAdapter() {
-        return new FrtbDrcEngineAdapter();
+    public FrtbDrcEngineAdapter frtbDrcEngineAdapter(FrtbDrcDbRunnerService frtbDrcDbRunnerService) {
+        return new FrtbDrcEngineAdapter(frtbDrcDbRunnerService);
     }
 
     @Bean
-    public VarEngineAdapter varEngineAdapter() {
-        return new VarEngineAdapter();
+    public VarEngineAdapter varEngineAdapter(VarDbRunnerService varDbRunnerService) {
+        return new VarEngineAdapter(varDbRunnerService);
+    }
+
+    @Bean
+    public SaccrEngineAdapter saccrEngineAdapter(SaccrInputQueryService saccrInputQueryService,
+                                                 SaccrResultPersistService saccrResultPersistService) {
+        return new SaccrEngineAdapter(saccrInputQueryService, saccrResultPersistService);
     }
 
     @Bean
@@ -99,6 +113,7 @@ public class EngineRegistryConfig {
             @Qualifier("engineResultDbJdbcTemplate") org.springframework.jdbc.core.JdbcTemplate engineResultDbJdbcTemplate,
             BatchTradeDataLoader batchTradeDataLoader,
             CalcRuleMetaPersistService calcRuleMetaPersistService,
+            DimensionAggregationService dimensionAggregationService,
             FrtbSbaSummaryService frtbSbaSummaryService,
             ImaCapitalResultPersistService imaCapitalResultPersistService,
             ImaEsResultDetailPersistService imaEsResultDetailPersistService,
@@ -108,6 +123,7 @@ public class EngineRegistryConfig {
                 engineResultDbJdbcTemplate,
                 batchTradeDataLoader,
                 calcRuleMetaPersistService,
+                dimensionAggregationService,
                 frtbSbaSummaryService,
                 imaCapitalResultPersistService,
                 imaEsResultDetailPersistService,

@@ -70,7 +70,7 @@ public final class CalcScenarioProcessService {
             if (cached == null) {
                 throw new IllegalArgumentException("ScenarioCache 未找到场景数据: cache_key=" + cacheKey.trim());
             }
-            appendScenarioRefEntries(target, cached, processType, payload, i);
+            appendScenarioRefEntries(target, cached, processType, payload, item, i);
         }
     }
 
@@ -78,6 +78,7 @@ public final class CalcScenarioProcessService {
                                                  List<Loader.ScenarioEntry> cached,
                                                  String processType,
                                                  JSONObject payload,
+                                                 JSONObject item,
                                                  int itemIndex) {
         switch (processType) {
             case ScenarioProcessConstants.REGULAR:
@@ -87,7 +88,7 @@ public final class CalcScenarioProcessService {
                 appendVarEntries(target, cached, itemIndex);
                 return;
             case ScenarioProcessConstants.IMA_MODELLABLE:
-                appendImaModellableEntries(target, cached, payload, itemIndex);
+                appendImaModellableEntries(target, cached, payload, item, itemIndex);
                 return;
             case ScenarioProcessConstants.IMA_NMRF:
                 appendImaNmrfEntries(target, cached, payload, itemIndex);
@@ -142,14 +143,25 @@ public final class CalcScenarioProcessService {
     private static void appendImaModellableEntries(List<Loader.ScenarioEntry> target,
                                                    List<Loader.ScenarioEntry> entries,
                                                    JSONObject payload,
+                                                   JSONObject item,
                                                    int itemIndex) {
         LiquidityHorizonTable lhTable = loadImaRiskFactorConfig(payload);
+        String imaScenarioType = requireImaScenarioType(item, itemIndex);
         SubsetScenarioRunner runner = new SubsetScenarioRunner(lhTable);
         List<Loader.ScenarioEntry> processed = runner.buildModellableScenarioEntries(entries,
                 ScenarioProcessConstants.IMA_MODELLABLE,
                 ScenarioProcessConstants.TAG_LH,
                 ScenarioProcessConstants.TAG_IMA_RISK_CLASS,
                 ScenarioProcessConstants.IMA_MODELLABLE + ":" + itemIndex);
+        for (Loader.ScenarioEntry entry : processed) {
+            if (entry == null || entry.processMetadata == null) {
+                continue;
+            }
+            if (entry.processMetadata.tag == null) {
+                entry.processMetadata.tag = new JSONObject();
+            }
+            entry.processMetadata.tag.put(ScenarioProcessConstants.TAG_IMA_SCENARIO_TYPE, imaScenarioType);
+        }
         target.addAll(processed);
     }
 
@@ -298,6 +310,24 @@ public final class CalcScenarioProcessService {
             return ImaConstants.NMRF_TYPE_OTHER;
         }
         throw new IllegalArgumentException("IMA_NMRF 不支持的 IMA_RISK_CLASS: " + imaRiskClass);
+    }
+
+    private static String requireImaScenarioType(JSONObject item, int itemIndex) {
+        JSONObject scenarioMeta = item == null ? null : item.getJSONObject(ScenarioProcessConstants.SCENARIO_META);
+        String value = trimToNull(scenarioMeta == null
+                ? null
+                : scenarioMeta.getString(ScenarioProcessConstants.TAG_IMA_SCENARIO_TYPE));
+        if (isValidImaScenarioType(value)) {
+            return value;
+        }
+        throw new IllegalArgumentException("IMA 可建模情景缺少合法 scenario_meta."
+                + ScenarioProcessConstants.TAG_IMA_SCENARIO_TYPE + ": itemIndex=" + itemIndex);
+    }
+
+    private static boolean isValidImaScenarioType(String value) {
+        return ImaConstants.SCENARIO_TYPE_NORMAL_FULL.equals(value)
+                || ImaConstants.SCENARIO_TYPE_NORMAL_REDUCED.equals(value)
+                || ImaConstants.SCENARIO_TYPE_STRESS_REDUCED.equals(value);
     }
 
     private static String trimToNull(String value) {

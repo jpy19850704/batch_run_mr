@@ -1,7 +1,6 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.basic.util.QL;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
@@ -122,7 +121,7 @@ public class CommStepUpOpt extends StepUpOptBase<CommStepUpOpt.CommStepUpInfo, O
     private List<FrtbSenes> getSensListCMTY() {
         String commBucket = hasText(stepUpInfo.frtbCommBucket) ? stepUpInfo.frtbCommBucket.trim() : null;
         if (!hasText(commBucket)) {
-            QL.error("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+            stepUpMeasure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
                     + getText(stepUpInfo.instrumentId) + ")");
             return new ArrayList<>();
         }

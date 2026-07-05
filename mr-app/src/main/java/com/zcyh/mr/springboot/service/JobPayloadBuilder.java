@@ -5,6 +5,7 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
+import com.zcyh.mr.frtbima.common.ImaConstants;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -132,9 +133,9 @@ public class JobPayloadBuilder {
 
         putScenarioRefList(payload, ScenarioProcessConstants.REGULAR_SCENARIO_REF_LIST, regularScenarioIdList);
         putScenarioRefList(payload, ScenarioProcessConstants.VAR_SCENARIO_REF_LIST, varScenarioIdList);
-        putScenarioRefList(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST, normalFullScenarioIdList);
-        putScenarioRefList(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST, normalReducedScenarioIdList);
-        putScenarioRefList(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST, stressReducedScenarioIdList);
+        putImaModellableScenarioRefList(payload, normalFullScenarioIdList, ImaConstants.SCENARIO_TYPE_NORMAL_FULL);
+        putImaModellableScenarioRefList(payload, normalReducedScenarioIdList, ImaConstants.SCENARIO_TYPE_NORMAL_REDUCED);
+        putImaModellableScenarioRefList(payload, stressReducedScenarioIdList, ImaConstants.SCENARIO_TYPE_STRESS_REDUCED);
         putScenarioRefList(payload, ScenarioProcessConstants.IMA_NMRF_SCENARIO_REF_LIST, nmrfScenarioIdList);
 
         // 维度映射表使用输入表字段名。
@@ -199,6 +200,24 @@ public class JobPayloadBuilder {
         }
         JSONObject item = new JSONObject();
         item.put("scenario_set_id", safeScenarioIdList);
+        items.add(item);
+    }
+
+    private void putImaModellableScenarioRefList(JSONObject payload, String scenarioIdList, String imaScenarioType) {
+        String safeScenarioIdList = trimToNull(scenarioIdList);
+        if (safeScenarioIdList == null) {
+            return;
+        }
+        JSONArray items = payload.getJSONArray(ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST);
+        if (items == null) {
+            items = new JSONArray();
+            payload.put(ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST, items);
+        }
+        JSONObject item = new JSONObject();
+        item.put("scenario_set_id", safeScenarioIdList);
+        JSONObject scenarioMeta = new JSONObject();
+        scenarioMeta.put(ScenarioProcessConstants.TAG_IMA_SCENARIO_TYPE, imaScenarioType);
+        item.put(ScenarioProcessConstants.SCENARIO_META, scenarioMeta);
         items.add(item);
     }
 

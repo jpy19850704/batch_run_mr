@@ -2,7 +2,7 @@ package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.basic.util.QL;
+import com.zcyh.mr.basic.util.EnginePreconditions;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
@@ -45,7 +45,7 @@ public class CommFwd {
      * @date 2024/7/10 14:52
      */
     public Measure calc() {
-        QL.require(dataDate != null, "dataDate must be set");
+        EnginePreconditions.require(dataDate != null, "dataDate must be set");
         validateInputs(marketData);
         LocalDate settleDate = commFwdInfo.settleDate;
         String valuationCurrency = resolveValuationCurrency();
@@ -84,7 +84,7 @@ public class CommFwd {
     }
 
     public Measure calc(MarketData marketData) {
-        QL.require(dataDate != null, "dataDate must be set");
+        EnginePreconditions.require(dataDate != null, "dataDate must be set");
         validateInputs(marketData);
         LocalDate settleDate = commFwdInfo.settleDate;
         String valuationCurrency = resolveValuationCurrency();
@@ -122,7 +122,7 @@ public class CommFwd {
         String commBucket = hasText(commFwdInfo.frtbCommBucket) ? commFwdInfo.frtbCommBucket.trim() : null;
         boolean enableCmty = hasText(commBucket);
         if (!enableCmty) {
-            QL.error("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+            commFwdMeasure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
                     + (commFwdInfo.instrumentId == null ? "" : commFwdInfo.instrumentId) + ")");
         }
         if (hasText(fxRiskCurrency)) {
@@ -205,7 +205,7 @@ public class CommFwd {
         if (hasText(commFwdInfo.strikeCurrencyCode)) {
             return commFwdInfo.strikeCurrencyCode;
         }
-        QL.require(false, "currencyCode and strikeCurrencyCode cannot both be empty");
+        EnginePreconditions.require(false, "currencyCode and strikeCurrencyCode cannot both be empty");
         return null;
     }
 

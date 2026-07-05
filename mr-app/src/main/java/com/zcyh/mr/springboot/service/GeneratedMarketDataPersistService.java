@@ -9,7 +9,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.sql.Date;
+import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
@@ -37,7 +39,7 @@ public class GeneratedMarketDataPersistService {
         if (generatedMarketData == null || generatedMarketData.isEmpty()) {
             return 0;
         }
-        long now = System.currentTimeMillis();
+        Timestamp now = Timestamp.valueOf(LocalDateTime.now());
         int count = 0;
         for (int i = 0; i < generatedMarketData.size(); i++) {
             JSONObject curve = generatedMarketData.getJSONObject(i);
