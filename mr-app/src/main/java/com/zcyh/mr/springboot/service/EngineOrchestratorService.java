@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
+
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
@@ -122,11 +124,4 @@ public class EngineOrchestratorService {
         return value instanceof Boolean && (Boolean) value;
     }
 
-    private static String trimToNull(String txt) {
-        if (txt == null) {
-            return null;
-        }
-        String v = txt.trim();
-        return v.isEmpty() ? null : v;
-    }
 }

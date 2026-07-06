@@ -1,5 +1,8 @@
 package com.zcyh.mr.springboot.service;
 
+import static com.zcyh.mr.springboot.service.CalcResultPersistSupport.toBigDecimal;
+import static com.zcyh.mr.springboot.service.CalcResultPersistSupport.trimToNull;
+
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import org.slf4j.Logger;
@@ -180,28 +183,6 @@ public class VarResultPersistService {
         }
         buffer.flush();
         log.info("VaR 汇总结果落库完成: batchId={}, dataDate={}, rows={}", safeBatchId, safeDataDate, rows.size());
-    }
-
-    private static BigDecimal toBigDecimal(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof BigDecimal) {
-            return (BigDecimal) value;
-        }
-        try {
-            return new BigDecimal(String.valueOf(value));
-        } catch (Exception ex) {
-            return null;
-        }
-    }
-
-    private static String trimToNull(String text) {
-        if (text == null) {
-            return null;
-        }
-        String value = text.trim();
-        return value.isEmpty() ? null : value;
     }
 
     /**

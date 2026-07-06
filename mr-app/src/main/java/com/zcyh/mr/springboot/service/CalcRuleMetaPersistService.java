@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -84,11 +86,4 @@ public class CalcRuleMetaPersistService {
                 safeBatchId, safeDataDate, safeCalcType, safeRuleId);
     }
 
-    private static String trimToNull(String text) {
-        if (text == null) {
-            return null;
-        }
-        String value = text.trim();
-        return value.isEmpty() ? null : value;
-    }
 }

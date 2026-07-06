@@ -1,9 +1,13 @@
 package com.zcyh.mr.springboot.service;
 
-import com.alibaba.fastjson2.JSON;
+import static com.zcyh.mr.springboot.service.CalcResultPersistSupport.normalizeDataDate;
+import static com.zcyh.mr.springboot.service.CalcResultPersistSupport.toBigDecimal;
+import static com.zcyh.mr.springboot.service.CalcResultPersistSupport.toJsonString;
+import static com.zcyh.mr.springboot.service.CalcResultPersistSupport.toTextValue;
+import static com.zcyh.mr.springboot.service.CalcResultPersistSupport.trimToNull;
+
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
 import com.zcyh.mr.frtbima.common.ImaConstants;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
@@ -15,9 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,8 +29,6 @@ import java.util.Map;
  */
 @Service
 public class PricingResultPersistService {
-    private static final DateTimeFormatter DATE_8_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
-    private static final DateTimeFormatter DATE_10_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final int DEFAULT_BATCH_SIZE = 20000;
     private static final String VAR_TABLE = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
     private static final String SCENARIO_RESULT_TABLE = "TB_OUT_TRADE_SCENARIO_RESULT_DETAIL";
@@ -758,54 +757,12 @@ public class PricingResultPersistService {
         throw new IllegalStateException("scenario_result 缺少合法 RESULT_KIND，仅支持 SCENARIO 或 VAR");
     }
 
-    private static BigDecimal toBigDecimal(Object value) {
-        if (value == null) {
-            return null;
-        }
-        try {
-            if (value instanceof BigDecimal) {
-                return (BigDecimal) value;
-            }
-            return new BigDecimal(String.valueOf(value));
-        } catch (Exception ex) {
-            return null;
-        }
-    }
-
     private static BigDecimal requireDecimal(JSONObject row, String field, String source) {
         BigDecimal value = toBigDecimal(row == null ? null : row.get(field));
         if (value == null) {
             throw new IllegalStateException(source + " 缺少 " + field);
         }
         return value;
-    }
-
-    private static String toTextValue(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof CharSequence) {
-            return trimToNull(String.valueOf(value));
-        }
-        return toJsonString(value);
-    }
-
-    private static String toJsonString(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof CharSequence) {
-            String text = trimToNull(String.valueOf(value));
-            if (text == null) {
-                return null;
-            }
-            JSON.parse(text);
-            return text;
-        }
-        if (value instanceof JSONObject && ((JSONObject) value).isEmpty()) {
-            return null;
-        }
-        return JSON.toJSONString(value, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
 
     private static String resolveCreatedAt(JSONObject row, String defaultText) {
@@ -834,31 +791,5 @@ public class PricingResultPersistService {
         } catch (Exception ex) {
             return null;
         }
-    }
-
-    private static String normalizeDataDate(String dataDateText) {
-        String text = trimToNull(dataDateText);
-        if (text == null) {
-            return null;
-        }
-        try {
-            if (text.length() == 8) {
-                return LocalDate.parse(text, DATE_8_FORMATTER).format(DATE_8_FORMATTER);
-            }
-            if (text.length() == 10) {
-                return LocalDate.parse(text, DATE_10_FORMATTER).format(DATE_8_FORMATTER);
-            }
-        } catch (DateTimeParseException ex) {
-            return text;
-        }
-        return text;
-    }
-
-    private static String trimToNull(String text) {
-        if (text == null) {
-            return null;
-        }
-        String value = text.trim();
-        return value.isEmpty() ? null : value;
     }
 }

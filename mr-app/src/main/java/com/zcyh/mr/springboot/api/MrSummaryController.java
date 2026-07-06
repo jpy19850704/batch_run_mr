@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.api;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
+
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.context.RequestContextHolder;
 import com.zcyh.mr.springboot.model.ApiResponse;
@@ -173,11 +175,4 @@ public class MrSummaryController {
         return null;
     }
 
-    private static String trimToNull(String text) {
-        if (text == null) {
-            return null;
-        }
-        String value = text.trim();
-        return value.isEmpty() ? null : value;
-    }
 }
