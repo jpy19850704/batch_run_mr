@@ -44,7 +44,7 @@ public final class McFrtbBuilder {
             return EqFrtb.build(input, ctx, baseValuation, marketData, dataDate, repriceFunction);
         }
         if ("COMM".equals(type)) {
-            return CommFrtb.build(input, ctx, baseValuation, marketData, dataDate, repriceFunction);
+            return CommFrtb.build(input, ctx, measure, baseValuation, marketData, dataDate, repriceFunction);
         }
         if ("IR".equals(type)) {
             return IrFrtb.build(input, ctx, baseValuation, marketData, dataDate, repriceFunction);
@@ -159,13 +159,11 @@ public final class McFrtbBuilder {
     }
 
     private static final class CommFrtb {
-        private static List<FrtbSenes> build(GenericMcInfo input, McPricingContext ctx, MeasureValuation baseValuation,
-                MarketData marketData, LocalDate dataDate, RepriceFunction repriceFunction) {
+        private static List<FrtbSenes> build(GenericMcInfo input, McPricingContext ctx, OptionMeasure measure,
+                MeasureValuation baseValuation, MarketData marketData, LocalDate dataDate,
+                RepriceFunction repriceFunction) {
             List<FrtbSenes> list = new ArrayList<>();
             GenericMcInfo c = input;
-            if (!hasText(c.frtbCommBucket)) {
-                return list;
-            }
             list.addAll(FrtbSensitivityBuilder.buildFxSensitivities(
                     marketData,
                     dataDate,
@@ -198,15 +196,27 @@ public final class McFrtbBuilder {
                     null,
                     null));
 
-            String riskFactorId = resolveCmtyRiskFactorId(c);
+            String commBucket = hasText(c.frtbCommBucket) ? c.frtbCommBucket.trim() : null;
             String riskFactorIdVega = resolveCmtyRiskFactorIdBase(c);
+            if (!hasText(commBucket) || !hasText(riskFactorIdVega)) {
+                if (!hasText(commBucket)) {
+                    measure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+                            + (c.instrumentId == null ? "" : c.instrumentId) + ")");
+                }
+                if (!hasText(riskFactorIdVega)) {
+                    measure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+                            + (c.instrumentId == null ? "" : c.instrumentId) + ")");
+                }
+                return list;
+            }
+            String riskFactorId = resolveCmtyRiskFactorId(c);
             list.addAll(FrtbSensitivityBuilder.buildCmtySensitivities(
                     marketData,
                     dataDate,
                     c.settleDate,
-                    FrtbSensitivityBuilder.buildCmtyDeltaDependencies(c.referenceCurve, riskFactorId, c.frtbCommBucket),
+                    FrtbSensitivityBuilder.buildCmtyDeltaDependencies(c.referenceCurve, riskFactorId, commBucket),
                     FrtbSensitivityBuilder.buildCmtyVegaDependencies(c.volatilitySurface, riskFactorIdVega,
-                            c.frtbCommBucket),
+                            commBucket),
                     true,
                     true,
                     c.instrumentId,
@@ -220,6 +230,9 @@ public final class McFrtbBuilder {
 
         private static String resolveCmtyRiskFactorId(GenericMcInfo c) {
             String base = resolveCmtyRiskFactorIdBase(c);
+            if (!hasText(base)) {
+                return null;
+            }
             if (!hasText(c.frtbCommLocation)) {
                 return base;
             }
@@ -230,10 +243,7 @@ public final class McFrtbBuilder {
             if (hasText(c.frtbCommAsset)) {
                 return c.frtbCommAsset.trim();
             }
-            if (hasText(c.underlyingCode)) {
-                return c.underlyingCode.trim();
-            }
-            return c.referenceCurve;
+            return null;
         }
     }
 

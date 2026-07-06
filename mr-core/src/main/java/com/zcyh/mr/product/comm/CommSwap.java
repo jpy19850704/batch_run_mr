@@ -149,10 +149,17 @@ public class CommSwap {
         String strikeCurrency = resolveStrikeCurrency(valuationCurrency);
         String fxRiskCurrency = resolveFxRiskCurrency(valuationCurrency, strikeCurrency);
         String commBucket = hasText(commSwapInfo.frtbCommBucket) ? commSwapInfo.frtbCommBucket.trim() : null;
-        boolean enableCmty = hasText(commBucket);
+        String commAsset = resolveCmtyRiskFactorIdBase();
+        boolean enableCmty = hasText(commBucket) && hasText(commAsset);
         if (!enableCmty) {
-            commSwapMeasure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                    + (commSwapInfo.instrumentId == null ? "" : commSwapInfo.instrumentId) + ")");
+            if (!hasText(commBucket)) {
+                commSwapMeasure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+                        + (commSwapInfo.instrumentId == null ? "" : commSwapInfo.instrumentId) + ")");
+            }
+            if (!hasText(commAsset)) {
+                commSwapMeasure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+                        + (commSwapInfo.instrumentId == null ? "" : commSwapInfo.instrumentId) + ")");
+            }
         }
         HashMap<String,String> map = new HashMap<>();
         map.put(commSwapInfo.discountCurve, valuationCurrency);
@@ -349,6 +356,9 @@ public class CommSwap {
 
     private String resolveCmtyRiskFactorId() {
         String base = resolveCmtyRiskFactorIdBase();
+        if (!hasText(base)) {
+            return null;
+        }
         String location = commSwapInfo.frtbCommLocation == null ? "" : commSwapInfo.frtbCommLocation.trim();
         if (!hasText(location)) {
             return base;
@@ -361,7 +371,7 @@ public class CommSwap {
         if (hasText(asset)) {
             return asset;
         }
-        return resolveUnderlyingForCalc();
+        return null;
     }
 
     private String resolveUnderlyingForCalc() {

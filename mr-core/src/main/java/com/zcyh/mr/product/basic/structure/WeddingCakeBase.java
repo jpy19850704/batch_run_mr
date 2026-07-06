@@ -285,7 +285,7 @@ public abstract class WeddingCakeBase<T extends WeddingCakeBase.WeddingCakeBaseI
             String volatilitySurface,
             Function<MarketData, OptionMeasure> repriceFunction) {
         List<FrtbSenes> list = new ArrayList<>();
-        if (measure == null || repriceFunction == null || !hasText(cmtyBucket)) {
+        if (measure == null || repriceFunction == null) {
             return list;
         }
         MeasureValuation baseValuation = toMeasureValuation(measure);
@@ -325,6 +325,18 @@ public abstract class WeddingCakeBase<T extends WeddingCakeBase.WeddingCakeBaseI
                 null,
                 null);
         list.addAll(girrSensitivities);
+
+        if (!hasText(cmtyBucket) || !hasText(cmtyRiskFactorId) || !hasText(cmtyRiskFactorIdVega)) {
+            if (!hasText(cmtyBucket)) {
+                measure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+                        + (info.instrumentId == null ? "" : info.instrumentId) + ")");
+            }
+            if (!hasText(cmtyRiskFactorId) || !hasText(cmtyRiskFactorIdVega)) {
+                measure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+                        + (info.instrumentId == null ? "" : info.instrumentId) + ")");
+            }
+            return list;
+        }
 
         List<FrtbDependency> cmtyDeltaDependencies = FrtbSensitivityBuilder.buildCmtyDeltaDependencies(
                 priceCurve,

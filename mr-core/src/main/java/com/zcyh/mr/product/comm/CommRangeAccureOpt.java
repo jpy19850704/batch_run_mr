@@ -92,9 +92,16 @@ public class CommRangeAccureOpt extends RangeAccureOptBase<CommRangeAccureOpt.Co
 
     private List<FrtbSenes> getSensListCMTY() {
         String commBucket = hasText(rangeAccureInfo.frtbCommBucket) ? rangeAccureInfo.frtbCommBucket.trim() : null;
-        if (!hasText(commBucket)) {
-            rangeAccureMeasure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                    + getText(rangeAccureInfo.instrumentId) + ")");
+        String commAsset = resolveCmtyRiskFactorIdBase();
+        if (!hasText(commBucket) || !hasText(commAsset)) {
+            if (!hasText(commBucket)) {
+                rangeAccureMeasure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+                        + getText(rangeAccureInfo.instrumentId) + ")");
+            }
+            if (!hasText(commAsset)) {
+                rangeAccureMeasure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+                        + getText(rangeAccureInfo.instrumentId) + ")");
+            }
             return new ArrayList<>();
         }
         List<FrtbDependency> deltaDependencies = FrtbSensitivityBuilder.buildCmtyDeltaDependencies(
@@ -139,6 +146,9 @@ public class CommRangeAccureOpt extends RangeAccureOptBase<CommRangeAccureOpt.Co
 
     private String resolveCmtyRiskFactorId() {
         String base = resolveCmtyRiskFactorIdBase();
+        if (!hasText(base)) {
+            return null;
+        }
         String location = getText(rangeAccureInfo.frtbCommLocation);
         if (!hasText(location)) {
             return base;
@@ -151,7 +161,7 @@ public class CommRangeAccureOpt extends RangeAccureOptBase<CommRangeAccureOpt.Co
         if (hasText(asset)) {
             return asset;
         }
-        return resolveUnderlyingForCalc();
+        return null;
     }
 
     private String resolveCmtyRiskFactorIdVega() {

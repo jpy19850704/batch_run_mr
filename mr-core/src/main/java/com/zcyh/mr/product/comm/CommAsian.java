@@ -177,38 +177,54 @@ public class CommAsian extends AsianBase<CommAsian.CommAsianInfo, CommAsian.Comm
                 null);
         list.addAll(girrSensitivities);
 
-        List<FrtbDependency> cmtyDeltaDependencies = FrtbSensitivityBuilder.buildCmtyDeltaDependencies(
-                info.referenceCurve,
-                resolveCmtyRiskFactorId(),
-                info.frtbCommBucket);
-        List<FrtbDependency> cmtyVegaDependencies = FrtbSensitivityBuilder.buildCmtyVegaDependencies(
-                info.volatilitySurface,
-                resolveCmtyRiskFactorIdVega(),
-                info.frtbCommBucket);
-        List<FrtbSenes> cmtySensitivities = FrtbSensitivityBuilder.buildCmtySensitivities(
-                marketData,
-                dataDate,
-                info.settleDate,
-                cmtyDeltaDependencies,
-                cmtyVegaDependencies,
-                true,
-                true,
-                info.instrumentId,
-                frtbCurrency,
-                1e-12,
-                baseValuation,
-                shockedMarketData -> {
-                    CommAsianMeasure shockedMeasure = calc(shockedMarketData);
-                    return com.zcyh.mr.product.basic.frtb.MeasureValuation.of(shockedMeasure.valuation, shockedMeasure.valuationCny);
-                },
-                null);
-        list.addAll(cmtySensitivities);
+        String commBucket = getText(info.frtbCommBucket);
+        String commAsset = resolveCmtyRiskFactorIdBase();
+        if (!hasText(commBucket) || !hasText(commAsset)) {
+            if (!hasText(commBucket)) {
+                measure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+                        + getText(info.instrumentId) + ")");
+            }
+            if (!hasText(commAsset)) {
+                measure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+                        + getText(info.instrumentId) + ")");
+            }
+        } else {
+            List<FrtbDependency> cmtyDeltaDependencies = FrtbSensitivityBuilder.buildCmtyDeltaDependencies(
+                    info.referenceCurve,
+                    resolveCmtyRiskFactorId(),
+                    commBucket);
+            List<FrtbDependency> cmtyVegaDependencies = FrtbSensitivityBuilder.buildCmtyVegaDependencies(
+                    info.volatilitySurface,
+                    resolveCmtyRiskFactorIdVega(),
+                    commBucket);
+            List<FrtbSenes> cmtySensitivities = FrtbSensitivityBuilder.buildCmtySensitivities(
+                    marketData,
+                    dataDate,
+                    info.settleDate,
+                    cmtyDeltaDependencies,
+                    cmtyVegaDependencies,
+                    true,
+                    true,
+                    info.instrumentId,
+                    frtbCurrency,
+                    1e-12,
+                    baseValuation,
+                    shockedMarketData -> {
+                        CommAsianMeasure shockedMeasure = calc(shockedMarketData);
+                        return com.zcyh.mr.product.basic.frtb.MeasureValuation.of(shockedMeasure.valuation, shockedMeasure.valuationCny);
+                    },
+                    null);
+            list.addAll(cmtySensitivities);
+        }
 
         measure.sensitivityList = list;
     }
 
     private String resolveCmtyRiskFactorId() {
         String base = resolveCmtyRiskFactorIdBase();
+        if (!hasText(base)) {
+            return null;
+        }
         String location = getText(info.frtbCommLocation);
         if (location.isEmpty()) {
             return base;
@@ -221,11 +237,7 @@ public class CommAsian extends AsianBase<CommAsian.CommAsianInfo, CommAsian.Comm
         if (!asset.isEmpty()) {
             return asset;
         }
-        String underlyingCode = getText(info.underlyingCode);
-        if (!underlyingCode.isEmpty()) {
-            return underlyingCode;
-        }
-        return info.referenceCurve;
+        return null;
     }
 
     private String resolveCmtyRiskFactorIdVega() {

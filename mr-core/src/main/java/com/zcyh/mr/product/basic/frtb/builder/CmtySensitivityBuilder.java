@@ -25,12 +25,12 @@ public class CmtySensitivityBuilder extends AbstractSensitivityBuilder {
 
     public static List<FrtbDependency> buildDeltaDependencies(String priceCurve, String riskFactorId, String bucket) {
         List<FrtbDependency> dependencies = new ArrayList<>();
-        if (!hasText(bucket)) {
+        if (!hasText(bucket) || !hasText(riskFactorId)) {
             return dependencies;
         }
         dependencies.add(FrtbDependency.of(
                 FrtbDependency.TYPE_CMTY_DELTA,
-                hasText(priceCurve) ? priceCurve : (hasText(riskFactorId) ? riskFactorId : "CMTY"),
+                hasText(priceCurve) ? priceCurve : riskFactorId,
                 riskFactorId,
                 bucket));
         return dependencies;
@@ -38,7 +38,7 @@ public class CmtySensitivityBuilder extends AbstractSensitivityBuilder {
 
     public static List<FrtbDependency> buildVegaDependencies(String volatilitySurface, String riskFactorId, String bucket) {
         List<FrtbDependency> dependencies = new ArrayList<>();
-        if (!hasText(volatilitySurface)) {
+        if (!hasText(volatilitySurface) || !hasText(riskFactorId) || !hasText(bucket)) {
             return dependencies;
         }
         dependencies.add(FrtbDependency.of(

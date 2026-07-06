@@ -120,9 +120,16 @@ public class CommStepUpOpt extends StepUpOptBase<CommStepUpOpt.CommStepUpInfo, O
 
     private List<FrtbSenes> getSensListCMTY() {
         String commBucket = hasText(stepUpInfo.frtbCommBucket) ? stepUpInfo.frtbCommBucket.trim() : null;
-        if (!hasText(commBucket)) {
-            stepUpMeasure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                    + getText(stepUpInfo.instrumentId) + ")");
+        String commAsset = resolveCmtyRiskFactorIdBase();
+        if (!hasText(commBucket) || !hasText(commAsset)) {
+            if (!hasText(commBucket)) {
+                stepUpMeasure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+                        + getText(stepUpInfo.instrumentId) + ")");
+            }
+            if (!hasText(commAsset)) {
+                stepUpMeasure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+                        + getText(stepUpInfo.instrumentId) + ")");
+            }
             return new ArrayList<>();
         }
         List<FrtbDependency> deltaDependencies = FrtbSensitivityBuilder.buildCmtyDeltaDependencies(
@@ -155,6 +162,9 @@ public class CommStepUpOpt extends StepUpOptBase<CommStepUpOpt.CommStepUpInfo, O
 
     private String resolveCmtyRiskFactorId() {
         String base = resolveCmtyRiskFactorIdBase();
+        if (!hasText(base)) {
+            return null;
+        }
         String location = getText(stepUpInfo.frtbCommLocation);
         if (!hasText(location)) {
             return base;
@@ -167,7 +177,7 @@ public class CommStepUpOpt extends StepUpOptBase<CommStepUpOpt.CommStepUpInfo, O
         if (hasText(asset)) {
             return asset;
         }
-        return resolveUnderlyingForCalc();
+        return null;
     }
 
     private String resolveCmtyRiskFactorIdVega() {

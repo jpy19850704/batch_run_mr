@@ -8,6 +8,7 @@ import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
 import com.zcyh.mr.loader.Loader;
 import com.zcyh.mr.loader.TradeValidator;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.frtb.builder.CmtySensitivityBuilder;
 import com.zcyh.mr.saccr.addon.EquityAddOnCalc;
 import org.junit.jupiter.api.Test;
 
@@ -77,6 +78,12 @@ class StrictContractTest {
         assertTrue(FrtbParamsCache.isFxScaledCurrency("MXN"));
         assertTrue(FrtbParamsCache.isFxScaledCurrency("HKD"));
         assertTrue(FrtbParamsCache.isFxScaledCurrency("BRL"));
+    }
+
+    @Test
+    void cmtyDependenciesRequireExplicitRiskFactorId() {
+        assertTrue(CmtySensitivityBuilder.buildDeltaDependencies("COMM_OIL", "", "3").isEmpty());
+        assertTrue(CmtySensitivityBuilder.buildVegaDependencies("COMMVOL_OIL", "", "3").isEmpty());
     }
 
     @Test

@@ -113,6 +113,9 @@ public class CommDigOpt extends DigOptBase<CommDigOpt.CommDigOptInfo> {
 
     private String resolveCmtyRiskFactorId() {
         String base = resolveCmtyRiskFactorIdBase();
+        if (base == null || base.isEmpty()) {
+            return null;
+        }
         String location = getText(info.frtbCommLocation);
         if (location.isEmpty()) {
             return base;
@@ -125,11 +128,7 @@ public class CommDigOpt extends DigOptBase<CommDigOpt.CommDigOptInfo> {
         if (!asset.isEmpty()) {
             return asset;
         }
-        String underlyingCode = getText(info.underlyingCode);
-        if (!underlyingCode.isEmpty()) {
-            return underlyingCode;
-        }
-        return info.referenceCurve;
+        return null;
     }
 
     private String resolveCmtyRiskFactorIdVega() {

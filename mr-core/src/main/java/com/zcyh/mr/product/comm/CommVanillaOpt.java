@@ -34,6 +34,7 @@ public class CommVanillaOpt {
     private final boolean isAmerican;
     private final Middle middle = new Middle();
     private boolean commBucketMissingLogged = false;
+    private boolean commAssetMissingLogged = false;
 
     public CommVanillaOpt(LocalDate dataDate, CommVanillaOpt.CommOptInfo tradeInfo, MarketData marketData) {
         this.dataDate = dataDate;
@@ -296,7 +297,8 @@ public class CommVanillaOpt {
 
     private List<FrtbSenes> getSensListCMTY() {
         String commBucket = getCommBucketForFrtb();
-        if (!hasText(commBucket)) {
+        String commAsset = getCommAssetForFrtb();
+        if (!hasText(commBucket) || !hasText(commAsset)) {
             return new ArrayList<>();
         }
         String sensitivityCurrency = resolveSensitivityCurrency();
@@ -334,6 +336,9 @@ public class CommVanillaOpt {
 
     private String resolveCmtyRiskFactorId() {
         String base = resolveCmtyRiskFactorIdBase();
+        if (!hasText(base)) {
+            return null;
+        }
         String location = getText(commOptInfo == null ? null : commOptInfo.frtbCommLocation);
         if (!hasText(location)) {
             return base;
@@ -346,7 +351,7 @@ public class CommVanillaOpt {
         if (hasText(asset)) {
             return asset;
         }
-        return resolveUnderlyingForCalc();
+        return null;
     }
 
     private String resolveCmtyRiskFactorIdVega() {
@@ -370,6 +375,19 @@ public class CommVanillaOpt {
             measure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
                     + getText(commOptInfo == null ? null : commOptInfo.instrumentId) + ")");
             commBucketMissingLogged = true;
+        }
+        return null;
+    }
+
+    private String getCommAssetForFrtb() {
+        String asset = resolveCmtyRiskFactorIdBase();
+        if (hasText(asset)) {
+            return asset;
+        }
+        if (!commAssetMissingLogged) {
+            measure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+                    + getText(commOptInfo == null ? null : commOptInfo.instrumentId) + ")");
+            commAssetMissingLogged = true;
         }
         return null;
     }

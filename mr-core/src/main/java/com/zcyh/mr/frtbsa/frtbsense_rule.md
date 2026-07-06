@@ -66,9 +66,9 @@
 | EQ | Delta | `REFERENCE_CURVE` | `EQ_BUCKET`（空值默认 `11`） | `Spot` |
 | EQ | Curvature Up / Curvature Down | `REFERENCE_CURVE` | `EQ_BUCKET`（空值默认 `11`） | `Spot` |
 | EQ | Vega | EQ 波动率曲面名 | `EQ_BUCKET`（空值默认 `11`） | `Spot` |
-| CMTY | Delta | 先取 `FRTB_COMM_ASSET`，为空取 `UNDERLYING_CODE`（兼容 `UNDERLYING_ID`）；`location` 仅做拼接（有则 `base&location`） | `FRTB_COMM_BUCKET`（为空则不计算 CMTY 敏感性并记录 error log） | 空字符串 `""` |
+| CMTY | Delta | `FRTB_COMM_ASSET`；`location` 仅做拼接（有则 `asset&location`） | `FRTB_COMM_BUCKET`（为空则不计算 CMTY 敏感性并记录 WARNING LOGS） | 空字符串 `""` |
 | CMTY | Curvature Up / Curvature Down | 同 CMTY Delta | 同 CMTY Delta | 空字符串 `""` |
-| CMTY | Vega | 先取 `FRTB_COMM_ASSET`，为空取 `UNDERLYING_CODE`（兼容 `UNDERLYING_ID`）；不拼接 `location` | 同 CMTY Delta | 空字符串 `""` |
+| CMTY | Vega | `FRTB_COMM_ASSET`；不拼接 `location` | 同 CMTY Delta | 空字符串 `""` |
 | CSR（non-sec / non-ctp / ctp） | Delta | `issuer` | `CSR_BUCKET` | 默认 `BOND`；信用类交易在交易层显式改为 `CDS` |
 | CSR（non-sec / non-ctp / ctp） | Curvature Up / Curvature Down | 同 CSR Delta | 同 CSR Delta | 同 CSR Delta |
 | CSR（non-sec / non-ctp / ctp） | Vega | 同 CSR Delta（若该产品启用） | 同 CSR Delta | 同 CSR Delta |
@@ -78,11 +78,11 @@
 - `riskFactorBucket` 必须非空，避免 SBA 聚合阶段空指针风险。
 - CMTY / CSR 可在产品层覆盖 `riskFactorId`、`riskFactorBucket`、`riskFactorType`，但口径必须满足本文件规则。
 - CSR 的 `riskFactorType` 默认值为 `BOND`；仅信用类交易在交易层改写为 `CDS`，不直接按 `productCode` 透传。
-- CMTY 输入字段命名统一使用 `FRTB_COMM_BUCKET`；若出现 `FRTB_COMM_BUKET`（拼写冲突），按 `FRTB_COMM_BUCKET` 缺失处理并记录 error log。
-- 当 `FRTB_COMM_BUCKET` 缺失时，仅跳过相关 CMTY 敏感性，不影响估值主流程，交易计量状态仍为成功。
-- CMTY 的 `riskFactorId` 统一使用 `FRTB_COMM_ASSET`（优先）与 `UNDERLYING_CODE`（兜底，兼容 `UNDERLYING_ID`），不再使用 `instrumentId` 兜底。
-- `UNDERLYING_CODE`（兼容 `UNDERLYING_ID`）是商品交易计量入参必填依赖；缺失时在 `calc` 入口抛异常并中断该笔交易计量。
-- `FRTB_COMM_ASSET` 仅作为 `riskFactorId` 覆盖字段，不参与异常判断。
+- CMTY 输入字段命名统一使用 `FRTB_COMM_BUCKET`；若出现 `FRTB_COMM_BUKET`（拼写冲突），按 `FRTB_COMM_BUCKET` 缺失处理并记录 WARNING LOGS。
+- 当 `FRTB_COMM_BUCKET` 或 `FRTB_COMM_ASSET` 缺失时，仅跳过相关 CMTY 敏感性，不影响估值主流程，交易计量状态仍为成功。
+- CMTY 的 `riskFactorId` 统一使用 `FRTB_COMM_ASSET`，不使用 `UNDERLYING_CODE`、`REFERENCE_CURVE` 或 `instrumentId` 兜底。
+- `UNDERLYING_CODE` 是商品交易估值入参依赖，不参与 FRTB CMTY `riskFactorId` 选取。
+- `FRTB_COMM_ASSET` 是 CMTY FRTB 敏感性的必需主标识；缺失时记录 WARNING LOGS 并跳过 CMTY 敏感性。
 - `location` 字段仅用于 `riskFactorId` 字符串拼接，不参与主标识（base）选取判断。
 - CMTY Vega 的 `riskFactorId` 不拼接 `location`；仅 CMTY Delta/Curvature 使用 `location` 拼接。
 - CMTY Delta 统一按标准 tenor 点定义 `shock ratio = 0.01`：
