@@ -155,12 +155,14 @@ public class Trs implements FrtbDrcInterface {
             bondLocalScfInfo.fixingCalendar = bondLocalScfInfo.settleCalendar;
             StructuredCashflow bondScf = new StructuredCashflow(dataDate, bondLocalScfInfo, marketData, cal);
             bondScf.calc(marketData);
+            appendScfWarnings(trsMeasure, "债券腿", bondScf);
             LinkedList<StructuredCashflow.Cashflow> bondCashflows = bondScf.getCashflowList();
 
             // 融资腿现金流
             StructuredCashflow.ScfInfo fundingScfInfo = buildFundingScfInfo();
             StructuredCashflow fundingScf = new StructuredCashflow(dataDate, fundingScfInfo, marketData, cal);
             fundingScf.calc(marketData);
+            appendScfWarnings(trsMeasure, "融资腿", fundingScf);
             LinkedList<StructuredCashflow.Cashflow> fundingCashflows = fundingScf.getCashflowList();
 
             // FX汇率：标的币种 → 融资币种（CURRENCY_CODE）
@@ -503,6 +505,18 @@ public class Trs implements FrtbDrcInterface {
 
     private boolean isSuccess(TrsMeasure measure) {
         return measure != null && "SUCCESS".equalsIgnoreCase(measure.status);
+    }
+
+    private void appendScfWarnings(TrsMeasure measure, String legName, StructuredCashflow scf) {
+        if (measure == null || scf == null) {
+            return;
+        }
+        for (String warning : scf.getWarnings()) {
+            if (StringUtils.isBlank(warning)) {
+                continue;
+            }
+            measure.addWarningLog(legName + warning + " (INSTRUMENT_ID=" + trsInfo.instrumentId + ")");
+        }
     }
 
     /**

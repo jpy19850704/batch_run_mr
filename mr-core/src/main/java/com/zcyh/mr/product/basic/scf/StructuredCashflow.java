@@ -310,10 +310,12 @@ public class StructuredCashflow {
                     && Boolean.FALSE.equals(scfInfo.allowMissingReferenceCurveAsZeroForward)) {
                 throw new IllegalArgumentException("参考曲线不存在: " + scfInfo.referenceCurve);
             }
+            // 标准处理逻辑：允许缺失浮息参考曲线时，未来远期利率统一按0处理，并向产品结果透出WARNING。
             if (blankReferenceCurve) {
-                addWarning("浮息参考曲线为空，定盘校验跳过，浮动利率按0处理");
+                addWarning("标准处理：浮息参考曲线为空，定盘校验跳过，未来远期利率按0处理");
             } else if (missingReferenceCurve) {
-                addWarning("浮息参考曲线不存在，未来远期利率按0处理: REFERENCE_CURVE=" + scfInfo.referenceCurve);
+                addWarning("标准处理：浮息参考曲线不存在，未来远期利率按0处理: REFERENCE_CURVE="
+                        + scfInfo.referenceCurve);
             }
             IrSpot refCurve = missingReferenceCurve ? null : new IrSpot(marketData.irSpot.get(scfInfo.referenceCurve));
 

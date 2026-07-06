@@ -60,6 +60,7 @@ public class IrsCcs {
         irsCcsMeasure.dataDate = dataDate;
         irsCcsMeasure.status = "SUCCESS";
         irsCcsMeasure.logs = new ArrayList<>();
+        appendWarnings(irsCcsMeasure, base.warnings);
 
         if (irsCcsInfo.swapType.equalsIgnoreCase("ccs")) {
             // CCS Basis 已统一收口到 GIRR builder，在敏感性列表生成阶段统一追加。
@@ -121,6 +122,7 @@ public class IrsCcs {
         scfInfo.couponProrated = true;
         scfInfo.interestStub = "longEnd";
         scfInfo.notionalFlag = irsCcsInfo.notionalExchangeType;
+        List<String> warnings = new ArrayList<>();
 
         double valuePay = 0, valueRec = 0;
         // 支付端
@@ -150,6 +152,7 @@ public class IrsCcs {
         }
         StructuredCashflow legLeft = new StructuredCashflow(dataDate, scfInfo, marketData, calendar);
         legLeft.calc();
+        appendScfWarnings(warnings, "PAY", legLeft);
         LinkedList<StructuredCashflow.Cashflow> cashflowList1 = legLeft.getCashflowList();
         valuePay = cashflowList1.stream()
                 .map(i -> i.discoutFactor * i.cf)
@@ -188,6 +191,7 @@ public class IrsCcs {
         }
         StructuredCashflow legRight = new StructuredCashflow(dataDate, recScf, marketData, calendar);
         legRight.calc();
+        appendScfWarnings(warnings, "REC", legRight);
         LinkedList<StructuredCashflow.Cashflow> cashflowList2 = legRight.getCashflowList();
         valueRec = cashflowList2.stream()
                 .map(i -> i.discoutFactor * i.cf)
@@ -213,7 +217,32 @@ public class IrsCcs {
         measure.cashFlowList.addAll(buildOutputCashFlowList(cashflowList2, irsCcsInfo.recCurrencyCode, 1.0));
         measure.cashFlowList.addAll(buildOutputCashFlowList(cashflowList1, irsCcsInfo.payCurrencyCode, -1.0));
         snapshot.measure = measure;
+        snapshot.warnings = warnings;
         return snapshot;
+    }
+
+    private void appendScfWarnings(List<String> warnings, String legName, StructuredCashflow scf) {
+        if (warnings == null || scf == null) {
+            return;
+        }
+        for (String warning : scf.getWarnings()) {
+            if (StringUtils.isBlank(warning)) {
+                continue;
+            }
+            String message = legName + "腿" + warning + " (INSTRUMENT_ID=" + irsCcsInfo.instrumentId + ")";
+            if (!warnings.contains(message)) {
+                warnings.add(message);
+            }
+        }
+    }
+
+    private void appendWarnings(Measure measure, List<String> warnings) {
+        if (measure == null || warnings == null) {
+            return;
+        }
+        for (String warning : warnings) {
+            measure.addWarningLog(warning);
+        }
     }
 
     /**
@@ -509,6 +538,7 @@ public class IrsCcs {
         public double recValue;
         public double spotPay;
         public double spotRec;
+        public List<String> warnings;
     }
 
 }
