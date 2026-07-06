@@ -34,6 +34,7 @@ public class IrStepUpOpt extends StepUpOptBase<IrStepUpOpt.IrStepUpInfo, OptionM
         if (md.irVol == null || !md.irVol.containsKey(getVolatilitySurface())) {
             throw new IllegalArgumentException("缺少利率波动率曲面: " + getVolatilitySurface());
         }
+        validateRateTermInputs();
     }
 
     @Override
@@ -131,24 +132,31 @@ public class IrStepUpOpt extends StepUpOptBase<IrStepUpOpt.IrStepUpInfo, OptionM
     }
 
     private String resolveTermCode() {
-        if (hasText(stepUpInfo.termCode)) {
-            return stepUpInfo.termCode.trim().toUpperCase();
-        }
-        return "10Y";
+        return stepUpInfo.termCode.trim().toUpperCase();
     }
 
     private String resolveRateType() {
-        if (hasText(stepUpInfo.rateType)) {
-            return stepUpInfo.rateType.trim().toUpperCase();
-        }
-        return "PAR";
+        return stepUpInfo.rateType.trim().toUpperCase();
     }
 
     private String resolveTermFreq() {
-        if (hasText(stepUpInfo.termFreq)) {
-            return stepUpInfo.termFreq.trim().toUpperCase();
+        return stepUpInfo.termFreq.trim().toUpperCase();
+    }
+
+    private void validateRateTermInputs() {
+        if (!hasText(stepUpInfo.termCode)) {
+            throw new IllegalArgumentException("TERM_CODE不能为空");
         }
-        return "1Y";
+        if (!hasText(stepUpInfo.rateType)) {
+            throw new IllegalArgumentException("RATE_TYPE不能为空");
+        }
+        String rateType = stepUpInfo.rateType.trim().toUpperCase();
+        if (!"ZERO".equals(rateType) && !"PAR".equals(rateType)) {
+            throw new IllegalArgumentException("RATE_TYPE仅支持 ZERO/PAR: " + stepUpInfo.rateType);
+        }
+        if ("PAR".equals(rateType) && !hasText(stepUpInfo.termFreq)) {
+            throw new IllegalArgumentException("RATE_TYPE=PAR时TERM_FREQ不能为空");
+        }
     }
 
     @Override
@@ -278,13 +286,13 @@ public class IrStepUpOpt extends StepUpOptBase<IrStepUpOpt.IrStepUpInfo, OptionM
     public static class IrStepUpInfo extends StepUpOptBase.StepUpBaseInfo {
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
-        /** 利率模式：ZERO(远期零息) / PAR(平价互换)，默认 PAR。 */
+        /** 利率模式：ZERO(远期零息) / PAR(平价互换)。 */
         @JSONField(name = "RATE_TYPE")
         public String rateType;
-        /** 标的期限代码，如 3M/1Y/10Y，默认 10Y。 */
+        /** 标的期限代码，如 3M/1Y/10Y。 */
         @JSONField(name = "TERM_CODE")
         public String termCode;
-        /** PAR 模式付息频率，如 3M/6M/1Y，默认 1Y。 */
+        /** PAR 模式付息频率，如 3M/6M/1Y。 */
         @JSONField(name = "TERM_FREQ")
         public String termFreq;
     }

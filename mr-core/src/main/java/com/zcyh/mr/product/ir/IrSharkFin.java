@@ -114,6 +114,7 @@ public class IrSharkFin extends SharkFinBase<IrSharkFin.IrSharkFinInfo, IrSharkF
         if (info.currencyCode == null || info.currencyCode.trim().isEmpty()) {
             errors.add("CURRENCY_CODE 不能为空");
         }
+        validateRateTermInputs(errors);
         return errors;
     }
 
@@ -126,20 +127,31 @@ public class IrSharkFin extends SharkFinBase<IrSharkFin.IrSharkFinInfo, IrSharkF
             return Double.NaN;
         }
         IrSpot irSpot = new IrSpot(marketData.irSpot.get(curveName));
-        String termCode = textOrDefault(info.termCode, "10Y");
-        if ("ZERO".equalsIgnoreCase(textOrDefault(info.rateType, "PAR"))) {
+        String termCode = info.termCode.trim();
+        if ("ZERO".equalsIgnoreCase(info.rateType.trim())) {
             LocalDate endDate = IrSpot.parseTermCodeToDate(date, termCode);
             return irSpot.fwdRate(date, endDate);
         }
-        String termFreq = textOrDefault(info.termFreq, "1Y");
+        String termFreq = info.termFreq.trim();
         return irSpot.parSwapRate(date, termCode, termFreq);
     }
 
-    private static String textOrDefault(String text, String dft) {
-        if (text == null || text.trim().isEmpty()) {
-            return dft;
+    private void validateRateTermInputs(List<String> errors) {
+        if (!hasText(info.termCode)) {
+            errors.add("TERM_CODE不能为空");
         }
-        return text.trim();
+        if (!hasText(info.rateType)) {
+            errors.add("RATE_TYPE不能为空");
+            return;
+        }
+        String rateType = info.rateType.trim().toUpperCase();
+        if (!"ZERO".equals(rateType) && !"PAR".equals(rateType)) {
+            errors.add("RATE_TYPE仅支持 ZERO/PAR: " + info.rateType);
+            return;
+        }
+        if ("PAR".equals(rateType) && !hasText(info.termFreq)) {
+            errors.add("RATE_TYPE=PAR时TERM_FREQ不能为空");
+        }
     }
 
     private Double getFixingRate(MarketData marketData, LocalDate date) {
@@ -169,13 +181,13 @@ public class IrSharkFin extends SharkFinBase<IrSharkFin.IrSharkFinInfo, IrSharkF
         public String discountCurve;
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
-        /** 利率模式：ZERO(远期零息) / PAR(平价互换)，默认 PAR */
+        /** 利率模式：ZERO(远期零息) / PAR(平价互换) */
         @JSONField(name = "RATE_TYPE")
         public String rateType;
-        /** 利率期限代码，如 3M/1Y/10Y，默认 10Y */
+        /** 利率期限代码，如 3M/1Y/10Y */
         @JSONField(name = "TERM_CODE")
         public String termCode;
-        /** PAR 模式付息频率，如 3M/6M/1Y，默认 1Y */
+        /** PAR 模式付息频率，如 3M/6M/1Y */
         @JSONField(name = "TERM_FREQ")
         public String termFreq;
     }

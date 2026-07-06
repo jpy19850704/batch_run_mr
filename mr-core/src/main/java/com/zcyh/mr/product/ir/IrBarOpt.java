@@ -94,6 +94,7 @@ public class IrBarOpt extends BarOptBase<IrBarOpt.IrBarOptInfo> {
             throw new IllegalArgumentException("缺少历史定盘: FIXING_ID");
         if (info.volatilitySurface == null || !md.irVol.containsKey(info.volatilitySurface))
             throw new IllegalArgumentException("缺少利率波动率曲面: VOLATILITY_SURFACE");
+        validateRateTermInputs();
     }
 
     /**
@@ -104,13 +105,29 @@ public class IrBarOpt extends BarOptBase<IrBarOpt.IrBarOptInfo> {
         if (curveName == null || !marketData.irSpot.containsKey(curveName))
             return Double.NaN;
         IrSpot irSpot = new IrSpot(marketData.irSpot.get(curveName));
-        String termCode = textOrDefault(info.termCode, "10Y");
-        if ("ZERO".equalsIgnoreCase(textOrDefault(info.rateType, "PAR"))) {
+        String termCode = info.termCode.trim();
+        if ("ZERO".equalsIgnoreCase(info.rateType.trim())) {
             LocalDate endDate = IrSpot.parseTermCodeToDate(date, termCode);
             return irSpot.fwdRate(date, endDate);
         }
-        String termFreq = textOrDefault(info.termFreq, "1Y");
+        String termFreq = info.termFreq.trim();
         return irSpot.parSwapRate(date, termCode, termFreq);
+    }
+
+    private void validateRateTermInputs() {
+        if (!hasText(info.termCode)) {
+            throw new IllegalArgumentException("TERM_CODE不能为空");
+        }
+        if (!hasText(info.rateType)) {
+            throw new IllegalArgumentException("RATE_TYPE不能为空");
+        }
+        String rateType = info.rateType.trim().toUpperCase();
+        if (!"ZERO".equals(rateType) && !"PAR".equals(rateType)) {
+            throw new IllegalArgumentException("RATE_TYPE仅支持 ZERO/PAR: " + info.rateType);
+        }
+        if ("PAR".equals(rateType) && !hasText(info.termFreq)) {
+            throw new IllegalArgumentException("RATE_TYPE=PAR时TERM_FREQ不能为空");
+        }
     }
 
     public static class IrBarOptInfo extends BarOptBase.BarOptBaseInfo {

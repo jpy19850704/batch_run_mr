@@ -41,6 +41,7 @@ public class IrRangeAccureOpt extends RangeAccureOptBase<IrRangeAccureOpt.IrRang
         if (!md.irVol.containsKey(rangeAccureInfo.volatilitySurface)) {
             throw new IllegalArgumentException("缺少利率波动率曲面: " + rangeAccureInfo.volatilitySurface);
         }
+        validateRateTermInputs();
     }
 
     @Override
@@ -91,20 +92,30 @@ public class IrRangeAccureOpt extends RangeAccureOptBase<IrRangeAccureOpt.IrRang
      */
     private double calFi(LocalDate date, MarketData marketData) {
         IrSpot irSpot = new IrSpot(marketData.irSpot.get(rangeAccureInfo.referenceCurve));
-        String termCode = rangeAccureInfo.termCode;
-        if (termCode == null || termCode.trim().isEmpty()) {
-            termCode = "10Y";
-        }
-        if ("ZERO".equalsIgnoreCase(rangeAccureInfo.rateType)) {
+        String termCode = rangeAccureInfo.termCode.trim();
+        if ("ZERO".equalsIgnoreCase(rangeAccureInfo.rateType.trim())) {
             // 零息远期利率：复用 IrSpot.fwdRate + IrSpot.parseTermCodeToDate
             LocalDate endDate = IrSpot.parseTermCodeToDate(date, termCode);
             return irSpot.fwdRate(date, endDate);
         }
-        String termFreq = rangeAccureInfo.termFreq;
-        if (termFreq == null || termFreq.trim().isEmpty()) {
-            termFreq = "1Y";
-        }
+        String termFreq = rangeAccureInfo.termFreq.trim();
         return irSpot.parSwapRate(date, termCode, termFreq);
+    }
+
+    private void validateRateTermInputs() {
+        if (!hasText(rangeAccureInfo.termCode)) {
+            throw new IllegalArgumentException("TERM_CODE不能为空");
+        }
+        if (!hasText(rangeAccureInfo.rateType)) {
+            throw new IllegalArgumentException("RATE_TYPE不能为空");
+        }
+        String rateType = rangeAccureInfo.rateType.trim().toUpperCase();
+        if (!"ZERO".equals(rateType) && !"PAR".equals(rateType)) {
+            throw new IllegalArgumentException("RATE_TYPE仅支持 ZERO/PAR: " + rangeAccureInfo.rateType);
+        }
+        if ("PAR".equals(rateType) && !hasText(rangeAccureInfo.termFreq)) {
+            throw new IllegalArgumentException("RATE_TYPE=PAR时TERM_FREQ不能为空");
+        }
     }
 
     @Override
@@ -136,15 +147,15 @@ public class IrRangeAccureOpt extends RangeAccureOptBase<IrRangeAccureOpt.IrRang
     }
 
     public static class IrRangeAccureInfo extends RangeAccureOptBase.RangeAccureFrtbInfo {
-        /** 利率类型：ZERO（零息远期利率）或 PAR（平价互换利率），不区分大小写，默认 PAR */
+        /** 利率类型：ZERO（零息远期利率）或 PAR（平价互换利率），不区分大小写 */
         @JSONField(name = "RATE_TYPE")
         public String rateType;
 
-        /** 标的期限代码，如 "10Y", "5Y", "3M"，默认 "10Y" */
+        /** 标的期限代码，如 "10Y", "5Y", "3M" */
         @JSONField(name = "TERM_CODE")
         public String termCode;
 
-        /** Par 模式付息频率，如 "1Y", "6M", "3M"，默认 "1Y" */
+        /** Par 模式付息频率，如 "1Y", "6M", "3M" */
         @JSONField(name = "TERM_FREQ")
         public String termFreq;
     }

@@ -94,6 +94,7 @@ public class IrWeddingCake
         if (!md.irSpot.containsKey(info.referenceCurve)) {
             throw new IllegalArgumentException("缺少利率曲线: " + info.referenceCurve);
         }
+        validateRateTermInputs();
     }
 
     private double calFi(LocalDate date, MarketData md) {
@@ -102,20 +103,29 @@ public class IrWeddingCake
             return Double.NaN;
         }
         IrSpot irSpot = new IrSpot(md.irSpot.get(curveName));
-        String termCode = textOrDefault(info.termCode, "10Y");
-        if ("ZERO".equalsIgnoreCase(textOrDefault(info.rateType, "PAR"))) {
+        String termCode = info.termCode.trim();
+        if ("ZERO".equalsIgnoreCase(info.rateType.trim())) {
             LocalDate endDate = IrSpot.parseTermCodeToDate(date, termCode);
             return irSpot.fwdRate(date, endDate);
         }
-        String termFreq = textOrDefault(info.termFreq, "1Y");
+        String termFreq = info.termFreq.trim();
         return irSpot.parSwapRate(date, termCode, termFreq);
     }
 
-    private String textOrDefault(String text, String dft) {
-        if (text == null || text.trim().isEmpty()) {
-            return dft;
+    private void validateRateTermInputs() {
+        if (!hasText(info.termCode)) {
+            throw new IllegalArgumentException("TERM_CODE不能为空");
         }
-        return text.trim();
+        if (!hasText(info.rateType)) {
+            throw new IllegalArgumentException("RATE_TYPE不能为空");
+        }
+        String rateType = info.rateType.trim().toUpperCase();
+        if (!"ZERO".equals(rateType) && !"PAR".equals(rateType)) {
+            throw new IllegalArgumentException("RATE_TYPE仅支持 ZERO/PAR: " + info.rateType);
+        }
+        if ("PAR".equals(rateType) && !hasText(info.termFreq)) {
+            throw new IllegalArgumentException("RATE_TYPE=PAR时TERM_FREQ不能为空");
+        }
     }
 
     public static class IrWeddingCakeMeasure extends OptionMeasure {

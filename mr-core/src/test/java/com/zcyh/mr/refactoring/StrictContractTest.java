@@ -9,9 +9,11 @@ import com.zcyh.mr.loader.Loader;
 import com.zcyh.mr.loader.TradeValidator;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.frtb.builder.CmtySensitivityBuilder;
+import com.zcyh.mr.product.ir.IrDigOpt;
 import com.zcyh.mr.saccr.addon.EquityAddOnCalc;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -87,6 +89,32 @@ class StrictContractTest {
     }
 
     @Test
+    void irTermInputsAreExplicit() {
+        LocalDate dataDate = LocalDate.of(2026, 3, 31);
+        MarketData marketData = minimalIrOptionMarketData();
+
+        IrDigOpt.IrDigOptInfo missingTermCode = baseIrDigInfo(dataDate);
+        missingTermCode.rateType = "PAR";
+        missingTermCode.termFreq = "1Y";
+        IllegalArgumentException termCodeEx = assertThrows(IllegalArgumentException.class,
+                () -> new IrDigOpt(dataDate, missingTermCode, marketData).calc());
+        assertTrue(termCodeEx.getMessage().contains("TERM_CODE"));
+
+        IrDigOpt.IrDigOptInfo missingRateType = baseIrDigInfo(dataDate);
+        missingRateType.termCode = "10Y";
+        IllegalArgumentException rateTypeEx = assertThrows(IllegalArgumentException.class,
+                () -> new IrDigOpt(dataDate, missingRateType, marketData).calc());
+        assertTrue(rateTypeEx.getMessage().contains("RATE_TYPE"));
+
+        IrDigOpt.IrDigOptInfo missingTermFreq = baseIrDigInfo(dataDate);
+        missingTermFreq.termCode = "10Y";
+        missingTermFreq.rateType = "PAR";
+        IllegalArgumentException termFreqEx = assertThrows(IllegalArgumentException.class,
+                () -> new IrDigOpt(dataDate, missingTermFreq, marketData).calc());
+        assertTrue(termFreqEx.getMessage().contains("TERM_FREQ"));
+    }
+
+    @Test
     void fxSpotScenarioSubsetUsesResolvedLiquidityHorizon() {
         MarketData marketData = new MarketData();
         marketData.fxSpot.curveData.clear();
@@ -132,5 +160,31 @@ class StrictContractTest {
             }
         }
         return false;
+    }
+
+    private static IrDigOpt.IrDigOptInfo baseIrDigInfo(LocalDate dataDate) {
+        IrDigOpt.IrDigOptInfo info = new IrDigOpt.IrDigOptInfo();
+        info.instrumentId = "T_IR_DIG_001";
+        info.productCode = "IR_DIG_OPT";
+        info.buyOrSell = "B";
+        info.callOrPut = "Call";
+        info.contractSize = 1.0;
+        info.strikePrice = 0.02;
+        info.maturityDate = dataDate.plusMonths(6);
+        info.settleDate = dataDate.plusMonths(6);
+        info.discountCurve = "IR_CNY";
+        info.referenceCurve = "IR_CNY";
+        info.fixingId = "FIX_IR";
+        info.volatilitySurface = "IR_VOL";
+        info.currencyCode = "CNY";
+        return info;
+    }
+
+    private static MarketData minimalIrOptionMarketData() {
+        MarketData marketData = new MarketData();
+        marketData.irSpot.put("IR_CNY", null);
+        marketData.irVol.put("IR_VOL", null);
+        marketData.fixingRate.put("FIX_IR", null);
+        return marketData;
     }
 }
