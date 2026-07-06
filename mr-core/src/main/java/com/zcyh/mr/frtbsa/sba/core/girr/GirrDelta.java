@@ -1,5 +1,9 @@
 package com.zcyh.mr.frtbsa.sba.core.girr;
 
+import static com.zcyh.mr.frtbsa.sba.core.SbaScenarioValueSupport.getByScenario;
+import static com.zcyh.mr.frtbsa.sba.core.SbaScenarioValueSupport.getDouble;
+import static com.zcyh.mr.frtbsa.sba.core.SbaScenarioValueSupport.putByScenario;
+
 import com.zcyh.mr.frtbsa.sba.common.FrtbConstants;
 import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
 import com.zcyh.mr.frtbsa.sba.common.SbaAggregationUtils;
@@ -518,20 +522,8 @@ public class GirrDelta {
 
     // ==================== 工具方法 ====================
 
-    private double getDouble(Map<String, Object> map, String key) {
-        Object value = map.get(key);
-        return (value instanceof Number) ? ((Number) value).doubleValue() : 0.0;
-    }
 
-    private double getByScenario(Map<String, Object> map, String key, String scenario, double defaultValue) {
-        if (map == null)
-            return defaultValue;
-        return getDouble(map, key + "_" + scenario);
-    }
 
-    private void putByScenario(Map<String, Object> map, String key, String scenario, double value) {
-        map.put(key + "_" + scenario, value);
-    }
 
     private double parseTenor(String tenor) {
         if (tenor == null || tenor.isEmpty())

@@ -1,5 +1,10 @@
 package com.zcyh.mr.springboot.service;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.readBoolean;
+import static com.zcyh.mr.springboot.support.RequestParseSupport.readRequiredString;
+import static com.zcyh.mr.springboot.support.RequestParseSupport.readString;
+import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
+
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
@@ -419,41 +424,8 @@ public class FrtbRraoSummaryService {
         return text == null ? null : new BigDecimal(text);
     }
 
-    private static boolean readBoolean(JSONObject request, boolean defaultValue, String key) {
-        if (key != null && request.containsKey(key)) {
-            Boolean value = request.getBoolean(key);
-            if (value != null) {
-                return value;
-            }
-        }
-        return defaultValue;
-    }
-
-    private static String readRequiredString(JSONObject request, String key) {
-        String value = readString(request, key);
-        if (value == null) {
-            throw new IllegalArgumentException("参数缺失: " + key);
-        }
-        return value;
-    }
-
-    private static String readString(JSONObject request, String key) {
-        if (request == null || key == null) {
-            return null;
-        }
-        return trimToNull(request.getString(key));
-    }
-
     private static String stringValue(Object value) {
         return value == null ? null : String.valueOf(value);
-    }
-
-    private static String trimToNull(String text) {
-        if (text == null) {
-            return null;
-        }
-        String value = text.trim();
-        return value.isEmpty() ? null : value;
     }
 
     private static class GroupKey {

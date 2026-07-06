@@ -1,5 +1,8 @@
 package com.zcyh.mr.springboot.engine;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.readBoolean;
+import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
+
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
@@ -118,43 +121,11 @@ public class ScenarioEngineAdapter implements EngineAdapter {
     }
 
     private static String requiredString(JSONObject obj, String key) {
-        String value = obj.getString(key);
-        if (value == null || value.trim().isEmpty()) {
+        String value = trimToNull(obj.getString(key));
+        if (value == null) {
             throw new IllegalArgumentException(key + " 必填");
         }
-        return value.trim();
-    }
-
-    private static Boolean readBoolean(JSONObject obj, String key) {
-        if (obj == null || key == null) {
-            return null;
-        }
-        Object raw = obj.get(key);
-        if (raw == null) {
-            return null;
-        }
-        if (raw instanceof Boolean) {
-            return (Boolean) raw;
-        }
-        String text = trimToNull(String.valueOf(raw));
-        if (text == null) {
-            return null;
-        }
-        if ("true".equalsIgnoreCase(text) || "1".equals(text) || "y".equalsIgnoreCase(text)) {
-            return true;
-        }
-        if ("false".equalsIgnoreCase(text) || "0".equals(text) || "n".equalsIgnoreCase(text)) {
-            return false;
-        }
-        return null;
-    }
-
-    private static String trimToNull(String text) {
-        if (text == null) {
-            return null;
-        }
-        String value = text.trim();
-        return value.isEmpty() ? null : value;
+        return value;
     }
 
     private static String summarizeScenarioIds(List<ScenarioGeneratedRecord> records) {

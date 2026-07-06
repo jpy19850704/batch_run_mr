@@ -1,5 +1,11 @@
 package com.zcyh.mr.springboot.service;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.readBoolean;
+import static com.zcyh.mr.springboot.support.RequestParseSupport.readInteger;
+import static com.zcyh.mr.springboot.support.RequestParseSupport.readRequiredString;
+import static com.zcyh.mr.springboot.support.RequestParseSupport.readString;
+import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
+
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
@@ -238,49 +244,6 @@ public class FrtbSbaSummaryService {
         }
         rule.put("rule_id", ruleId);
         return RuleExecution.inline(ruleId, rule);
-    }
-
-    private static boolean readBoolean(JSONObject request, boolean defaultValue, String key) {
-        if (key != null && request.containsKey(key)) {
-            Boolean value = request.getBoolean(key);
-            if (value != null) {
-                return value;
-            }
-        }
-        return defaultValue;
-    }
-
-    private static int readInteger(JSONObject request, int defaultValue, String key) {
-        if (key != null && request.containsKey(key)) {
-            Integer value = request.getInteger(key);
-            if (value != null) {
-                return value;
-            }
-        }
-        return defaultValue;
-    }
-
-    private static String readRequiredString(JSONObject request, String key) {
-        String value = readString(request, key);
-        if (value == null) {
-            throw new IllegalArgumentException("参数缺失: " + key);
-        }
-        return value;
-    }
-
-    private static String readString(JSONObject request, String key) {
-        if (request == null || key == null) {
-            return null;
-        }
-        return trimToNull(request.getString(key));
-    }
-
-    private static String trimToNull(String text) {
-        if (text == null) {
-            return null;
-        }
-        String value = text.trim();
-        return value.isEmpty() ? null : value;
     }
 
     /**

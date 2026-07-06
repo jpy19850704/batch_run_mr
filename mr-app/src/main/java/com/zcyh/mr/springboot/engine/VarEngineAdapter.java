@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.engine;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
+
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.service.VarDbRunnerService;
@@ -50,13 +52,5 @@ public class VarEngineAdapter implements EngineAdapter {
             throw new IllegalStateException("var 数据库执行服务未配置");
         }
         return dbRunnerService;
-    }
-
-    private static String trimToNull(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
     }
 }

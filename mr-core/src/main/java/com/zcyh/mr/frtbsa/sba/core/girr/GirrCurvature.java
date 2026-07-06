@@ -1,5 +1,9 @@
 package com.zcyh.mr.frtbsa.sba.core.girr;
 
+import static com.zcyh.mr.frtbsa.sba.core.SbaScenarioValueSupport.getByScenario;
+import static com.zcyh.mr.frtbsa.sba.core.SbaScenarioValueSupport.getDouble;
+import static com.zcyh.mr.frtbsa.sba.core.SbaScenarioValueSupport.putByScenario;
+
 import com.zcyh.mr.frtbsa.sba.common.FrtbConstants;
 import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
 import java.util.*;
@@ -237,17 +241,6 @@ public class GirrCurvature {
         return FrtbConstants.normalizeBucketForRiskClass(RISK_CLASS, bucket.toString());
     }
 
-    private double getDouble(Map<String, Object> map, String key) {
-        Object value = map.get(key);
-        return (value instanceof Number) ? ((Number) value).doubleValue() : 0.0;
-    }
 
-    private double getByScenario(Map<String, Object> map, String prefix, String scenario, double defaultValue) {
-        Object value = map.get(prefix + "_" + scenario);
-        return (value instanceof Number) ? ((Number) value).doubleValue() : defaultValue;
-    }
 
-    private void putByScenario(Map<String, Object> map, String prefix, String scenario, double value) {
-        map.put(prefix + "_" + scenario, value);
-    }
 }

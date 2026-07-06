@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.engine;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
+
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
@@ -99,12 +101,12 @@ public class MrCalcEngineAdapter implements EngineAdapter {
             if (existingCacheKey != null && ScenarioCache.contains(existingCacheKey)) {
                 continue;
             }
-            String scenarioSetId = trimToNull(item.getString("scenario_set_id"));
-            if (scenarioSetId == null) {
+            String scenarioIdList = trimToNull(item.getString("scenario_set_id"));
+            if (scenarioIdList == null) {
                 throw new IllegalArgumentException(fieldName + "[" + i + "].scenario_set_id 必填");
             }
-            String cacheKey = existingCacheKey == null ? buildCacheKey(fieldName, batchId, scenarioSetId) : existingCacheKey;
-            ScenarioCache.loadFromFiles(cacheKey, resolveScenarioPaths(scenarioSetId, batchId), date);
+            String cacheKey = existingCacheKey == null ? buildCacheKey(fieldName, batchId, scenarioIdList) : existingCacheKey;
+            ScenarioCache.loadFromFiles(cacheKey, resolveScenarioPaths(scenarioIdList, batchId), date);
             item.put("cache_key", cacheKey);
         }
     }
@@ -129,7 +131,7 @@ public class MrCalcEngineAdapter implements EngineAdapter {
         return val.trim();
     }
 
-    private List<String> resolveScenarioPaths(String scenarioSetId, String batchId) {
+    private List<String> resolveScenarioPaths(String scenarioIdList, String batchId) {
         String root = scenarioSetRootDir;
         if (root == null || root.trim().isEmpty()) {
             throw new IllegalArgumentException("缺少 scenario 数据目录，请配置 mr.calc.scenario-set.root-dir");
@@ -146,7 +148,7 @@ public class MrCalcEngineAdapter implements EngineAdapter {
 
         Path batchDir = rootPath.resolve(toSafePathName(batchId, "batch_id")).normalize();
         List<String> result = new ArrayList<String>();
-        for (String scenarioId : parseScenarioIds(scenarioSetId)) {
+        for (String scenarioId : parseScenarioIds(scenarioIdList)) {
             Path path = batchDir.resolve(toSafePathName(scenarioId, "SCENARIO_ID") + ".csv.gz").normalize();
             if (!path.startsWith(batchDir)) {
                 throw new IllegalArgumentException("非法 scenario 文件路径: " + path);
@@ -159,9 +161,9 @@ public class MrCalcEngineAdapter implements EngineAdapter {
         return result;
     }
 
-    private Set<String> parseScenarioIds(String scenarioSetId) {
+    private Set<String> parseScenarioIds(String scenarioIdList) {
         Set<String> result = new LinkedHashSet<String>();
-        String safe = trimToNull(scenarioSetId);
+        String safe = trimToNull(scenarioIdList);
         if (safe == null) {
             return result;
         }
@@ -188,15 +190,7 @@ public class MrCalcEngineAdapter implements EngineAdapter {
         return safe;
     }
 
-    private String buildCacheKey(String type, String batchId, String scenarioSetId) {
-        return type + ":" + batchId + ":" + scenarioSetId;
-    }
-
-    private static String trimToNull(String text) {
-        if (text == null) {
-            return null;
-        }
-        String value = text.trim();
-        return value.isEmpty() ? null : value;
+    private String buildCacheKey(String type, String batchId, String scenarioIdList) {
+        return type + ":" + batchId + ":" + scenarioIdList;
     }
 }

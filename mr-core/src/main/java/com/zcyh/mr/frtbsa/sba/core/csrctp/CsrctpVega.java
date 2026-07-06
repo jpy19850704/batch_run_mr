@@ -1,5 +1,9 @@
 package com.zcyh.mr.frtbsa.sba.core.csrctp;
 
+import static com.zcyh.mr.frtbsa.sba.core.SbaScenarioValueSupport.getByScenario;
+import static com.zcyh.mr.frtbsa.sba.core.SbaScenarioValueSupport.getDouble;
+import static com.zcyh.mr.frtbsa.sba.core.SbaScenarioValueSupport.putByScenario;
+
 import com.zcyh.mr.frtbsa.sba.common.FrtbConstants;
 import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
 import com.zcyh.mr.frtbsa.sba.common.SbaAggregationUtils;
@@ -295,19 +299,8 @@ public class CsrctpVega {
         return (ws + rhol + gammac) / capital;
     }
 
-    private double getDouble(Map<String, Object> map, String key) {
-        Object value = map.get(key);
-        return (value instanceof Number) ? ((Number) value).doubleValue() : 0.0;
-    }
 
-    private double getByScenario(Map<String, Object> map, String prefix, String scenario, double defaultValue) {
-        Object value = map.get(prefix + "_" + scenario);
-        return (value instanceof Number) ? ((Number) value).doubleValue() : defaultValue;
-    }
 
-    private void putByScenario(Map<String, Object> map, String prefix, String scenario, double value) {
-        map.put(prefix + "_" + scenario, value);
-    }
 
     private boolean isSameRiskFactor(Map<String, Object> k, Map<String, Object> l) {
         return Objects.equals(k.get("riskFactorId"), l.get("riskFactorId"))

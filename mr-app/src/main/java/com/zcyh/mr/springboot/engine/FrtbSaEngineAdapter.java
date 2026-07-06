@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.engine;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
+
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
@@ -123,14 +125,6 @@ public class FrtbSaEngineAdapter implements EngineAdapter {
             throw new IllegalArgumentException(path + "[" + index + "]." + key + " 必填");
         }
         return value;
-    }
-
-    private static String trimToNull(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
     }
 }
 
