@@ -33,8 +33,6 @@ public class CommVanillaOpt {
     private AmOptUtil amOptUtil;
     private final boolean isAmerican;
     private final Middle middle = new Middle();
-    private boolean commBucketMissingLogged = false;
-    private boolean commAssetMissingLogged = false;
 
     public CommVanillaOpt(LocalDate dataDate, CommVanillaOpt.CommOptInfo tradeInfo, MarketData marketData) {
         this.dataDate = dataDate;
@@ -296,9 +294,13 @@ public class CommVanillaOpt {
     }
 
     private List<FrtbSenes> getSensListCMTY() {
-        String commBucket = getCommBucketForFrtb();
-        String commAsset = getCommAssetForFrtb();
-        if (!hasText(commBucket) || !hasText(commAsset)) {
+        String commBucket = getText(commOptInfo == null ? null : commOptInfo.frtbCommBucket);
+        String commAsset = resolveCmtyRiskFactorIdBase();
+        if (FrtbSensitivityBuilder.warnMissingCmtySensitivityInputs(
+                measure,
+                getText(commOptInfo == null ? null : commOptInfo.instrumentId),
+                commBucket,
+                commAsset)) {
             return new ArrayList<>();
         }
         String sensitivityCurrency = resolveSensitivityCurrency();
@@ -364,32 +366,6 @@ public class CommVanillaOpt {
             return underlying;
         }
         throw new IllegalArgumentException("缺少UNDERLYING_CODE，无法进行商品交易计量");
-    }
-
-    private String getCommBucketForFrtb() {
-        String bucket = getText(commOptInfo == null ? null : commOptInfo.frtbCommBucket);
-        if (hasText(bucket)) {
-            return bucket;
-        }
-        if (!commBucketMissingLogged) {
-            measure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                    + getText(commOptInfo == null ? null : commOptInfo.instrumentId) + ")");
-            commBucketMissingLogged = true;
-        }
-        return null;
-    }
-
-    private String getCommAssetForFrtb() {
-        String asset = resolveCmtyRiskFactorIdBase();
-        if (hasText(asset)) {
-            return asset;
-        }
-        if (!commAssetMissingLogged) {
-            measure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                    + getText(commOptInfo == null ? null : commOptInfo.instrumentId) + ")");
-            commAssetMissingLogged = true;
-        }
-        return null;
     }
 
     static public class CommOptMeasure extends OptionMeasure {

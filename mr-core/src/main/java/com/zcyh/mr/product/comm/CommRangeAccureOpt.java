@@ -93,15 +93,11 @@ public class CommRangeAccureOpt extends RangeAccureOptBase<CommRangeAccureOpt.Co
     private List<FrtbSenes> getSensListCMTY() {
         String commBucket = hasText(rangeAccureInfo.frtbCommBucket) ? rangeAccureInfo.frtbCommBucket.trim() : null;
         String commAsset = resolveCmtyRiskFactorIdBase();
-        if (!hasText(commBucket) || !hasText(commAsset)) {
-            if (!hasText(commBucket)) {
-                rangeAccureMeasure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                        + getText(rangeAccureInfo.instrumentId) + ")");
-            }
-            if (!hasText(commAsset)) {
-                rangeAccureMeasure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                        + getText(rangeAccureInfo.instrumentId) + ")");
-            }
+        if (FrtbSensitivityBuilder.warnMissingCmtySensitivityInputs(
+                rangeAccureMeasure,
+                getText(rangeAccureInfo.instrumentId),
+                commBucket,
+                commAsset)) {
             return new ArrayList<>();
         }
         List<FrtbDependency> deltaDependencies = FrtbSensitivityBuilder.buildCmtyDeltaDependencies(

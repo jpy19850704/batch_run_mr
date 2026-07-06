@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static com.zcyh.mr.product.basic.option.EurOptUtil.cdf;
+import static com.zcyh.mr.product.basic.frtb.OptionBaseFrtbSupport.*;
 
 /**
  * StepUp 交易公共基类。
@@ -451,45 +452,6 @@ public abstract class StepUpOptBase<T, M extends OptionMeasure> {
                 () -> middle.newSigma = true);
         list.addAll(fxSensitivities);
         return list;
-    }
-
-    private MeasureValuation toMeasureValuation(OptionMeasure measure) {
-        if (measure == null) {
-            return null;
-        }
-        return MeasureValuation.of(measure.valuation, measure.valuationCny);
-    }
-
-    private List<String> collectFxRiskCurrencies(String... currencies) {
-        LinkedHashSet<String> fxRiskCurrencies = new LinkedHashSet<>();
-        if (currencies == null) {
-            return new ArrayList<>();
-        }
-        for (String currency : currencies) {
-            if (!hasText(currency)) {
-                continue;
-            }
-            fxRiskCurrencies.add(currency);
-        }
-        return new ArrayList<>(fxRiskCurrencies);
-    }
-
-    private List<FrtbDependency> buildFxVegaDependencies(
-            String underlyingCurrencyCode,
-            String baseCurrencyCode,
-            String volatilitySurface) {
-        String undCcy = normalizeCcy(underlyingCurrencyCode);
-        String baseCcy = normalizeCcy(baseCurrencyCode);
-        String riskFactorId = "FX_" + undCcy + "_" + baseCcy + "_VOL";
-        String bucket = undCcy + "/" + baseCcy;
-        return FrtbSensitivityBuilder.buildFxVegaDependencies(volatilitySurface, riskFactorId, bucket);
-    }
-
-    private String normalizeCcy(String ccy) {
-        if (ccy == null) {
-            return "";
-        }
-        return ccy.trim().toUpperCase(Locale.ROOT);
     }
 
     private boolean isDomesticFxCurrency(String ccy) {

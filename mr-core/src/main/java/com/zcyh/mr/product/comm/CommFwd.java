@@ -121,17 +121,11 @@ public class CommFwd {
         String fxRiskCurrency = resolveFxRiskCurrency(valuationCurrency, strikeCurrency);
         String commBucket = hasText(commFwdInfo.frtbCommBucket) ? commFwdInfo.frtbCommBucket.trim() : null;
         String commAsset = resolveCmtyRiskFactorIdBase();
-        boolean enableCmty = hasText(commBucket) && hasText(commAsset);
-        if (!enableCmty) {
-            if (!hasText(commBucket)) {
-                commFwdMeasure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                        + (commFwdInfo.instrumentId == null ? "" : commFwdInfo.instrumentId) + ")");
-            }
-            if (!hasText(commAsset)) {
-                commFwdMeasure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                        + (commFwdInfo.instrumentId == null ? "" : commFwdInfo.instrumentId) + ")");
-            }
-        }
+        boolean enableCmty = !FrtbSensitivityBuilder.warnMissingCmtySensitivityInputs(
+                commFwdMeasure,
+                commFwdInfo.instrumentId,
+                commBucket,
+                commAsset);
         if (hasText(fxRiskCurrency)) {
             List<FrtbDependency> fxDeltaDependencies = FrtbSensitivityBuilder.buildFxDeltaDependencies(
                     Collections.singletonList(fxRiskCurrency));

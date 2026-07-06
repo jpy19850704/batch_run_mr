@@ -1,10 +1,12 @@
 package com.zcyh.mr.refactoring;
 
+import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.basic.util.EnginePreconditions;
 import com.zcyh.mr.frtbima.common.LiquidityHorizonTable;
 import com.zcyh.mr.frtbima.scenariopnl.SubsetScenarioRunner;
 import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
+import com.zcyh.mr.loader.FileUtils;
 import com.zcyh.mr.loader.Loader;
 import com.zcyh.mr.loader.TradeValidator;
 import com.zcyh.mr.marketdata.MarketData;
@@ -19,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -42,6 +45,32 @@ class StrictContractTest {
 
         assertTrue(errors.contains("缺少必填字段: CURRENCY_CODE"));
         assertTrue(errors.contains("缺少必填字段: DISCOUNT_CURVE"));
+    }
+
+    @Test
+    void tradeValidatorRequiresConfiguredCommodityFields() {
+        JSONObject trade = new JSONObject();
+        trade.put("INSTRUMENT_ID", "T_COMM_WEDDING_001");
+        trade.put("PRODUCT_CODE", "COMM_WEDDING_CAKE");
+
+        List<String> errors = TradeValidator.validate(trade, "COMM_WEDDING_CAKE", "TRADE");
+
+        assertTrue(errors.contains("缺少必填字段: NOTIONAL"));
+        assertTrue(errors.contains("缺少必填字段: FIXING_ID"));
+    }
+
+    @Test
+    void historicalCurveIsNotRuntimeInputContract() {
+        JSONObject rules = JSON.parseObject(FileUtils.loadData("data/model/validationRules.json"));
+
+        assertFalse(rules.toJSONString().contains("HISTORICAL_CURVE"));
+    }
+
+    @Test
+    void productModelDoesNotDeclareUnsupportedFxSharkFin() {
+        JSONObject productModel = JSON.parseObject(FileUtils.loadData("data/model/productModel.json"));
+
+        assertFalse(productModel.containsKey("FX_SHARKFIN"));
     }
 
     @Test

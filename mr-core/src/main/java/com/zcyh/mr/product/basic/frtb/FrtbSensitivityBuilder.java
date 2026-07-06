@@ -2,6 +2,7 @@ package com.zcyh.mr.product.basic.frtb;
 
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.calc.FrtbCalcControl;
+import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.frtb.builder.CmtySensitivityBuilder;
 import com.zcyh.mr.product.basic.frtb.builder.CsrSensitivityBuilder;
 import com.zcyh.mr.product.basic.frtb.builder.EqSensitivityBuilder;
@@ -128,6 +129,21 @@ public class FrtbSensitivityBuilder {
      */
     public static List<FrtbDependency> buildCmtyVegaDependencies(String volatilitySurface, String riskFactorId, String bucket) {
         return CmtySensitivityBuilder.buildVegaDependencies(volatilitySurface, riskFactorId, bucket);
+    }
+
+    /**
+     * 检查商品敏感性所需输入，缺失时写入 warning 并由调用方跳过 CMTY 敏感性。
+     */
+    public static boolean warnMissingCmtySensitivityInputs(
+            Measure measure,
+            String instrumentId,
+            String cmtyBucket,
+            String... cmtyRiskFactorIds) {
+        return CmtySensitivityBuilder.warnMissingSensitivityInputs(
+                measure,
+                instrumentId,
+                cmtyBucket,
+                cmtyRiskFactorIds);
     }
 
     /**

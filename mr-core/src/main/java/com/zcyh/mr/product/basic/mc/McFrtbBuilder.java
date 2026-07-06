@@ -198,15 +198,11 @@ public final class McFrtbBuilder {
 
             String commBucket = hasText(c.frtbCommBucket) ? c.frtbCommBucket.trim() : null;
             String riskFactorIdVega = resolveCmtyRiskFactorIdBase(c);
-            if (!hasText(commBucket) || !hasText(riskFactorIdVega)) {
-                if (!hasText(commBucket)) {
-                    measure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                            + (c.instrumentId == null ? "" : c.instrumentId) + ")");
-                }
-                if (!hasText(riskFactorIdVega)) {
-                    measure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                            + (c.instrumentId == null ? "" : c.instrumentId) + ")");
-                }
+            if (FrtbSensitivityBuilder.warnMissingCmtySensitivityInputs(
+                    measure,
+                    c.instrumentId,
+                    commBucket,
+                    riskFactorIdVega)) {
                 return list;
             }
             String riskFactorId = resolveCmtyRiskFactorId(c);

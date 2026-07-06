@@ -255,7 +255,7 @@
             "DISCOUNT_CURVE": "string",
             "UNDERLYING_DISCOUNT_CURVE": "string",
             "BASE_DISCOUNT_CURVE": "string",
-            "HISTORICAL_CURVE": "string",
+            "FIXING_ID": "string",
             "OUTER_LOWER_BARRIER": "number",
             "OUTER_UPPER_BARRIER": "number",
             "INNER_LOWER_BARRIER": "number",
@@ -277,7 +277,7 @@
             "CURRENCY_CODE": "string",
             "DISCOUNT_CURVE": "string",
             "REFERENCE_CURVE": "string",
-            "HISTORICAL_CURVE": "string",
+            "FIXING_ID": "string",
             "OUTER_LOWER_BARRIER": "number",
             "OUTER_UPPER_BARRIER": "number",
             "INNER_LOWER_BARRIER": "number",
@@ -299,7 +299,7 @@
             "CURRENCY_CODE": "string",
             "DISCOUNT_CURVE": "string",
             "REFERENCE_CURVE": "string",
-            "HISTORICAL_CURVE": "string",
+            "FIXING_ID": "string",
             "OUTER_LOWER_BARRIER": "number",
             "OUTER_UPPER_BARRIER": "number",
             "INNER_LOWER_BARRIER": "number",
@@ -320,7 +320,7 @@
             "VOLATILITY_SURFACE": "string",
             "CURRENCY_CODE": "string",
             "DISCOUNT_CURVE": "string",
-            "HISTORICAL_CURVE": "string",
+            "FIXING_ID": "string",
             "OUTER_LOWER_BARRIER": "number",
             "OUTER_UPPER_BARRIER": "number",
             "INNER_LOWER_BARRIER": "number",
@@ -383,8 +383,7 @@
             "UPPER_BARRIER": "number",
             "SETTLE_DATE": "date",
             "STRIKE_PRICE": "number",
-            "DISCOUNT_CURVE": "string",
-            "HISTORICAL_CURVE": "string"
+            "DISCOUNT_CURVE": "string"
         }
     },
     "COMMOPT": {

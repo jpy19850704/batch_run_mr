@@ -181,13 +181,6 @@
       "CALL_OR_PUT": "CALL"
     }
   },
-  "FX_SHARKFIN" : {
-    "TRADE": {
-      "CONTRACT_SIZE": 1,
-      "SETTLE_TYPE": "CASH",
-      "CALL_OPTION": "true"
-    }
-  },
   "EQ_SHARKFIN" : {
     "TRADE": {
       "CONTRACT_SIZE": 1,

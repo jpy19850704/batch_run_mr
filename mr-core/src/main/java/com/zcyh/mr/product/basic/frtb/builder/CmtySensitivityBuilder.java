@@ -3,6 +3,7 @@ package com.zcyh.mr.product.basic.frtb.builder;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.MeasureValuation;
@@ -47,6 +48,38 @@ public class CmtySensitivityBuilder extends AbstractSensitivityBuilder {
                 riskFactorId,
                 bucket));
         return dependencies;
+    }
+
+    public static boolean warnMissingSensitivityInputs(
+            Measure measure,
+            String instrumentId,
+            String cmtyBucket,
+            String... cmtyRiskFactorIds) {
+        boolean missingBucket = !hasText(cmtyBucket);
+        boolean missingAsset = false;
+        if (cmtyRiskFactorIds != null) {
+            for (String riskFactorId : cmtyRiskFactorIds) {
+                if (!hasText(riskFactorId)) {
+                    missingAsset = true;
+                    break;
+                }
+            }
+        }
+        if (!missingBucket && !missingAsset) {
+            return false;
+        }
+        if (measure != null) {
+            String instId = instrumentId == null ? "" : instrumentId;
+            if (missingBucket) {
+                measure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+                        + instId + ")");
+            }
+            if (missingAsset) {
+                measure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
+                        + instId + ")");
+            }
+        }
+        return true;
     }
 
     public static List<FrtbSenes> buildSensitivities(

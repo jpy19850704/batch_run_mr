@@ -17,12 +17,12 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
+
+import static com.zcyh.mr.product.basic.frtb.OptionBaseFrtbSupport.*;
 
 /**
  * Spread Option 公共基类。
@@ -330,15 +330,12 @@ public abstract class SpreadOptBase<T extends SpreadOptBase.SpreadOptBaseInfo, M
                 null);
         list.addAll(girrSensitivities);
 
-        if (!hasText(cmtyBucket) || !hasText(cmtyRiskFactorId) || !hasText(cmtyRiskFactorIdVega)) {
-            if (!hasText(cmtyBucket)) {
-                measure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                        + (info.instrumentId == null ? "" : info.instrumentId) + ")");
-            }
-            if (!hasText(cmtyRiskFactorId) || !hasText(cmtyRiskFactorIdVega)) {
-                measure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                        + (info.instrumentId == null ? "" : info.instrumentId) + ")");
-            }
+        if (addMissingCmtyDependencyWarnings(
+                measure,
+                info.instrumentId,
+                cmtyBucket,
+                cmtyRiskFactorId,
+                cmtyRiskFactorIdVega)) {
             return list;
         }
 
@@ -672,45 +669,6 @@ public abstract class SpreadOptBase<T extends SpreadOptBase.SpreadOptBaseInfo, M
             }
         }
         return null;
-    }
-
-    private MeasureValuation toMeasureValuation(OptionMeasure measure) {
-        if (measure == null) {
-            return null;
-        }
-        return MeasureValuation.of(measure.valuation, measure.valuationCny);
-    }
-
-    private List<String> collectFxRiskCurrencies(String... currencies) {
-        LinkedHashSet<String> fxRiskCurrencies = new LinkedHashSet<>();
-        if (currencies == null) {
-            return new ArrayList<>();
-        }
-        for (String currency : currencies) {
-            if (!hasText(currency)) {
-                continue;
-            }
-            fxRiskCurrencies.add(currency);
-        }
-        return new ArrayList<>(fxRiskCurrencies);
-    }
-
-    private List<FrtbDependency> buildFxVegaDependencies(
-            String underlyingCurrencyCode,
-            String baseCurrencyCode,
-            String volatilitySurface) {
-        String undCcy = normalizeCcy(underlyingCurrencyCode);
-        String baseCcy = normalizeCcy(baseCurrencyCode);
-        String riskFactorId = "FX_" + undCcy + "_" + baseCcy + "_VOL";
-        String bucket = undCcy + "/" + baseCcy;
-        return FrtbSensitivityBuilder.buildFxVegaDependencies(volatilitySurface, riskFactorId, bucket);
-    }
-
-    private String normalizeCcy(String ccy) {
-        if (ccy == null) {
-            return "";
-        }
-        return ccy.trim().toUpperCase(Locale.ROOT);
     }
 
     private boolean isDomesticFxCurrency(String ccy) {

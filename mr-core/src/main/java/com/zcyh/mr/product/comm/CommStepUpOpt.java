@@ -121,15 +121,11 @@ public class CommStepUpOpt extends StepUpOptBase<CommStepUpOpt.CommStepUpInfo, O
     private List<FrtbSenes> getSensListCMTY() {
         String commBucket = hasText(stepUpInfo.frtbCommBucket) ? stepUpInfo.frtbCommBucket.trim() : null;
         String commAsset = resolveCmtyRiskFactorIdBase();
-        if (!hasText(commBucket) || !hasText(commAsset)) {
-            if (!hasText(commBucket)) {
-                stepUpMeasure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                        + getText(stepUpInfo.instrumentId) + ")");
-            }
-            if (!hasText(commAsset)) {
-                stepUpMeasure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                        + getText(stepUpInfo.instrumentId) + ")");
-            }
+        if (FrtbSensitivityBuilder.warnMissingCmtySensitivityInputs(
+                stepUpMeasure,
+                getText(stepUpInfo.instrumentId),
+                commBucket,
+                commAsset)) {
             return new ArrayList<>();
         }
         List<FrtbDependency> deltaDependencies = FrtbSensitivityBuilder.buildCmtyDeltaDependencies(

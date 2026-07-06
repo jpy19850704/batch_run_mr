@@ -150,17 +150,11 @@ public class CommSwap {
         String fxRiskCurrency = resolveFxRiskCurrency(valuationCurrency, strikeCurrency);
         String commBucket = hasText(commSwapInfo.frtbCommBucket) ? commSwapInfo.frtbCommBucket.trim() : null;
         String commAsset = resolveCmtyRiskFactorIdBase();
-        boolean enableCmty = hasText(commBucket) && hasText(commAsset);
-        if (!enableCmty) {
-            if (!hasText(commBucket)) {
-                commSwapMeasure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                        + (commSwapInfo.instrumentId == null ? "" : commSwapInfo.instrumentId) + ")");
-            }
-            if (!hasText(commAsset)) {
-                commSwapMeasure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                        + (commSwapInfo.instrumentId == null ? "" : commSwapInfo.instrumentId) + ")");
-            }
-        }
+        boolean enableCmty = !FrtbSensitivityBuilder.warnMissingCmtySensitivityInputs(
+                commSwapMeasure,
+                commSwapInfo.instrumentId,
+                commBucket,
+                commAsset);
         HashMap<String,String> map = new HashMap<>();
         map.put(commSwapInfo.discountCurve, valuationCurrency);
 

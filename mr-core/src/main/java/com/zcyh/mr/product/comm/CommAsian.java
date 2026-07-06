@@ -179,16 +179,11 @@ public class CommAsian extends AsianBase<CommAsian.CommAsianInfo, CommAsian.Comm
 
         String commBucket = getText(info.frtbCommBucket);
         String commAsset = resolveCmtyRiskFactorIdBase();
-        if (!hasText(commBucket) || !hasText(commAsset)) {
-            if (!hasText(commBucket)) {
-                measure.addWarningLog("FRTB_COMM_BUCKET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                        + getText(info.instrumentId) + ")");
-            }
-            if (!hasText(commAsset)) {
-                measure.addWarningLog("FRTB_COMM_ASSET为空，跳过CMTY敏感性计算(INSTRUMENT_ID="
-                        + getText(info.instrumentId) + ")");
-            }
-        } else {
+        if (!FrtbSensitivityBuilder.warnMissingCmtySensitivityInputs(
+                measure,
+                getText(info.instrumentId),
+                commBucket,
+                commAsset)) {
             List<FrtbDependency> cmtyDeltaDependencies = FrtbSensitivityBuilder.buildCmtyDeltaDependencies(
                     info.referenceCurve,
                     resolveCmtyRiskFactorId(),

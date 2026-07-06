@@ -71,11 +71,11 @@ public class TradeValidator {
             validateRequiredText(data, "PRODUCT_CODE", errors);
         }
 
-        // 产品专属规则：商品类字段存在才校验，其他产品按配置必填。
+        // 产品专属规则：配置中声明的字段均属于输入契约，必须显式传入。
         if (productCode != null) {
             JSONObject productNodeRules = getNodeRules(productCode, node);
             if (productNodeRules != null) {
-                applyRules(data, productNodeRules, errors, isCommodityProduct(productCode));
+                applyRules(data, productNodeRules, errors);
             }
         }
 
@@ -92,10 +92,6 @@ public class TradeValidator {
         return productRules.getJSONObject(node);
     }
 
-    private static boolean isCommodityProduct(String productCode) {
-        return productCode != null && productCode.startsWith("COMM");
-    }
-
     private static void validateRequiredText(JSONObject data, String field, List<String> errors) {
         Object val = data.get(field);
         String strVal = (val != null) ? val.toString().trim() : "";
@@ -110,20 +106,14 @@ public class TradeValidator {
      * @param data       待校验数据
      * @param fieldRules 字段校验规则
      * @param errors     错误信息列表
-     * @param isCommon   是否为通用规则（通用规则中字段不存在则跳过）
      */
-    private static void applyRules(JSONObject data, JSONObject fieldRules, List<String> errors, boolean isCommon) {
+    private static void applyRules(JSONObject data, JSONObject fieldRules, List<String> errors) {
         if (fieldRules == null)
             return;
 
         for (String field : fieldRules.keySet()) {
             String rule = fieldRules.getString(field);
             Object val = data.get(field);
-
-            // 通用规则：字段在数据中不存在则跳过（该产品不涉及此字段）
-            if (isCommon && !data.containsKey(field)) {
-                continue;
-            }
 
             // 所有配置的字段都必填：null 或空字符串报错
             String strVal = (val != null) ? val.toString().trim() : "";
