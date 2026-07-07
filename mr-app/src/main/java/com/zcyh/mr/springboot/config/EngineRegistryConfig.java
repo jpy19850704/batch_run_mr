@@ -12,18 +12,18 @@ import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
 import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.springboot.engine.ScenarioEngineAdapter;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
-import com.zcyh.mr.springboot.service.ImaCapitalResultPersistService;
-import com.zcyh.mr.springboot.service.ImaEsResultDetailPersistService;
-import com.zcyh.mr.springboot.service.ImaNmrfResultPersistService;
+import com.zcyh.mr.springboot.out.db.ImaCapitalResultPersistService;
+import com.zcyh.mr.springboot.out.db.ImaEsResultDetailPersistService;
+import com.zcyh.mr.springboot.out.db.ImaNmrfResultPersistService;
 import com.zcyh.mr.springboot.service.BatchTradeDataLoader;
-import com.zcyh.mr.springboot.service.CalcRuleMetaPersistService;
+import com.zcyh.mr.springboot.out.db.CalcRuleMetaPersistService;
 import com.zcyh.mr.springboot.service.DimensionAggregationService;
 import com.zcyh.mr.springboot.service.FrtbDrcDbRunnerService;
 import com.zcyh.mr.springboot.service.FrtbSbaDbRunnerService;
 import com.zcyh.mr.springboot.service.FrtbSbaSummaryService;
-import com.zcyh.mr.springboot.service.ScenarioGeneratedPersistService;
-import com.zcyh.mr.springboot.service.ScenarioResultCacheService;
-import com.zcyh.mr.springboot.service.SaccrResultPersistService;
+import com.zcyh.mr.springboot.out.db.ScenarioDetailResultService;
+import com.zcyh.mr.springboot.out.cache.ScenarioResultCacheService;
+import com.zcyh.mr.springboot.out.db.SaccrResultPersistService;
 import com.zcyh.mr.springboot.service.VarDbRunnerService;
 import com.zcyh.mr.springboot.saccr.SaccrInputQueryService;
 import org.springframework.beans.factory.ObjectProvider;
@@ -98,7 +98,7 @@ public class EngineRegistryConfig {
     public ScenarioEngineAdapter scenarioEngineAdapter(
             ObjectProvider<ScenarioGenerationEngine> scenarioGenerationEngineProvider,
             ObjectProvider<ScenarioRequestAssembler> scenarioRequestAssemblerProvider,
-            ObjectProvider<ScenarioGeneratedPersistService> scenarioGeneratedPersistServiceProvider,
+            ObjectProvider<ScenarioDetailResultService> scenarioGeneratedPersistServiceProvider,
             ObjectProvider<ScenarioResultCacheService> scenarioResultCacheServiceProvider) {
         return new ScenarioEngineAdapter(
                 scenarioGenerationEngineProvider.getIfAvailable(),

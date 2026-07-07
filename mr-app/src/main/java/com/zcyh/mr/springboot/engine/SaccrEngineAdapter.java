@@ -7,7 +7,7 @@ import com.zcyh.mr.saccr.SaccrCalculator;
 import com.zcyh.mr.saccr.model.SaccrResult;
 import com.zcyh.mr.springboot.saccr.SaccrInputQueryService;
 import com.zcyh.mr.springboot.saccr.SaccrRunInput;
-import com.zcyh.mr.springboot.service.SaccrResultPersistService;
+import com.zcyh.mr.springboot.out.db.SaccrResultPersistService;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;

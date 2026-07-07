@@ -1,9 +1,12 @@
 package com.zcyh.mr.springboot.service;
 
-import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
+import com.zcyh.mr.springboot.input.rule.AggregationRuleProvider;
 import com.zcyh.mr.springboot.model.AggregationRule;
+import com.zcyh.mr.springboot.prepare.filter.AggregationFilterSqlBuilder;
+import com.zcyh.mr.springboot.prepare.mapping.RuleColumnSqlResolver;
 import com.zcyh.mr.var.VarScenarioPnl;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -17,18 +20,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.collectFilterFields;
+
 /**
  * VaR 输入查询服务。
  */
 @Service
 public class VarInputQueryService {
     private static final String TABLE = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
-    private final JdbcTemplate engineDbJdbcTemplate;
+    private final AggregationRuleProvider aggregationRuleProvider;
     private final JdbcTemplate engineResultDbJdbcTemplate;
 
-    public VarInputQueryService(@Qualifier("engineDbJdbcTemplate") JdbcTemplate engineDbJdbcTemplate,
+    @Autowired
+    public VarInputQueryService(AggregationRuleProvider aggregationRuleProvider,
                                 @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate) {
-        this.engineDbJdbcTemplate = engineDbJdbcTemplate;
+        this.aggregationRuleProvider = aggregationRuleProvider;
         this.engineResultDbJdbcTemplate = engineResultDbJdbcTemplate;
     }
 
@@ -36,35 +42,7 @@ public class VarInputQueryService {
      * 按 rule_id 读取 VAR 汇总规则 JSON。
      */
     public JSONObject loadVarRuleJson(String ruleId) {
-        String safeRuleId = trimToNull(ruleId);
-        if (safeRuleId == null) {
-            throw new IllegalArgumentException("ruleId 不能为空");
-        }
-        try {
-            List<Map<String, Object>> rows = engineDbJdbcTemplate.queryForList(
-                    "SELECT RULE_ID, RULE_TYPE, RULE_NAME, RULE_JSON "
-                            + "FROM MR_AGG_RULE WHERE RULE_TYPE=? AND RULE_ID=?",
-                    "VAR", safeRuleId);
-            if (rows.isEmpty()) {
-                throw new IllegalArgumentException("未找到 VAR 汇总规则: " + safeRuleId);
-            }
-            Map<String, Object> row = rows.get(0);
-            String ruleJson = trimToNull(stringValue(row.get("RULE_JSON")));
-            if (ruleJson == null) {
-                throw new IllegalArgumentException("VAR 汇总规则内容为空: " + safeRuleId);
-            }
-            JSONObject json = JSON.parseObject(ruleJson);
-            if (json == null) {
-                throw new IllegalArgumentException("VAR 汇总规则解析失败: " + safeRuleId);
-            }
-            json.put("rule_id", safeRuleId);
-            json.put("rule_type", trimToNull(stringValue(row.get("RULE_TYPE"))));
-            json.put("rule_name", trimToNull(stringValue(row.get("RULE_NAME"))));
-            return json;
-        } catch (DataAccessException ex) {
-            throw new IllegalStateException("读取 MR_AGG_RULE 中 VAR 规则失败，请确认规则表已创建且可访问: "
-                    + ex.getMessage(), ex);
-        }
+        return aggregationRuleProvider.loadRuleJson("VAR", ruleId, "VAR 汇总规则");
     }
 
     /**
@@ -260,31 +238,6 @@ public class VarInputQueryService {
 
     private static String resolveRuleColumn(String field) {
         return RuleColumnSqlResolver.resolveVarColumn(field);
-    }
-
-    private static Set<String> collectFilterFields(AggregationRule rule) {
-        Set<String> fields = new LinkedHashSet<String>();
-        if (rule == null) {
-            return fields;
-        }
-        collectFilterTreeFields(rule.getFilterTree(), fields);
-        return fields;
-    }
-
-    private static void collectFilterTreeFields(AggregationRule.FilterExpression node, Set<String> fields) {
-        if (node == null || fields == null) {
-            return;
-        }
-        String field = trimToNull(node.getField());
-        if (field != null) {
-            fields.add(field.toUpperCase());
-        }
-        if (node.getChildren() == null) {
-            return;
-        }
-        for (AggregationRule.FilterExpression child : node.getChildren()) {
-            collectFilterTreeFields(child, fields);
-        }
     }
 
     private static boolean requiresPortfolioFlatView(Set<String> dimensionFields, Set<String> filterFields) {

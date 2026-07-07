@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
+import com.zcyh.mr.springboot.out.db.GeneratedMarketDataPersistService;
+
 import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
 
 import com.alibaba.fastjson2.JSON;

@@ -1,12 +1,9 @@
 package com.zcyh.mr.springboot.service;
 
-import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONObject;
+import com.zcyh.mr.springboot.input.rule.AggregationRuleProvider;
 import com.zcyh.mr.springboot.model.AggregationRule;
 import com.zcyh.mr.springboot.model.BatchTradeFilter;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.lang.reflect.Array;
@@ -15,8 +12,9 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
+
+import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
 
 /**
  * 批次交易过滤规则解析器。
@@ -55,10 +53,11 @@ public class TradeFilterResolver {
             "IS_NOT_NULL"
     ));
 
-    private final JdbcTemplate engineDbJdbcTemplate;
+    private final AggregationRuleProvider aggregationRuleProvider;
 
-    public TradeFilterResolver(@Qualifier("engineDbJdbcTemplate") JdbcTemplate engineDbJdbcTemplate) {
-        this.engineDbJdbcTemplate = engineDbJdbcTemplate;
+    @Autowired
+    public TradeFilterResolver(AggregationRuleProvider aggregationRuleProvider) {
+        this.aggregationRuleProvider = aggregationRuleProvider;
     }
 
     public AggregationRule.FilterExpression resolve(BatchTradeFilter filter) {
@@ -95,34 +94,7 @@ public class TradeFilterResolver {
     }
 
     private AggregationRule.FilterExpression loadRuleFilterTree(String ruleId) {
-        try {
-            List<Map<String, Object>> rows = engineDbJdbcTemplate.queryForList(
-                    "SELECT RULE_JSON FROM MR_AGG_RULE WHERE RULE_TYPE=? AND RULE_ID=?",
-                    RULE_TYPE_TRADE,
-                    ruleId);
-            if (rows.isEmpty()) {
-                throw new IllegalArgumentException("未找到 TRADE 交易过滤规则: " + ruleId);
-            }
-            String ruleJson = trimToNull(stringValue(rows.get(0).get("RULE_JSON")));
-            if (ruleJson == null) {
-                throw new IllegalArgumentException("TRADE 交易过滤规则内容为空: " + ruleId);
-            }
-            JSONObject ruleObject = JSON.parseObject(ruleJson);
-            Object filterTreeValue = ruleObject == null ? null : ruleObject.get("filterTree");
-            if (filterTreeValue == null) {
-                throw new IllegalArgumentException("TRADE 交易过滤规则缺少 filterTree: " + ruleId);
-            }
-            AggregationRule.FilterExpression filterTree = JSON.parseObject(
-                    JSON.toJSONString(filterTreeValue),
-                    AggregationRule.FilterExpression.class);
-            if (filterTree == null) {
-                throw new IllegalArgumentException("TRADE 交易过滤规则 filterTree 解析失败: " + ruleId);
-            }
-            return filterTree;
-        } catch (DataAccessException ex) {
-            throw new IllegalStateException("读取 MR_AGG_RULE 中 TRADE 规则失败，请确认规则表已创建且可访问: "
-                    + ex.getMessage(), ex);
-        }
+        return aggregationRuleProvider.loadFilterTree(RULE_TYPE_TRADE, ruleId, "TRADE 交易过滤规则");
     }
 
     private static void validateFilterExpression(AggregationRule.FilterExpression node,
@@ -250,13 +222,5 @@ public class TradeFilterResolver {
 
     private static String stringValue(Object value) {
         return value == null ? null : String.valueOf(value);
-    }
-
-    private static String trimToNull(String txt) {
-        if (txt == null) {
-            return null;
-        }
-        String value = txt.trim();
-        return value.isEmpty() ? null : value;
     }
 }

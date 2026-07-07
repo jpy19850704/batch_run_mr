@@ -1,8 +1,11 @@
 package com.zcyh.mr.springboot.service;
 
-import com.alibaba.fastjson2.JSON;
 import com.zcyh.mr.springboot.model.AggregationRule;
 import com.zcyh.mr.frtbsa.sba.pojo.FrtbInput;
+import com.zcyh.mr.springboot.input.rule.AggregationRuleProvider;
+import com.zcyh.mr.springboot.prepare.filter.AggregationFilterSqlBuilder;
+import com.zcyh.mr.springboot.prepare.mapping.RuleColumnSqlResolver;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -14,6 +17,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.collectFilterFields;
 
 /**
  * FRTB SBA 输入查询服务。
@@ -36,45 +41,19 @@ public class FrtbSbaInputQueryService {
             "SENSITIVITY_VAL_INST_CURR_CNY"
     };
 
-    private final JdbcTemplate engineDbJdbcTemplate;
+    private final AggregationRuleProvider aggregationRuleProvider;
     private final JdbcTemplate engineResultDbJdbcTemplate;
 
+    @Autowired
     public FrtbSbaInputQueryService(
-            @Qualifier("engineDbJdbcTemplate") JdbcTemplate engineDbJdbcTemplate,
+            AggregationRuleProvider aggregationRuleProvider,
             @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate) {
-        this.engineDbJdbcTemplate = engineDbJdbcTemplate;
+        this.aggregationRuleProvider = aggregationRuleProvider;
         this.engineResultDbJdbcTemplate = engineResultDbJdbcTemplate;
     }
 
     public AggregationRule loadAggregationRule(String ruleId) {
-        String safeRuleId = trimToNull(ruleId);
-        if (safeRuleId == null) {
-            throw new IllegalArgumentException("ruleId 不能为空");
-        }
-        try {
-            List<Map<String, Object>> rows = engineDbJdbcTemplate.queryForList(
-                    "SELECT RULE_ID, RULE_TYPE, RULE_NAME, RULE_JSON "
-                            + "FROM MR_AGG_RULE WHERE RULE_TYPE=? AND RULE_ID=?",
-                    "FRTB_SBA", safeRuleId);
-            if (rows.isEmpty()) {
-                throw new IllegalArgumentException("未找到 FRTB SBA 汇总规则: " + safeRuleId);
-            }
-            Map<String, Object> row = rows.get(0);
-            String ruleJson = trimToNull(stringValue(row.get("RULE_JSON")));
-            if (ruleJson == null) {
-                throw new IllegalArgumentException("FRTB SBA 汇总规则内容为空: " + safeRuleId);
-            }
-            AggregationRule rule = JSON.parseObject(ruleJson, AggregationRule.class);
-            if (rule == null) {
-                throw new IllegalArgumentException("FRTB SBA 汇总规则解析失败: " + safeRuleId);
-            }
-            rule.setRuleId(safeRuleId);
-            rule.setRuleType(trimToNull(stringValue(row.get("RULE_TYPE"))));
-            rule.setRuleName(trimToNull(stringValue(row.get("RULE_NAME"))));
-            return rule;
-        } catch (DataAccessException ex) {
-            throw new IllegalStateException("读取 MR_AGG_RULE 失败，请确认规则表已创建且可访问: " + ex.getMessage(), ex);
-        }
+        return aggregationRuleProvider.loadRule("FRTB_SBA", ruleId, "FRTB SBA 汇总规则");
     }
 
     /**
@@ -103,7 +82,7 @@ public class FrtbSbaInputQueryService {
             }
         }
         selectedFields.addAll(rule.getSumFields());
-        collectFilterTreeFields(rule.getFilterTree(), selectedFields);
+        selectedFields.addAll(collectFilterFields(rule));
         boolean usePortfolioFlatView = requiresPortfolioFlatView(selectedFields);
 
         StringBuilder sql = new StringBuilder()
@@ -272,22 +251,6 @@ public class FrtbSbaInputQueryService {
             }
         }
         return false;
-    }
-
-    private static void collectFilterTreeFields(AggregationRule.FilterExpression node, Set<String> fields) {
-        if (node == null || fields == null) {
-            return;
-        }
-        String field = trimToNull(node.getField());
-        if (field != null) {
-            fields.add(field);
-        }
-        if (node.getChildren() == null) {
-            return;
-        }
-        for (AggregationRule.FilterExpression child : node.getChildren()) {
-            collectFilterTreeFields(child, fields);
-        }
     }
 
     private static boolean requiresPortfolioFlatView(Set<String> fields) {

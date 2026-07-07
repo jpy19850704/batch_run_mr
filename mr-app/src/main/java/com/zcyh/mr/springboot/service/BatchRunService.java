@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
+import com.zcyh.mr.springboot.out.file.BatchScenarioFileTask;
+
 import com.zcyh.mr.springboot.context.RequestContextHolder;
 import com.zcyh.mr.scenario.ScenarioCache;
 import com.zcyh.mr.springboot.model.BatchRunRequest;

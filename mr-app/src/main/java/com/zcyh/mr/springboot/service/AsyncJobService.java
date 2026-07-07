@@ -1,5 +1,11 @@
 package com.zcyh.mr.springboot.service;
 
+import com.zcyh.mr.springboot.out.file.BatchResultFileService;
+
+import com.zcyh.mr.springboot.out.cache.JobScenarioResultCacheService;
+
+import com.zcyh.mr.springboot.out.db.PricingResultPersistService;
+
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;

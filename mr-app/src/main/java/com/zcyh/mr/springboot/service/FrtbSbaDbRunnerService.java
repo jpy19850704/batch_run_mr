@@ -13,8 +13,12 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
+
+import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.addUniqueIgnoreCase;
+import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.normalizeUpperFieldList;
+import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.normalizeUpperFieldName;
+import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.toFilterExpression;
 
 /**
  * FRTB SBA 数据库输入执行服务。
@@ -294,14 +298,14 @@ public class FrtbSbaDbRunnerService {
         List<String> buildOrder = new ArrayList<String>();
         addUniqueIgnoreCase(buildOrder, TOTAL);
         for (String level : rule.getBuildOrder()) {
-            addUniqueIgnoreCase(buildOrder, normalizeFieldName(level));
+            addUniqueIgnoreCase(buildOrder, normalizeUpperFieldName(level));
         }
         rule.setBuildOrder(buildOrder);
 
-        List<String> groupByFields = normalizeFieldList(rule.getGroupByFields());
+        List<String> groupByFields = normalizeUpperFieldList(rule.getGroupByFields());
         for (String level : buildOrder) {
             if (!TOTAL.equalsIgnoreCase(level)) {
-                addUniqueIgnoreCase(groupByFields, normalizeFieldName(level));
+                addUniqueIgnoreCase(groupByFields, normalizeUpperFieldName(level));
             }
         }
         for (String riskFactorField : SBA_GROUP_BY_FIELDS) {
@@ -312,86 +316,6 @@ public class FrtbSbaDbRunnerService {
         List<String> sumFields = new ArrayList<String>();
         sumFields.add(SBA_SUM_FIELD);
         rule.setSumFields(sumFields);
-    }
-
-    private static AggregationRule.FilterExpression toFilterExpression(Object rawExpression) {
-        if (!(rawExpression instanceof Map)) {
-            return null;
-        }
-        Map<?, ?> row = (Map<?, ?>) rawExpression;
-        AggregationRule.FilterExpression expression = new AggregationRule.FilterExpression();
-        expression.setLogic(asTrimmedString(row.get("logic")));
-        expression.setField(asTrimmedString(row.get("field")));
-        String operator = asTrimmedString(row.get("operator"));
-        expression.setOperator(operator);
-        expression.setValue(normalizeFilterValue(operator, row.get("value")));
-
-        Object rawChildren = row.get("children");
-        if (rawChildren instanceof List) {
-            List<AggregationRule.FilterExpression> children = new ArrayList<AggregationRule.FilterExpression>();
-            for (Object child : (List<?>) rawChildren) {
-                AggregationRule.FilterExpression childExpression = toFilterExpression(child);
-                if (childExpression != null) {
-                    children.add(childExpression);
-                }
-            }
-            expression.setChildren(children);
-        }
-        return expression;
-    }
-
-    /**
-     * 过滤值归一化：IN/NOT_IN 保留数组，其它操作符按单值处理。
-     */
-    private static Object normalizeFilterValue(String operator, Object rawValue) {
-        if (rawValue == null) {
-            return null;
-        }
-        if (rawValue instanceof List) {
-            List<?> values = (List<?>) rawValue;
-            if ("IN".equals(operator) || "NOT_IN".equals(operator)) {
-                return new ArrayList<Object>(values);
-            }
-            for (Object item : values) {
-                if (item != null) {
-                    return item;
-                }
-            }
-            return null;
-        }
-        return rawValue;
-    }
-
-    private static List<String> normalizeFieldList(List<String> rawList) {
-        List<String> result = new ArrayList<String>();
-        if (rawList == null || rawList.isEmpty()) {
-            return result;
-        }
-        for (String item : rawList) {
-            addUniqueIgnoreCase(result, normalizeFieldName(item));
-        }
-        return result;
-    }
-
-    private static String normalizeFieldName(String value) {
-        String safe = trimToNull(value);
-        if (safe == null) {
-            return null;
-        }
-        return safe.toUpperCase(Locale.ROOT);
-    }
-
-    private static void addUniqueIgnoreCase(List<String> values, String value) {
-        String safeValue = trimToNull(value);
-        if (safeValue == null) {
-            return;
-        }
-        for (String item : values) {
-            if (safeValue.equalsIgnoreCase(item)) {
-                return;
-            }
-        }
-        values.add(safeValue);
     }
 
     private static List<String> toStringList(Object rawList) {

@@ -8,7 +8,7 @@ import com.zcyh.mr.springboot.model.ApiResponse;
 import com.zcyh.mr.springboot.service.AlertService;
 import com.zcyh.mr.springboot.service.AuditLogService;
 import com.zcyh.mr.springboot.service.FrtbDrcSummaryService;
-import com.zcyh.mr.springboot.service.FrtbRraoSummaryService;
+import com.zcyh.mr.springboot.out.db.FrtbRraoSummaryService;
 import com.zcyh.mr.springboot.service.FrtbSbaSummaryService;
 import com.zcyh.mr.springboot.service.VarSummaryService;
 import org.springframework.web.bind.annotation.PostMapping;

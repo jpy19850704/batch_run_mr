@@ -11,8 +11,8 @@ import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.scenario.model.ScenarioGenerationRequest;
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
-import com.zcyh.mr.springboot.service.ScenarioGeneratedPersistService;
-import com.zcyh.mr.springboot.service.ScenarioResultCacheService;
+import com.zcyh.mr.springboot.out.db.ScenarioDetailResultService;
+import com.zcyh.mr.springboot.out.cache.ScenarioResultCacheService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,17 +33,17 @@ public class ScenarioEngineAdapter implements EngineAdapter {
     public static final String CODE = "scenario";
     private final ScenarioGenerationEngine scenarioGenerationEngine;
     private final ScenarioRequestAssembler scenarioRequestAssembler;
-    private final ScenarioGeneratedPersistService scenarioGeneratedPersistService;
+    private final ScenarioDetailResultService ScenarioDetailResultService;
     private final ScenarioResultCacheService scenarioResultCacheService;
 
     public ScenarioEngineAdapter(
             ScenarioGenerationEngine scenarioGenerationEngine,
             ScenarioRequestAssembler scenarioRequestAssembler,
-            ScenarioGeneratedPersistService scenarioGeneratedPersistService,
+            ScenarioDetailResultService ScenarioDetailResultService,
             ScenarioResultCacheService scenarioResultCacheService) {
         this.scenarioGenerationEngine = scenarioGenerationEngine;
         this.scenarioRequestAssembler = scenarioRequestAssembler;
-        this.scenarioGeneratedPersistService = scenarioGeneratedPersistService;
+        this.ScenarioDetailResultService = ScenarioDetailResultService;
         this.scenarioResultCacheService = scenarioResultCacheService;
     }
 
@@ -105,8 +105,8 @@ public class ScenarioEngineAdapter implements EngineAdapter {
             log.info("Scenario 生成完成: scenario_id_list={}, data_date={}, batch_id={}, record_count={}, scenario_summary={}, elapsedMs={}",
                     scenarioIdList, dataDate, batchId, result == null ? 0 : result.size(),
                     summarizeScenarioIds(result), System.currentTimeMillis() - startTime);
-            if (scenarioGeneratedPersistService != null) {
-                scenarioGeneratedPersistService.persist(batchId, dataDate, persistScenario, result);
+            if (ScenarioDetailResultService != null) {
+                ScenarioDetailResultService.persist(batchId, dataDate, persistScenario, result);
                 if (Boolean.TRUE.equals(persistScenario) && batchId != null && result != null && !result.isEmpty()) {
                     log.info("Scenario 生成结果落库完成: batch_id={}, data_date={}, record_count={}",
                             batchId, dataDate, result.size());

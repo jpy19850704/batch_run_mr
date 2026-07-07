@@ -8,6 +8,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
+
 /**
  * 交易过滤树 SQL 构建器。
  */
@@ -207,11 +209,4 @@ public final class TradeFilterSqlBuilder {
         return value;
     }
 
-    private static String trimToNull(String txt) {
-        if (txt == null) {
-            return null;
-        }
-        String value = txt.trim();
-        return value.isEmpty() ? null : value;
-    }
 }
