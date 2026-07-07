@@ -150,12 +150,21 @@ public final class CalcResultProcessService {
     }
 
     public static JSONArray buildPnlResults(Map<String, JSONObject> baseTradeIndex, JSONArray scenTradeResults) {
+        return buildPnlResults(baseTradeIndex, scenTradeResults, Collections.emptySet());
+    }
+
+    public static JSONArray buildPnlResults(Map<String, JSONObject> baseTradeIndex,
+                                            JSONArray scenTradeResults,
+                                            Set<String> unsupportedScenarioProducts) {
         JSONArray pnlResults = new JSONArray();
         if (baseTradeIndex == null || baseTradeIndex.isEmpty()) {
             return pnlResults;
         }
 
         Map<String, JSONObject> scenTradeIndex = buildTradeIndex(scenTradeResults);
+        Set<String> unsupportedProducts = unsupportedScenarioProducts == null
+                ? Collections.emptySet()
+                : unsupportedScenarioProducts;
         for (Map.Entry<String, JSONObject> entry : baseTradeIndex.entrySet()) {
             String id = entry.getKey();
             JSONObject baseTrade = entry.getValue();
@@ -164,7 +173,13 @@ public final class CalcResultProcessService {
             }
 
             if (isErrorTrade(baseTrade)) {
-                pnlResults.add(buildErrorPnlRow(baseTrade, baseTrade));
+                pnlResults.add(buildBaseErrorPnlRow(baseTrade));
+                continue;
+            }
+
+            String productCode = trimToNull(baseTrade.getString("PRODUCT_CODE"));
+            if (productCode != null && unsupportedProducts.contains(productCode)) {
+                pnlResults.add(buildUnsupportedScenarioPnlRow(baseTrade, productCode));
                 continue;
             }
 
@@ -175,7 +190,7 @@ public final class CalcResultProcessService {
             }
 
             if (isErrorTrade(scenTrade)) {
-                pnlResults.add(buildErrorPnlRow(baseTrade, scenTrade));
+                pnlResults.add(buildScenarioErrorPnlRow(baseTrade, scenTrade));
                 continue;
             }
 
@@ -187,6 +202,7 @@ public final class CalcResultProcessService {
             pnlResult.put("BASE_VALUATION_CNY", baseValCny);
             pnlResult.put("SCENARIO_VALUATION_CNY", scenValCny);
             pnlResult.put("PNL", scenValCny - baseValCny);
+            pnlResult.put("STATUS", "SUCCESS");
             pnlResults.add(pnlResult);
         }
         return pnlResults;
@@ -199,20 +215,42 @@ public final class CalcResultProcessService {
         pnlResult.put("BASE_VALUATION_CNY", baseValuationCny);
         pnlResult.put("SCENARIO_VALUATION_CNY", baseValuationCny);
         pnlResult.put("PNL", 0.0);
+        pnlResult.put("STATUS", "SUCCESS");
         return pnlResult;
     }
 
     public static JSONObject buildErrorPnlRow(JSONObject baseTrade, JSONObject errorSource) {
+        return buildScenarioErrorPnlRow(baseTrade, errorSource);
+    }
+
+    public static JSONObject buildBaseErrorPnlRow(JSONObject baseTrade) {
+        JSONObject pnlResult = buildAbsoluteZeroPnlRow(baseTrade);
+        pnlResult.put("STATUS", "ERROR");
+        pnlResult.put("LOGS", buildSingleErrorLog("基准估值错误"));
+        return pnlResult;
+    }
+
+    public static JSONObject buildScenarioErrorPnlRow(JSONObject baseTrade, JSONObject errorSource) {
         JSONObject pnlResult = buildZeroPnlRow(baseTrade);
         pnlResult.put("STATUS", "ERROR");
-        Object logs = errorSource == null ? null : errorSource.get("LOGS");
-        if (logs != null) {
-            pnlResult.put("LOGS", logs);
-        }
-        Object detail = errorSource == null ? null : errorSource.get("DETAIL");
-        if (detail != null) {
-            pnlResult.put("DETAIL", detail);
-        }
+        pnlResult.put("LOGS", resolveErrorLogs(errorSource, "情景估值错误"));
+        return pnlResult;
+    }
+
+    public static JSONObject buildUnsupportedScenarioPnlRow(JSONObject baseTrade, String productCode) {
+        JSONObject pnlResult = buildZeroPnlRow(baseTrade);
+        pnlResult.put("STATUS", "ERROR");
+        pnlResult.put("LOGS", buildSingleErrorLog("产品类型不支持情景: " + productCode));
+        return pnlResult;
+    }
+
+    private static JSONObject buildAbsoluteZeroPnlRow(JSONObject baseTrade) {
+        JSONObject pnlResult = new JSONObject();
+        pnlResult.put("INSTRUMENT_ID", baseTrade == null ? null : baseTrade.getString("INSTRUMENT_ID"));
+        pnlResult.put("BASE_VALUATION_CNY", 0.0);
+        pnlResult.put("SCENARIO_VALUATION_CNY", 0.0);
+        pnlResult.put("PNL", 0.0);
+        pnlResult.put("STATUS", "SUCCESS");
         return pnlResult;
     }
 
@@ -379,17 +417,26 @@ public final class CalcResultProcessService {
     }
 
     public static JSONArray buildZeroPnlResults(JSONArray baseTrades) {
+        return buildZeroPnlResults(baseTrades, Collections.emptySet());
+    }
+
+    public static JSONArray buildZeroPnlResults(JSONArray baseTrades, Set<String> unsupportedScenarioProducts) {
         JSONArray pnlResults = new JSONArray();
         if (baseTrades == null) {
             return pnlResults;
         }
+        Set<String> unsupportedProducts = unsupportedScenarioProducts == null
+                ? Collections.emptySet()
+                : unsupportedScenarioProducts;
         for (int i = 0; i < baseTrades.size(); i++) {
             JSONObject baseTrade = baseTrades.getJSONObject(i);
             if (baseTrade == null) {
                 continue;
             }
             if (isErrorTrade(baseTrade)) {
-                pnlResults.add(buildErrorPnlRow(baseTrade, baseTrade));
+                pnlResults.add(buildBaseErrorPnlRow(baseTrade));
+            } else if (unsupportedProducts.contains(trimToNull(baseTrade.getString("PRODUCT_CODE")))) {
+                pnlResults.add(buildUnsupportedScenarioPnlRow(baseTrade, baseTrade.getString("PRODUCT_CODE")));
             } else {
                 pnlResults.add(buildZeroPnlRow(baseTrade));
             }
@@ -445,5 +492,35 @@ public final class CalcResultProcessService {
         }
         String value = text.trim();
         return value.isEmpty() ? null : value;
+    }
+
+    private static JSONArray resolveErrorLogs(JSONObject errorSource, String defaultMessage) {
+        if (errorSource != null) {
+            JSONArray logs = errorSource.getJSONArray("LOGS");
+            if (logs != null && !logs.isEmpty()) {
+                return logs;
+            }
+            String message = trimToNull(errorSource.getString("ERROR"));
+            if (message != null) {
+                return buildSingleErrorLog(message);
+            }
+            Object detail = errorSource.get("DETAIL");
+            if (detail != null) {
+                message = trimToNull(Objects.toString(detail, null));
+                if (message != null) {
+                    return buildSingleErrorLog(message);
+                }
+            }
+        }
+        return buildSingleErrorLog(defaultMessage);
+    }
+
+    private static JSONArray buildSingleErrorLog(String message) {
+        JSONArray logs = new JSONArray();
+        JSONObject logItem = new JSONObject();
+        logItem.put("level", "ERROR");
+        logItem.put("message", message);
+        logs.add(logItem);
+        return logs;
     }
 }

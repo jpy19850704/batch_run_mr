@@ -24,7 +24,7 @@ class TradeScenarioResultWriter {
     private static final String TABLE_NAME = "TB_OUT_TRADE_SCENARIO_RESULT_DETAIL";
     private static final String COLUMNS =
             "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,INSTRUMENT_ID,PRODUCT_CODE,"
-                    + "BASE_VALUATION_CNY,SCENARIO_VALUATION_CNY,PNL,ERROR,DETAIL,LOGS_JSON,RESULT_JSON,CREATED_AT,UPDATED_AT";
+                    + "BASE_VALUATION_CNY,SCENARIO_VALUATION_CNY,PNL,STATUS,LOGS_JSON,CREATED_AT,UPDATED_AT";
     private static final String RESULT_KIND_SCENARIO = "SCENARIO";
     private static final String RESULT_KIND_VAR = "VAR";
 
@@ -47,7 +47,7 @@ class TradeScenarioResultWriter {
     String requiredColumnsForCheck() {
         return "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, "
                 + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, SCENARIO_TYPE, INSTRUMENT_ID, PRODUCT_CODE, "
-                + "BASE_VALUATION_CNY, SCENARIO_VALUATION_CNY, PNL, ERROR, DETAIL, LOGS_JSON, RESULT_JSON, CREATED_AT, UPDATED_AT";
+                + "BASE_VALUATION_CNY, SCENARIO_VALUATION_CNY, PNL, STATUS, LOGS_JSON, CREATED_AT, UPDATED_AT";
     }
 
     void write(CalcPersistContext context,
@@ -130,10 +130,8 @@ class TradeScenarioResultWriter {
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("BASE_VALUATION_CNY"))),
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("SCENARIO_VALUATION_CNY"))),
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(trade.get("PNL"))),
-                    resolveScenarioError(trade),
-                    toTextValue(trade.get("DETAIL")),
-                    toJsonString(trade.get("LOGS")),
-                    toJsonString(trade),
+                    resolveScenarioStatus(trade),
+                    toJsonString(resolveScenarioLogs(trade)),
                     context.createdAt,
                     context.updatedAt
             );
@@ -166,32 +164,58 @@ class TradeScenarioResultWriter {
         throw new IllegalStateException("scenario_result 缺少合法 RESULT_KIND，仅支持 SCENARIO 或 VAR");
     }
 
-    private static String resolveScenarioError(JSONObject trade) {
-        if (trade == null || !"ERROR".equalsIgnoreCase(String.valueOf(trade.get("STATUS")))) {
+    private static String resolveScenarioStatus(JSONObject trade) {
+        String status = trimToNull(trade == null ? null : trade.getString("STATUS"));
+        return "ERROR".equalsIgnoreCase(status) ? "ERROR" : "SUCCESS";
+    }
+
+    private static Object resolveScenarioLogs(JSONObject trade) {
+        if (trade == null) {
             return null;
         }
-        String error = trimToNull(trade.getString("ERROR"));
+        Object logs = trade.get("LOGS");
+        if (!"ERROR".equals(resolveScenarioStatus(trade))) {
+            return logs;
+        }
+        if (logs instanceof JSONArray && !((JSONArray) logs).isEmpty()) {
+            return logs;
+        }
+        String message = resolveScenarioErrorMessage(trade);
+        JSONArray result = new JSONArray();
+        JSONObject logItem = new JSONObject();
+        logItem.put("level", "ERROR");
+        logItem.put("message", message == null ? "情景估值错误" : message);
+        result.add(logItem);
+        return result;
+    }
+
+    private static String resolveScenarioErrorMessage(JSONObject trade) {
+        String error = trimToNull(trade == null ? null : trade.getString("ERROR"));
         if (error != null) {
             return error;
         }
-        String detail = toTextValue(trade.get("DETAIL"));
+        String detail = toTextValue(trade == null ? null : trade.get("DETAIL"));
         if (detail != null) {
             return detail;
         }
-        JSONArray logs = trade.getJSONArray("LOGS");
-        if (logs != null) {
-            for (int i = 0; i < logs.size(); i++) {
-                JSONObject logItem = logs.getJSONObject(i);
-                String message = resolveLogMessage(logItem);
-                if (message != null) {
-                    return message;
-                }
+        JSONArray logs = trade == null ? null : trade.getJSONArray("LOGS");
+        if (logs == null) {
+            return null;
+        }
+        for (int i = 0; i < logs.size(); i++) {
+            JSONObject logItem = logs.getJSONObject(i);
+            String message = resolveLogMessage(logItem);
+            if (message != null) {
+                return message;
             }
         }
-        return "情景估值失败";
+        return null;
     }
 
     private static String resolveLogMessage(JSONObject logItem) {
+        if (logItem == null) {
+            return null;
+        }
         String message = trimToNull(logItem.getString("info"));
         if (message != null) {
             return message;

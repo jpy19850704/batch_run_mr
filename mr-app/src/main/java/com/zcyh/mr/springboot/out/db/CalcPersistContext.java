@@ -9,8 +9,6 @@ import java.util.Map;
  * MR_CALC 单任务落库上下文。
  */
 final class CalcPersistContext {
-    static final String SYNTHETIC_ERROR_TRADE_FLAG = "_SYNTHETIC_ERROR_TRADE";
-
     String requestId;
     String jobId;
     String batchId;

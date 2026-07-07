@@ -246,10 +246,6 @@ public class Calc {
                         Map<String, JSONObject> baseTradeIndex = CalcResultProcessService.buildTradeIndex(baseTrades);
                         Set<String> unsupportedScenarioProducts = CalcResultProcessService.collectUnsupportedScenarioProducts(
                                         baseTrades, scenarioProductCodes);
-                        for (String productCode : unsupportedScenarioProducts) {
-                                CalcResultProcessService.addLog(dataObj, productCode, null,
-                                                "场景估值跳过该产品：对应计算器未实现 ScenarioCapable");
-                        }
 
                         RiskFactorMatcher.Index rfIndex = RiskFactorMatcher.buildIndex(this.marketData);
                         Map<String, Set<String>> perTradeImpactKeys = RiskFactorMatcher.buildPerTradeKeys(this.trades, rfIndex);
@@ -274,7 +270,8 @@ public class Calc {
                                 if (affectedIds != null && affectedIds.isEmpty()) {
                                         scenarioResults.add(CalcResultProcessService.buildScenarioItem(
                                                         entry,
-                                                        CalcResultProcessService.buildZeroPnlResults(baseTrades),
+                                                        CalcResultProcessService.buildZeroPnlResults(
+                                                                        baseTrades, unsupportedScenarioProducts),
                                                         RESULT_KIND_SCENARIO));
                                         continue;
                                 }
@@ -288,7 +285,7 @@ public class Calc {
 
                                 // 按 INSTRUMENT_ID 对齐基准与场景结果并计算 PnL
                                 JSONArray pnlResults = CalcResultProcessService.buildPnlResults(
-                                                baseTradeIndex, scenTradeResults);
+                                                baseTradeIndex, scenTradeResults, unsupportedScenarioProducts);
 
                                 scenarioResults.add(CalcResultProcessService.buildScenarioItem(
                                                 entry, pnlResults, RESULT_KIND_SCENARIO));

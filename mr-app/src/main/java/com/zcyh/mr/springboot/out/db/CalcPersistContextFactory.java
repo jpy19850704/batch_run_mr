@@ -146,7 +146,6 @@ public class CalcPersistContextFactory {
                 : inputTrade == null ? null : trimToNull(inputTrade.getString("PRODUCT_CODE")));
         errorTrade.put("DATA_DATE", context == null ? null : context.dataDate);
         errorTrade.put("STATUS", "ERROR");
-        errorTrade.put(CalcPersistContext.SYNTHETIC_ERROR_TRADE_FLAG, true);
         errorTrade.put("LOGS", new JSONArray());
         return errorTrade;
     }

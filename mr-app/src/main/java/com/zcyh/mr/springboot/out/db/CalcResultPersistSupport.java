@@ -94,10 +94,6 @@ final class CalcResultPersistSupport {
         }
     }
 
-    static boolean isSyntheticErrorTrade(JSONObject trade) {
-        return trade != null && Boolean.TRUE.equals(trade.getBoolean(CalcPersistContext.SYNTHETIC_ERROR_TRADE_FLAG));
-    }
-
     static String trimToNull(String text) {
         if (text == null) {
             return null;
