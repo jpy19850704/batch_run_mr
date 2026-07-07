@@ -1,4 +1,4 @@
-package com.zcyh.mr.springboot.service;
+package com.zcyh.mr.springboot.input.db;
 
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.input.rule.AggregationRuleProvider;
@@ -186,7 +186,7 @@ public class VarInputQueryService {
         return rows;
     }
 
-    static String resolvePnlColumn(String pnlField) {
+    public static String resolvePnlColumn(String pnlField) {
         String token = trimToNull(pnlField);
         if (token == null) {
             return "ALL_PNL";

@@ -1,4 +1,4 @@
-package com.zcyh.mr.springboot.service;
+package com.zcyh.mr.springboot.input.db;
 
 import com.zcyh.mr.springboot.model.AggregationRule;
 import com.zcyh.mr.product.basic.frtb.DrcDetail;

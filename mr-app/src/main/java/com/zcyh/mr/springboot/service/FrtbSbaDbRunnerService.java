@@ -6,6 +6,7 @@ import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
 import com.zcyh.mr.frtbsa.sba.pojo.FRTBPosResult;
 import com.zcyh.mr.frtbsa.sba.pojo.FrtbInput;
+import com.zcyh.mr.springboot.input.db.FrtbSbaInputQueryService;
 import com.zcyh.mr.springboot.model.AggregationRule;
 import org.springframework.stereotype.Service;
 
