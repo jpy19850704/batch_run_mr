@@ -257,6 +257,10 @@ public class BatchTradeDataLoader {
         return new ArrayList<String>(normalized);
     }
 
+    public static List<String> tradeDimensionColumns() {
+        return TRADE_DIMENSION_COLUMNS;
+    }
+
     // ==================== 数据类 ====================
 
     /**

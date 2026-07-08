@@ -18,6 +18,7 @@ import com.zcyh.mr.springboot.service.AsyncJobService;
 import com.zcyh.mr.springboot.service.AuditLogService;
 import com.zcyh.mr.springboot.service.BatchRunService;
 import com.zcyh.mr.springboot.service.BatchJobService;
+import com.zcyh.mr.springboot.out.cache.TradeInfoCacheService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,19 +41,22 @@ public class MrJobController {
     private final BatchRunService batchRunService;
     private final AuditLogService auditLogService;
     private final AlertService alertService;
+    private final TradeInfoCacheService tradeInfoCacheService;
 
     public MrJobController(
             AsyncJobService asyncJobService,
             BatchJobService batchJobService,
             BatchRunService batchRunService,
             AuditLogService auditLogService,
-            AlertService alertService
+            AlertService alertService,
+            TradeInfoCacheService tradeInfoCacheService
     ) {
         this.asyncJobService = asyncJobService;
         this.batchJobService = batchJobService;
         this.batchRunService = batchRunService;
         this.auditLogService = auditLogService;
         this.alertService = alertService;
+        this.tradeInfoCacheService = tradeInfoCacheService;
     }
 
     @PostMapping("/submit")
@@ -182,6 +186,20 @@ public class MrJobController {
             return ApiResponse.ok(result);
         } catch (RuntimeException ex) {
             auditLogService.recordFailure("BATCH_DETAIL_QUERY", "BATCH", batchId, null, "BATCH_DETAIL_QUERY_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
+            throw ex;
+        }
+    }
+
+    @GetMapping("/batch/{batchId}/trade-info")
+    public ApiResponse<JSONObject> batchTradeInfo(@PathVariable("batchId") String batchId) {
+        long start = System.currentTimeMillis();
+        RequestContextHolder.setBatchId(batchId);
+        try {
+            JSONObject result = tradeInfoCacheService.getBatchTradeInfo(batchId);
+            auditLogService.recordSuccess("BATCH_TRADE_INFO_QUERY", "BATCH", batchId, "MR_CALC", "批次交易维度快照查询成功", System.currentTimeMillis() - start);
+            return ApiResponse.ok(result);
+        } catch (RuntimeException ex) {
+            auditLogService.recordFailure("BATCH_TRADE_INFO_QUERY", "BATCH", batchId, "MR_CALC", "BATCH_TRADE_INFO_QUERY_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
             throw ex;
         }
     }
