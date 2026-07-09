@@ -14,6 +14,8 @@ import java.util.List;
  */
 @Component
 public class BatchPayloadBuildTask implements BatchRunTask {
+    static final String PAYLOAD_JSON_PARSE_ERROR = "PAYLOAD_JSON_PARSE_ERROR";
+
     private final MrMarketDataSliceService marketDataSliceService;
     private final JobPayloadBuilder payloadBuilder;
 
@@ -33,35 +35,41 @@ public class BatchPayloadBuildTask implements BatchRunTask {
         for (int i = 0; i < context.getTradeChunks().size(); i++) {
             int seqNo = i + 1;
             List<BatchTradeDataLoader.TradeRow> chunkTrades = context.getTradeChunks().get(i);
-            MrMarketDataSliceService.SliceResult sliceResult = marketDataSliceService.sliceCurvesWithTradeKeys(
-                    JobPayloadBuilder.toTradeSliceSources(chunkTrades),
-                    curveSources);
-            JSONObject payload = payloadBuilder.buildPayload(
-                    resolveCalcMode(context),
-                    dataDate,
-                    chunkTrades,
-                    sliceResult.getCurves(),
-                    sliceResult.getTradeMarketDataKeys(),
-                    context.getBatchId(),
-                    seqNo,
-                    context.getRegularScenarioIdList(),
-                    context.getVarScenarioIdList(),
-                    context.getNormalFullScenarioIdList(),
-                    context.getNormalReducedScenarioIdList(),
-                    context.getStressReducedScenarioIdList(),
-                    context.getNmrfScenarioIdList(),
-                    context.isPersistResult(),
-                    context.isFrtbDisabled());
-            if (context.getRunMode() != null) {
-                payload.put("run_mode", context.getRunMode());
-            }
-            if (context.isScenarioMode() && context.isCacheScenarioResult()) {
-                payload.put("cache_scenario_result", true);
-            }
             BatchJobPayload jobPayload = new BatchJobPayload();
             jobPayload.setSeqNo(seqNo);
             jobPayload.setChunkTrades(chunkTrades);
-            jobPayload.setPayload(payload);
+            try {
+                MrMarketDataSliceService.SliceResult sliceResult = marketDataSliceService.sliceCurvesWithTradeKeys(
+                        JobPayloadBuilder.toTradeSliceSources(chunkTrades),
+                        curveSources);
+                JSONObject payload = payloadBuilder.buildPayload(
+                        resolveCalcMode(context),
+                        dataDate,
+                        chunkTrades,
+                        sliceResult.getCurves(),
+                        sliceResult.getTradeMarketDataKeys(),
+                        context.getBatchId(),
+                        seqNo,
+                        context.getRegularScenarioIdList(),
+                        context.getVarScenarioIdList(),
+                        context.getNormalFullScenarioIdList(),
+                        context.getNormalReducedScenarioIdList(),
+                        context.getStressReducedScenarioIdList(),
+                        context.getNmrfScenarioIdList(),
+                        context.isPersistResult(),
+                        context.isFrtbDisabled());
+                if (context.getRunMode() != null) {
+                    payload.put("run_mode", context.getRunMode());
+                }
+                if (context.isScenarioMode() && context.isCacheScenarioResult()) {
+                    payload.put("cache_scenario_result", true);
+                }
+                jobPayload.setPayload(payload);
+            } catch (PayloadJsonParseException ex) {
+                jobPayload.setFailed(true);
+                jobPayload.setErrorCode(PAYLOAD_JSON_PARSE_ERROR);
+                jobPayload.setErrorMessage(ex.getMessage());
+            }
             jobPayloads.add(jobPayload);
         }
         context.setJobPayloads(jobPayloads);

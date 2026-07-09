@@ -67,7 +67,6 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_RESULT_DETAIL (
     THETA           DECIMAL(38, 10),
     RHO             DECIMAL(38, 10),
     STATUS          VARCHAR(16),
-    ERROR           TEXT,
     DETAIL          TEXT,
     LOGS_JSON       TEXT,
     CASHFLOW_JSON   TEXT,
@@ -438,7 +437,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_MODELLABLE_SCENARIO_PNL (
     COMM_PNL                DECIMAL(38, 10)                          COMMENT '大宗商品风险损益',
     ALL_VALUATION           DECIMAL(38, 10)                          COMMENT '全风险类别子集重定价估值',
     ALL_PNL                 DECIMAL(38, 10)                          COMMENT '全风险类别损益',
-    RESULT_JSON             TEXT                                     COMMENT '扩展结果JSON',
+    STATUS                  VARCHAR(16)                              COMMENT '情景PnL状态：SUCCESS / ERROR',
+    LOGS_JSON               TEXT                                     COMMENT '情景PnL日志JSON',
     CREATED_AT              VARCHAR(32)                                   COMMENT '创建时间',
     UPDATED_AT              VARCHAR(32)                                   COMMENT '更新时间'
 )
@@ -470,7 +470,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_NMRF_SCENARIO_PNL (
     BASE_VALUATION_CNY      DECIMAL(38, 10)                          COMMENT '基准估值（人民币）',
     STRESS_VALUATION_CNY    DECIMAL(38, 10)                          COMMENT '压力情景重定价估值（仅冲击该NMRF因子）',
     PNL                     DECIMAL(38, 10)                          COMMENT '压力情景损益 = STRESS_VALUATION - BASE_VALUATION',
-    RESULT_JSON             TEXT                                     COMMENT '扩展结果JSON',
+    STATUS                  VARCHAR(16)                              COMMENT '情景PnL状态：SUCCESS / ERROR',
+    LOGS_JSON               TEXT                                     COMMENT '情景PnL日志JSON',
     CREATED_AT              VARCHAR(32)                                   COMMENT '创建时间',
     UPDATED_AT              VARCHAR(32)                                   COMMENT '更新时间'
 )
@@ -536,7 +537,7 @@ PROPERTIES (
 );
 
 -- IMA 最终资本结果表（Phase2 输出）
--- 每行对应一个 IMA 批次的资本汇总，RESULT_JSON 保存 IMCC、SES、Amber 附加项等完整中间结果。
+-- 每行对应一个 IMA 批次的资本汇总，DETAIL_JSON 保存 IMCC、SES、Amber 附加项等资本计算明细。
 CREATE TABLE IF NOT EXISTS TB_OUT_IMA_CAPITAL_RESULT (
     ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
     BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
@@ -555,7 +556,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_CAPITAL_RESULT (
     IMCC_FX                 DECIMAL(38, 10)                          COMMENT '外汇风险类别IMCC输入项',
     IMCC_EQ                 DECIMAL(38, 10)                          COMMENT '权益风险类别IMCC输入项',
     IMCC_COMM               DECIMAL(38, 10)                          COMMENT '商品风险类别IMCC输入项',
-    RESULT_JSON             TEXT                                     COMMENT '完整资本结果JSON',
+    DETAIL_JSON             TEXT                                     COMMENT '资本计算明细JSON',
     CREATED_AT              VARCHAR(32)                              COMMENT '创建时间',
     UPDATED_AT              VARCHAR(32)                              COMMENT '更新时间'
 )

@@ -4,6 +4,7 @@ import com.zcyh.mr.springboot.out.file.BatchScenarioFileTask;
 
 import com.zcyh.mr.springboot.context.RequestContextHolder;
 import com.zcyh.mr.scenario.ScenarioCache;
+import com.zcyh.mr.springboot.model.BatchDetailResult;
 import com.zcyh.mr.springboot.model.BatchRunRequest;
 import com.zcyh.mr.springboot.model.BatchRunResult;
 import org.slf4j.Logger;
@@ -203,6 +204,11 @@ public class BatchRunService {
             executeTaskGroup("SCENARIO_RUNNING", scenarioTasks, context);
             executeTaskGroup("PAYLOAD_BUILDING", payloadTasks, context);
             executeTaskGroup("CALC_RUNNING", calcTasks, context);
+            BatchDetailResult batchDetail = context.getBatchDetail();
+            if (batchDetail != null && batchDetail.isDone() && !batchDetail.isSuccess()) {
+                log.info("批次工作流异步执行完成，batchId={}, status={}", context.getBatchId(), batchDetail.getStatus());
+                return;
+            }
             batchJobService.markWorkflowSuccess(context.getBatchId(), "批次工作流执行完成");
             log.info("批次工作流异步执行完成，batchId={}", context.getBatchId());
         } catch (Throwable ex) {

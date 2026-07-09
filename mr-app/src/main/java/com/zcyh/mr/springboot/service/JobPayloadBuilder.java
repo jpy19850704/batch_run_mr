@@ -89,7 +89,7 @@ public class JobPayloadBuilder {
         // 组装 trade_data
         JSONArray tradeData = new JSONArray();
         for (BatchTradeDataLoader.TradeRow trade : chunkTrades) {
-            Object parsed = parseJsonSafely(trade.tradeContentText);
+            Object parsed = parseTradeJson(trade);
             if (parsed instanceof JSONArray) {
                 JSONArray arr = (JSONArray) parsed;
                 for (int i = 0; i < arr.size(); i++) {
@@ -105,7 +105,7 @@ public class JobPayloadBuilder {
         // 组装 market_data
         JSONArray marketData = new JSONArray();
         for (MrMarketDataSliceService.CurveSliceSource curve : curves) {
-            Object parsed = parseJsonSafely(curve.getCurveContentText());
+            Object parsed = parseCurveJson(curve);
             if (parsed instanceof JSONArray) {
                 JSONArray arr = (JSONArray) parsed;
                 for (int i = 0; i < arr.size(); i++) {
@@ -283,15 +283,29 @@ public class JobPayloadBuilder {
                 new JSONArray(keys == null ? new ArrayList<String>() : new ArrayList<String>(keys)));
     }
 
-    static Object parseJsonSafely(String text) {
+    static Object parseTradeJson(BatchTradeDataLoader.TradeRow trade) {
+        String instrumentId = trade == null ? null : trade.instrumentId;
+        String contentText = trade == null ? null : trade.tradeContentText;
+        return parseJsonStrict(contentText, "交易JSON格式异常，instrumentId=" + safeText(instrumentId));
+    }
+
+    static Object parseCurveJson(MrMarketDataSliceService.CurveSliceSource curve) {
+        String marketDataType = curve == null ? null : curve.getMarketDataType();
+        String curveId = curve == null ? null : curve.getCurveId();
+        String contentText = curve == null ? null : curve.getCurveContentText();
+        return parseJsonStrict(contentText, "市场曲线JSON格式异常，marketDataType="
+                + safeText(marketDataType) + ", curveId=" + safeText(curveId));
+    }
+
+    static Object parseJsonStrict(String text, String messagePrefix) {
         String safe = trimToNull(text);
         if (safe == null) {
-            return null;
+            throw new PayloadJsonParseException(messagePrefix + ": 内容为空");
         }
         try {
             return JSON.parse(safe);
-        } catch (Exception ignore) {
-            return safe;
+        } catch (Exception ex) {
+            throw new PayloadJsonParseException(messagePrefix + ": " + ex.getMessage(), ex);
         }
     }
 
@@ -301,5 +315,20 @@ public class JobPayloadBuilder {
         }
         String value = txt.trim();
         return value.isEmpty() ? null : value;
+    }
+
+    private static String safeText(String txt) {
+        String value = trimToNull(txt);
+        return value == null ? "" : value;
+    }
+}
+
+class PayloadJsonParseException extends RuntimeException {
+    PayloadJsonParseException(String message) {
+        super(message);
+    }
+
+    PayloadJsonParseException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

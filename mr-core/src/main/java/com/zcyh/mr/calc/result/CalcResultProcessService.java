@@ -154,8 +154,15 @@ public final class CalcResultProcessService {
     }
 
     public static JSONArray buildPnlResults(Map<String, JSONObject> baseTradeIndex,
-                                            JSONArray scenTradeResults,
-                                            Set<String> unsupportedScenarioProducts) {
+                                             JSONArray scenTradeResults,
+                                             Set<String> unsupportedScenarioProducts) {
+        return buildPnlResults(baseTradeIndex, scenTradeResults, unsupportedScenarioProducts, null);
+    }
+
+    public static JSONArray buildPnlResults(Map<String, JSONObject> baseTradeIndex,
+                                             JSONArray scenTradeResults,
+                                             Set<String> unsupportedScenarioProducts,
+                                             Set<String> affectedTradeIds) {
         JSONArray pnlResults = new JSONArray();
         if (baseTradeIndex == null || baseTradeIndex.isEmpty()) {
             return pnlResults;
@@ -185,7 +192,11 @@ public final class CalcResultProcessService {
 
             JSONObject scenTrade = scenTradeIndex.get(id);
             if (scenTrade == null) {
-                pnlResults.add(buildZeroPnlRow(baseTrade));
+                if (isAffectedTrade(affectedTradeIds, id)) {
+                    pnlResults.add(buildMissingScenarioResultPnlRow(baseTrade));
+                } else {
+                    pnlResults.add(buildZeroPnlRow(baseTrade));
+                }
                 continue;
             }
 
@@ -242,6 +253,17 @@ public final class CalcResultProcessService {
         pnlResult.put("STATUS", "ERROR");
         pnlResult.put("LOGS", buildSingleErrorLog("产品类型不支持情景: " + productCode));
         return pnlResult;
+    }
+
+    public static JSONObject buildMissingScenarioResultPnlRow(JSONObject baseTrade) {
+        JSONObject pnlResult = buildZeroPnlRow(baseTrade);
+        pnlResult.put("STATUS", "ERROR");
+        pnlResult.put("LOGS", buildSingleErrorLog("情景结果缺失"));
+        return pnlResult;
+    }
+
+    private static boolean isAffectedTrade(Set<String> affectedTradeIds, String instrumentId) {
+        return affectedTradeIds == null || affectedTradeIds.contains(instrumentId);
     }
 
     private static JSONObject buildAbsoluteZeroPnlRow(JSONObject baseTrade) {

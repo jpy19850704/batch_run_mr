@@ -50,12 +50,12 @@ public class FrtbDrcResultPersistService {
     /**
      * 删除指定批次与估值日的历史 DRC 汇总结果。
      */
-    public void deleteByBatchDataDateAndRule(String batchId, String dataDate, String ruleId) {
+    public void deleteByBatchAndDataDate(String batchId, String dataDate) {
         int deleted = jdbcTemplate.update(
-                "DELETE FROM TB_OUT_TRADE_DRC_RESULT WHERE BATCH_ID=? AND DATA_DATE=? AND RULE_ID=?",
-                batchId, dataDate, ruleId);
+                "DELETE FROM TB_OUT_TRADE_DRC_RESULT WHERE BATCH_ID=? AND DATA_DATE=?",
+                batchId, dataDate);
         if (deleted > 0) {
-            log.info("清理 DRC 汇总历史结果: batchId={}, dataDate={}, ruleId={}, deleted={}", batchId, dataDate, ruleId, deleted);
+            log.info("清理 DRC 汇总历史结果: batchId={}, dataDate={}, deleted={}", batchId, dataDate, deleted);
         }
     }
 
@@ -80,8 +80,6 @@ public class FrtbDrcResultPersistService {
         if (drcResult == null) {
             throw new IllegalArgumentException("drcResult 不能为空");
         }
-
-        deleteByBatchDataDateAndRule(safeBatchId, safeDataDate, safeRuleId);
 
         List<ResultRow> rows = new ArrayList<ResultRow>();
         appendModuleRows(

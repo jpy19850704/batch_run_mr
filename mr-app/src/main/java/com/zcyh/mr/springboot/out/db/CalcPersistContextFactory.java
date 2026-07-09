@@ -6,8 +6,12 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
+import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
 import com.zcyh.mr.springboot.model.EngineRunResult;
 import org.springframework.stereotype.Service;
+
+import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.STATUS_ERROR;
+import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.resolveLogMessage;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -61,12 +65,27 @@ public class CalcPersistContextFactory {
         JSONArray logData = data.getJSONArray("log_data");
         context.generatedMarketData = data.getJSONArray("generated_market_data");
         context.scenarioResults = data.getJSONArray("scenario_result");
+        if (hasScenarioRequest(context.payload) && (context.scenarioResults == null || context.scenarioResults.isEmpty())) {
+            throw new IllegalStateException("情景请求未生成 scenario_result");
+        }
         context.imaModellableScenarioResults = data.getJSONArray("ima_modellable_scenario_result");
         context.inputTradeIndex = buildInputTradeIndex(context.payload);
         context.effectiveBaseTrades = appendMissingErrorTradesFromLog(baseTrades, logData,
                 context.inputTradeIndex, context);
         context.baseTradeIndex = buildTradeIndex(context.effectiveBaseTrades);
         return context;
+    }
+
+    private static boolean hasScenarioRequest(JSONObject payload) {
+        return hasArray(payload, ScenarioProcessConstants.REGULAR_SCENARIO_REF_LIST)
+                || hasArray(payload, ScenarioProcessConstants.VAR_SCENARIO_REF_LIST)
+                || hasArray(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST)
+                || hasArray(payload, ScenarioProcessConstants.IMA_NMRF_SCENARIO_REF_LIST);
+    }
+
+    private static boolean hasArray(JSONObject payload, String key) {
+        JSONArray array = payload == null ? null : payload.getJSONArray(key);
+        return array != null && !array.isEmpty();
     }
 
     private static JSONArray appendMissingErrorTradesFromLog(JSONArray baseTrades, JSONArray logData,
@@ -116,7 +135,7 @@ public class CalcPersistContextFactory {
                             context);
                     missingErrorTrades.put(instrumentId, errorTrade);
                 }
-                appendTradeLog(errorTrade, "ERROR", message);
+                appendTradeLog(errorTrade, STATUS_ERROR, message);
             }
         }
         if (inputTradeIndex != null) {
@@ -127,7 +146,7 @@ public class CalcPersistContextFactory {
                     continue;
                 }
                 JSONObject errorTrade = buildSyntheticErrorTrade(instrumentId, null, entry.getValue(), context);
-                appendTradeLog(errorTrade, "ERROR", "输入交易未生成计量结果");
+                appendTradeLog(errorTrade, STATUS_ERROR, "输入交易未生成计量结果");
                 missingErrorTrades.put(instrumentId, errorTrade);
             }
         }
@@ -145,21 +164,9 @@ public class CalcPersistContextFactory {
         errorTrade.put("PRODUCT_CODE", productCode != null ? productCode
                 : inputTrade == null ? null : trimToNull(inputTrade.getString("PRODUCT_CODE")));
         errorTrade.put("DATA_DATE", context == null ? null : context.dataDate);
-        errorTrade.put("STATUS", "ERROR");
+        errorTrade.put("STATUS", STATUS_ERROR);
         errorTrade.put("LOGS", new JSONArray());
         return errorTrade;
-    }
-
-    private static String resolveLogMessage(JSONObject logItem) {
-        String message = trimToNull(logItem.getString("info"));
-        if (message != null) {
-            return message;
-        }
-        message = trimToNull(logItem.getString("ERROR"));
-        if (message != null) {
-            return message;
-        }
-        return trimToNull(logItem.getString("message"));
     }
 
     private static void appendTradeLog(JSONObject errorTrade, String level, String message) {
@@ -175,7 +182,7 @@ public class CalcPersistContextFactory {
             logs = new JSONArray();
             errorTrade.put("LOGS", logs);
         }
-        String safeLevel = trimToNull(level) == null ? "ERROR" : level;
+        String safeLevel = trimToNull(level) == null ? STATUS_ERROR : level;
         for (int i = 0; i < logs.size(); i++) {
             JSONObject item = logs.getJSONObject(i);
             if (item != null

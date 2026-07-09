@@ -70,6 +70,45 @@ class CalcResultProcessServiceTest {
                 row.getJSONArray("LOGS").getJSONObject(0).getString("message"));
     }
 
+    @Test
+    void missingAffectedScenarioTradeWritesErrorLog() {
+        JSONObject baseTrade = new JSONObject();
+        baseTrade.put("INSTRUMENT_ID", "T_MISSING");
+        baseTrade.put("VALUATION_CNY", 100.0);
+        Map<String, JSONObject> baseIndex = new LinkedHashMap<>();
+        baseIndex.put("T_MISSING", baseTrade);
+
+        JSONArray rows = CalcResultProcessService.buildPnlResults(
+                baseIndex,
+                new JSONArray(),
+                Collections.emptySet(),
+                Collections.singleton("T_MISSING"));
+        JSONObject row = rows.getJSONObject(0);
+
+        assertEquals("ERROR", row.getString("STATUS"));
+        assertEquals(0.0, row.getDoubleValue("PNL"));
+        assertEquals("情景结果缺失", row.getJSONArray("LOGS").getJSONObject(0).getString("message"));
+    }
+
+    @Test
+    void missingUnaffectedScenarioTradeKeepsZeroSuccess() {
+        JSONObject baseTrade = new JSONObject();
+        baseTrade.put("INSTRUMENT_ID", "T_UNAFFECTED");
+        baseTrade.put("VALUATION_CNY", 100.0);
+        Map<String, JSONObject> baseIndex = new LinkedHashMap<>();
+        baseIndex.put("T_UNAFFECTED", baseTrade);
+
+        JSONArray rows = CalcResultProcessService.buildPnlResults(
+                baseIndex,
+                new JSONArray(),
+                Collections.emptySet(),
+                Collections.singleton("OTHER_TRADE"));
+        JSONObject row = rows.getJSONObject(0);
+
+        assertEquals("SUCCESS", row.getString("STATUS"));
+        assertEquals(0.0, row.getDoubleValue("PNL"));
+    }
+
     private static JSONArray logs(String message) {
         JSONArray logs = new JSONArray();
         JSONObject log = new JSONObject();

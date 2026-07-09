@@ -68,6 +68,17 @@ public class BatchCalcSubmitTask implements BatchRunTask {
             for (BatchJobPayload jobPayload : context.getJobPayloads()) {
                 JobSubmitRequest jobRequest = new JobSubmitRequest();
                 String jobId = BatchJobService.buildJobId(batchId, jobPayload.getSeqNo());
+                if (jobPayload.isFailed()) {
+                    asyncJobService.recordFailedJob(
+                            jobId,
+                            BatchJobService.buildJobRequestId(requestId, jobPayload.getSeqNo()),
+                            engineCode,
+                            jobPayload.getErrorCode(),
+                            jobPayload.getErrorMessage());
+                    batchJobService.insertBatchItem(batchId, jobPayload.getSeqNo(), jobId, jobPayload.getChunkTrades());
+                    submittedJobs++;
+                    continue;
+                }
                 jobRequest.setJobId(jobId);
                 jobRequest.setRequestId(BatchJobService.buildJobRequestId(requestId, jobPayload.getSeqNo()));
                 jobRequest.setEngineCode(engineCode);

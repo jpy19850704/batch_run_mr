@@ -8,7 +8,7 @@ import com.zcyh.mr.springboot.model.ApiResponse;
 import com.zcyh.mr.springboot.service.AlertService;
 import com.zcyh.mr.springboot.service.AuditLogService;
 import com.zcyh.mr.springboot.service.FrtbDrcSummaryService;
-import com.zcyh.mr.springboot.out.db.FrtbRraoSummaryService;
+import com.zcyh.mr.springboot.service.FrtbRraoResultService;
 import com.zcyh.mr.springboot.service.FrtbSbaSummaryService;
 import com.zcyh.mr.springboot.service.VarSummaryService;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,20 +25,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class MrSummaryController {
     private final FrtbSbaSummaryService frtbSbaSummaryService;
     private final FrtbDrcSummaryService frtbDrcSummaryService;
-    private final FrtbRraoSummaryService frtbRraoSummaryService;
+    private final FrtbRraoResultService frtbRraoResultService;
     private final VarSummaryService varSummaryService;
     private final AuditLogService auditLogService;
     private final AlertService alertService;
 
     public MrSummaryController(FrtbSbaSummaryService frtbSbaSummaryService,
                                FrtbDrcSummaryService frtbDrcSummaryService,
-                               FrtbRraoSummaryService frtbRraoSummaryService,
+                               FrtbRraoResultService frtbRraoResultService,
                                VarSummaryService varSummaryService,
                                AuditLogService auditLogService,
                                AlertService alertService) {
         this.frtbSbaSummaryService = frtbSbaSummaryService;
         this.frtbDrcSummaryService = frtbDrcSummaryService;
-        this.frtbRraoSummaryService = frtbRraoSummaryService;
+        this.frtbRraoResultService = frtbRraoResultService;
         this.varSummaryService = varSummaryService;
         this.auditLogService = auditLogService;
         this.alertService = alertService;
@@ -111,7 +111,7 @@ public class MrSummaryController {
         RequestContextHolder.setBatchId(batchId);
         RequestContextHolder.setEngineCode("frtb_rrao");
         try {
-            JSONObject result = frtbRraoSummaryService.summarize(request);
+            JSONObject result = frtbRraoResultService.summarize(request);
             auditLogService.recordSuccess(
                     "SUMMARY_FRTB_RRAO",
                     "SUMMARY",

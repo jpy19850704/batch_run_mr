@@ -285,7 +285,8 @@ public class Calc {
 
                                 // 按 INSTRUMENT_ID 对齐基准与场景结果并计算 PnL
                                 JSONArray pnlResults = CalcResultProcessService.buildPnlResults(
-                                                baseTradeIndex, scenTradeResults, unsupportedScenarioProducts);
+                                                baseTradeIndex, scenTradeResults, unsupportedScenarioProducts,
+                                                affectedIds);
 
                                 scenarioResults.add(CalcResultProcessService.buildScenarioItem(
                                                 entry, pnlResults, RESULT_KIND_SCENARIO));

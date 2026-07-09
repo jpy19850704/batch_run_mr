@@ -54,8 +54,7 @@ public class ScenarioDetailResultService {
             return;
         }
         if (records == null || records.isEmpty()) {
-            log.warn("情景生成结果落库跳过: batchId={}, dataDate={}, reason=records为空", safeBatchId, dataDate);
-            return;
+            throw new IllegalStateException("情景生成结果为空，不能落库: batchId=" + safeBatchId + ", dataDate=" + dataDate);
         }
         String normalizedDataDate = trimToNull(dataDate);
         if (normalizedDataDate == null) {

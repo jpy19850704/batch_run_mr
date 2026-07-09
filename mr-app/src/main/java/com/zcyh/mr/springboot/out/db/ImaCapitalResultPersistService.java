@@ -20,10 +20,10 @@ import java.util.List;
 
 /**
  * IMA 最终资本结果落库服务。
- * 将 ImaCapitalResult 写入 TB_OUT_IMA_CAPITAL_RESULT（Doris，待建表）。
+ * 将 ImaCapitalResult 写入 TB_OUT_IMA_CAPITAL_RESULT（Doris 结果表）。
  *
  * <p>当前将核心指标（IMCC / SES / amber 系数 / 总资本）写入结果表，
- * 完整中间值以 JSON 形式存入 RESULT_JSON 字段。
+ * 资本计算明细以 JSON 形式存入 DETAIL_JSON 字段。
  */
 @Service
 public class ImaCapitalResultPersistService {
@@ -33,7 +33,7 @@ public class ImaCapitalResultPersistService {
     private static final String TARGET_TABLE = "TB_OUT_IMA_CAPITAL_RESULT";
     private static final String STREAM_LOAD_COLUMNS =
             "BATCH_ID,DATA_DATE,RULE_ID,GROUP_TYPE,GROUP_VALUE,GROUP_ORDER,IMCC,SES,AMBER_SURCHARGE_RATIO,ACR_TOTAL,"
-                    + "IMCC_ALL,IMCC_IR,IMCC_CS,IMCC_FX,IMCC_EQ,IMCC_COMM,RESULT_JSON,CREATED_AT,UPDATED_AT";
+                    + "IMCC_ALL,IMCC_IR,IMCC_CS,IMCC_FX,IMCC_EQ,IMCC_COMM,DETAIL_JSON,CREATED_AT,UPDATED_AT";
 
     private final JdbcTemplate jdbcTemplate;
     private final DorisStreamLoadService dorisStreamLoadService;
@@ -87,7 +87,7 @@ public class ImaCapitalResultPersistService {
                 throw new IllegalArgumentException("IMA 资本结果批次不一致: " + resultBatchId);
             }
             ImccResult imccResult = result.getImccResult();
-            String resultJson = JSON.toJSONString(result, JSONWriter.Feature.WriteBigDecimalAsPlain);
+            String detailJson = JSON.toJSONString(result, JSONWriter.Feature.WriteBigDecimalAsPlain);
             buffer.appendRow(
                     resultBatchId,
                     result.getDataDate(),
@@ -105,7 +105,7 @@ public class ImaCapitalResultPersistService {
                     DorisCsvStreamLoadBuffer.decimalText(riskClassImcc(imccResult, "FX")),
                     DorisCsvStreamLoadBuffer.decimalText(riskClassImcc(imccResult, "EQ")),
                     DorisCsvStreamLoadBuffer.decimalText(riskClassImcc(imccResult, "COMM")),
-                    resultJson,
+                    detailJson,
                     now,
                     now);
         }

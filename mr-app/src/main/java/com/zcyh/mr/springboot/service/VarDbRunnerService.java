@@ -42,6 +42,7 @@ import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.addUniq
 import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.normalizeUpperFieldList;
 import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.normalizeUpperFieldName;
 import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.toFilterExpression;
+import static com.zcyh.mr.springboot.support.RequestParseSupport.readBoolean;
 
 /**
  * VaR 数据库输入执行服务。
@@ -79,13 +80,13 @@ public class VarDbRunnerService {
             throw new IllegalArgumentException("payload 必须是 JSON 对象");
         }
 
-        normalizeRuleIdRequest(req);
+        normalizeRulesRequest(req);
         String batchId = requireTopLevelString(req, "batch_id");
         String dataDate = requireTopLevelString(req, "data_date");
         List<BigDecimal> quantiles = parseQuantiles(req.get("quantiles"));
         List<VarMeasure> measures = parseMeasures(req.get("measure"));
         List<VarRuleConfig> rules = parseRules(req);
-        boolean includeDetailRequested = readBoolean(req, "include_detail", false);
+        boolean includeDetailRequested = readBoolean(req, false, "include_detail");
         boolean includeDetail = includeDetailRequested;
         String requestId = readString(req, "request_id");
         if (requestId == null) {
@@ -725,7 +726,7 @@ public class VarDbRunnerService {
             throw new IllegalArgumentException("request 不能为空");
         }
         JSONObject copy = JSON.parseObject(request.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
-        normalizeRuleIdRequest(copy);
+        normalizeRulesRequest(copy);
         JSONArray rules = copy.getJSONArray("rules");
         if (rules == null) {
             return new JSONArray();
@@ -741,18 +742,10 @@ public class VarDbRunnerService {
     }
 
     /**
-     * 支持通过 rule_id 从 MR_AGG_RULE 读取 VAR 规则，并将规则内的 quantiles / measure 提升为本次运行参数。
+     * 支持通过 rules[].rule_id 从 MR_AGG_RULE 读取 VAR 规则，并将规则内的 quantiles / measure 提升为本次运行参数。
      */
-    private void normalizeRuleIdRequest(JSONObject req) {
+    private void normalizeRulesRequest(JSONObject req) {
         JSONArray rawRules = req.getJSONArray("rules");
-        String topRuleId = readString(req, "rule_id");
-        if ((rawRules == null || rawRules.isEmpty()) && topRuleId != null) {
-            rawRules = new JSONArray();
-            JSONObject item = new JSONObject();
-            item.put("rule_id", topRuleId);
-            rawRules.add(item);
-            req.put("rules", rawRules);
-        }
         if (rawRules == null || rawRules.isEmpty()) {
             return;
         }
@@ -839,7 +832,7 @@ public class VarDbRunnerService {
             riskClasses = resolveNonDecompRiskClasses(riskClasses);
         }
 
-        boolean enabled = readBoolean(ruleJson, "enabled", true);
+        boolean enabled = readBoolean(ruleJson, true, "enabled");
         Integer outputOrder = readInteger(ruleJson, "output_order");
         return new VarRuleConfig(
                 rule,
@@ -1084,14 +1077,6 @@ public class VarDbRunnerService {
             }
         }
         return list;
-    }
-
-    private static boolean readBoolean(JSONObject obj, String key, boolean defaultValue) {
-        if (obj == null || key == null) {
-            return defaultValue;
-        }
-        Boolean value = obj.getBoolean(key);
-        return value == null ? defaultValue : value;
     }
 
     private static Integer readInteger(JSONObject obj, String key) {

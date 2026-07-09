@@ -39,7 +39,7 @@ final class FrtbSbaInputValidator {
     static List<Map<String, Object>> validateAndNormalizeSbaRows(List<Map<String, Object>> rows) {
         List<Map<String, Object>> validRows = new ArrayList<Map<String, Object>>();
         Map<String, ValidationStat> stats = new LinkedHashMap<String, ValidationStat>();
-        ValidationStat missingCsrncType = stat(stats, "CSRNC 明细缺少 RISK_FACTOR_TYPE，已默认按 BOND 处理");
+        ValidationStat missingCsrncType = stat(stats, "CSRNC 明细缺少 RISK_FACTOR_TYPE，按 BOND 业务兜底口径处理");
 
         if (rows == null || rows.isEmpty()) {
             return validRows;
@@ -91,7 +91,7 @@ final class FrtbSbaInputValidator {
 
             if (!invalid && FrtbConstants.RISK_CLASS_CSRNC.equals(riskClass)
                     && trimToNull(stringValue(row.get("RISK_FACTOR_TYPE"))) == null) {
-                // 正式口径：CSR non-sec 明细缺少 RISK_FACTOR_TYPE 时，按最常用 BOND 情景处理。
+                // 正式口径：CSR non-sec 明细缺少 RISK_FACTOR_TYPE 时，按 BOND 业务兜底口径处理。
                 missingCsrncType.add(row.get("INSTRUMENT_ID"));
                 row.put("RISK_FACTOR_TYPE", "BOND");
             }

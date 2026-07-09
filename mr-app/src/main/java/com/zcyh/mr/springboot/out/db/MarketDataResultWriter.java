@@ -34,7 +34,11 @@ public class MarketDataResultWriter {
         this.dorisStreamLoadService = dorisStreamLoadService;
     }
 
-    List<String> requiredColumns() {
+    String tableName() {
+        return TARGET_TABLE;
+    }
+
+    List<String> writeColumns() {
         return COLUMN_LIST;
     }
 

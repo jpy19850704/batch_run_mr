@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.engine;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.readBoolean;
+
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
@@ -95,6 +97,14 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
             + "FROM TB_OUT_IMA_NMRF_SCENARIO_PNL "
             + "WHERE BATCH_ID = ? AND DATA_DATE = ?";
 
+    private static final String COUNT_MODELLABLE_ERROR =
+            "SELECT COUNT(*) FROM TB_OUT_IMA_MODELLABLE_SCENARIO_PNL "
+            + "WHERE BATCH_ID = ? AND DATA_DATE = ? AND (STATUS IS NULL OR STATUS <> 'SUCCESS')";
+
+    private static final String COUNT_NMRF_ERROR =
+            "SELECT COUNT(*) FROM TB_OUT_IMA_NMRF_SCENARIO_PNL "
+            + "WHERE BATCH_ID = ? AND DATA_DATE = ? AND (STATUS IS NULL OR STATUS <> 'SUCCESS')";
+
     private final JdbcTemplate engineDbJdbcTemplate;
     private final JdbcTemplate resultDbJdbcTemplate;
     private final BatchTradeDataLoader tradeDataLoader;
@@ -143,7 +153,7 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
         JSONObject req = JSON.parseObject(inputJson);
         if (req == null) throw new IllegalArgumentException("IMA Phase2 input 不能为空");
 
-        if (readBoolean(req, "trial")) {
+        if (readBoolean(req, false, "trial")) {
             return JSON.toJSONString(calculateTrial(req), JSONWriter.Feature.WriteBigDecimalAsPlain);
         }
 
@@ -528,11 +538,6 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
         return JSON.parseObject(JSON.toJSONString(value));
     }
 
-    private static boolean readBoolean(JSONObject obj, String key) {
-        Boolean value = obj == null ? null : obj.getBoolean(key);
-        return value != null && value;
-    }
-
     private static BigDecimal imaCapitalValue(ImaCapitalResult result) {
         return result == null ? BigDecimal.ZERO : zeroIfNull(result.getAcrTotal());
     }
@@ -886,6 +891,7 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
     // ==================== 数据查询 ====================
 
     private List<SubsetPnlRecord> queryModellablePnl(String batchId, String dataDate) {
+        assertNoImaScenarioPnlErrors(COUNT_MODELLABLE_ERROR, "IMA 可建模情景 PnL", batchId, dataDate);
         return resultDbJdbcTemplate.query(QUERY_MODELLABLE, (rs, i) -> {
             SubsetPnlRecord r = new SubsetPnlRecord();
             r.setRequestId(rs.getString("REQUEST_ID"));
@@ -918,6 +924,7 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
     }
 
     private List<NmrfPnlRecord> queryNmrfPnl(String batchId, String dataDate) {
+        assertNoImaScenarioPnlErrors(COUNT_NMRF_ERROR, "IMA NMRF 情景 PnL", batchId, dataDate);
         return resultDbJdbcTemplate.query(QUERY_NMRF, (rs, i) -> {
             NmrfPnlRecord r = new NmrfPnlRecord();
             r.setRequestId(rs.getString("REQUEST_ID"));
@@ -937,6 +944,14 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
             r.setPnl(rs.getBigDecimal("PNL"));
             return r;
         }, batchId, dataDate);
+    }
+
+    private void assertNoImaScenarioPnlErrors(String sql, String label, String batchId, String dataDate) {
+        Number count = resultDbJdbcTemplate.queryForObject(sql, Number.class, batchId, dataDate);
+        if (count != null && count.longValue() > 0L) {
+            throw new IllegalStateException(label + "存在异常或未标记状态，停止 IMA 资本汇总: batchId="
+                    + batchId + ", dataDate=" + dataDate + ", rows=" + count.longValue());
+        }
     }
 
     // ==================== JSON 工具 ====================

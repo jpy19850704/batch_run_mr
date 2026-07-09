@@ -25,7 +25,7 @@ public class BatchCalcWaitTask implements BatchRunTask {
     @Override
     public void execute(BatchRunWorkflowContext context) {
         BatchDetailResult batchDetail = waitBatchFinished(context.getBatchId());
-        if (!batchDetail.isSuccess()) {
+        if (!batchDetail.isSuccess() && !"PARTIAL_FAILED".equalsIgnoreCase(batchDetail.getStatus())) {
             throw new IllegalStateException("批量任务执行失败，batchId=" + context.getBatchId()
                     + ", status=" + batchDetail.getStatus());
         }

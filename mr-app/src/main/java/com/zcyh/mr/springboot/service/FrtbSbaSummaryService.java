@@ -1,11 +1,5 @@
 package com.zcyh.mr.springboot.service;
 
-import com.zcyh.mr.springboot.out.db.FrtbSbaResultPersistService;
-
-import com.zcyh.mr.springboot.out.db.FrtbSbaDecompDetailPersistService;
-
-import com.zcyh.mr.springboot.out.db.CalcRuleMetaPersistService;
-
 import static com.zcyh.mr.springboot.support.RequestParseSupport.readBoolean;
 import static com.zcyh.mr.springboot.support.RequestParseSupport.readInteger;
 import static com.zcyh.mr.springboot.support.RequestParseSupport.readRequiredString;
@@ -19,13 +13,22 @@ import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
 import com.zcyh.mr.frtbsa.sba.pojo.FRTBClassResult;
 import com.zcyh.mr.frtbsa.sba.pojo.FRTBPosResult;
+import com.zcyh.mr.springboot.out.db.CalcRuleMetaPersistService;
+import com.zcyh.mr.springboot.out.db.FrtbSbaResultPersistService;
+import com.zcyh.mr.springboot.support.DorisCsvStreamLoadBuffer;
+import com.zcyh.mr.springboot.support.DorisStreamLoadService;
+import com.zcyh.mr.springboot.support.ResultPersistTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
 /**
  * FRTB SBA 汇总服务。
  * 从批次敏感性明细生成 SBA 汇总结果，并按需要执行结果落库。
@@ -34,23 +37,33 @@ import java.util.Map;
 public class FrtbSbaSummaryService {
     private static final Logger log = LoggerFactory.getLogger(FrtbSbaSummaryService.class);
     private static final String CALC_TYPE_FRTB_SBA = "FRTB_SBA";
+    private static final int DECOMP_DETAIL_BATCH_SIZE = 10000;
+    private static final String DECOMP_DETAIL_TABLE = "TB_OUT_FRTB_SBA_DECOMP_DETAIL";
+    private static final String DECOMP_DETAIL_COLUMNS =
+            "BATCH_ID,DATA_DATE,RULE_ID,GROUP_TYPE,GROUP_VALUE,"
+                    + "RISK_FACTOR_CLASS,RISK_FACTOR_BUCKET,RISK_FACTOR_ID,"
+                    + "RISK_FACTOR_VERTEX_1,RISK_FACTOR_VERTEX_2,RISK_FACTOR_TYPE,"
+                    + "SENSITIVITY_TYPE,UNIT_CONTRIBUTION,CREATED_AT,UPDATED_AT";
 
     private final FrtbSbaDbRunnerService frtbSbaDbRunnerService;
     private final FrtbSbaResultPersistService frtbSbaResultPersistService;
-    private final FrtbSbaDecompDetailPersistService frtbSbaDecompDetailPersistService;
     private final FrtbAggregator frtbAggregator;
     private final CalcRuleMetaPersistService calcRuleMetaPersistService;
+    private final JdbcTemplate engineResultDbJdbcTemplate;
+    private final DorisStreamLoadService dorisStreamLoadService;
 
     public FrtbSbaSummaryService(FrtbSbaDbRunnerService frtbSbaDbRunnerService,
                                  FrtbSbaResultPersistService frtbSbaResultPersistService,
-                                 FrtbSbaDecompDetailPersistService frtbSbaDecompDetailPersistService,
                                  FrtbAggregator frtbAggregator,
-                                 CalcRuleMetaPersistService calcRuleMetaPersistService) {
+                                 CalcRuleMetaPersistService calcRuleMetaPersistService,
+                                 @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate,
+                                 DorisStreamLoadService dorisStreamLoadService) {
         this.frtbSbaDbRunnerService = frtbSbaDbRunnerService;
         this.frtbSbaResultPersistService = frtbSbaResultPersistService;
-        this.frtbSbaDecompDetailPersistService = frtbSbaDecompDetailPersistService;
         this.frtbAggregator = frtbAggregator;
         this.calcRuleMetaPersistService = calcRuleMetaPersistService;
+        this.engineResultDbJdbcTemplate = engineResultDbJdbcTemplate;
+        this.dorisStreamLoadService = dorisStreamLoadService;
     }
 
     @SuppressWarnings("unchecked")
@@ -67,7 +80,7 @@ public class FrtbSbaSummaryService {
 
         if (persistResult) {
             frtbSbaResultPersistService.deleteByBatchAndDataDate(batchId, dataDate);
-            frtbSbaDecompDetailPersistService.deleteByBatchAndDataDate(batchId, dataDate);
+            deleteDecompDetailByBatchAndDataDate(batchId, dataDate);
             calcRuleMetaPersistService.deleteByBatchAndCalcType(batchId, dataDate, CALC_TYPE_FRTB_SBA);
         }
 
@@ -160,8 +173,57 @@ public class FrtbSbaSummaryService {
             }
         }
         if (!decompDetails.isEmpty()) {
-            frtbSbaDecompDetailPersistService.persist(decompDetails, batchId, dataDate, ruleId);
+            persistDecompDetails(decompDetails, batchId, dataDate, ruleId);
         }
+    }
+
+    private void persistDecompDetails(List<FRTBPosResult> posResults, String batchId, String dataDate, String ruleId) {
+        if (posResults == null || posResults.isEmpty()) {
+            log.warn("FRTB SBA Decomp 明细为空，跳过落库: batchId={}, ruleId={}", batchId, ruleId);
+            return;
+        }
+
+        String now = ResultPersistTime.nowText();
+        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
+                dorisStreamLoadService,
+                DECOMP_DETAIL_TABLE,
+                DECOMP_DETAIL_COLUMNS,
+                "frtb_sba_decomp_" + batchId,
+                DECOMP_DETAIL_BATCH_SIZE);
+
+        int rows = 0;
+        for (FRTBPosResult pr : posResults) {
+            if (pr == null) {
+                continue;
+            }
+            if ("ALL".equalsIgnoreCase(pr.getRiskFactorClass())) {
+                continue;
+            }
+            buffer.appendRow(
+                    batchId, dataDate, ruleId,
+                    pr.getGroupType(), pr.getGroupValue(),
+                    pr.getRiskFactorClass(), pr.getRiskFactorBucket(), pr.getRiskFactorId(),
+                    pr.getRiskFactorVertex1(), pr.getRiskFactorVertex2(), pr.getRiskFactorType(),
+                    pr.getSensitivityType(),
+                    DorisCsvStreamLoadBuffer.decimalText(decVal(pr.getUnitContribution())),
+                    now, now);
+            rows++;
+        }
+        buffer.flush();
+        log.info("FRTB SBA Decomp 明细落库完成: batchId={}, ruleId={}, rows={}", batchId, ruleId, rows);
+    }
+
+    private void deleteDecompDetailByBatchAndDataDate(String batchId, String dataDate) {
+        int deleted = engineResultDbJdbcTemplate.update(
+                "DELETE FROM TB_OUT_FRTB_SBA_DECOMP_DETAIL WHERE BATCH_ID = ? AND DATA_DATE = ?",
+                batchId, dataDate);
+        if (deleted > 0) {
+            log.info("清理 FRTB SBA Decomp 历史结果: batchId={}, dataDate={}, deleted={}", batchId, dataDate, deleted);
+        }
+    }
+
+    private static BigDecimal decVal(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     @SuppressWarnings("unchecked")

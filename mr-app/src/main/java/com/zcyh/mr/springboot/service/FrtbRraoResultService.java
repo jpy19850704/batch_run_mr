@@ -1,6 +1,4 @@
-package com.zcyh.mr.springboot.out.db;
-
-import com.zcyh.mr.springboot.service.DimensionAggregationService;
+package com.zcyh.mr.springboot.service;
 
 import com.zcyh.mr.springboot.support.DorisCsvStreamLoadBuffer;
 import com.zcyh.mr.springboot.support.DorisStreamLoadService;
@@ -16,6 +14,8 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
+import com.zcyh.mr.frtbsa.rrao.FrtbRraoCalculator;
+import com.zcyh.mr.springboot.out.db.CalcRuleMetaPersistService;
 import com.zcyh.mr.springboot.input.rule.AggregationRuleProvider;
 import com.zcyh.mr.springboot.model.AggregationRule;
 import com.zcyh.mr.springboot.prepare.filter.AggregationFilterSqlBuilder;
@@ -29,7 +29,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -37,18 +36,16 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * FRTB RRAO 汇总服务。
+ * FRTB RRAO 结果服务。
  */
 @Service
-public class FrtbRraoSummaryService {
-    private static final Logger log = LoggerFactory.getLogger(FrtbRraoSummaryService.class);
+public class FrtbRraoResultService {
+    private static final Logger log = LoggerFactory.getLogger(FrtbRraoResultService.class);
     private static final String RULE_TYPE_RRAO = "FRTB_RRAO";
     private static final String CALC_TYPE_RRAO = "RRAO";
     private static final String TARGET_TABLE = "TB_OUT_TRADE_RRAO_RESULT";
     private static final String STREAM_LOAD_COLUMNS =
             "BATCH_ID,DATA_DATE,RULE_ID,GROUP_TYPE,GROUP_VALUE,RRAO_TYPE,TRADE_COUNT,RRAO_NOTIONAL,RRAO_CAPITAL,CREATED_AT";
-    private static final BigDecimal EXOTIC_WEIGHT = new BigDecimal("0.01");
-    private static final BigDecimal OTHER_WEIGHT = new BigDecimal("0.001");
     private static final int DEFAULT_BATCH_SIZE = 5000;
 
     private final AggregationRuleProvider aggregationRuleProvider;
@@ -56,12 +53,13 @@ public class FrtbRraoSummaryService {
     private final DorisStreamLoadService dorisStreamLoadService;
     private final CalcRuleMetaPersistService calcRuleMetaPersistService;
     private final DimensionAggregationService dimensionAggregationService;
+    private final FrtbRraoCalculator rraoCalculator = new FrtbRraoCalculator();
 
-    public FrtbRraoSummaryService(AggregationRuleProvider aggregationRuleProvider,
-                                  @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate,
-                                  DorisStreamLoadService dorisStreamLoadService,
-                                  CalcRuleMetaPersistService calcRuleMetaPersistService,
-                                  DimensionAggregationService dimensionAggregationService) {
+    public FrtbRraoResultService(AggregationRuleProvider aggregationRuleProvider,
+                                 @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate,
+                                 DorisStreamLoadService dorisStreamLoadService,
+                                 CalcRuleMetaPersistService calcRuleMetaPersistService,
+                                 DimensionAggregationService dimensionAggregationService) {
         this.aggregationRuleProvider = aggregationRuleProvider;
         this.engineResultDbJdbcTemplate = engineResultDbJdbcTemplate;
         this.dorisStreamLoadService = dorisStreamLoadService;
@@ -79,6 +77,7 @@ public class FrtbRraoSummaryService {
         JSONArray ruleList = resolveRuleList(request);
 
         if (persistResult) {
+            deleteByBatchAndDataDate(batchId, dataDate);
             calcRuleMetaPersistService.deleteByBatchAndCalcType(batchId, dataDate, CALC_TYPE_RRAO);
         }
 
@@ -116,9 +115,10 @@ public class FrtbRraoSummaryService {
         AggregationRule rule = parseRule(ruleId, ruleJson);
         List<Map<String, Object>> detailRows = queryRraoRows(batchId, dataDate, rule);
         JSONArray output = new JSONArray();
-        Map<GroupKey, RraoAggregate> grouped = aggregateRows(detailRows, rule.getBuildOrder());
-        for (RraoAggregate aggregate : grouped.values()) {
-            output.add(aggregate.toJson(batchId, dataDate, ruleId));
+        List<FrtbRraoCalculator.Input> inputs = buildRraoInputs(detailRows, rule.getBuildOrder());
+        List<FrtbRraoCalculator.Result> calculated = rraoCalculator.calculate(inputs);
+        for (FrtbRraoCalculator.Result result : calculated) {
+            output.add(toJson(batchId, dataDate, ruleId, result));
         }
         return output;
     }
@@ -193,10 +193,10 @@ public class FrtbRraoSummaryService {
         }
     }
 
-    private Map<GroupKey, RraoAggregate> aggregateRows(List<Map<String, Object>> rows, List<String> buildOrder) {
-        Map<GroupKey, RraoAggregate> grouped = new LinkedHashMap<GroupKey, RraoAggregate>();
+    private List<FrtbRraoCalculator.Input> buildRraoInputs(List<Map<String, Object>> rows, List<String> buildOrder) {
+        List<FrtbRraoCalculator.Input> inputs = new ArrayList<FrtbRraoCalculator.Input>();
         if (rows == null || rows.isEmpty()) {
-            return grouped;
+            return inputs;
         }
         for (Map<String, Object> row : rows) {
             String rraoType = trimToNull(stringValue(row.get("RRAO_TYPE")));
@@ -204,7 +204,6 @@ public class FrtbRraoSummaryService {
             if (rraoType == null || notional == null) {
                 continue;
             }
-            BigDecimal weight = resolveWeight(rraoType);
             List<String> pathValues = new ArrayList<String>();
             for (String level : buildOrder) {
                 String groupType;
@@ -218,27 +217,39 @@ public class FrtbRraoSummaryService {
                     groupType = level;
                     groupValue = dimensionAggregationService.buildGroupValue(pathValues);
                 }
-                GroupKey key = new GroupKey(groupType, groupValue, rraoType);
-                RraoAggregate aggregate = grouped.get(key);
-                if (aggregate == null) {
-                    aggregate = new RraoAggregate(groupType, groupValue, rraoType);
-                    grouped.put(key, aggregate);
-                }
-                aggregate.tradeCount++;
-                aggregate.notional = aggregate.notional.add(notional);
-                aggregate.capital = aggregate.capital.add(notional.multiply(weight));
+                inputs.add(new FrtbRraoCalculator.Input(groupType, groupValue, rraoType, notional));
             }
         }
-        return grouped;
+        return inputs;
+    }
+
+    private static JSONObject toJson(String batchId,
+                                     String dataDate,
+                                     String ruleId,
+                                     FrtbRraoCalculator.Result result) {
+        JSONObject json = new JSONObject();
+        json.put("BATCH_ID", batchId);
+        json.put("DATA_DATE", dataDate);
+        json.put("RULE_ID", ruleId);
+        json.put("GROUP_TYPE", result.getGroupType());
+        json.put("GROUP_VALUE", result.getGroupValue());
+        json.put("RRAO_TYPE", result.getRraoType());
+        json.put("TRADE_COUNT", result.getTradeCount());
+        json.put("RRAO_NOTIONAL", result.getNotional());
+        json.put("RRAO_CAPITAL", result.getCapital());
+        return json;
+    }
+
+    private void deleteByBatchAndDataDate(String batchId, String dataDate) {
+        int deleted = engineResultDbJdbcTemplate.update(
+                "DELETE FROM TB_OUT_TRADE_RRAO_RESULT WHERE BATCH_ID=? AND DATA_DATE=?",
+                batchId, dataDate);
+        if (deleted > 0) {
+            log.info("清理 RRAO 汇总历史结果: batchId={}, dataDate={}, deleted={}", batchId, dataDate, deleted);
+        }
     }
 
     private void persist(String batchId, String dataDate, String ruleId, JSONArray summary) {
-        int deleted = engineResultDbJdbcTemplate.update(
-                "DELETE FROM TB_OUT_TRADE_RRAO_RESULT WHERE BATCH_ID=? AND DATA_DATE=? AND RULE_ID=?",
-                batchId, dataDate, ruleId);
-        if (deleted > 0) {
-            log.info("清理 RRAO 汇总历史结果: batchId={}, dataDate={}, ruleId={}, deleted={}", batchId, dataDate, ruleId, deleted);
-        }
         if (summary == null || summary.isEmpty()) {
             log.info("RRAO 汇总结果为空: batchId={}, dataDate={}, ruleId={}", batchId, dataDate, ruleId);
             return;
@@ -370,16 +381,6 @@ public class FrtbRraoSummaryService {
         return groupType;
     }
 
-    private static BigDecimal resolveWeight(String rraoType) {
-        if ("EXOTIC".equals(rraoType)) {
-            return EXOTIC_WEIGHT;
-        }
-        if ("OTHER".equals(rraoType)) {
-            return OTHER_WEIGHT;
-        }
-        throw new IllegalArgumentException("RRAO_TYPE 不支持: " + rraoType);
-    }
-
     private static BigDecimal toBigDecimal(Object value) {
         if (value == null) {
             return null;
@@ -396,69 +397,6 @@ public class FrtbRraoSummaryService {
 
     private static String stringValue(Object value) {
         return value == null ? null : String.valueOf(value);
-    }
-
-    private static class GroupKey {
-        private final String groupType;
-        private final String groupValue;
-        private final String rraoType;
-
-        GroupKey(String groupType, String groupValue, String rraoType) {
-            this.groupType = groupType;
-            this.groupValue = groupValue;
-            this.rraoType = rraoType;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (!(obj instanceof GroupKey)) {
-                return false;
-            }
-            GroupKey other = (GroupKey) obj;
-            return groupType.equals(other.groupType)
-                    && groupValue.equals(other.groupValue)
-                    && rraoType.equals(other.rraoType);
-        }
-
-        @Override
-        public int hashCode() {
-            int result = groupType.hashCode();
-            result = 31 * result + groupValue.hashCode();
-            result = 31 * result + rraoType.hashCode();
-            return result;
-        }
-    }
-
-    private static class RraoAggregate {
-        private final String groupType;
-        private final String groupValue;
-        private final String rraoType;
-        private long tradeCount;
-        private BigDecimal notional = BigDecimal.ZERO;
-        private BigDecimal capital = BigDecimal.ZERO;
-
-        RraoAggregate(String groupType, String groupValue, String rraoType) {
-            this.groupType = groupType;
-            this.groupValue = groupValue;
-            this.rraoType = rraoType;
-        }
-
-        JSONObject toJson(String batchId, String dataDate, String ruleId) {
-            JSONObject json = new JSONObject();
-            json.put("BATCH_ID", batchId);
-            json.put("DATA_DATE", dataDate);
-            json.put("RULE_ID", ruleId);
-            json.put("GROUP_TYPE", groupType);
-            json.put("GROUP_VALUE", groupValue);
-            json.put("RRAO_TYPE", rraoType);
-            json.put("TRADE_COUNT", tradeCount);
-            json.put("RRAO_NOTIONAL", notional);
-            json.put("RRAO_CAPITAL", capital);
-            return json;
-        }
     }
 
     private static class RuleExecution {

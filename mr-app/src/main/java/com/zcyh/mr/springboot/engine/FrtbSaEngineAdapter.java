@@ -1,5 +1,6 @@
 package com.zcyh.mr.springboot.engine;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.readBoolean;
 import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
 
 import com.alibaba.fastjson2.JSON;
@@ -77,8 +78,7 @@ public class FrtbSaEngineAdapter implements EngineAdapter {
     }
 
     private static boolean parseNeedDecompose(JSONObject req) {
-        Boolean needDecompose = req.getBoolean("need_decompose");
-        return needDecompose == null ? Boolean.TRUE : needDecompose;
+        return readBoolean(req, true, "need_decompose");
     }
 
     private static List<FrtbInput> parseFrtbInputList(JSONArray array, String path) {

@@ -23,6 +23,10 @@ public interface AsyncJobStateMapper {
             + "VALUES (#{create.jobId}, #{create.requestId}, #{create.engineCode}, #{create.payloadJson}, #{create.status}, #{create.createdAt}, #{create.updatedAt}, #{create.idempotencyKey}, #{create.traceId}, #{create.clientId}, #{create.userId}, #{create.userName}, #{create.sourceSystem}, 0, #{nodeId})")
     int insertJob(@Param("create") AsyncJobEntity create, @Param("nodeId") String nodeId);
 
+    @Insert("INSERT INTO MR_ASYNC_JOB (job_id, request_id, engine_code, payload_json, status, created_at, started_at, finished_at, elapsed_ms, success_flag, error_code, error_message, result_json, idempotency_key, trace_id, client_id, user_id, user_name, source_system, cancel_requested, owner_node, updated_at) "
+            + "VALUES (#{create.jobId}, #{create.requestId}, #{create.engineCode}, #{create.payloadJson}, #{create.status}, #{create.createdAt}, #{create.startedAt}, #{create.finishedAt}, #{create.elapsedMs}, #{create.successFlag}, #{create.errorCode}, #{create.errorMessage}, #{create.resultJson}, #{create.idempotencyKey}, #{create.traceId}, #{create.clientId}, #{create.userId}, #{create.userName}, #{create.sourceSystem}, 0, #{nodeId}, #{create.updatedAt})")
+    int insertFailedJob(@Param("create") AsyncJobEntity create, @Param("nodeId") String nodeId);
+
     @Select("SELECT job_id,request_id,engine_code,payload_json,status,created_at,started_at,finished_at,elapsed_ms,success_flag,error_code,error_message,result_json,idempotency_key,trace_id,client_id,user_id,user_name,source_system,cancel_requested,owner_node,updated_at FROM MR_ASYNC_JOB WHERE job_id=#{jobId}")
     List<AsyncJobEntity> findByJobId(@Param("jobId") String jobId);
 

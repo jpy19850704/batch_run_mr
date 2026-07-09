@@ -102,6 +102,10 @@ public class ScenarioEngineAdapter implements EngineAdapter {
                     user,
                     "mr-app");
             List<ScenarioGeneratedRecord> result = scenarioGenerationEngine.generate(request);
+            if (result == null || result.isEmpty()) {
+                throw new IllegalStateException("Scenario 生成结果为空: scenario_id_list="
+                        + scenarioIdList + ", data_date=" + dataDate + ", batch_id=" + batchId);
+            }
             log.info("Scenario 生成完成: scenario_id_list={}, data_date={}, batch_id={}, record_count={}, scenario_summary={}, elapsedMs={}",
                     scenarioIdList, dataDate, batchId, result == null ? 0 : result.size(),
                     summarizeScenarioIds(result), System.currentTimeMillis() - startTime);

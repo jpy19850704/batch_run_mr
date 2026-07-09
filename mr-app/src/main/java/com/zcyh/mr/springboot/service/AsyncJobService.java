@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.readBoolean;
+
 import com.zcyh.mr.springboot.out.file.BatchResultFileService;
 
 import com.zcyh.mr.springboot.out.cache.JobScenarioResultCacheService;
@@ -261,6 +263,57 @@ public class AsyncJobService {
         return toSubmitResult(create, false, "任务已提交");
     }
 
+    public JobSubmitResult recordFailedJob(
+            String jobId,
+            String requestId,
+            String engineCode,
+            String errorCode,
+            String errorMessage) {
+        String safeJobId = trimToNull(jobId);
+        if (safeJobId == null) {
+            throw new IllegalArgumentException("jobId 不能为空");
+        }
+        AsyncJobEntity existed = findByJobId(safeJobId);
+        if (existed != null) {
+            return toSubmitResult(existed, true, "返回已存在任务");
+        }
+
+        long now = System.currentTimeMillis();
+        final AsyncJobEntity create = new AsyncJobEntity();
+        RequestContext requestContext = RequestContextHolder.snapshot();
+        create.jobId = safeJobId;
+        create.requestId = trimToNull(requestId) == null ? safeJobId : trimToNull(requestId);
+        create.engineCode = defaultEngineCode(engineCode);
+        create.payloadJson = "{}";
+        create.status = FAILED;
+        create.createdAt = now;
+        create.startedAt = now;
+        create.finishedAt = now;
+        create.elapsedMs = 0L;
+        create.successFlag = 0;
+        create.errorCode = trimToNull(errorCode) == null ? "PAYLOAD_BUILD_FAILED" : trimToNull(errorCode);
+        create.errorMessage = truncateForErrorMessage(errorMessage);
+        create.idempotencyKey = safeJobId;
+        create.updatedAt = now;
+        if (requestContext != null) {
+            create.traceId = trimToNull(requestContext.getTraceId());
+            create.clientId = trimToNull(requestContext.getClientId());
+            create.userId = trimToNull(requestContext.getUserId());
+            create.userName = trimToNull(requestContext.getUserName());
+            create.sourceSystem = trimToNull(requestContext.getSourceSystem());
+        }
+
+        runInTransaction(new Callable<Void>() {
+            @Override
+            public Void call() {
+                jobStateRepository.insertFailedJob(create, nodeId);
+                return null;
+            }
+        }, "记录预失败任务");
+        cleanupIfNeeded();
+        return toSubmitResult(create, false, "任务已记录为失败");
+    }
+
     public JobDetailResult getDetail(String jobId) {
         AsyncJobEntity job = requireJob(jobId);
         return toDetail(job);
@@ -436,7 +489,13 @@ public class AsyncJobService {
      * 批次结果快照生成属于非关键动作，失败仅记录日志。
      */
     private void handleTerminalSideEffects(String jobId, String requestId, String payloadJson, String engineCode, EngineRunResult runResult) {
-        boolean persistResult = shouldPersistResult(payloadJson);
+        boolean persistResult;
+        try {
+            persistResult = shouldPersistResult(payloadJson);
+        } catch (Exception ex) {
+            markResultPersistFailed(jobId, ex);
+            return;
+        }
         try {
             if (runResult != null
                     && runResult.isSuccess()
@@ -774,13 +833,12 @@ public class AsyncJobService {
         final String finalStatus = runResult.isSuccess() ? SUCCESS : FAILED;
         final String safeErrorMessage = truncateForErrorMessage(runResult.getErrorMessage());
         cacheScenarioResultIfRequested(jobId, payloadJson, runResult);
-        final String resultJson = buildResultReferenceJson(jobId, payloadJson, runResult);
         withRetry(new Callable<Void>() {
             @Override
             public Void call() {
                 jobStateRepository.persistRunResult(
                         jobId, RUNNING, finalStatus, finish, elapsed,
-                        runResult.isSuccess(), runResult.getErrorCode(), safeErrorMessage, resultJson);
+                        runResult.isSuccess(), runResult.getErrorCode(), safeErrorMessage, null);
                 return null;
             }
         }, "持久化任务结果");
@@ -812,14 +870,6 @@ public class AsyncJobService {
         JSONObject nestedData = castToJsonObject(dataObj.get("data"));
         JSONObject target = nestedData == null ? dataObj : nestedData;
         return castToJsonArray(target.get("scenario_result"));
-    }
-
-    private String buildResultReferenceJson(String jobId, String payloadJson, EngineRunResult runResult) {
-        if (shouldPersistResult(payloadJson)) {
-            return null;
-        }
-        Map<String, Object> reference = batchResultFileService.writeJobResultData(jobId, runResult.getData());
-        return JSON.toJSONString(reference, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
 
     private void persistRunFailure(String jobId, String requestId, String engineCode, String message, long finish) {
@@ -932,7 +982,6 @@ public class AsyncJobService {
         result.setSubmittedAt(job.createdAt);
         result.setPollAfterMs(pollAfterMs);
         result.setDetailUrl(buildDetailUrl(job.jobId));
-        result.setResultUrl(buildResultUrl(job.jobId));
         result.setCancelUrl(buildCancelUrl(job.jobId));
         return result;
     }
@@ -955,7 +1004,6 @@ public class AsyncJobService {
         detail.setErrorCode(job.errorCode);
         detail.setErrorMessage(job.errorMessage);
         detail.setDetailUrl(buildDetailUrl(job.jobId));
-        detail.setResultUrl(buildResultUrl(job.jobId));
         detail.setCancelUrl(buildCancelUrl(job.jobId));
         return detail;
     }
@@ -1140,10 +1188,6 @@ public class AsyncJobService {
         return jobApiBasePath + "/" + jobId;
     }
 
-    private String buildResultUrl(String jobId) {
-        return jobApiBasePath + "/" + jobId + "/result";
-    }
-
     private String buildCancelUrl(String jobId) {
         return jobApiBasePath + "/" + jobId + "/cancel";
     }
@@ -1180,39 +1224,11 @@ public class AsyncJobService {
     }
 
     private static boolean shouldPersistResult(String payloadJson) {
-        try {
-            JSONObject payload = JSON.parseObject(payloadJson);
-            if (payload == null) {
-                return true;
-            }
-            return readBoolean(payload, true, "persist_result");
-        } catch (Exception ex) {
+        JSONObject payload = JSON.parseObject(payloadJson);
+        if (payload == null || !payload.containsKey("persist_result")) {
             return true;
         }
-    }
-
-    private static boolean readBoolean(JSONObject payload, boolean defaultValue, String fieldName) {
-        if (payload == null || fieldName == null) {
-            return defaultValue;
-        }
-        Object raw = payload.get(fieldName);
-        if (raw == null) {
-            return defaultValue;
-        }
-        if (raw instanceof Boolean) {
-            return (Boolean) raw;
-        }
-        String text = trimToNull(String.valueOf(raw));
-        if (text == null) {
-            return defaultValue;
-        }
-        if ("true".equalsIgnoreCase(text) || "1".equals(text) || "Y".equalsIgnoreCase(text)) {
-            return true;
-        }
-        if ("false".equalsIgnoreCase(text) || "0".equals(text) || "N".equalsIgnoreCase(text)) {
-            return false;
-        }
-        return defaultValue;
+        return readBoolean(payload, true, "persist_result");
     }
 
     private static String firstNonBlank(String... values) {

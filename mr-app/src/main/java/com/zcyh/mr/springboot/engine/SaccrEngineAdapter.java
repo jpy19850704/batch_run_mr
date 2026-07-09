@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.engine;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.readBoolean;
+
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
@@ -52,7 +54,7 @@ public class SaccrEngineAdapter implements EngineAdapter {
         String batchId = requireText(req.getString("batch_id"), "batch_id");
         String dataDateText = normalizeDataDate(req.getString("data_date"));
         LocalDate dataDate = LocalDate.parse(dataDateText, DateTimeFormatter.BASIC_ISO_DATE);
-        boolean persistResult = Boolean.TRUE.equals(req.getBoolean("persist_result"));
+        boolean persistResult = readBoolean(req, false, "persist_result");
 
         SaccrRunInput input = inputQueryService.build(batchId, dataDateText);
         List<SaccrResult> results = SaccrCalculator.calculate(input.nettingSets, dataDate);

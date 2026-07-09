@@ -188,8 +188,8 @@ public class MrMarketDataSliceService {
         try {
             return JSON.parse(trade.getTradeContentText());
         } catch (Exception ex) {
-            throw new IllegalArgumentException(
-                    "交易JSON解析失败，instrumentId=" + trade.getInstrumentId() + ": " + ex.getMessage(), ex);
+            throw new PayloadJsonParseException(
+                    "交易JSON格式异常，instrumentId=" + safeText(trade.getInstrumentId()) + ": " + ex.getMessage(), ex);
         }
     }
 
@@ -276,7 +276,7 @@ public class MrMarketDataSliceService {
             return currencies;
         }
         for (CurveSliceSource curve : fxSpotCurves) {
-            Object parsed = parseJsonSafely(curve.getCurveContentText());
+            Object parsed = parseCurveJson(curve);
             if (parsed instanceof JSONObject) {
                 collectFxCurrenciesFromCurve((JSONObject) parsed, currencies);
             } else if (parsed instanceof JSONArray) {
@@ -290,6 +290,24 @@ public class MrMarketDataSliceService {
             }
         }
         return currencies;
+    }
+
+    private Object parseCurveJson(CurveSliceSource curve) {
+        String safe = trimToNull(curve == null ? null : curve.getCurveContentText());
+        if (safe == null) {
+            throw new PayloadJsonParseException("市场曲线JSON格式异常，marketDataType="
+                    + safeText(curve == null ? null : curve.getMarketDataType())
+                    + ", curveId=" + safeText(curve == null ? null : curve.getCurveId())
+                    + ": 内容为空");
+        }
+        try {
+            return JSON.parse(safe);
+        } catch (Exception ex) {
+            throw new PayloadJsonParseException("市场曲线JSON格式异常，marketDataType="
+                    + safeText(curve == null ? null : curve.getMarketDataType())
+                    + ", curveId=" + safeText(curve == null ? null : curve.getCurveId())
+                    + ": " + ex.getMessage(), ex);
+        }
     }
 
     private void collectFxCurrenciesFromCurve(JSONObject curveJson, Set<String> currencies) {
@@ -350,6 +368,11 @@ public class MrMarketDataSliceService {
         }
         String trimmed = text.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String safeText(String text) {
+        String value = trimToNull(text);
+        return value == null ? "" : value;
     }
 
     /**

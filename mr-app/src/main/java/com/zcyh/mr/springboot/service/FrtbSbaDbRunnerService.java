@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.readBoolean;
+
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
@@ -246,8 +248,7 @@ public class FrtbSbaDbRunnerService {
     }
 
     private static boolean parseNeedDecompose(JSONObject req) {
-        Boolean needDecompose = req.getBoolean("need_decompose");
-        return needDecompose == null ? Boolean.TRUE : needDecompose;
+        return readBoolean(req, true, "need_decompose");
     }
 
     private static int parseThreadCount(JSONObject req) {

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
+import java.util.List;
 
 /**
  * MR 异步结果落库服务。
@@ -59,7 +60,7 @@ public class PricingResultPersistService {
 
     /**
      * 按任务覆盖写入结果明细。
-     * 写入失败不影响任务状态，仅记录日志。
+     * 写入失败由异步任务终态处理回写为失败状态。
      */
     @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
     public void persistJobResult(String requestId, String jobId, String payloadJson, EngineRunResult runResult) {
@@ -96,14 +97,18 @@ public class PricingResultPersistService {
             if (requiredSchemaVerified) {
                 return;
             }
-            verifyTableColumns("TB_OUT_TRADE_RESULT_DETAIL", String.join(", ", tradeResultWriter.requiredColumns()));
-            verifyTableColumns(tradeScenarioResultWriter.tableName(), tradeScenarioResultWriter.requiredColumnsForCheck());
-            verifyTableColumns(tradeScenarioVarResultWriter.tableName(), tradeScenarioVarResultWriter.requiredColumnsForCheck());
-            verifyTableColumns("TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL", String.join(", ", frtbSensitivityDetailWriter.requiredColumns()));
-            verifyTableColumns("TB_OUT_TRADE_DRC_DETAIL", String.join(", ", drcDetailWriter.requiredColumns()));
-            verifyTableColumns("TB_OUT_MARKET_DATA_DETAIL", String.join(", ", marketDataResultWriter.requiredColumns()));
+            verifyTableColumns(tradeResultWriter.tableName(), tradeResultWriter.writeColumns());
+            verifyTableColumns(tradeScenarioResultWriter.tableName(), tradeScenarioResultWriter.writeColumns());
+            verifyTableColumns(tradeScenarioVarResultWriter.tableName(), tradeScenarioVarResultWriter.writeColumns());
+            verifyTableColumns(frtbSensitivityDetailWriter.tableName(), frtbSensitivityDetailWriter.writeColumns());
+            verifyTableColumns(drcDetailWriter.tableName(), drcDetailWriter.writeColumns());
+            verifyTableColumns(marketDataResultWriter.tableName(), marketDataResultWriter.writeColumns());
             requiredSchemaVerified = true;
         }
+    }
+
+    private void verifyTableColumns(String tableName, List<String> columns) {
+        verifyTableColumns(tableName, String.join(", ", columns));
     }
 
     private void verifyTableColumns(String tableName, String columns) {

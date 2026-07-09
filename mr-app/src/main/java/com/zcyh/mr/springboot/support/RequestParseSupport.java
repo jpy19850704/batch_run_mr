@@ -46,7 +46,7 @@ public final class RequestParseSupport {
         }
         String text = trimToNull(String.valueOf(raw));
         if (text == null) {
-            return null;
+            throw new IllegalArgumentException("布尔参数不能为空: " + key);
         }
         if ("true".equalsIgnoreCase(text) || "1".equals(text) || "y".equalsIgnoreCase(text)) {
             return true;
@@ -54,7 +54,7 @@ public final class RequestParseSupport {
         if ("false".equalsIgnoreCase(text) || "0".equals(text) || "n".equalsIgnoreCase(text)) {
             return false;
         }
-        return null;
+        throw new IllegalArgumentException("布尔参数非法: " + key + "=" + text);
     }
 
     public static boolean readBoolean(JSONObject request, boolean defaultValue, String key) {

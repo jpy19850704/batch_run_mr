@@ -13,7 +13,6 @@ public class JobSubmitResult {
     private long submittedAt;
     private long pollAfterMs;
     private String detailUrl;
-    private String resultUrl;
     private String cancelUrl;
 
     public String getJobId() {
@@ -86,14 +85,6 @@ public class JobSubmitResult {
 
     public void setDetailUrl(String detailUrl) {
         this.detailUrl = detailUrl;
-    }
-
-    public String getResultUrl() {
-        return resultUrl;
-    }
-
-    public void setResultUrl(String resultUrl) {
-        this.resultUrl = resultUrl;
     }
 
     public String getCancelUrl() {

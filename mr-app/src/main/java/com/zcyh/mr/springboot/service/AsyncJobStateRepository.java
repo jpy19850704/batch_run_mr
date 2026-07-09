@@ -25,6 +25,10 @@ class AsyncJobStateRepository {
         mapper.insertJob(create, nodeId);
     }
 
+    void insertFailedJob(AsyncJobEntity create, String nodeId) {
+        mapper.insertFailedJob(create, nodeId);
+    }
+
     AsyncJobEntity findByJobId(String jobId) {
         List<AsyncJobEntity> rows = mapper.findByJobId(jobId);
         if (rows == null || rows.isEmpty()) {

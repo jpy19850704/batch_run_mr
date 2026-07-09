@@ -217,7 +217,6 @@ public class BatchDetailResult {
         private String errorCode;
         private String errorMessage;
         private String detailUrl;
-        private String resultUrl;
         private String cancelUrl;
 
         public int getSeqNo() {
@@ -274,14 +273,6 @@ public class BatchDetailResult {
 
         public void setDetailUrl(String detailUrl) {
             this.detailUrl = detailUrl;
-        }
-
-        public String getResultUrl() {
-            return resultUrl;
-        }
-
-        public void setResultUrl(String resultUrl) {
-            this.resultUrl = resultUrl;
         }
 
         public String getCancelUrl() {

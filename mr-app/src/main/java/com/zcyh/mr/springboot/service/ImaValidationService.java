@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
+import static com.zcyh.mr.springboot.support.RequestParseSupport.readBoolean;
+
 import com.zcyh.mr.springboot.out.db.ImaValidationResultPersistService;
 
 import com.alibaba.fastjson2.JSON;
@@ -64,7 +66,7 @@ public class ImaValidationService {
         String ruleId = required(request, "rule_id");
         String quantile = VALIDATION_TYPE_BACKTEST.equals(validationType) ? required(request, "quantile") : null;
         String varScenarioId = VALIDATION_TYPE_BACKTEST.equals(validationType) ? required(request, "var_scenario_id") : null;
-        boolean persistResult = readBoolean(request, "persist_result", true);
+        boolean persistResult = readBoolean(request, true, "persist_result");
 
         List<String> observationDates = queryObservationDates(dataDate, ruleId);
         if (VALIDATION_TYPE_KS.equals(validationType) && observationDates.size() != REQUIRED_OBSERVATION_COUNT) {
@@ -555,17 +557,6 @@ public class ImaValidationService {
         json.put("ks_zone", row.ksZone);
         json.put("passed", row.passed);
         return json;
-    }
-
-    private static boolean readBoolean(JSONObject json, String key, boolean defaultValue) {
-        if (!json.containsKey(key)) {
-            return defaultValue;
-        }
-        Boolean value = json.getBoolean(key);
-        if (value == null) {
-            throw new IllegalArgumentException(key + " 必须是布尔值");
-        }
-        return value;
     }
 
     private static String required(JSONObject json, String key) {

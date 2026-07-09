@@ -45,6 +45,7 @@ public class FrtbDrcSummaryService {
         boolean persistResult = readBoolean(request, true, "persist_result");
         JSONArray ruleList = resolveRuleList(request);
         if (persistResult) {
+            frtbDrcResultPersistService.deleteByBatchAndDataDate(batchId, dataDate);
             calcRuleMetaPersistService.deleteByBatchAndCalcType(batchId, dataDate, CALC_TYPE_DRC);
         }
 

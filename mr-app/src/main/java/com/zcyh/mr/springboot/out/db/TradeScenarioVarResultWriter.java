@@ -3,10 +3,14 @@ package com.zcyh.mr.springboot.out.db;
 import com.zcyh.mr.springboot.support.DorisCsvStreamLoadBuffer;
 import com.zcyh.mr.springboot.support.DorisStreamLoadService;
 
+import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.STATUS_ERROR;
+import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.STATUS_SUCCESS;
+import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.isErrorStatus;
 import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.normalizeDataDate;
+import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.resolveLogs;
+import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.resolveStatus;
 import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.toBigDecimal;
 import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.toJsonString;
-import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.toTextValue;
 import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.trimToNull;
 
 import com.alibaba.fastjson2.JSONArray;
@@ -15,6 +19,8 @@ import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -23,10 +29,34 @@ import java.util.Map;
 @Service
 class TradeScenarioVarResultWriter {
     private static final String TABLE_NAME = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
-    private static final String COLUMNS =
-            "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,INSTRUMENT_ID,PRODUCT_CODE,"
-                    + "BASE_VALUATION_CNY,IR_VALUATION,IR_PNL,FX_VALUATION,FX_PNL,EQ_VALUATION,EQ_PNL,COMM_VALUATION,COMM_PNL,ALL_VALUATION,ALL_PNL,"
-                    + "STATUS,LOGS_JSON,CREATED_AT,UPDATED_AT";
+    private static final List<String> COLUMN_LIST = Collections.unmodifiableList(Arrays.asList(
+            "REQUEST_ID",
+            "JOB_ID",
+            "BATCH_ID",
+            "SEQ_NO",
+            "DATA_DATE",
+            "SCENARIO_ID",
+            "SUBSCENARIO_ID",
+            "SCENARIO_NAME",
+            "INSTRUMENT_ID",
+            "PRODUCT_CODE",
+            "BASE_VALUATION_CNY",
+            "IR_VALUATION",
+            "IR_PNL",
+            "FX_VALUATION",
+            "FX_PNL",
+            "EQ_VALUATION",
+            "EQ_PNL",
+            "COMM_VALUATION",
+            "COMM_PNL",
+            "ALL_VALUATION",
+            "ALL_PNL",
+            "STATUS",
+            "LOGS_JSON",
+            "CREATED_AT",
+            "UPDATED_AT"
+    ));
+    private static final String COLUMNS = String.join(",", COLUMN_LIST);
 
     private final DorisStreamLoadService dorisStreamLoadService;
 
@@ -38,11 +68,8 @@ class TradeScenarioVarResultWriter {
         return TABLE_NAME;
     }
 
-    String requiredColumnsForCheck() {
-        return "REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, "
-                + "SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, INSTRUMENT_ID, PRODUCT_CODE, "
-                + "BASE_VALUATION_CNY, IR_VALUATION, IR_PNL, FX_VALUATION, FX_PNL, EQ_VALUATION, EQ_PNL, COMM_VALUATION, COMM_PNL, "
-                + "ALL_VALUATION, ALL_PNL, STATUS, LOGS_JSON, CREATED_AT, UPDATED_AT";
+    List<String> writeColumns() {
+        return COLUMN_LIST;
     }
 
     void writeProcessed(CalcPersistContext context,
@@ -124,8 +151,8 @@ class TradeScenarioVarResultWriter {
             row.put("COMM_PNL", trade.get("COMM_PNL"));
             row.put("ALL_VALUATION", trade.get("ALL_VALUATION"));
             row.put("ALL_PNL", trade.get("ALL_PNL"));
-            row.put("STATUS", resolveTradeStatus(trade));
-            row.put("LOGS", resolveTradeLogs(trade, "情景估值错误"));
+            row.put("STATUS", resolveStatus(trade));
+            row.put("LOGS", resolveLogs(trade, "情景估值错误"));
             appendVarRow(context, buffer, row);
         }
         buffer.flush();
@@ -165,7 +192,7 @@ class TradeScenarioVarResultWriter {
                 DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("COMM_PNL"))),
                 DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("ALL_VALUATION"))),
                 DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("ALL_PNL"))),
-                resolveTradeStatus(row),
+                resolveStatus(row),
                 toJsonString(row.get("LOGS")),
                 context.createdAt,
                 context.updatedAt
@@ -199,7 +226,7 @@ class TradeScenarioVarResultWriter {
         row.put("COMM_PNL", BigDecimal.ZERO);
         row.put("ALL_VALUATION", baseValuation);
         row.put("ALL_PNL", BigDecimal.ZERO);
-        row.put("STATUS", "SUCCESS");
+        row.put("STATUS", STATUS_SUCCESS);
         return row;
     }
 
@@ -231,39 +258,11 @@ class TradeScenarioVarResultWriter {
     }
 
     static boolean isScenarioErrorTrade(JSONObject trade) {
-        return trade != null && "ERROR".equalsIgnoreCase(String.valueOf(trade.get("STATUS")));
-    }
-
-    private static String resolveTradeStatus(JSONObject trade) {
-        String status = trimToNull(trade == null ? null : trade.getString("STATUS"));
-        return "ERROR".equalsIgnoreCase(status) ? "ERROR" : "SUCCESS";
-    }
-
-    private static Object resolveTradeLogs(JSONObject trade, String defaultMessage) {
-        if (trade == null) {
-            return null;
-        }
-        Object logs = trade.get("LOGS");
-        if (!"ERROR".equals(resolveTradeStatus(trade))) {
-            return logs;
-        }
-        if (logs instanceof JSONArray && !((JSONArray) logs).isEmpty()) {
-            return logs;
-        }
-        String message = trimToNull(trade.getString("ERROR"));
-        if (message == null) {
-            message = toTextValue(trade.get("DETAIL"));
-        }
-        JSONArray result = new JSONArray();
-        JSONObject logItem = new JSONObject();
-        logItem.put("level", "ERROR");
-        logItem.put("message", message == null ? defaultMessage : message);
-        result.add(logItem);
-        return result;
+        return isErrorStatus(trade);
     }
 
     private static void appendPersistVarLog(JSONObject row, String riskClass, JSONArray sourceLogs) {
-        row.put("STATUS", "ERROR");
+        row.put("STATUS", STATUS_ERROR);
         JSONArray logs = row.getJSONArray("LOGS");
         if (logs == null) {
             logs = new JSONArray();
@@ -272,7 +271,7 @@ class TradeScenarioVarResultWriter {
         String prefix = trimToNull(riskClass) == null ? "UNKNOWN" : riskClass.trim();
         if (sourceLogs == null || sourceLogs.isEmpty()) {
             JSONObject logItem = new JSONObject();
-            logItem.put("level", "ERROR");
+            logItem.put("level", STATUS_ERROR);
             logItem.put("message", prefix + ": VaR 风险类别计算异常");
             logs.add(logItem);
             return;
@@ -283,7 +282,7 @@ class TradeScenarioVarResultWriter {
                 continue;
             }
             JSONObject logItem = new JSONObject();
-            logItem.put("level", String.valueOf(source.getOrDefault("level", "ERROR")));
+            logItem.put("level", String.valueOf(source.getOrDefault("level", STATUS_ERROR)));
             logItem.put("message", prefix + ": " + String.valueOf(source.getOrDefault("message", "")));
             logs.add(logItem);
         }

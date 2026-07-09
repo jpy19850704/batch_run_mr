@@ -12,6 +12,9 @@ public class BatchJobPayload {
     private int seqNo;
     private JSONObject payload;
     private List<BatchTradeDataLoader.TradeRow> chunkTrades = new ArrayList<BatchTradeDataLoader.TradeRow>();
+    private boolean failed;
+    private String errorCode;
+    private String errorMessage;
 
     public int getSeqNo() {
         return seqNo;
@@ -37,5 +40,29 @@ public class BatchJobPayload {
         this.chunkTrades = chunkTrades == null
                 ? new ArrayList<BatchTradeDataLoader.TradeRow>()
                 : chunkTrades;
+    }
+
+    public boolean isFailed() {
+        return failed;
+    }
+
+    public void setFailed(boolean failed) {
+        this.failed = failed;
+    }
+
+    public String getErrorCode() {
+        return errorCode;
+    }
+
+    public void setErrorCode(String errorCode) {
+        this.errorCode = errorCode;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
     }
 }

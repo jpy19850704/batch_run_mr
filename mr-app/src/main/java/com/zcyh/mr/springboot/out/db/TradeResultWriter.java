@@ -44,7 +44,6 @@ public class TradeResultWriter {
             "THETA",
             "RHO",
             "STATUS",
-            "ERROR",
             "DETAIL",
             "LOGS_JSON",
             "CASHFLOW_JSON",
@@ -62,7 +61,11 @@ public class TradeResultWriter {
         this.dorisStreamLoadService = dorisStreamLoadService;
     }
 
-    List<String> requiredColumns() {
+    String tableName() {
+        return TARGET_TABLE;
+    }
+
+    List<String> writeColumns() {
         return COLUMN_LIST;
     }
 
@@ -119,7 +122,6 @@ public class TradeResultWriter {
                 DorisCsvStreamLoadBuffer.decimalText(CalcResultPersistSupport.toBigDecimal(trade.get("THETA"))),
                 DorisCsvStreamLoadBuffer.decimalText(CalcResultPersistSupport.toBigDecimal(trade.get("RHO"))),
                 CalcResultPersistSupport.trimToNull(trade.getString("STATUS")),
-                null,
                 CalcResultPersistSupport.toTextValue(trade.get("DETAIL")),
                 CalcResultPersistSupport.toJsonString(trade.get("LOGS")),
                 CalcResultPersistSupport.toJsonString(trade.get("CASH_FLOW")),

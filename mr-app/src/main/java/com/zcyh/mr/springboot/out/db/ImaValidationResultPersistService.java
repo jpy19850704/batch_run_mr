@@ -58,8 +58,7 @@ public class ImaValidationResultPersistService {
                         List<BacktestRow> backtestRows,
                         List<ExceptionRow> exceptionRows,
                         List<KsRow> ksRows) {
-        deleteExisting(batchId, dataDate, ruleId, quantile, varScenarioId,
-                backtestRows != null, ksRows != null);
+        deleteExisting(batchId, dataDate, backtestRows != null, ksRows != null);
         persistBacktestRows(batchId, backtestRows);
         persistExceptionRows(batchId, exceptionRows);
         persistKsRows(batchId, ksRows);
@@ -73,23 +72,20 @@ public class ImaValidationResultPersistService {
 
     private void deleteExisting(String batchId,
                                 String dataDate,
-                                String ruleId,
-                                String quantile,
-                                String varScenarioId,
                                 boolean deleteBacktest,
                                 boolean deleteKs) {
         if (deleteBacktest) {
             jdbcTemplate.update("DELETE FROM " + BACKTEST_DETAIL_TABLE
-                            + " WHERE BATCH_ID=? AND DATA_DATE=? AND RULE_ID=? AND QUANTILE=? AND VAR_SCENARIO_ID=?",
-                    batchId, dataDate, ruleId, quantile, varScenarioId);
+                            + " WHERE BATCH_ID=? AND DATA_DATE=?",
+                    batchId, dataDate);
             jdbcTemplate.update("DELETE FROM " + BACKTEST_TABLE
-                            + " WHERE BATCH_ID=? AND DATA_DATE=? AND RULE_ID=? AND QUANTILE=? AND VAR_SCENARIO_ID=?",
-                    batchId, dataDate, ruleId, quantile, varScenarioId);
+                            + " WHERE BATCH_ID=? AND DATA_DATE=?",
+                    batchId, dataDate);
         }
         if (deleteKs) {
             jdbcTemplate.update("DELETE FROM " + KS_TABLE
-                            + " WHERE BATCH_ID=? AND DATA_DATE=? AND RULE_ID=?",
-                    batchId, dataDate, ruleId);
+                            + " WHERE BATCH_ID=? AND DATA_DATE=?",
+                    batchId, dataDate);
         }
     }
 

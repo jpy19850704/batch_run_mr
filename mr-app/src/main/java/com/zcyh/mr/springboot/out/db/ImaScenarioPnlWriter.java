@@ -4,8 +4,14 @@ import com.zcyh.mr.springboot.support.DorisCsvStreamLoadBuffer;
 import com.zcyh.mr.springboot.support.DorisStreamLoadService;
 import com.zcyh.mr.springboot.support.ResultPersistTime;
 
+import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.STATUS_ERROR;
+import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.STATUS_SUCCESS;
+import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.appendLogs;
 import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.normalizeDataDate;
+import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.resolveLogs;
+import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.resolveStatus;
 import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.toBigDecimal;
+import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.toJsonString;
 import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.trimToNull;
 
 import com.alibaba.fastjson2.JSONArray;
@@ -25,11 +31,11 @@ class ImaScenarioPnlWriter {
     private static final String MODELLABLE_COLUMNS =
             "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,"
                     + "INSTRUMENT_ID,PRODUCT_CODE,LH_DAYS,BASE_VALUATION_CNY,IR_VALUATION,IR_PNL,CS_VALUATION,CS_PNL,FX_VALUATION,FX_PNL,"
-                    + "EQ_VALUATION,EQ_PNL,COMM_VALUATION,COMM_PNL,ALL_VALUATION,ALL_PNL,CREATED_AT,UPDATED_AT";
+                    + "EQ_VALUATION,EQ_PNL,COMM_VALUATION,COMM_PNL,ALL_VALUATION,ALL_PNL,STATUS,LOGS_JSON,CREATED_AT,UPDATED_AT";
     private static final String NMRF_TABLE = "TB_OUT_IMA_NMRF_SCENARIO_PNL";
     private static final String NMRF_COLUMNS =
             "REQUEST_ID,JOB_ID,BATCH_ID,SEQ_NO,DATA_DATE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,"
-                    + "INSTRUMENT_ID,PRODUCT_CODE,RISK_FACTOR_ID,NMRF_TYPE,BASE_VALUATION_CNY,STRESS_VALUATION_CNY,PNL,CREATED_AT,UPDATED_AT";
+                    + "INSTRUMENT_ID,PRODUCT_CODE,RISK_FACTOR_ID,NMRF_TYPE,BASE_VALUATION_CNY,STRESS_VALUATION_CNY,PNL,STATUS,LOGS_JSON,CREATED_AT,UPDATED_AT";
 
     private final DorisStreamLoadService dorisStreamLoadService;
 
@@ -91,6 +97,8 @@ class ImaScenarioPnlWriter {
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("COMM_PNL"))),
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("ALL_VALUATION"))),
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("ALL_PNL"))),
+                    resolveStatus(row),
+                    toJsonString(row.get("LOGS")),
                     resolveCreatedAt(row, now),
                     now);
         }
@@ -129,6 +137,8 @@ class ImaScenarioPnlWriter {
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("BASE_VALUATION_CNY"))),
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("STRESS_VALUATION_CNY"))),
                     DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("PNL"))),
+                    resolveStatus(row),
+                    toJsonString(row.get("LOGS")),
                     resolveCreatedAt(row, now),
                     now);
         }
@@ -172,6 +182,7 @@ class ImaScenarioPnlWriter {
                     rows.put(rowKey, row);
                 }
                 if (TradeScenarioVarResultWriter.isScenarioErrorTrade(trade)) {
+                    markRowError(row, trade, imaRiskClass + " 情景估值错误");
                     continue;
                 }
                 row.put(prefix + "_VALUATION", toBigDecimal(trade.get("SCENARIO_VALUATION_CNY")));
@@ -211,9 +222,16 @@ class ImaScenarioPnlWriter {
                 if (instrumentId == null) {
                     continue;
                 }
-                BigDecimal baseValuation = requireDecimal(trade, "BASE_VALUATION_CNY", "IMA NMRF scenario_result");
-                BigDecimal stressValuation = requireDecimal(trade, "SCENARIO_VALUATION_CNY", "IMA NMRF scenario_result");
-                BigDecimal pnl = requireDecimal(trade, "PNL", "IMA NMRF scenario_result");
+                boolean errorTrade = TradeScenarioVarResultWriter.isScenarioErrorTrade(trade);
+                BigDecimal baseValuation = errorTrade
+                        ? toBigDecimal(trade.get("BASE_VALUATION_CNY"))
+                        : requireDecimal(trade, "BASE_VALUATION_CNY", "IMA NMRF scenario_result");
+                BigDecimal stressValuation = errorTrade
+                        ? toBigDecimal(trade.get("SCENARIO_VALUATION_CNY"))
+                        : requireDecimal(trade, "SCENARIO_VALUATION_CNY", "IMA NMRF scenario_result");
+                BigDecimal pnl = errorTrade
+                        ? toBigDecimal(trade.get("PNL"))
+                        : requireDecimal(trade, "PNL", "IMA NMRF scenario_result");
                 JSONObject baseTrade = baseTradeIndex.get(instrumentId);
                 JSONObject row = new JSONObject();
                 row.put("SEQ_NO", context.seqNo);
@@ -227,6 +245,8 @@ class ImaScenarioPnlWriter {
                 row.put("BASE_VALUATION_CNY", baseValuation);
                 row.put("STRESS_VALUATION_CNY", stressValuation);
                 row.put("PNL", pnl);
+                row.put("STATUS", resolveStatus(trade));
+                row.put("LOGS", resolveLogs(trade, "IMA NMRF 情景估值错误"));
                 result.add(row);
             }
         }
@@ -265,7 +285,13 @@ class ImaScenarioPnlWriter {
         row.put("COMM_PNL", BigDecimal.ZERO);
         row.put("ALL_VALUATION", baseValuation);
         row.put("ALL_PNL", BigDecimal.ZERO);
+        row.put("STATUS", STATUS_SUCCESS);
         return row;
+    }
+
+    private static void markRowError(JSONObject row, JSONObject trade, String defaultMessage) {
+        row.put("STATUS", STATUS_ERROR);
+        appendLogs(row, resolveLogs(trade, defaultMessage));
     }
 
     private static String mapImaRiskClassToColumnPrefix(String riskClass) {

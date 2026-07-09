@@ -20,7 +20,6 @@ public class JobDetailResult {
     private String errorCode;
     private String errorMessage;
     private String detailUrl;
-    private String resultUrl;
     private String cancelUrl;
 
     public String getJobId() {
@@ -149,14 +148,6 @@ public class JobDetailResult {
 
     public void setDetailUrl(String detailUrl) {
         this.detailUrl = detailUrl;
-    }
-
-    public String getResultUrl() {
-        return resultUrl;
-    }
-
-    public void setResultUrl(String resultUrl) {
-        this.resultUrl = resultUrl;
     }
 
     public String getCancelUrl() {

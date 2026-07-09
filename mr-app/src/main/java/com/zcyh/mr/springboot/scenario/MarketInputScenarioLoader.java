@@ -260,6 +260,7 @@ public class MarketInputScenarioLoader {
             return Collections.emptyList();
         }
         List<ScenarioMarketSeries> result = new ArrayList<ScenarioMarketSeries>();
+        int skippedCount = 0;
         for (int i = 0; i < curveData.size(); i++) {
             JSONObject point = curveData.getJSONObject(i);
             if (point == null) {
@@ -268,11 +269,14 @@ public class MarketInputScenarioLoader {
             Integer termDays = readInteger(point, "TERM", "TERM_DAYS");
             BigDecimal value = readBigDecimal(point, valueField);
             if (termDays == null || value == null) {
+                skippedCount++;
                 continue;
             }
             ScenarioMarketSeries series = buildSeries(curveType, curveId, dataDate, termDays, resolveTermCode(point, termDays), value);
             result.add(series);
         }
+        warnSkippedMarketCurvePoints(curveType, curveId, dataDate, skippedCount, curveData.size(),
+                "TERM", "TERM_DAYS", valueField);
         return result;
     }
 
@@ -434,6 +438,7 @@ public class MarketInputScenarioLoader {
         request.markMatchedFxContainer(curveId);
         List<ScenarioMarketSeries> result = new ArrayList<ScenarioMarketSeries>();
         boolean includeAllPairs = request.shouldIncludeAllFxPairs(curveId);
+        int skippedCount = 0;
         for (int i = 0; i < curveData.size(); i++) {
             JSONObject point = curveData.getJSONObject(i);
             if (point == null) {
@@ -442,6 +447,7 @@ public class MarketInputScenarioLoader {
             String currencyPair = normalize(toStringValue(point.get("CURRENCY")));
             BigDecimal value = readBigDecimal(point, "RATE");
             if (currencyPair == null || value == null) {
+                skippedCount++;
                 continue;
             }
             String normalizedPair = currencyPair.toUpperCase();
@@ -451,6 +457,8 @@ public class MarketInputScenarioLoader {
             ScenarioMarketSeries series = buildSeries(FX_SPOT, normalizedPair, dataDate, 0, "0", value);
             result.add(series);
         }
+        warnSkippedMarketCurvePoints(FX_SPOT, curveId, dataDate, skippedCount, curveData.size(),
+                "CURRENCY", "RATE");
         return result;
     }
 
@@ -464,6 +472,7 @@ public class MarketInputScenarioLoader {
             return Collections.emptyList();
         }
         List<ScenarioMarketSeries> result = new ArrayList<ScenarioMarketSeries>();
+        int skippedCount = 0;
         for (int i = 0; i < curveData.size(); i++) {
             JSONObject point = curveData.getJSONObject(i);
             if (point == null) {
@@ -472,6 +481,7 @@ public class MarketInputScenarioLoader {
             Integer termDays = readInteger(point, "OPTION_TERM", "TERM", "TERM_DAYS");
             BigDecimal value = readBigDecimal(point, "VOLATILITY_RATE");
             if (termDays == null || value == null) {
+                skippedCount++;
                 continue;
             }
             String dimension2 = resolveVolDimension2(curveType, point);
@@ -484,7 +494,28 @@ public class MarketInputScenarioLoader {
             series.setDimension2(dimension2);
             result.add(series);
         }
+        warnSkippedMarketCurvePoints(curveType, curveId, dataDate, skippedCount, curveData.size(),
+                "OPTION_TERM", "TERM", "TERM_DAYS", "VOLATILITY_RATE");
         return result;
+    }
+
+    private void warnSkippedMarketCurvePoints(
+            String curveType,
+            String curveId,
+            LocalDate dataDate,
+            int skippedCount,
+            int totalCount,
+            String... fieldNames) {
+        if (skippedCount <= 0) {
+            return;
+        }
+        log.warn("市场曲线存在无法解析的数据点，已跳过: curveType={}, curveId={}, dataDate={}, fields={}, skippedCount={}, totalCount={}",
+                safeText(curveType),
+                safeText(curveId),
+                safeText(dataDate),
+                java.util.Arrays.toString(fieldNames),
+                skippedCount,
+                totalCount);
     }
 
     private ScenarioMarketSeries buildSeries(

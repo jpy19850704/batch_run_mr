@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
+import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,24 @@ public class GeneratedMarketDataPersistService {
 
     public GeneratedMarketDataPersistService(@Qualifier("engineDbJdbcTemplate") JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+    }
+
+    public int persistIfRequested(String engineCode, String payloadJson, Object parsedData) {
+        if (!MrCalcEngineAdapter.CODE.equalsIgnoreCase(engineCode) || !isPersistGeneratedMarketData(payloadJson)) {
+            return 0;
+        }
+        if (!(parsedData instanceof JSONObject)) {
+            throw new IllegalArgumentException("曲线生成结果结构异常，无法写入市场数据");
+        }
+        JSONObject root = (JSONObject) parsedData;
+        JSONObject data = root.getJSONObject("data");
+        if (data == null) {
+            throw new IllegalArgumentException("曲线生成结果缺少data节点，无法写入市场数据");
+        }
+        JSONArray generatedMarketData = data.getJSONArray("generated_market_data");
+        int persistedCount = persist(generatedMarketData);
+        data.put("generatedMarketDataPersisted", persistedCount);
+        return persistedCount;
     }
 
     public int persist(JSONArray generatedMarketData) {
@@ -67,6 +86,15 @@ public class GeneratedMarketDataPersistService {
         } catch (Exception ex) {
             throw new IllegalArgumentException("generated_market_data.DATA_DATE格式必须为yyyyMMdd: " + value, ex);
         }
+    }
+
+    private static boolean isPersistGeneratedMarketData(String payloadJson) {
+        JSONObject payload = JSON.parseObject(payloadJson);
+        if (payload == null) {
+            return false;
+        }
+        Object value = payload.get("persistGeneratedMarketData");
+        return value instanceof Boolean && (Boolean) value;
     }
 
     private static String requiredText(JSONObject curve, String fieldName, int index) {

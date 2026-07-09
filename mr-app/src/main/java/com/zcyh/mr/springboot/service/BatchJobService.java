@@ -73,6 +73,18 @@ public class BatchJobService {
             "connection refused",
             "communications link failure"
     };
+    private static final String[] MR_CALC_DETAIL_RESULT_TABLES = {
+            "TB_OUT_TRADE_RESULT_DETAIL",
+            "TB_OUT_TRADE_SCENARIO_RESULT_DETAIL",
+            "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL",
+            "TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL",
+            "TB_OUT_TRADE_DRC_DETAIL",
+            "TB_OUT_MARKET_DATA_DETAIL",
+            "TB_OUT_PORTFOLIO_HIERARCHY",
+            "TB_OUT_SCENARIO_FILE_DETAIL",
+            "TB_OUT_IMA_MODELLABLE_SCENARIO_PNL",
+            "TB_OUT_IMA_NMRF_SCENARIO_PNL"
+    };
     private static final List<String> SUPPORTED_BATCH_OP_CODES = buildSupportedBatchOpCodes();
 
     private static final RowMapper<BatchJobRow> BATCH_JOB_ROW_MAPPER = new RowMapper<BatchJobRow>() {
@@ -315,17 +327,30 @@ public class BatchJobService {
             for (int i = 0; i < chunks.size(); i++) {
                 int seqNo = i + 1;
                 List<BatchTradeDataLoader.TradeRow> chunkTrades = chunks.get(i);
-                MrMarketDataSliceService.SliceResult sliceResult = marketDataSliceService.sliceCurvesWithTradeKeys(
-                        JobPayloadBuilder.toTradeSliceSources(chunkTrades),
-                        curveSources);
-                JSONObject payload = payloadBuilder.buildPayload(opCode, dataDate, chunkTrades, sliceResult.getCurves(),
-                        sliceResult.getTradeMarketDataKeys(), batchId, seqNo, scenarioIdList, null, true, false);
-                if (runMode != null) {
-                    payload.put("run_mode", runMode);
+                String jobId = buildJobId(batchId, seqNo);
+                JSONObject payload;
+                try {
+                    MrMarketDataSliceService.SliceResult sliceResult = marketDataSliceService.sliceCurvesWithTradeKeys(
+                            JobPayloadBuilder.toTradeSliceSources(chunkTrades),
+                            curveSources);
+                    payload = payloadBuilder.buildPayload(opCode, dataDate, chunkTrades, sliceResult.getCurves(),
+                            sliceResult.getTradeMarketDataKeys(), batchId, seqNo, scenarioIdList, null, true, false);
+                    if (runMode != null) {
+                        payload.put("run_mode", runMode);
+                    }
+                } catch (PayloadJsonParseException ex) {
+                    asyncJobService.recordFailedJob(
+                            jobId,
+                            buildJobRequestId(requestId, seqNo),
+                            engineCode,
+                            BatchPayloadBuildTask.PAYLOAD_JSON_PARSE_ERROR,
+                            ex.getMessage());
+                    insertBatchItem(batchId, seqNo, jobId, chunkTrades);
+                    submittedJobs++;
+                    continue;
                 }
 
                 JobSubmitRequest jobRequest = new JobSubmitRequest();
-                String jobId = buildJobId(batchId, seqNo);
                 jobRequest.setJobId(jobId);
                 jobRequest.setRequestId(buildJobRequestId(requestId, seqNo));
                 jobRequest.setEngineCode(engineCode);
@@ -586,24 +611,12 @@ public class BatchJobService {
                 }
             }
         }
-        jdbcTemplate.update("DELETE FROM MR_ASYNC_JOB WHERE job_id IN (SELECT job_id FROM MR_ASYNC_BATCH_ITEM WHERE batch_id=?)", batchId);
     }
 
     private void clearExistingResultData(String batchId, LocalDate dataDate) {
-        clearExistingResultTableWithRetry("TB_OUT_TRADE_RESULT_DETAIL", batchId, dataDate);
-        clearExistingResultTableWithRetry("TB_OUT_TRADE_SCENARIO_RESULT_DETAIL", batchId, dataDate);
-        clearExistingResultTableWithRetry("TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL", batchId, dataDate);
-        clearExistingResultTableWithRetry("TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL", batchId, dataDate);
-        clearExistingResultTableWithRetry("TB_OUT_TRADE_DRC_DETAIL", batchId, dataDate);
-        clearExistingResultTableWithRetry("TB_OUT_TRADE_DRC_RESULT", batchId, dataDate);
-        clearExistingResultTableWithRetry("TB_OUT_MARKET_DATA_DETAIL", batchId, dataDate);
-        clearExistingResultTableWithRetry("TB_OUT_PORTFOLIO_HIERARCHY", batchId, dataDate);
-        clearExistingResultTableWithRetry("TB_OUT_CALC_RULE_META", batchId, dataDate);
-        clearExistingResultTableWithRetry("TB_OUT_IMA_MODELLABLE_SCENARIO_PNL", batchId, dataDate);
-        clearExistingResultTableWithRetry("TB_OUT_IMA_NMRF_SCENARIO_PNL", batchId, dataDate);
-        clearExistingResultTableWithRetry("TB_OUT_IMA_ES_RESULT", batchId, dataDate);
-        clearExistingResultTableWithRetry("TB_OUT_IMA_NMRF_RESULT", batchId, dataDate);
-        clearExistingResultTableWithRetry("TB_OUT_IMA_CAPITAL_RESULT", batchId, dataDate);
+        for (String tableName : MR_CALC_DETAIL_RESULT_TABLES) {
+            clearExistingResultTableWithRetry(tableName, batchId, dataDate);
+        }
     }
 
     private void clearExistingResultTableWithRetry(String tableName, String batchId, LocalDate dataDate) {
@@ -865,7 +878,6 @@ public class BatchJobService {
             item.setErrorCode(row.errorCode);
             item.setErrorMessage(row.errorMessage);
             item.setDetailUrl(JOB_API_BASE_PATH + "/" + row.jobId);
-            item.setResultUrl(JOB_API_BASE_PATH + "/" + row.jobId + "/result");
             item.setCancelUrl(JOB_API_BASE_PATH + "/" + row.jobId + "/cancel");
             items.add(item);
         }
