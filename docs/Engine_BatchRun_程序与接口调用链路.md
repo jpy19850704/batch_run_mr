@@ -1,8 +1,8 @@
 # Engine BatchRun 程序与接口调用链路文档
 
-> 文档更新时间：2026-06-16 16:04:00 +08:00  
-> 文档对应 Git 版本：`f31c64e`  
-> 版本状态：本文档已按曲线生成发布 payload 和 engine 提交 `f31c64e` 刷新。
+> 文档更新时间：2026-07-09 16:10:00 +08:00
+> 文档对应 Git 版本：`b971d4e`
+> 版本状态：本文档已按批量结果状态、情景结果日志、RRAO 拆分与 payload JSON 格式异常处理提交 `b971d4e` 刷新。
 
 ## 1. 文档目标与范围
 
@@ -86,7 +86,7 @@
 返回体 `BatchDetailResult`：
 
 - 批次聚合计数：`pendingJobs`、`runningJobs`、`successJobs`、`failedJobs`、`cancelledJobs`
-- 子任务列表：`jobs[]`（含 `jobId`、`status`、`detailUrl`、`resultUrl`、`cancelUrl`）
+- 子任务列表：`jobs[]`（含 `jobId`、`status`、`detailUrl`、`cancelUrl`）
 
 ---
 
@@ -187,10 +187,12 @@ sequenceDiagram
 4. 遍历每个 chunk：
    - `sliceCurvesWithTradeKeys(...)` 生成交易相关市场数据切片
    - `JobPayloadBuilder.buildPayload(...)` 组装 payload（含 `batch_meta`、`trade_dimension`、`scenario_ref`、`persist_result`、`frtb_disable`）
+   - 交易或市场曲线 JSON 格式异常时，不提交该 chunk 到 engine；系统写入一条 `MR_ASYNC_JOB.status=FAILED` 的预失败子任务，错误码为 `PAYLOAD_JSON_PARSE_ERROR`
    - `frtb_disable=true` 时，`Calc -> FrtbCalcControl` 控制产品侧跳过 FRTB 敏感性与 DRC 明细生成
    - `AsyncJobService.submit(jobRequest)` 提交子任务
    - 写 `MR_ASYNC_BATCH_ITEM`
-5. 更新批次状态为 `SUBMITTED`。
+5. 正常 chunk 继续提交；预失败 chunk 通过 `MR_ASYNC_BATCH_ITEM` 关联失败子任务。
+6. 更新批次状态为 `SUBMITTED`，最终状态按子任务聚合为 `SUCCESS` / `PARTIAL_FAILED` / `FAILED`。
 
 ### 5.3.1 曲线生成发布 payload
 
@@ -215,9 +217,10 @@ sequenceDiagram
 
 若中途异常：
 
-1. 对已提交子任务逐个 `asyncJobService.cancel` 补偿取消。
-2. 批次状态写为 `FAILED`，并记录告警。
-3. 异常继续向上抛出。
+1. payload JSON 格式异常按 chunk 记录为失败子任务，不阻断其他 chunk 提交。
+2. 提交链路发生非 payload 格式类异常时，对已提交子任务逐个 `asyncJobService.cancel` 补偿取消。
+3. 批次状态写为 `FAILED`，并记录告警。
+4. 异常继续向上抛出。
 
 ---
 
@@ -366,6 +369,7 @@ sequenceDiagram
 子任务状态（`MR_ASYNC_JOB.status`）：
 
 - `PENDING`、`RUNNING`、`SUCCESS`、`FAILED`、`CANCELLED`
+- payload JSON 格式异常会直接生成终态 `FAILED` 子任务，`error_code=PAYLOAD_JSON_PARSE_ERROR`，`error_message` 记录交易 `instrumentId` 或曲线 `marketDataType/curveId`
 
 ---
 
@@ -405,6 +409,13 @@ BatchRun 编排：
 1. 查 `MR_ASYNC_JOB.error_code/error_message` 是否为 `RESULT_PERSIST_FAILED`。
 2. 查看 `PricingResultPersistService` 日志与告警。
 3. 校验 Doris 表结构是否与代码契约一致（列名、类型、必需列）。
+
+### 11.2.1 子任务未进入 engine
+
+1. 查 `MR_ASYNC_JOB.error_code/error_message` 是否为 `PAYLOAD_JSON_PARSE_ERROR`。
+2. 交易 JSON 格式异常时，`error_message` 会包含 `instrumentId`。
+3. 市场曲线 JSON 格式异常时，`error_message` 会包含 `marketDataType` 与 `curveId`。
+4. 该类失败只影响当前 chunk，其他 chunk 继续提交；批次可最终进入 `PARTIAL_FAILED`。
 
 ### 11.3 汇总返回有值但 Doris 无数据
 
