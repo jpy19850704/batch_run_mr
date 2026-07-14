@@ -8,7 +8,7 @@
 
 本文档用于说明 `engine` 模块中 BatchRun 的端到端执行路径，覆盖：
 
-- 对外接口链路：`/api/jobs/batch/submit`、`/api/jobs/batch/run`、`/api/jobs/batch/patch`、`/api/jobs/batch/{batchId}`
+- 对外接口链路：`/api/jobs/batch/run`、`/api/jobs/batch/patch`、`/api/jobs/batch/{batchId}`
 - 程序调用链：Controller -> Service -> Async 调度 -> Engine Adapter -> 结果落库
 - 结果落地链路：**最终结果写入 Doris（engine_result_db）**
 - 状态机、关键表、配置项、排障路径
@@ -30,56 +30,41 @@
 - `data`：业务数据
 - `timestamp`：返回时间戳
 
-### 2.1 `POST /api/jobs/batch/submit`
+### 2.1 `POST /api/jobs/batch/run`
 
-用途：仅提交批次任务，不做汇总编排。
-
-请求体 `BatchSubmitRequest`：
-
-- `batchId`：批次号（可为空，默认会按 `yyyyMMdd_BATCH` 生成）
-- `requestId`：请求号（可为空，默认同 `batchId`）
-- `opCode`：`PRICING`/`SCENARIO`/`FRTB`
-- `dataDate`：估值日（支持 `yyyy-MM-dd` 或 `yyyyMMdd`）
-- `portfolio`：可选过滤
-- `desk`：可选过滤
-
-返回体 `BatchSubmitResult` 关键字段：
-
-- `batchId`、`status`、`totalTrades`、`totalJobs`
-- `detailUrl`（批次详情查询地址）
-
-### 2.2 `POST /api/jobs/batch/run`
-
-用途：执行总编排（提交 -> 等待子任务完成 -> 汇总 -> 汇总落库）。
+用途：执行 MR_CALC 明细计量总编排（情景生成 -> 输入切片 -> 子任务计量 -> 明细落库）。
 
 请求体 `BatchRunRequest`：
 
 - `batchId`
 - `dataDate`
 - `user`（可为空，默认 `outer_service`）
-- `scenarioIdList`（有值则走 SCENARIO 模式）
+- `regular_scenario_id_list`、`var_scenario_id_list`
+- `normal_full_scenario_id_list`、`normal_reduced_scenario_id_list`
+- `stress_reduced_scenario_id_list`、`nmrf_scenario_id_list`
+- `persist_scenario`、`cache_scenario_result`
 - `persist_result` / `persistResult`（控制结果库写入）
 - `frtb_disable`（默认 `false`；仅显式为 `true` 时关闭 MR_CALC 内 FRTB 敏感性与 DRC 明细计量）
+- `trade_filter`
 
 返回体 `BatchRunResult`：
 
 - `batchDetail`：批次执行明细状态
 - `scenarioData`、`persistResult`、`runMode`、`scenarioGenerated`、`scenarioCount` 等受理与工作流信息
-- FRTB SBA、DRC、VaR 汇总已拆为独立汇总接口，不再作为 `batch/run` 主链的必然输出
+- `batch/run` 不接收汇总规则参数，也不执行 VaR、SBA、DRC、RRAO、IMA 汇总
 
-### 2.3 `POST /api/jobs/batch/patch`
+### 2.2 `POST /api/jobs/batch/patch`
 
 用途：对已有批次按 `instrumentIdList` 局部重跑，增量追加子任务。
 
 请求体 `BatchPatchRequest`：
 
-- `batchId`
-- `requestId`
-- `dataDate`
+- `BatchRunRequest` 的全部外部运行参数
 - `instrumentIdList`（JSON 输入字段：`instrument_id_list`）
-- `frtb_disable`（可选；补跑不从主批次继承该值，如需关闭 FRTB 明细计量必须显式传 `true`）
 
-### 2.4 `GET /api/jobs/batch/{batchId}`
+局部重跑的固定边界：`batch_id` 必填；不允许 `persist_scenario=true`；不更新组合层级、市场数据快照和情景结果表。
+
+### 2.3 `GET /api/jobs/batch/{batchId}`
 
 用途：查询批次状态与子任务清单。
 
@@ -101,18 +86,12 @@
 
 1. `MrJobController.runBatch` 接收请求，写审计日志上下文。
 2. `BatchRunService.run` 校验参数，设置 `RequestContext`。
-3. `calendarFileBootstrapService.refreshForBatch(batchId)` 刷新日历文件。
-4. 若 `scenarioIdList` 非空：
-   - `generateScenarios(...)` 生成并写入情景文件：
-   - `<scenarioSetId>_<dataDate>_<batchId>.json`
-   - `DECOMP_<scenarioSetId>_<dataDate>_<batchId>.json`
-5. `submitBatch(...)` 调 `BatchJobService.submit(...)` 提交分片子任务。
-6. `waitBatchFinished(batchId)` 轮询 `BatchJobService.getDetail` 直到批次终态。
-7. 若批次成功：
-   - `runFrtbSummary(...)` -> 汇总计算 + Doris 落库
-   - `runDrcSummary(...)` -> 汇总计算 + Doris 落库
-   - `runVarSummary(...)` -> 汇总计算 + Doris 落库
-8. 返回 `BatchRunResult`。
+3. 依次执行明细清理与日历准备。
+4. 请求包含情景参数时生成并写出情景文件，MR_CALC 再从情景文件加载计量缓存。
+5. 加载交易与市场数据，完成市场数据切片、交易分片和 payload 构建。
+6. `BatchCalcSubmitTask.execute(...)` 按分片提交内部异步子任务。
+7. `BatchCalcWaitTask` 轮询 `BatchJobService.getDetail` 直到批次终态。
+8. 返回异步受理结果；工作流不执行任何汇总计算。
 
 ---
 
@@ -134,7 +113,7 @@ sequenceDiagram
     BR->>BR: refreshForBatch(batchId)
     BR->>BR: generateScenarios(可选)
     BR->>BR: context.frtbDisabled = request.frtb_disable == true
-    BR->>BJ: submit(batchId,dataDate,opCode)
+    BR->>BJ: prepareBatchSubmission(batchId,dataDate,opCode)
     BJ->>AJ: submit(jobRequest...按分片循环)
     AJ->>EO: run(runRequest)
     EO->>MC: calculate(payload 含 frtb_disable)
@@ -143,56 +122,40 @@ sequenceDiagram
     AJ->>D: PricingResultPersistService.persistJobResult(明细表)
     AJ-->>BJ: 子任务终态更新
     BR->>BJ: getDetail(batchId) 轮询直到 done
-    BR->>D: FrtbSbaResultPersistService.persist(汇总)
-    BR->>D: FrtbDrcResultPersistService.persist(汇总)
-    BR->>D: VarResultPersistService.persist(汇总)
     BR-->>API: BatchRunResult
     API-->>C: ApiResponse<BatchRunResult>
 ```
 
 ---
 
-## 5. `batch/submit` 详细调用链
+## 5. `batch/run` 内部子任务提交链路
 
-入口方法：`BatchJobService.submitInternal`
+入口任务：`BatchCalcSubmitTask.execute`
 
 ### 5.1 数据准备
 
-1. 校验 `opCode`、`dataDate`、`batchId`。
-2. 从输入库读取：
-   - `loadTradeRows(dataDate, portfolio, desk)`
-   - `loadCurveRows(dataDate)`
-3. 若交易或市场数据为空，直接抛错。
+1. `BatchTradeLoadTask` 从输入库读取交易。
+2. `BatchMarketDataLoadTask` 从输入库读取市场数据。
+3. `BatchChunkBuildTask` 按产品和权重预算生成交易分片。
+4. `BatchPayloadBuildTask` 为每个分片生成 MR_CALC payload；交易或市场曲线 JSON 格式异常时，生成一条预失败子任务 payload 记录。
 
 ### 5.2 并发与重跑保护
 
-1. `ensureBatchNotRunning(batchId)`：
-   - 若该批次下仍有 `PENDING/RUNNING` 子任务，则拒绝覆盖提交。
-2. `clearExistingBatchData(batchId)`：
+1. `BatchRunService` 在启动工作流前保证同一批次不会重复运行。
+2. `BatchJobService.initializeWorkflowBatch(...)` 初始化批次主记录并按本次执行口径清理历史数据：
    - 清理旧批次元数据（`MR_ASYNC_BATCH_JOB`、`MR_ASYNC_BATCH_ITEM`、`MR_ASYNC_JOB`）
-   - 清理旧结果（Doris）：
-   - `TB_OUT_TRADE_RESULT_DETAIL`
-   - `TB_OUT_TRADE_SCENARIO_RESULT_DETAIL`
-   - `TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL`
-   - `TB_OUT_TRADE_DRC_DETAIL`
-   - `TB_OUT_TRADE_DRC_RESULT`
-   - `TB_OUT_MARKET_DATA_DETAIL`
-   - `TB_OUT_PORTFOLIO_HIERARCHY`
+   - 按 `batchId + dataDate` 清理 MR_CALC 明细结果（Doris）
 
 ### 5.3 分片与子任务创建
 
-1. `TradeChunkSplitter.splitChunks(trades, weightBudget)` 得到分片。
-2. 写入批次主表 `MR_ASYNC_BATCH_JOB`。
-3. `syncPortfolioHierarchySnapshot(batchId, dataDate)` 快照层级到 Doris `TB_OUT_PORTFOLIO_HIERARCHY`。
-4. 遍历每个 chunk：
-   - `sliceCurvesWithTradeKeys(...)` 生成交易相关市场数据切片
-   - `JobPayloadBuilder.buildPayload(...)` 组装 payload（含 `batch_meta`、`trade_dimension`、`scenario_ref`、`persist_result`、`frtb_disable`）
-   - 交易或市场曲线 JSON 格式异常时，不提交该 chunk 到 engine；系统写入一条 `MR_ASYNC_JOB.status=FAILED` 的预失败子任务，错误码为 `PAYLOAD_JSON_PARSE_ERROR`
+1. `BatchCalcSubmitTask` 写入批次总交易数、子任务数和分片权重。
+2. 需要落库时，`syncPortfolioHierarchySnapshot(batchId, dataDate)` 快照层级到 Doris `TB_OUT_PORTFOLIO_HIERARCHY`。
+3. 遍历 `BatchJobPayload`：
+   - payload 构建阶段已失败的分片，不提交到 engine；系统写入一条 `MR_ASYNC_JOB.status=FAILED` 的预失败子任务，错误码为 `PAYLOAD_JSON_PARSE_ERROR`
    - `frtb_disable=true` 时，`Calc -> FrtbCalcControl` 控制产品侧跳过 FRTB 敏感性与 DRC 明细生成
    - `AsyncJobService.submit(jobRequest)` 提交子任务
    - 写 `MR_ASYNC_BATCH_ITEM`
-5. 正常 chunk 继续提交；预失败 chunk 通过 `MR_ASYNC_BATCH_ITEM` 关联失败子任务。
-6. 更新批次状态为 `SUBMITTED`，最终状态按子任务聚合为 `SUCCESS` / `PARTIAL_FAILED` / `FAILED`。
+4. 更新批次状态为 `SUBMITTED`，最终状态按子任务聚合为 `SUCCESS` / `PARTIAL_FAILED` / `FAILED`。
 
 ### 5.3.1 曲线生成发布 payload
 
@@ -226,17 +189,17 @@ sequenceDiagram
 
 ## 6. `batch/patch`（局部重跑）链路
 
-入口方法：`BatchJobService.submitPatch`
+入口方法：`BatchRunService.patch`
 
 流程：
 
-1. 校验 `batchId/dataDate/instrumentIdList`，并校验 `dataDate` 与批次一致。
-2. `ensureBatchNotRunning`，避免与正在跑的批次冲突。
-3. 按 `instrumentIdList` 读取交易与市场数据，重新分片。
-4. `nextSeqNo(batchId)` 获取新子任务起始序号。
-5. 按补跑请求中的 `frtb_disable` 组装 payload；缺省为 `false`，不从主批次继承。
-6. 逐片提交到 `AsyncJobService.submit`，写入 `MR_ASYNC_BATCH_ITEM`。
-7. `refreshBatchSummary` 刷新批次聚合状态。
+1. 按正常运行请求校验全部外部参数，并额外校验 `batchId/dataDate/instrumentIdList`。
+2. `ensureBatchNotRunning`，校验估值日与已有批次一致，并取得追加子任务序号。
+3. 需要情景时重新生成并写出情景文件，MR_CALC 按正常流程从文件加载；固定 `persist_scenario=false`，不写 Doris 情景结果表。
+4. 按 `instrumentIdList` 读取交易，正常加载市场数据并完成切片、分片和 payload 构建。
+5. 进入 Calc 阶段后，仅按 `batchId + dataDate + instrumentId` 清理交易明细结果。
+6. 追加 MR_CALC 子任务；不更新组合层级，不写市场数据快照，不输出批次结果快照文件。
+7. 等待新增子任务结束并刷新批次状态。
 
 ---
 
@@ -286,45 +249,18 @@ sequenceDiagram
 - `TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL`
 - `TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL`
 - `TB_OUT_TRADE_DRC_DETAIL`
-- `TB_OUT_MARKET_DATA_DETAIL`
+- `TB_OUT_MARKET_DATA_DETAIL`（完整批次）
 
 写入特征：
 
 1. 先删后插（按 `JOB_ID`，并按 `BATCH_ID + INSTRUMENT_ID` 做覆盖清理）。
 2. 严格表结构校验（缺列直接失败）。
-3. 市场数据采取“外部输入优先”合并策略。
+3. 局部重跑跳过市场数据明细写入，只覆盖指定交易的计量明细。
 4. DRC 明细落库阶段要求 `JTD_CNY`，缺失会跳过并记录告警日志；DRC 汇总计算入口会再次校验 `SECURITY_TYPE / LEGAL_ENTITY / DRC_BUCKET / SENIORITY / TERM_TO_MATURITY / RISK_WEIGHT / JTD_CNY`，`sec non-CTP` 额外要求 `SECURITY_ID`。
 
-## 8.2 批次级汇总写入（BatchRun 全部成功后）
+## 8.2 汇总边界
 
-触发点：
-
-- `BatchRunService.run` 在 `waitBatchFinished` 成功后依次执行：
-- `runFrtbSummary`
-- `runDrcSummary`
-- `runVarSummary`
-
-写入服务与目标表：
-
-1. FRTB SBA
-   - 服务：`FrtbSbaResultPersistService.persist`
-   - 表：`TB_OUT_FRTB_SBA_CLASS_RESULT`
-2. DRC 汇总
-   - 服务：`FrtbDrcResultPersistService.persist`
-   - 表：`TB_OUT_TRADE_DRC_RESULT`
-3. VaR 汇总
-   - 服务：`VarResultPersistService.persist`
-   - 表：`TB_OUT_VAR_RESULT`
-
-写入特征：
-
-- FRTB SBA 汇总写入 `TB_OUT_FRTB_SBA_CLASS_RESULT`，表结构由 `mr-app/src/main/resources/db/mr_output_schema_doris.sql` 提供。
-- FRTB SBA 与 DRC 汇总均通过 Doris Stream Load 写入，DRC 结果表主键包含 `RULE_ID + GROUP_TYPE + GROUP_VALUE`。
-- DRC `non-sec / sec non-CTP` standard 路径按监管 seniority 规则生成净 JTD；`sec non-CTP` 以 `SECURITY_ID` 区分证券化敞口，避免不同证券化敞口在同一 bucket 下直接轧差。
-
-异常口径：
-
-- 以上三类“汇总落库异常”均被 `BatchRunService` 捕获并 `warn`，**不阻断** `BatchRunResult` 返回。
+`BatchRunRequest`、`BatchRunWorkflowContext` 和批次任务列表均不包含汇总规则或汇总任务。VaR、SBA、DRC、RRAO、IMA 汇总通过独立接口按需执行，其结果不由 `batch/run` 清理、生成或导出。
 
 ## 8.3 非最终结果：批次快照文件
 
@@ -359,7 +295,7 @@ sequenceDiagram
 结果库（engine_result_db / Doris）：
 
 - 明细：`TB_OUT_TRADE_*`、`TB_OUT_MARKET_DATA_DETAIL`
-- 汇总：`TB_OUT_TRADE_DRC_RESULT`、`TB_OUT_VAR_RESULT`、`TB_OUT_FRTB_SBA_CLASS_RESULT`
+- 汇总结果表由独立汇总任务维护，不属于 BatchRun 工作流
 
 批次状态（`MR_ASYNC_BATCH_JOB.status`）：
 
@@ -417,11 +353,9 @@ BatchRun 编排：
 3. 市场曲线 JSON 格式异常时，`error_message` 会包含 `marketDataType` 与 `curveId`。
 4. 该类失败只影响当前 chunk，其他 chunk 继续提交；批次可最终进入 `PARTIAL_FAILED`。
 
-### 11.3 汇总返回有值但 Doris 无数据
+### 11.3 汇总结果核对
 
-检查 `BatchRunService.runFrtbSummary/runDrcSummary/runVarSummary` 的 `warn` 日志：
-
-- 汇总落库异常不会阻断接口返回，需单独看日志确认落库失败原因。
+BatchRun 不执行汇总。汇总结果需按对应独立汇总接口和服务日志单独核对。
 
 ### 11.4 场景模式失败
 
@@ -440,8 +374,7 @@ Controller：
 编排/批次：
 
 - `com.zcyh.mr.springboot.service.BatchRunService#run`
-- `com.zcyh.mr.springboot.service.BatchJobService#submitInternal`
-- `com.zcyh.mr.springboot.service.BatchJobService#submitPatch`
+- `com.zcyh.mr.springboot.service.BatchRunService#patch`
 - `com.zcyh.mr.springboot.service.BatchJobService#getDetail`
 
 异步执行：
@@ -458,9 +391,6 @@ Controller：
 结果落库：
 
 - `com.zcyh.mr.springboot.service.PricingResultPersistService#persistJobResult`
-- `com.zcyh.mr.springboot.service.FrtbSbaResultPersistService#persist`
-- `com.zcyh.mr.springboot.service.FrtbDrcResultPersistService#persist`
-- `com.zcyh.mr.springboot.service.VarResultPersistService#persist`
 - `com.zcyh.mr.springboot.service.BatchResultFileService#tryWriteSnapshotForJob`
 
 ---
@@ -469,8 +399,9 @@ Controller：
 
 在当前实现中，BatchRun 的结果写入 Doris 以子任务明细落库为主：
 
-1. 子任务执行成功后立即写明细（交易/情景/敏感性/DRC/市场数据）；`frtb_disable=true` 时不生成 FRTB 敏感性与 DRC 明细内容，空字符串或空 JSON 对象按空值处理。
-2. FRTB SBA、DRC、VaR 汇总通过独立汇总接口触发，不作为 `batch/run` 主链的必然步骤。
+1. 子任务执行成功后立即写交易、情景损益、敏感性和 DRC 明细；完整批次同时维护市场数据、组合层级和情景生成明细。
+2. 局部重跑只覆盖指定交易明细，不更新市场数据、组合层级和 Doris 情景生成结果；情景文件仍按正常流程生成。
+3. BatchRun 不接收汇总规则，不执行或导出任何汇总结果。
 
 因此，核对 BatchRun 是否“真正完成”不能只看接口成功，必须同时核对：
 
