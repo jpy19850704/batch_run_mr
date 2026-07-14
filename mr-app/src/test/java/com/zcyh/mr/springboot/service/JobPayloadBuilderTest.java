@@ -56,7 +56,7 @@ class JobPayloadBuilderTest {
 
         assertEquals(2, context.getJobPayloads().size());
         assertTrue(context.getJobPayloads().get(0).isFailed());
-        assertEquals(BatchPayloadBuildTask.PAYLOAD_JSON_PARSE_ERROR, context.getJobPayloads().get(0).getErrorCode());
+        assertEquals(BatchJobService.PAYLOAD_JSON_PARSE_ERROR, context.getJobPayloads().get(0).getErrorCode());
         assertTrue(context.getJobPayloads().get(0).getErrorMessage().contains("instrumentId=T_BAD"));
         assertFalse(context.getJobPayloads().get(1).isFailed());
         assertNotNull(context.getJobPayloads().get(1).getPayload());

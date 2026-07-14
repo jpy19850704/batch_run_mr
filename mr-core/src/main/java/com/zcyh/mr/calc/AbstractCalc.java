@@ -21,7 +21,7 @@ import java.util.Set;
  * 封装所有 Calc 共用的字段声明、calc/run/calcScenario/错误处理等样板逻辑。
  * 子类只需实现产品特定的构建和估值方法。
  */
-public abstract class AbstractCalc implements Runnable, Calc.ScenarioCapable {
+public abstract class AbstractCalc implements ProductCalculator {
 
     protected List<HashMap<String, Object>> trades;
     protected MarketData marketData;
@@ -126,6 +126,22 @@ public abstract class AbstractCalc implements Runnable, Calc.ScenarioCapable {
     /** 统一异常处理：生成错误 Measure 和错误日志 */
     protected void handleError(HashMap<String, Object> tradeData, Exception e) {
         appendErrorResult(this.trade, this.log, dataDate, tradeData, e);
+    }
+
+    /** 将标的债券数组转换为按 BOND_ID 索引的对象。 */
+    protected static JSONObject indexUnderlyingDataByBondId(Object rawUnderlyingData) {
+        JSONObject result = new JSONObject();
+        if (!(rawUnderlyingData instanceof JSONArray)) {
+            return result;
+        }
+        for (Object item : (JSONArray) rawUnderlyingData) {
+            JSONObject bond = (JSONObject) item;
+            String bondId = bond.getString("BOND_ID");
+            if (bondId != null) {
+                result.put(bondId, bond);
+            }
+        }
+        return result;
     }
 
     /** 构造标准错误交易结果。 */

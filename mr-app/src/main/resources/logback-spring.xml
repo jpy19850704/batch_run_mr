@@ -163,7 +163,7 @@
         </rollingPolicy>
     </appender>
 
-    <!-- BatchRun 分类：主链路、任务提交、情景文件、汇总 -->
+    <!-- BatchRun 分类：主链路、任务提交、情景文件 -->
     <logger name="com.zcyh.mr.springboot.service.BatchRunService" level="INFO" additivity="false">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="APP_FILE"/>
@@ -188,15 +188,14 @@
         <appender-ref ref="ERROR_FILE"/>
         <appender-ref ref="BATCH_FILE"/>
     </logger>
-    <logger name="com.zcyh.mr.springboot.service.BatchSummaryTask" level="INFO" additivity="false">
+    <!-- Scenario 分类：情景生成引擎、策略、缓存 -->
+    <logger name="com.zcyh.mr.scenario" level="INFO" additivity="false">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="APP_FILE"/>
         <appender-ref ref="ERROR_FILE"/>
-        <appender-ref ref="BATCH_FILE"/>
+        <appender-ref ref="SCENARIO_FILE"/>
     </logger>
-
-    <!-- Scenario 分类：情景生成引擎、策略、缓存 -->
-    <logger name="com.zcyh.mr.scenario" level="INFO" additivity="false">
+    <logger name="com.zcyh.mr.springboot.scenario" level="INFO" additivity="false">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="APP_FILE"/>
         <appender-ref ref="ERROR_FILE"/>

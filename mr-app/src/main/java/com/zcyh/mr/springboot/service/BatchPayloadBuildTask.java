@@ -14,8 +14,6 @@ import java.util.List;
  */
 @Component
 public class BatchPayloadBuildTask implements BatchRunTask {
-    static final String PAYLOAD_JSON_PARSE_ERROR = "PAYLOAD_JSON_PARSE_ERROR";
-
     private final MrMarketDataSliceService marketDataSliceService;
     private final JobPayloadBuilder payloadBuilder;
 
@@ -33,7 +31,7 @@ public class BatchPayloadBuildTask implements BatchRunTask {
                 JobPayloadBuilder.toCurveSliceSources(context.getLoadedMarketData());
         List<BatchJobPayload> jobPayloads = new ArrayList<BatchJobPayload>();
         for (int i = 0; i < context.getTradeChunks().size(); i++) {
-            int seqNo = i + 1;
+            int seqNo = context.getFirstJobSeqNo() + i;
             List<BatchTradeDataLoader.TradeRow> chunkTrades = context.getTradeChunks().get(i);
             BatchJobPayload jobPayload = new BatchJobPayload();
             jobPayload.setSeqNo(seqNo);
@@ -64,10 +62,11 @@ public class BatchPayloadBuildTask implements BatchRunTask {
                 if (context.isScenarioMode() && context.isCacheScenarioResult()) {
                     payload.put("cache_scenario_result", true);
                 }
+                payload.getJSONObject("batch_meta").put("localRerun", context.isLocalRerun());
                 jobPayload.setPayload(payload);
             } catch (PayloadJsonParseException ex) {
                 jobPayload.setFailed(true);
-                jobPayload.setErrorCode(PAYLOAD_JSON_PARSE_ERROR);
+                jobPayload.setErrorCode(BatchJobService.PAYLOAD_JSON_PARSE_ERROR);
                 jobPayload.setErrorMessage(ex.getMessage());
             }
             jobPayloads.add(jobPayload);

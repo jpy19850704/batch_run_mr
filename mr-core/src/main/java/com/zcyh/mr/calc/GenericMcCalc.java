@@ -18,7 +18,7 @@ import java.util.Set;
 /**
  * 通用 MC 计算器，按 payoff 定义和路径模型定义组合估值。
  */
-public class GenericMcCalc implements Runnable, Calc.ScenarioCapable {
+public class GenericMcCalc implements ProductCalculator {
     private final List<HashMap<String, Object>> trades;
     private final MarketData marketData;
     private final LocalDate dataDate;

@@ -11,6 +11,8 @@ import com.zcyh.mr.springboot.engine.EngineRegistry;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
 import com.zcyh.mr.springboot.model.EngineRunRequest;
 import com.zcyh.mr.springboot.model.EngineRunResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
@@ -18,6 +20,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class EngineOrchestratorService {
+    private static final Logger log = LoggerFactory.getLogger(EngineOrchestratorService.class);
+
     private final EngineRegistry registry;
     private final GeneratedMarketDataPersistService generatedMarketDataPersistService;
 
@@ -93,7 +97,8 @@ public class EngineOrchestratorService {
         }
         try {
             return JSON.parse(txt);
-        } catch (Exception ignore) {
+        } catch (Exception ex) {
+            log.warn("引擎返回内容不是 JSON，将按原始字符串返回: length={}, error={}", txt.length(), ex.getMessage());
             return txt;
         }
     }

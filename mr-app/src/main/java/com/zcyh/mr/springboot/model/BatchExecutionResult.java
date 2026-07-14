@@ -1,9 +1,9 @@
 package com.zcyh.mr.springboot.model;
 
 /**
- * 批量异步提交回执。
+ * 批量执行回执。
  */
-public class BatchSubmitResult {
+public class BatchExecutionResult {
     private String batchId;
     private String requestId;
     private String engineCode;

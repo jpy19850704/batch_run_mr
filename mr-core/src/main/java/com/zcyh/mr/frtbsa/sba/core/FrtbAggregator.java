@@ -41,12 +41,8 @@ public class FrtbAggregator {
     private final FxModule fxModule = new FxModule();
     private final CmtyModule cmtyModule = new CmtyModule();
     private final CsrctpModule csrctpModule = new CsrctpModule();
+    private final FrtbInputValidator inputValidator = new FrtbInputValidator();
     private final ExecutorService batchExecutor;
-    private static final List<String> VALID_SENS_TYPES = Arrays.asList(
-            FrtbConstants.SENS_DELTA,
-            FrtbConstants.SENS_VEGA,
-            FrtbConstants.SENS_CURVATURE_UP,
-            FrtbConstants.SENS_CURVATURE_DOWN);
     private static final List<String> CALC_RISK_CLASSES = Arrays.asList(
             FrtbConstants.RISK_CLASS_GIRR,
             FrtbConstants.RISK_CLASS_CSRNS,
@@ -56,8 +52,6 @@ public class FrtbAggregator {
             FrtbConstants.RISK_CLASS_CMTY,
             FrtbConstants.RISK_CLASS_CSRCTP);
     private static final Set<String> SUPPORTED_RISK_CLASSES = new HashSet<>(CALC_RISK_CLASSES);
-    private static final Set<String> CMTY_TENORS = new HashSet<>(Arrays.asList(
-            "0", "0.25", "0.5", "1", "2", "3", "5", "10", "15", "20", "30"));
 
     public FrtbAggregator() {
         this(null);
@@ -272,103 +266,7 @@ public class FrtbAggregator {
      * 3. Curvature配对检查：Curvature Up 和 Curvature Down 必须成对出现
      */
     private Map<String, Object> moduleCheck(List<FrtbInput> dataList) {
-        List<FrtbInput> validData = new ArrayList<>();
-        List<FrtbInput> errorData = new ArrayList<>();
-        List<Map<String, Object>> errorDetails = new ArrayList<>();
-        // 使用对象身份记录原始输入行号，避免后续配对校验阶段丢失真实定位信息
-        Map<FrtbInput, Integer> sourceRowNoMap = new IdentityHashMap<>();
-
-        if (dataList == null || dataList.isEmpty()) {
-            Map<String, Object> result = new HashMap<>();
-            result.put("checked", validData);
-            result.put("errors", errorData);
-            result.put("errorDetails", errorDetails);
-            return result;
-        }
-
-        // 第一步：基础校验（敏感性类型 + 必填 bucket + GIRR tenor）
-        int rowNo = 0;
-        for (FrtbInput model : dataList) {
-            rowNo++;
-            boolean invalid = false;
-
-            if (model == null) {
-                errorDetails.add(buildError("NULL_INPUT", "输入记录为空", null, rowNo));
-                continue;
-            }
-            sourceRowNoMap.put(model, rowNo);
-
-            // 统一 FX/GIRR 货币桶口径：CNH -> CNY
-            model.setRiskFactorBucket(FrtbConstants.normalizeBucketForRiskClass(
-                    model.getRiskFactorClass(), model.getRiskFactorBucket()));
-
-            if (!FrtbConstants.isValidRiskClass(model.getRiskFactorClass())) {
-                invalid = true;
-                errorDetails.add(buildError("INVALID_RISK_FACTOR_CLASS",
-                        "风险类别缺失或非法",
-                        model, rowNo));
-            }
-
-            String sensType = model.getSensitivityType();
-            if (sensType == null || !VALID_SENS_TYPES.contains(sensType)) {
-                invalid = true;
-                errorDetails.add(buildError("INVALID_SENSITIVITY_TYPE",
-                        "敏感性类型必须为 Delta、Vega、Curvature Up 或 Curvature Down",
-                        model, rowNo));
-            }
-
-            if (isBlank(model.getRiskFactorBucket())) {
-                invalid = true;
-                errorDetails.add(buildError("MISSING_RISK_FACTOR_BUCKET",
-                        "风险因子桶不能为空",
-                        model, rowNo));
-            }
-
-            if (!invalid && !validateStandardVertices(model, rowNo, errorDetails)) {
-                invalid = true;
-            }
-
-            if (isGirr(model) && !invalid) {
-                invalid = !validateGirrTenor(model, rowNo, errorDetails);
-            }
-
-            if (invalid) {
-                errorData.add(model);
-                continue;
-            }
-
-            validData.add(model);
-        }
-
-        // Step 2: Curvature配对检查
-        Map<String, List<FrtbInput>> curvatureGrouped = validData.stream()
-                .filter(e -> e.getSensitivityType().startsWith("Curvature"))
-                .collect(Collectors.groupingBy(this::buildCurvaturePairKey));
-
-        for (String key : curvatureGrouped.keySet()) {
-            List<FrtbInput> group = curvatureGrouped.get(key);
-            boolean hasUp = group.stream()
-                    .anyMatch(e -> FrtbConstants.SENS_CURVATURE_UP.equals(e.getSensitivityType()));
-            boolean hasDown = group.stream()
-                    .anyMatch(e -> FrtbConstants.SENS_CURVATURE_DOWN.equals(e.getSensitivityType()));
-
-            if (!(hasUp && hasDown)) {
-                for (FrtbInput item : group) {
-                    int sourceRowNo = sourceRowNoMap.getOrDefault(item, -1);
-                    errorDetails.add(buildError("CURVATURE_PAIR_MISSING",
-                            "Curvature Up 与 Curvature Down 必须成对出现，分组键=" + key,
-                            item, sourceRowNo));
-                }
-                errorData.addAll(group);
-                validData.removeAll(group);
-            }
-        }
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("checked", validData);
-        result.put("errors", errorData);
-        result.put("errorDetails", errorDetails);
-        return result;
+        return inputValidator.validate(dataList);
     }
 
     // ===================== POJO 转换 =====================
@@ -995,154 +893,4 @@ public class FrtbAggregator {
                 && !FrtbConstants.RISK_CLASS_CSRCTP.equals(riskClass);
     }
 
-    private boolean isBlank(String value) {
-        return value == null || value.trim().isEmpty();
-    }
-
-    private boolean isGirr(FrtbInput model) {
-        return FrtbConstants.RISK_CLASS_GIRR.equals(model.getRiskFactorClass());
-    }
-
-    private boolean validateStandardVertices(FrtbInput model, int rowNo, List<Map<String, Object>> errorDetails) {
-        if (!isBlank(model.getRiskFactorVertex1()) && parseStandardVertexStrict(model.getRiskFactorVertex1()) == null) {
-            errorDetails.add(buildError("INVALID_VERTEX1",
-                    "风险因子期限1必须为数字年",
-                    model, rowNo));
-            return false;
-        }
-        if (!isBlank(model.getRiskFactorVertex2()) && parseStandardVertexStrict(model.getRiskFactorVertex2()) == null) {
-            errorDetails.add(buildError("INVALID_VERTEX2",
-                    "风险因子期限2必须为数字年",
-                    model, rowNo));
-            return false;
-        }
-        String riskClass = model.getRiskFactorClass();
-        String sensType = model.getSensitivityType();
-        if (FrtbConstants.SENS_VEGA.equals(sensType)) {
-            if (!requirePositiveVertex(model.getRiskFactorVertex1(), "MISSING_VERTEX1",
-                    "Vega 风险因子期限1不能为空且必须大于0",
-                    model, rowNo, errorDetails)) {
-                return false;
-            }
-            if (FrtbConstants.RISK_CLASS_GIRR.equals(riskClass)
-                    && !requirePositiveVertex(model.getRiskFactorVertex2(), "MISSING_VERTEX2",
-                    "GIRR Vega 风险因子期限2不能为空且必须大于0",
-                    model, rowNo, errorDetails)) {
-                return false;
-            }
-        }
-        if (FrtbConstants.SENS_DELTA.equals(sensType)
-                && (FrtbConstants.RISK_CLASS_CSRNS.equals(riskClass)
-                || FrtbConstants.RISK_CLASS_CSRNC.equals(riskClass)
-                || FrtbConstants.RISK_CLASS_CSRCTP.equals(riskClass))) {
-            if (!requirePositiveVertex(model.getRiskFactorVertex1(), "MISSING_VERTEX1",
-                    "CSR Delta 风险因子期限1不能为空且必须大于0",
-                    model, rowNo, errorDetails)) {
-                return false;
-            }
-        }
-        if (FrtbConstants.SENS_DELTA.equals(sensType)
-                && FrtbConstants.RISK_CLASS_CMTY.equals(riskClass)) {
-            Double tenor1 = parseStandardVertexStrict(model.getRiskFactorVertex1());
-            if (tenor1 == null || !CMTY_TENORS.contains(tenorKey(tenor1))) {
-                errorDetails.add(buildError("INVALID_CMTY_VERTEX1",
-                        "CMTY Delta 风险因子期限1不能为空且必须为监管标准期限",
-                        model, rowNo));
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean requirePositiveVertex(String vertex, String errorCode, String message,
-                                          FrtbInput model, int rowNo, List<Map<String, Object>> errorDetails) {
-        Double parsed = parseStandardVertexStrict(vertex);
-        if (parsed == null || parsed <= 0) {
-            errorDetails.add(buildError(errorCode, message, model, rowNo));
-            return false;
-        }
-        return true;
-    }
-
-    private boolean validateGirrTenor(FrtbInput model, int rowNo, List<Map<String, Object>> errorDetails) {
-        String sensType = model.getSensitivityType();
-        String riskType = model.getRiskFactorType() == null ? "" : model.getRiskFactorType().toUpperCase();
-
-        if (FrtbConstants.SENS_CURVATURE_UP.equals(sensType)
-                || FrtbConstants.SENS_CURVATURE_DOWN.equals(sensType)) {
-            return true;
-        }
-
-        boolean needsVertex1 = FrtbConstants.SENS_VEGA.equals(sensType)
-                || (!riskType.contains("INFLA") && !riskType.contains("BASIS"));
-
-        if (needsVertex1) {
-            Double tenor1 = parseStandardVertexStrict(model.getRiskFactorVertex1());
-            if (tenor1 == null) {
-                errorDetails.add(buildError("INVALID_GIRR_VERTEX1",
-                        "GIRR 风险因子期限1不能为空且必须为数字年",
-                        model, rowNo));
-                return false;
-            }
-            if (tenor1 <= 0) {
-                errorDetails.add(buildError("INVALID_GIRR_VERTEX1",
-                        "GIRR 风险因子期限1必须大于0",
-                        model, rowNo));
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private Double parseStandardVertexStrict(String vertex) {
-        if (isBlank(vertex)) {
-            return null;
-        }
-        String normalized = vertex.trim();
-        if (!normalized.matches("\\d+(\\.\\d+)?")) {
-            return null;
-        }
-        try {
-            double value = Double.parseDouble(normalized);
-            return Double.isFinite(value) && value >= 0 ? value : null;
-        } catch (NumberFormatException ex) {
-            return null;
-        }
-    }
-
-    private String tenorKey(double tenor) {
-        if (tenor == (long) tenor) {
-            return String.valueOf((long) tenor);
-        }
-        return String.valueOf(tenor);
-    }
-
-    private Map<String, Object> buildError(String code, String message, FrtbInput model, int rowNo) {
-        Map<String, Object> err = new LinkedHashMap<>();
-        err.put("code", code);
-        err.put("message", message);
-        err.put("rowNo", rowNo);
-        if (model != null) {
-            err.put("riskFactorClass", model.getRiskFactorClass());
-            err.put("sensitivityType", model.getSensitivityType());
-            err.put("riskFactorId", model.getRiskFactorId());
-            err.put("riskFactorBucket", model.getRiskFactorBucket());
-            err.put("riskFactorVertex1", model.getRiskFactorVertex1());
-            err.put("riskFactorVertex2", model.getRiskFactorVertex2());
-            err.put("groupType", model.getGroupType());
-            err.put("groupValue", model.getGroupValue());
-            err.put("dataDate", model.getDataDate());
-        }
-        return err;
-    }
-
-    private String buildCurvaturePairKey(FrtbInput input) {
-        String normalizedBucket = FrtbConstants.normalizeBucketForRiskClass(
-                input.getRiskFactorClass(), input.getRiskFactorBucket());
-        if (FrtbConstants.RISK_CLASS_GIRR.equals(input.getRiskFactorClass())) {
-            // GIRR Curvature 按 bucket 配对
-            return input.getRiskFactorClass() + "@" + normalizedBucket;
-        }
-        return input.getRiskFactorClass() + "@" + input.getRiskFactorId() + "@" + normalizedBucket;
-    }
 }

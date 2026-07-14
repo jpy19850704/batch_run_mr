@@ -35,6 +35,11 @@
             <version>2.1.2</version>
         </dependency>
         <dependency>
+            <groupId>org.mybatis</groupId>
+            <artifactId>mybatis</artifactId>
+            <version>${mybatis.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
@@ -67,6 +72,7 @@
         <testSourceDirectory>${project.basedir}/src/test/java</testSourceDirectory>
         <outputDirectory>${project.basedir}/target/classes</outputDirectory>
         <testOutputDirectory>${project.basedir}/target/test-classes</testOutputDirectory>
+        <finalName>mr-app</finalName>
         <resources>
             <resource>
                 <directory>${project.basedir}/src/main/resources</directory>

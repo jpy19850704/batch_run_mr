@@ -1,4 +1,4 @@
-package com.zcyh.mr.scenario;
+package com.zcyh.mr.calc.scenario;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
@@ -11,274 +11,35 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.Queue;
 import java.util.zip.GZIPInputStream;
 
 /**
- * 场景数据缓存。
- * 将场景文件一次性加载并解析为 ScenarioEntry 列表后放入缓存，
- * 后续各 Calc 切片通过 cache_key 直接获取，避免重复解析。
- * 当前实现为进程内 ConcurrentHashMap，未来可替换为 Redis 等分布式缓存。
+ * 计量情景文件读取与标准情景条目解析器。
  */
-public class ScenarioCache {
+final class ScenarioFileReader {
 
-    private static final ConcurrentHashMap<String, List<Loader.ScenarioEntry>> CACHE =
-            new ConcurrentHashMap<>();
-    private static final Queue<String> CACHE_KEY_ORDER = new ConcurrentLinkedQueue<>();
-
-    /** 通用对象缓存，存储任意类型（如 PnL 结果列表、RfetModellableIndex 等） */
-    private static final ConcurrentHashMap<String, Object> OBJECT_CACHE =
-            new ConcurrentHashMap<>();
-    private static final Queue<String> OBJECT_CACHE_KEY_ORDER = new ConcurrentLinkedQueue<>();
-    private static final int MAX_SCENARIO_CACHE_ENTRIES = Math.max(
-            1, Integer.getInteger("mr.scenario.cache.max-entries", 512));
-    private static final int MAX_OBJECT_CACHE_ENTRIES = Math.max(
-            1, Integer.getInteger("mr.scenario.object-cache.max-entries", 512));
-
-    /**
-     * 从 CSV 场景文件加载并缓存场景数据。
-     *
-     * @param filePath  场景文件路径
-     * @param dataDate  基准日期
-     * @return cache_key（基于文件名生成）
-     */
-    public static String loadFromFile(String filePath, LocalDate dataDate) {
-        Path path = Paths.get(filePath);
-        String cacheKey = deriveCacheKey(path);
-
-        if (CACHE.containsKey(cacheKey)) {
-            return cacheKey;
-        }
-
-        JSONArray scenArray = readScenarioArray(path);
-        List<Loader.ScenarioEntry> entries = parseScenarioList(scenArray, dataDate);
-        putScenarioEntries(cacheKey, entries);
-        return cacheKey;
-    }
-
-    /**
-     * 从多个情景文件加载并合并缓存。
-     *
-     * @param cacheKey   缓存键
-     * @param filePaths  场景文件路径列表
-     * @param dataDate   基准日期
-     * @return cache_key
-     */
-    public static String loadFromFiles(String cacheKey, List<String> filePaths, LocalDate dataDate) {
-        String safeCacheKey = firstNonBlank(cacheKey);
-        if (safeCacheKey == null) {
-            throw new IllegalArgumentException("scenario cache_key 不能为空");
-        }
-        if (CACHE.containsKey(safeCacheKey)) {
-            return safeCacheKey;
-        }
-        if (filePaths == null || filePaths.isEmpty()) {
-            throw new IllegalArgumentException("scenario 文件列表不能为空, cache_key=" + safeCacheKey);
-        }
-
-        JSONArray merged = new JSONArray();
-        for (String filePath : filePaths) {
-            String safeFilePath = firstNonBlank(filePath);
-            if (safeFilePath == null) {
-                continue;
-            }
-            merged.addAll(readScenarioArray(Paths.get(safeFilePath)));
-        }
-        List<Loader.ScenarioEntry> entries = parseScenarioList(merged, dataDate);
-        putScenarioEntries(safeCacheKey, entries);
-        return safeCacheKey;
-    }
-
-    /**
-     * 直接将 scenario_data JSONArray 加载到缓存。
-     * 用于批处理层已组装好场景数据的场景。
-     *
-     * @param cacheKey   缓存键
-     * @param scenData   scenario_data JSON 数组
-     * @param dataDate   基准日期
-     */
-    public static void loadFromArray(String cacheKey, JSONArray scenData, LocalDate dataDate) {
-        if (CACHE.containsKey(cacheKey)) {
-            return;
-        }
-        List<Loader.ScenarioEntry> entries = parseScenarioList(scenData, dataDate);
-        putScenarioEntries(cacheKey, entries);
-    }
-
-    /**
-     * 通过 cache_key 获取场景列表。
-     *
-     * @param cacheKey 缓存键
-     * @return 场景条目列表，不存在时返回 null
-     */
-    public static List<Loader.ScenarioEntry> get(String cacheKey) {
-        if (cacheKey == null || cacheKey.isEmpty()) {
-            return null;
-        }
-        return CACHE.get(cacheKey);
-    }
-
-    /**
-     * 检查缓存中是否存在指定 key。
-     */
-    public static boolean contains(String cacheKey) {
-        return cacheKey != null && CACHE.containsKey(cacheKey);
-    }
-
-    /**
-     * 移除指定缓存。
-     */
-    public static void evict(String cacheKey) {
-        if (cacheKey != null) {
-            CACHE.remove(cacheKey);
-        }
-    }
-
-    /**
-     * 清理指定批次的情景缓存。
-     */
-    public static void evictByBatchId(String batchId) {
-        String safeBatchId = firstNonBlank(batchId);
-        if (safeBatchId == null) {
-            return;
-        }
-        String batchToken = ":" + safeBatchId + ":";
-        CACHE.keySet().removeIf(key -> key != null && key.contains(batchToken));
-    }
-
-    /**
-     * 清空所有缓存。
-     */
-    public static void clear() {
-        CACHE.clear();
-        OBJECT_CACHE.clear();
-        CACHE_KEY_ORDER.clear();
-        OBJECT_CACHE_KEY_ORDER.clear();
-    }
-
-    /**
-     * 直接存入已解析的场景条目列表。
-     */
-    public static void put(String cacheKey, List<Loader.ScenarioEntry> entries) {
-        putScenarioEntries(cacheKey, entries);
-    }
-
-    public static int scenarioEntryCacheSize() {
-        return CACHE.size();
-    }
-
-    public static int objectCacheSize() {
-        return OBJECT_CACHE.size();
-    }
-
-    // ==================== 通用对象缓存 ====================
-
-    /**
-     * 存入任意类型对象（用于跨批次结果复用等非 ScenarioEntry 场景）。
-     */
-    public static void putObject(String cacheKey, Object value) {
-        if (cacheKey != null && value != null) {
-            boolean existed = OBJECT_CACHE.containsKey(cacheKey);
-            OBJECT_CACHE.put(cacheKey, value);
-            if (!existed) {
-                OBJECT_CACHE_KEY_ORDER.offer(cacheKey);
-                trimCache(OBJECT_CACHE, OBJECT_CACHE_KEY_ORDER, MAX_OBJECT_CACHE_ENTRIES);
-            }
-        }
-    }
-
-    /**
-     * 获取通用对象缓存。
-     */
-    public static Object getObject(String cacheKey) {
-        if (cacheKey == null || cacheKey.isEmpty()) {
-            return null;
-        }
-        return OBJECT_CACHE.get(cacheKey);
-    }
-
-    /**
-     * 移除通用对象缓存。
-     */
-    public static void evictObject(String cacheKey) {
-        if (cacheKey != null) {
-            OBJECT_CACHE.remove(cacheKey);
-        }
-    }
-
-    private static void putScenarioEntries(String cacheKey, List<Loader.ScenarioEntry> entries) {
-        if (cacheKey == null) {
-            throw new IllegalArgumentException("scenario cache_key 不能为空");
-        }
-        boolean existed = CACHE.containsKey(cacheKey);
-        CACHE.put(cacheKey, Collections.unmodifiableList(new ArrayList<>(entries)));
-        if (!existed) {
-            CACHE_KEY_ORDER.offer(cacheKey);
-            trimCache(CACHE, CACHE_KEY_ORDER, MAX_SCENARIO_CACHE_ENTRIES);
-        }
-    }
-
-    private static void trimCache(ConcurrentHashMap<String, ?> cache, Queue<String> order, int maxEntries) {
-        while (cache.size() > maxEntries) {
-            String key = order.poll();
-            if (key == null) {
-                return;
-            }
-            cache.remove(key);
-        }
-    }
-
-    /**
-     * 返回当前缓存的 key 数量。
-     */
-    public static int size() {
-        return CACHE.size();
-    }
-
-    /**
-     * 从文件路径推导缓存键（使用文件名去掉扩展名）。
-     */
-    private static String deriveCacheKey(Path path) {
-        String fileName = path.getFileName().toString();
-        int dotIdx = fileName.lastIndexOf('.');
-        return dotIdx > 0 ? fileName.substring(0, dotIdx) : fileName;
-    }
-
-    /**
-     * 读取场景文件并解析为 JSONArray。
-     * 根据文件后缀自动选择解析方式。
-     */
-    private static JSONArray readScenarioArray(Path path) {
+    JSONArray read(Path path) {
         String fileName = path.getFileName().toString().toLowerCase();
         if (fileName.endsWith(".csv") || fileName.endsWith(".csv.gz")) {
-            return readCsvAsJsonArray(path);
+            return readCsv(path);
         }
         throw new IllegalArgumentException("场景文件格式无效，仅支持 .csv 或 .csv.gz: " + path);
     }
 
-    /**
-     * 读取 CSV 格式的场景文件，转换为 JSONArray。
-     * 首行为列头，后续行为数据。
-     */
-    private static JSONArray readCsvAsJsonArray(Path path) {
+    private JSONArray readCsv(Path path) {
         JSONArray result = new JSONArray();
-        try (BufferedReader reader = openCsvReader(path)) {
+        try (BufferedReader reader = openReader(path)) {
             String headerLine = reader.readLine();
             if (headerLine == null || headerLine.trim().isEmpty()) {
                 return result;
             }
             String[] headers = parseCsvLine(headerLine);
-
             String line;
             while ((line = reader.readLine()) != null) {
                 if (line.trim().isEmpty()) {
@@ -287,19 +48,17 @@ public class ScenarioCache {
                 String[] values = parseCsvLine(line);
                 JSONObject row = new JSONObject();
                 for (int i = 0; i < headers.length && i < values.length; i++) {
-                    String val = values[i];
-                    row.put(headers[i], val.isEmpty() ? null : val);
+                    row.put(headers[i], values[i].isEmpty() ? null : values[i]);
                 }
                 result.add(row);
             }
+            return result;
         } catch (IOException ex) {
-            throw new IllegalArgumentException(
-                    "加载 CSV 场景文件失败: " + path + ", " + ex.getMessage(), ex);
+            throw new IllegalArgumentException("加载 CSV 场景文件失败: " + path + ", " + ex.getMessage(), ex);
         }
-        return result;
     }
 
-    private static BufferedReader openCsvReader(Path path) throws IOException {
+    private BufferedReader openReader(Path path) throws IOException {
         String fileName = path.getFileName().toString().toLowerCase();
         if (fileName.endsWith(".csv.gz")) {
             return new BufferedReader(new InputStreamReader(
@@ -308,176 +67,35 @@ public class ScenarioCache {
         return Files.newBufferedReader(path, StandardCharsets.UTF_8);
     }
 
-    /**
-     * 解析 CSV 行：支持双引号包裹、转义双引号
-     */
     private static String[] parseCsvLine(String line) {
         List<String> fields = new ArrayList<>();
-        StringBuilder sb = new StringBuilder();
+        StringBuilder value = new StringBuilder();
         boolean inQuotes = false;
         for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
+            char current = line.charAt(i);
             if (inQuotes) {
-                if (c == '"') {
+                if (current == '"') {
                     if (i + 1 < line.length() && line.charAt(i + 1) == '"') {
-                        sb.append('"');
+                        value.append('"');
                         i++;
                     } else {
                         inQuotes = false;
                     }
                 } else {
-                    sb.append(c);
+                    value.append(current);
                 }
+            } else if (current == '"') {
+                inQuotes = true;
+            } else if (current == ',') {
+                fields.add(value.toString());
+                value.setLength(0);
             } else {
-                if (c == '"') {
-                    inQuotes = true;
-                } else if (c == ',') {
-                    fields.add(sb.toString());
-                    sb.setLength(0);
-                } else {
-                    sb.append(c);
-                }
+                value.append(current);
             }
         }
-        fields.add(sb.toString());
+        fields.add(value.toString());
         return fields.toArray(new String[0]);
     }
-
-
-
-    /**
-     * 按风险因子分组切分 MarketData（供 Calc 动态过滤使用）。
-     */
-    public static MarketData sliceByGroup(MarketData src, String group) {
-        MarketData md = new MarketData();
-        if (src == null || "ALL".equals(group)) {
-            return src == null ? md : src;
-        }
-        switch (group) {
-            case "IR":
-                md.irSpot = filterIrSpotByCurveType(src.irSpot, "IR_SPOT");
-                md.irVol = src.irVol;
-                break;
-            case "CS":
-                md.irSpot = filterIrSpotByCurveType(src.irSpot, "CREDIT_SPOT");
-                break;
-            case "FX":
-                md.fxSpot = src.fxSpot;
-                md.fxVol = src.fxVol;
-                break;
-            case "EQ":
-                md.eqSpot = src.eqSpot;
-                md.eqVol = src.eqVol;
-                break;
-            case "COMM":
-                md.commSpot = src.commSpot;
-                md.commVol = src.commVol;
-                break;
-            default:
-                break;
-        }
-        return md;
-    }
-
-    /**
-     * 从切片后的 MarketData 推导 impact keys（供 Calc 动态过滤使用）。
-     */
-    public static java.util.Set<String> deriveKeysFromSlice(MarketData md, String group) {
-        java.util.Set<String> keys = new LinkedHashSet<>();
-        if (md == null) {
-            return keys;
-        }
-        // ALL 组使用原始 impactKeys 或推导全部
-        if ("ALL".equals(group)) {
-            addIrSpotKeysByCurveType(keys, md.irSpot);
-            addMapKeys(keys, "IR_VOL", md.irVol);
-            addMapKeys(keys, "EQ_SPOT", md.eqSpot);
-            addMapKeys(keys, "EQ_VOL", md.eqVol);
-            addMapKeys(keys, "COMM_SPOT", md.commSpot);
-            addMapKeys(keys, "COMM_VOL", md.commVol);
-            addMapKeys(keys, "FX_VOL", md.fxVol);
-            if (md.fxSpot != null && md.fxSpot.curveData != null) {
-                for (String ccyPair : md.fxSpot.curveData.keySet()) {
-                    keys.add("FX_SPOT:" + ccyPair.trim().toUpperCase());
-                }
-            }
-            return keys;
-        }
-        // 单因子组只推导对应类型
-        switch (group) {
-            case "IR":
-                addMapKeys(keys, "IR_SPOT", md.irSpot);
-                addMapKeys(keys, "IR_VOL", md.irVol);
-                break;
-            case "CS":
-                addMapKeys(keys, "CREDIT_SPOT", md.irSpot);
-                break;
-            case "FX":
-                addMapKeys(keys, "FX_VOL", md.fxVol);
-                if (md.fxSpot != null && md.fxSpot.curveData != null) {
-                    for (String ccyPair : md.fxSpot.curveData.keySet()) {
-                        keys.add("FX_SPOT:" + ccyPair.trim().toUpperCase());
-                    }
-                }
-                break;
-            case "EQ":
-                addMapKeys(keys, "EQ_SPOT", md.eqSpot);
-                addMapKeys(keys, "EQ_VOL", md.eqVol);
-                break;
-            case "COMM":
-                addMapKeys(keys, "COMM_SPOT", md.commSpot);
-                addMapKeys(keys, "COMM_VOL", md.commVol);
-                break;
-            default:
-                break;
-        }
-        return keys;
-    }
-
-    private static java.util.HashMap<String, IrSpot.IrSpotInfo> filterIrSpotByCurveType(
-            java.util.HashMap<String, IrSpot.IrSpotInfo> source, String curveType) {
-        java.util.HashMap<String, IrSpot.IrSpotInfo> result = new java.util.HashMap<>();
-        if (source == null || source.isEmpty()) {
-            return result;
-        }
-        for (Map.Entry<String, IrSpot.IrSpotInfo> entry : source.entrySet()) {
-            IrSpot.IrSpotInfo info = entry.getValue();
-            if (info != null && curveType.equals(info.curveType)) {
-                result.put(entry.getKey(), info);
-            }
-        }
-        return result;
-    }
-
-    private static void addIrSpotKeysByCurveType(
-            java.util.Set<String> target, java.util.HashMap<String, IrSpot.IrSpotInfo> irSpot) {
-        if (irSpot == null || irSpot.isEmpty()) {
-            return;
-        }
-        for (Map.Entry<String, IrSpot.IrSpotInfo> entry : irSpot.entrySet()) {
-            String key = entry.getKey();
-            IrSpot.IrSpotInfo info = entry.getValue();
-            if (key == null || info == null || info.curveType == null) {
-                continue;
-            }
-            if ("IR_SPOT".equals(info.curveType) || "CREDIT_SPOT".equals(info.curveType)) {
-                target.add(info.curveType + ":" + key.trim().toUpperCase());
-            }
-        }
-    }
-
-    @SuppressWarnings("rawtypes")
-    private static void addMapKeys(java.util.Set<String> target, String type, java.util.HashMap map) {
-        if (map == null || map.isEmpty()) {
-            return;
-        }
-        for (Object key : map.keySet()) {
-            if (key != null) {
-                target.add(type + ":" + key.toString().trim().toUpperCase());
-            }
-        }
-    }
-
     // ==================== 场景扁平记录解析 ====================
 
     /**
@@ -493,7 +111,7 @@ public class ScenarioCache {
      * @param dataDate  基准日期
      * @return 解析后的 ScenarioEntry 列表
      */
-    static List<Loader.ScenarioEntry> parseScenarioList(JSONArray scenArray, LocalDate dataDate) {
+    List<Loader.ScenarioEntry> parseScenarioList(JSONArray scenArray, LocalDate dataDate) {
         List<Loader.ScenarioEntry> result = new ArrayList<>();
         if (scenArray == null || scenArray.isEmpty()) {
             return result;

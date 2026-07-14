@@ -110,20 +110,10 @@
 
     <div class="card">
         <h2>Async Job</h2>
-        <p class="hint">submit, detail, result, cancel, polling</p>
-        <textarea id="asyncPayload">{
-  "requestId": "ui-async-001",
-  "engineCode": "mr_calc",
-  "idempotencyKey": "ui-idem-001",
-  "payload": {}
-}</textarea>
-        <div class="row">
-            <button onclick="submitJob()">Submit</button>
-        </div>
+        <p class="hint">detail, result, cancel, polling</p>
         <div class="row">
             <input id="jobIdInput" class="w340" placeholder="JOB-..." />
             <button onclick="getDetail()">Detail</button>
-            <button onclick="getResult()">Result</button>
             <button class="secondary" onclick="cancelJob()">Cancel</button>
             <button class="secondary" onclick="autoPoll()">Auto Poll</button>
         </div>
@@ -181,15 +171,6 @@
         document.getElementById("syncPayload").value = JSON.stringify(payload, null, 2);
     }
 
-    async function submitJob() {
-        const payload = document.getElementById("asyncPayload").value;
-        const result = await callApi("POST", "/api/jobs/submit", payload);
-        if (result.body && result.body.data && result.body.data.jobId) {
-            document.getElementById("jobIdInput").value = result.body.data.jobId;
-        }
-        print("ASYNC /api/jobs/submit", result);
-    }
-
     async function getDetail() {
         const jobId = getJobId();
         if (!jobId) {
@@ -198,16 +179,6 @@
         }
         const result = await callApi("GET", "/api/jobs/" + encodeURIComponent(jobId));
         print("ASYNC /api/jobs/{jobId}", result);
-    }
-
-    async function getResult() {
-        const jobId = getJobId();
-        if (!jobId) {
-            print("RESULT", { error: "jobId is required" });
-            return;
-        }
-        const result = await callApi("GET", "/api/jobs/" + encodeURIComponent(jobId) + "/result");
-        print("ASYNC /api/jobs/{jobId}/result", result);
     }
 
     async function cancelJob() {

@@ -7,7 +7,6 @@ import com.zcyh.mr.springboot.engine.FrtbSaEngineAdapter;
 import com.zcyh.mr.springboot.engine.ImaCapitalEngineAdapter;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
 import com.zcyh.mr.springboot.engine.SaccrEngineAdapter;
-import com.zcyh.mr.springboot.engine.VarEngineAdapter;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
 import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.springboot.engine.ScenarioEngineAdapter;
@@ -20,11 +19,11 @@ import com.zcyh.mr.springboot.out.db.CalcRuleMetaPersistService;
 import com.zcyh.mr.springboot.service.DimensionAggregationService;
 import com.zcyh.mr.springboot.service.FrtbDrcDbRunnerService;
 import com.zcyh.mr.springboot.service.FrtbSbaDbRunnerService;
-import com.zcyh.mr.springboot.service.FrtbSbaSummaryService;
+import com.zcyh.mr.springboot.service.FrtbSbaDbRunnerService;
+import com.zcyh.mr.springboot.service.ImaRiskFactorConfigService;
 import com.zcyh.mr.springboot.out.db.ScenarioDetailResultService;
 import com.zcyh.mr.springboot.out.cache.ScenarioResultCacheService;
 import com.zcyh.mr.springboot.out.db.SaccrResultPersistService;
-import com.zcyh.mr.springboot.service.VarDbRunnerService;
 import com.zcyh.mr.springboot.saccr.SaccrInputQueryService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,8 +46,9 @@ public class EngineRegistryConfig {
 
     @Bean
     public MrCalcEngineAdapter mrCalcEngineAdapter(
-            @Value("${mr.calc.scenario-set.root-dir:}") String scenarioSetRootDir) {
-        return new MrCalcEngineAdapter(scenarioSetRootDir);
+            @Value("${mr.calc.scenario-set.root-dir:}") String scenarioSetRootDir,
+            ImaRiskFactorConfigService imaRiskFactorConfigService) {
+        return new MrCalcEngineAdapter(scenarioSetRootDir, imaRiskFactorConfigService);
     }
 
     @Bean(destroyMethod = "shutdown")
@@ -73,19 +73,13 @@ public class EngineRegistryConfig {
     }
 
     @Bean
-    public FrtbSaEngineAdapter frtbSaEngineAdapter(FrtbAggregator frtbAggregator,
-                                                   FrtbSbaDbRunnerService frtbSbaDbRunnerService) {
-        return new FrtbSaEngineAdapter(frtbAggregator, frtbSbaDbRunnerService);
+    public FrtbSaEngineAdapter frtbSaEngineAdapter(FrtbAggregator frtbAggregator) {
+        return new FrtbSaEngineAdapter(frtbAggregator);
     }
 
     @Bean
-    public FrtbDrcEngineAdapter frtbDrcEngineAdapter(FrtbDrcDbRunnerService frtbDrcDbRunnerService) {
-        return new FrtbDrcEngineAdapter(frtbDrcDbRunnerService);
-    }
-
-    @Bean
-    public VarEngineAdapter varEngineAdapter(VarDbRunnerService varDbRunnerService) {
-        return new VarEngineAdapter(varDbRunnerService);
+    public FrtbDrcEngineAdapter frtbDrcEngineAdapter() {
+        return new FrtbDrcEngineAdapter();
     }
 
     @Bean
@@ -114,7 +108,7 @@ public class EngineRegistryConfig {
             BatchTradeDataLoader batchTradeDataLoader,
             CalcRuleMetaPersistService calcRuleMetaPersistService,
             DimensionAggregationService dimensionAggregationService,
-            FrtbSbaSummaryService frtbSbaSummaryService,
+            FrtbSbaDbRunnerService frtbSbaDbRunnerService,
             ImaCapitalResultPersistService imaCapitalResultPersistService,
             ImaEsResultDetailPersistService imaEsResultDetailPersistService,
             ImaNmrfResultPersistService imaNmrfResultPersistService) {
@@ -124,7 +118,7 @@ public class EngineRegistryConfig {
                 batchTradeDataLoader,
                 calcRuleMetaPersistService,
                 dimensionAggregationService,
-                frtbSbaSummaryService,
+                frtbSbaDbRunnerService,
                 imaCapitalResultPersistService,
                 imaEsResultDetailPersistService,
                 imaNmrfResultPersistService);

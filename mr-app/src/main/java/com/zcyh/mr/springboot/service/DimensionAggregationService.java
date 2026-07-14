@@ -47,24 +47,11 @@ public class DimensionAggregationService {
         if (normalizedOrder.isEmpty()) {
             throw new IllegalArgumentException("AggregationRule.buildOrder 不能为空");
         }
-        List<String> normalizedGroupByFields = normalizeFieldList(rule.getGroupByFields());
-        if (normalizedGroupByFields.isEmpty()) {
-            throw new IllegalArgumentException("AggregationRule.groupByFields 不能为空");
-        }
         List<String> normalizedSumFields = normalizeFieldList(rule.getSumFields());
         if (normalizedSumFields.isEmpty()) {
             throw new IllegalArgumentException("AggregationRule.sumFields 不能为空");
         }
-        for (String level : normalizedOrder) {
-            if (TOTAL.equalsIgnoreCase(level)) {
-                continue;
-            }
-            if (!containsIgnoreCase(normalizedGroupByFields, level)) {
-                throw new IllegalArgumentException("AggregationRule.buildOrder 层级不在 groupByFields 中: " + level);
-            }
-        }
         rule.setBuildOrder(normalizedOrder);
-        rule.setGroupByFields(normalizedGroupByFields);
         rule.setSumFields(normalizedSumFields);
 
         if (rule.getFilterTree() != null) {
@@ -210,18 +197,6 @@ public class DimensionAggregationService {
             }
         }
         return normalized;
-    }
-
-    private static boolean containsIgnoreCase(List<String> values, String target) {
-        if (values == null || values.isEmpty() || trimToNull(target) == null) {
-            return false;
-        }
-        for (String value : values) {
-            if (target.equalsIgnoreCase(value)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static String trimToNull(String txt) {

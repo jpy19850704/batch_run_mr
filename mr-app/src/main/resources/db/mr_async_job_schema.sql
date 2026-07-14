@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS MR_ASYNC_JOB (
     success_flag SMALLINT,
     error_code VARCHAR(64),
     error_message VARCHAR(1024),
-    result_json TEXT,
     idempotency_key VARCHAR(128),
     trace_id VARCHAR(128),
     client_id VARCHAR(128),

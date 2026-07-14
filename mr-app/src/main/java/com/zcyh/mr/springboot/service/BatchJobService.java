@@ -1,29 +1,12 @@
 package com.zcyh.mr.springboot.service;
 
-import com.zcyh.mr.springboot.support.ResultPersistTime;
-
-import com.zcyh.mr.springboot.support.DorisStreamLoadService;
-
-import com.zcyh.mr.springboot.support.DorisCsvStreamLoadBuffer;
-
-import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONObject;
-import com.alibaba.fastjson2.JSONWriter;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
 import com.zcyh.mr.springboot.context.RequestContext;
 import com.zcyh.mr.springboot.context.RequestContextHolder;
 import com.zcyh.mr.springboot.model.BatchDetailResult;
-import com.zcyh.mr.springboot.model.BatchPatchRequest;
-import com.zcyh.mr.springboot.model.BatchSubmitRequest;
-import com.zcyh.mr.springboot.model.BatchSubmitResult;
 import com.zcyh.mr.springboot.model.JobSubmitRequest;
 import com.zcyh.mr.springboot.model.JobSubmitResult;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
@@ -32,27 +15,15 @@ import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * 批量异步任务服务。
- * 负责调度协调、状态管理和 DB 元数据操作。
- * 数据加载委托给 {@link BatchTradeDataLoader}，
- * 分片策略委托给 {@link TradeChunkSplitter}，
- * Payload 构建委托给 {@link JobPayloadBuilder}。
+ * 负责批次元数据、状态聚合和子任务记录。
  */
 @Service
 public class BatchJobService {
-    private static final Logger log = LoggerFactory.getLogger(BatchJobService.class);
     private static final String BATCH_PENDING = "PENDING";
     private static final String BATCH_SUBMITTED = "SUBMITTED";
     private static final String BATCH_RUNNING = "RUNNING";
@@ -60,33 +31,8 @@ public class BatchJobService {
     private static final String BATCH_FAILED = "FAILED";
     private static final String BATCH_PARTIAL_FAILED = "PARTIAL_FAILED";
     private static final String BATCH_CANCELLED = "CANCELLED";
+    static final String PAYLOAD_JSON_PARSE_ERROR = "PAYLOAD_JSON_PARSE_ERROR";
     private static final String JOB_API_BASE_PATH = "/api/jobs";
-    private static final Pattern DATE_8_PATTERN = Pattern.compile("^(20\\d{6})$");
-    private static final Pattern BATCH_ID_PATTERN = Pattern.compile("^[A-Za-z0-9._-]+$");
-    private static final int RESULT_DB_CLEAR_MAX_ATTEMPTS = 5;
-    private static final long RESULT_DB_CLEAR_RETRY_INTERVAL_MILLIS = 1000L;
-    private static final String[] RESULT_DB_TRANSIENT_ERROR_KEYWORDS = {
-            "no queryable replicas",
-            "not alive",
-            "no backend available",
-            "backend is down",
-            "connection refused",
-            "communications link failure"
-    };
-    private static final String[] MR_CALC_DETAIL_RESULT_TABLES = {
-            "TB_OUT_TRADE_RESULT_DETAIL",
-            "TB_OUT_TRADE_SCENARIO_RESULT_DETAIL",
-            "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL",
-            "TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL",
-            "TB_OUT_TRADE_DRC_DETAIL",
-            "TB_OUT_MARKET_DATA_DETAIL",
-            "TB_OUT_PORTFOLIO_HIERARCHY",
-            "TB_OUT_SCENARIO_FILE_DETAIL",
-            "TB_OUT_IMA_MODELLABLE_SCENARIO_PNL",
-            "TB_OUT_IMA_NMRF_SCENARIO_PNL"
-    };
-    private static final List<String> SUPPORTED_BATCH_OP_CODES = buildSupportedBatchOpCodes();
-
     private static final RowMapper<BatchJobRow> BATCH_JOB_ROW_MAPPER = new RowMapper<BatchJobRow>() {
         @Override
         public BatchJobRow mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -137,13 +83,6 @@ public class BatchJobService {
 
     private final AsyncJobService asyncJobService;
     private final JdbcTemplate jdbcTemplate;
-    private final JdbcTemplate engineResultDbJdbcTemplate;
-    private final DorisStreamLoadService dorisStreamLoadService;
-    private final MrMarketDataSliceService marketDataSliceService;
-    private final AlertService alertService;
-    private final BatchTradeDataLoader dataLoader;
-    private final TradeChunkSplitter chunkSplitter;
-    private final JobPayloadBuilder payloadBuilder;
     private final int weightBudget;
     private final long pollAfterMs;
     private final String batchApiBasePath;
@@ -151,26 +90,12 @@ public class BatchJobService {
     public BatchJobService(
             AsyncJobService asyncJobService,
             @Qualifier("engineDbJdbcTemplate") JdbcTemplate jdbcTemplate,
-            @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate,
-            DorisStreamLoadService dorisStreamLoadService,
-            MrMarketDataSliceService marketDataSliceService,
-            AlertService alertService,
-            BatchTradeDataLoader dataLoader,
-            TradeChunkSplitter chunkSplitter,
-            JobPayloadBuilder payloadBuilder,
             @Value("${mr.batch.weight-budget:100}") int weightBudget,
             @Value("${mr.batch.client.poll-after-ms:500}") long pollAfterMs,
             @Value("${mr.batch.api.base-path:/api/jobs/batch}") String batchApiBasePath
     ) {
         this.asyncJobService = asyncJobService;
         this.jdbcTemplate = jdbcTemplate;
-        this.engineResultDbJdbcTemplate = engineResultDbJdbcTemplate;
-        this.dorisStreamLoadService = dorisStreamLoadService;
-        this.marketDataSliceService = marketDataSliceService;
-        this.alertService = alertService;
-        this.dataLoader = dataLoader;
-        this.chunkSplitter = chunkSplitter;
-        this.payloadBuilder = payloadBuilder;
         this.weightBudget = Math.max(1, weightBudget);
         this.pollAfterMs = Math.max(100L, pollAfterMs);
         this.batchApiBasePath = normalizeApiBasePath(batchApiBasePath);
@@ -190,14 +115,6 @@ public class BatchJobService {
 
     // ==================== 提交入口 ====================
 
-    public BatchSubmitResult submit(BatchSubmitRequest request) {
-        return submitInternal(request, null);
-    }
-
-    public BatchSubmitResult submit(BatchSubmitRequest request, String scenarioIdList) {
-        return submitInternal(request, scenarioIdList);
-    }
-
     void prepareBatchSubmission(
             String batchId,
             String requestId,
@@ -214,7 +131,7 @@ public class BatchJobService {
             return;
         }
         ensureBatchNotRunning(batchId);
-        clearExistingBatchData(batchId, dataDate);
+        clearExistingBatchData(batchId);
         insertBatchJob(batchId, requestId, engineCode, opCode, dataDate, portfolio, desk, totalTrades, totalJobs, now);
     }
 
@@ -227,12 +144,11 @@ public class BatchJobService {
             String portfolio,
             String desk,
             long now,
-                String message,
-                boolean clearResultData) {
+            String message) {
         ensureNoOtherWorkflowRunning(batchId);
         ensureWorkflowNotRunning(batchId);
         ensureBatchNotRunning(batchId);
-        clearExistingBatchData(batchId, dataDate, clearResultData);
+        clearExistingBatchData(batchId);
         insertBatchJob(batchId, requestId, engineCode, opCode, dataDate, portfolio, desk, 0, 0, now);
         updateBatchStatus(batchId, BATCH_PENDING, 0, 0, 0, 0, 0, now, message);
     }
@@ -282,204 +198,50 @@ public class BatchJobService {
         );
     }
 
-    private BatchSubmitResult submitInternal(BatchSubmitRequest request, String scenarioIdList) {
-        if (request == null) {
-            throw new IllegalArgumentException("request 不能为空");
+    String submitBatchChildJob(
+            String batchId,
+            String requestId,
+            String engineCode,
+            BatchJobPayload jobPayload) {
+        if (jobPayload == null) {
+            throw new IllegalArgumentException("jobPayload 不能为空");
         }
-        String opCode = requireSupportedOpCode(request.getOpCode());
-        LocalDate dataDate = parseDataDate(request.getDataDate());
-        String engineCode = MrCalcEngineAdapter.CODE;
-        String batchId = resolveBatchId(request, dataDate);
-        RequestContextHolder.setBatchId(batchId);
-        RequestContextHolder.setEngineCode(engineCode);
-        String portfolio = trimToNull(request.getPortfolio());
-        String desk = trimToNull(request.getDesk());
-        String runMode = normalizeRunMode(request.getRunMode());
-
-        List<BatchTradeDataLoader.TradeRow> trades = dataLoader.loadTradeRows(dataDate, portfolio, desk);
-        if (trades.isEmpty()) {
-            throw new IllegalArgumentException("未查询到交易数据，请检查 dataDate/portfolio/desk 条件");
-        }
-        List<BatchTradeDataLoader.CurveRow> curves = dataLoader.loadCurveRows(dataDate);
-        if (curves.isEmpty()) {
-            throw new IllegalArgumentException("未查询到市场数据，请先加载 MR_MARKET_CURVE_INPUT");
+        int seqNo = jobPayload.getSeqNo();
+        String jobId = buildJobId(batchId, seqNo);
+        if (jobPayload.isFailed()) {
+            asyncJobService.recordFailedJob(
+                    jobId,
+                    buildJobRequestId(requestId, seqNo),
+                    engineCode,
+                    jobPayload.getErrorCode(),
+                    jobPayload.getErrorMessage());
+            insertBatchItem(batchId, seqNo, jobId, jobPayload.getChunkTrades());
+            return jobId;
         }
 
-        ensureWorkflowNotRunning(batchId);
-        ensureBatchNotRunning(batchId);
-        clearExistingBatchData(batchId, dataDate);
+        JobSubmitRequest jobRequest = new JobSubmitRequest();
+        jobRequest.setJobId(jobId);
+        jobRequest.setRequestId(buildJobRequestId(requestId, seqNo));
+        jobRequest.setEngineCode(engineCode);
+        jobRequest.setIdempotencyKey(jobId);
+        jobRequest.setPayload(jobPayload.getPayload());
 
-        List<List<BatchTradeDataLoader.TradeRow>> chunks = chunkSplitter.splitChunks(trades, weightBudget);
-        List<MrMarketDataSliceService.CurveSliceSource> curveSources = JobPayloadBuilder.toCurveSliceSources(curves);
-        String requestId = trimToNull(request.getRequestId());
-        if (requestId == null) {
-            requestId = batchId;
-        }
-        long now = System.currentTimeMillis();
-
-        insertBatchJob(batchId, requestId, engineCode, opCode, dataDate, portfolio, desk, trades.size(), chunks.size(), now);
-        log.info("批量任务开始提交，batchId={}, totalTrades={}, totalJobs={}", batchId, trades.size(), chunks.size());
-
-        int submittedJobs = 0;
-        List<String> submittedJobIds = new ArrayList<String>();
-        try {
-            syncPortfolioHierarchySnapshot(batchId, dataDate);
-            for (int i = 0; i < chunks.size(); i++) {
-                int seqNo = i + 1;
-                List<BatchTradeDataLoader.TradeRow> chunkTrades = chunks.get(i);
-                String jobId = buildJobId(batchId, seqNo);
-                JSONObject payload;
-                try {
-                    MrMarketDataSliceService.SliceResult sliceResult = marketDataSliceService.sliceCurvesWithTradeKeys(
-                            JobPayloadBuilder.toTradeSliceSources(chunkTrades),
-                            curveSources);
-                    payload = payloadBuilder.buildPayload(opCode, dataDate, chunkTrades, sliceResult.getCurves(),
-                            sliceResult.getTradeMarketDataKeys(), batchId, seqNo, scenarioIdList, null, true, false);
-                    if (runMode != null) {
-                        payload.put("run_mode", runMode);
-                    }
-                } catch (PayloadJsonParseException ex) {
-                    asyncJobService.recordFailedJob(
-                            jobId,
-                            buildJobRequestId(requestId, seqNo),
-                            engineCode,
-                            BatchPayloadBuildTask.PAYLOAD_JSON_PARSE_ERROR,
-                            ex.getMessage());
-                    insertBatchItem(batchId, seqNo, jobId, chunkTrades);
-                    submittedJobs++;
-                    continue;
-                }
-
-                JobSubmitRequest jobRequest = new JobSubmitRequest();
-                jobRequest.setJobId(jobId);
-                jobRequest.setRequestId(buildJobRequestId(requestId, seqNo));
-                jobRequest.setEngineCode(engineCode);
-                jobRequest.setIdempotencyKey(jobId);
-                jobRequest.setPayload(payload);
-
-                JobSubmitResult submitResult = asyncJobService.submit(jobRequest);
-                submittedJobIds.add(submitResult.getJobId());
-                insertBatchItem(batchId, seqNo, submitResult.getJobId(), chunkTrades);
-                submittedJobs++;
-            }
-            updateBatchStatus(batchId, BATCH_SUBMITTED, 0, 0, 0, 0, 0, now, "批量任务已提交");
-        } catch (Exception ex) {
-            for (String submittedId : submittedJobIds) {
-                try {
-                    asyncJobService.cancel(submittedId);
-                } catch (Exception cancelEx) {
-                    log.warn("批量任务补偿取消失败，batchId={}, jobId={}", batchId, submittedId);
-                }
-            }
-            int pending = Math.max(0, chunks.size() - submittedJobs);
-            updateBatchStatus(
-                    batchId, BATCH_FAILED, pending, 0, 0, submittedJobIds.size(), 0,
-                    System.currentTimeMillis(),
-                    "批量提交失败(已取消" + submittedJobIds.size() + "个子任务): " + ex.getMessage()
-            );
-            alertService.error("BATCH_FAILED", "批量任务提交失败，batchId=" + batchId, ex);
-            throw ex;
-        }
-        log.info("批量任务提交完成，batchId={}, totalJobs={}", batchId, chunks.size());
-
-        BatchSubmitResult result = new BatchSubmitResult();
-        result.setBatchId(batchId);
-        result.setRequestId(requestId);
-        result.setEngineCode(engineCode);
-        result.setOpCode(opCode);
-        result.setDataDate(dataDate.toString());
-        result.setStatus(BATCH_SUBMITTED);
-        result.setTotalTrades(trades.size());
-        result.setTotalJobs(chunks.size());
-        result.setWeightBudget(weightBudget);
-        result.setSubmittedAt(now);
-        result.setPollAfterMs(pollAfterMs);
-        result.setDetailUrl(buildDetailUrl(batchId));
-        result.setMessage("批量任务已提交");
-        return result;
+        JobSubmitResult submitResult = asyncJobService.submit(jobRequest);
+        insertBatchItem(batchId, seqNo, submitResult.getJobId(), jobPayload.getChunkTrades());
+        return submitResult.getJobId();
     }
 
-    public BatchSubmitResult submitPatch(BatchPatchRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("request 不能为空");
+    int prepareLocalRerun(String batchId, LocalDate dataDate) {
+        String safeBatchId = requireNonBlank(batchId, "batchId 不能为空");
+        if (dataDate == null) {
+            throw new IllegalArgumentException("dataDate 不能为空");
         }
-        String batchId = requireNonBlank(request.getBatchId(), "batchId 不能为空");
-        RequestContextHolder.setBatchId(batchId);
-        LocalDate dataDate = parseDataDate(request.getDataDate());
-        BatchJobRow batchRow = requireBatchRow(batchId);
-        RequestContextHolder.setEngineCode(batchRow.engineCode);
+        BatchJobRow batchRow = requireBatchRow(safeBatchId);
         if (batchRow.dataDate == null || !batchRow.dataDate.equals(dataDate)) {
-            throw new IllegalArgumentException("dataDate 与批次不一致: " + batchId);
+            throw new IllegalArgumentException("dataDate 与批次不一致: " + safeBatchId);
         }
-
-        ensureBatchNotRunning(batchId);
-        List<String> instrumentIds = BatchTradeDataLoader.normalizeInstrumentIds(request.getInstrumentIdList());
-        if (instrumentIds.isEmpty()) {
-            throw new IllegalArgumentException("instrumentIdList 不能为空");
-        }
-
-        List<BatchTradeDataLoader.TradeRow> trades = dataLoader.loadTradeRowsByInstrumentIds(dataDate, instrumentIds);
-        BatchTradeDataLoader.ensureAllInstrumentIdsLoaded(instrumentIds, trades);
-        List<BatchTradeDataLoader.CurveRow> curves = dataLoader.loadCurveRows(dataDate);
-        if (curves.isEmpty()) {
-            throw new IllegalArgumentException("未查询到市场数据，请先加载 MR_MARKET_CURVE_INPUT");
-        }
-
-        List<List<BatchTradeDataLoader.TradeRow>> chunks = chunkSplitter.splitChunks(trades, weightBudget);
-        List<MrMarketDataSliceService.CurveSliceSource> curveSources = JobPayloadBuilder.toCurveSliceSources(curves);
-        String requestId = trimToNull(request.getRequestId());
-        if (requestId == null) {
-            requestId = batchId;
-        }
-        int nextSeqNo = nextSeqNo(batchId);
-        boolean frtbDisabled = Boolean.TRUE.equals(request.getFrtbDisable());
-
-        try {
-            syncPortfolioHierarchySnapshot(batchId, dataDate);
-            for (int i = 0; i < chunks.size(); i++) {
-                int seqNo = nextSeqNo + i;
-                List<BatchTradeDataLoader.TradeRow> chunkTrades = chunks.get(i);
-                MrMarketDataSliceService.SliceResult sliceResult = marketDataSliceService.sliceCurvesWithTradeKeys(
-                        JobPayloadBuilder.toTradeSliceSources(chunkTrades),
-                        curveSources
-                );
-                JSONObject payload = payloadBuilder.buildPayload(batchRow.opCode, dataDate, chunkTrades, sliceResult.getCurves(),
-                        sliceResult.getTradeMarketDataKeys(), batchId, seqNo, null, null, true, frtbDisabled);
-
-                JobSubmitRequest jobRequest = new JobSubmitRequest();
-                String jobId = buildJobId(batchId, seqNo);
-                jobRequest.setJobId(jobId);
-                jobRequest.setRequestId(buildJobRequestId(requestId, seqNo));
-                jobRequest.setEngineCode(batchRow.engineCode);
-                jobRequest.setIdempotencyKey(jobId);
-                jobRequest.setPayload(payload);
-
-                JobSubmitResult submitResult = asyncJobService.submit(jobRequest);
-                insertBatchItem(batchId, seqNo, submitResult.getJobId(), chunkTrades);
-            }
-            refreshBatchSummary(batchId, "批次局部重跑任务已提交");
-        } catch (Exception ex) {
-            refreshBatchSummary(batchId, "批次局部重跑提交失败: " + ex.getMessage());
-            alertService.error("BATCH_PATCH_FAILED", "批次局部重跑提交失败，batchId=" + batchId, ex);
-            throw ex;
-        }
-
-        BatchJobRow latest = requireBatchRow(batchId);
-        BatchSubmitResult result = new BatchSubmitResult();
-        result.setBatchId(batchId);
-        result.setRequestId(requestId);
-        result.setEngineCode(latest.engineCode);
-        result.setOpCode(latest.opCode);
-        result.setDataDate(latest.dataDate == null ? null : latest.dataDate.toString());
-        result.setStatus(latest.status);
-        result.setTotalTrades(trades.size());
-        result.setTotalJobs(chunks.size());
-        result.setWeightBudget(weightBudget);
-        result.setSubmittedAt(System.currentTimeMillis());
-        result.setPollAfterMs(pollAfterMs);
-        result.setDetailUrl(buildDetailUrl(batchId));
-        result.setMessage("批次局部重跑任务已提交");
-        return result;
+        ensureBatchNotRunning(safeBatchId);
+        return nextSeqNo(safeBatchId);
     }
 
     // ==================== 查询 ====================
@@ -510,6 +272,18 @@ public class BatchJobService {
             batchRow = requireBatchRow(safeBatchId);
         }
         return buildBatchDetail(batchRow, itemRows, aggregated.done, aggregated.success);
+    }
+
+    int getWeightBudget() {
+        return weightBudget;
+    }
+
+    long getPollAfterMs() {
+        return pollAfterMs;
+    }
+
+    String getDetailUrl(String batchId) {
+        return buildDetailUrl(batchId);
     }
 
     private BatchDetailResult buildBatchDetail(BatchJobRow batchRow, List<BatchItemRow> itemRows, boolean done, boolean success) {
@@ -586,20 +360,11 @@ public class BatchJobService {
         }
     }
 
-    private void clearExistingBatchData(String batchId, LocalDate dataDate) {
-        clearExistingBatchData(batchId, dataDate, true);
-    }
-
-    private void clearExistingBatchData(String batchId, LocalDate dataDate, boolean clearResultData) {
+    private void clearExistingBatchData(String batchId) {
         List<String> oldJobIds = jdbcTemplate.queryForList(
                 "SELECT job_id FROM MR_ASYNC_BATCH_ITEM WHERE batch_id=? ORDER BY seq_no",
                 String.class,
-                batchId
-        );
-
-        if (clearResultData) {
-            clearExistingResultData(batchId, dataDate);
-        }
+                batchId);
 
         jdbcTemplate.update("DELETE FROM MR_ASYNC_BATCH_ITEM WHERE batch_id=?", batchId);
         jdbcTemplate.update("DELETE FROM MR_ASYNC_BATCH_JOB WHERE batch_id=?", batchId);
@@ -612,131 +377,6 @@ public class BatchJobService {
             }
         }
     }
-
-    private void clearExistingResultData(String batchId, LocalDate dataDate) {
-        for (String tableName : MR_CALC_DETAIL_RESULT_TABLES) {
-            clearExistingResultTableWithRetry(tableName, batchId, dataDate);
-        }
-    }
-
-    private void clearExistingResultTableWithRetry(String tableName, String batchId, LocalDate dataDate) {
-        String resultDataDate = formatResultDataDate(dataDate);
-        String sql = "DELETE FROM " + tableName + " WHERE BATCH_ID=? AND DATA_DATE=?";
-        for (int attempt = 1; attempt <= RESULT_DB_CLEAR_MAX_ATTEMPTS; attempt++) {
-            try {
-                engineResultDbJdbcTemplate.update(sql, batchId, resultDataDate);
-                return;
-            } catch (DataAccessException ex) {
-                if (!isTransientResultDbUnavailable(ex) || attempt >= RESULT_DB_CLEAR_MAX_ATTEMPTS) {
-                    throw ex;
-                }
-                long delayMillis = RESULT_DB_CLEAR_RETRY_INTERVAL_MILLIS * attempt;
-                log.warn("Doris结果表清理失败，准备重试，batchId={}, dataDate={}, table={}, attempt={}, delayMillis={}, error={}",
-                        batchId, resultDataDate, tableName, attempt, delayMillis, rootMessage(ex));
-                sleepBeforeResultDbRetry(delayMillis);
-            }
-        }
-    }
-
-    private boolean isTransientResultDbUnavailable(Throwable ex) {
-        Throwable current = ex;
-        while (current != null) {
-            String message = current.getMessage();
-            if (message != null) {
-                String normalized = message.toLowerCase(Locale.ROOT);
-                for (String keyword : RESULT_DB_TRANSIENT_ERROR_KEYWORDS) {
-                    if (normalized.contains(keyword)) {
-                        return true;
-                    }
-                }
-            }
-            current = current.getCause();
-        }
-        return false;
-    }
-
-    private String rootMessage(Throwable ex) {
-        Throwable current = ex;
-        Throwable root = ex;
-        while (current != null) {
-            root = current;
-            current = current.getCause();
-        }
-        String message = root == null ? null : root.getMessage();
-        if (message == null || message.trim().isEmpty()) {
-            return ex.getClass().getSimpleName();
-        }
-        return message;
-    }
-
-    private void sleepBeforeResultDbRetry(long delayMillis) {
-        try {
-            Thread.sleep(delayMillis);
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Doris结果表清理重试被中断", ex);
-        }
-    }
-
-    private static String formatResultDataDate(LocalDate dataDate) {
-        if (dataDate == null) {
-            throw new IllegalArgumentException("结果表清理缺少 dataDate");
-        }
-        return dataDate.format(DateTimeFormatter.BASIC_ISO_DATE);
-    }
-
-    void syncPortfolioHierarchySnapshot(String batchId, LocalDate dataDate) {
-        String normalizedDataDate = formatResultDataDate(dataDate);
-        engineResultDbJdbcTemplate.update("DELETE FROM TB_OUT_PORTFOLIO_HIERARCHY WHERE BATCH_ID=? AND DATA_DATE=?",
-                batchId, normalizedDataDate);
-        List<Map<String, Object>> hierarchyRows = jdbcTemplate.queryForList(
-                "SELECT PORTFOLIO_CODE, PORTFOLIO_NAME, UPPER_LEVEL_PORTFOLIO, LEVEL_CODE FROM V_PORTFOLIO_HIERARCHY");
-        if (hierarchyRows.isEmpty()) {
-            return;
-        }
-
-        String now = ResultPersistTime.nowText();
-        Set<String> uniqueKeys = new java.util.LinkedHashSet<String>();
-        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
-                dorisStreamLoadService,
-                "TB_OUT_PORTFOLIO_HIERARCHY",
-                "BATCH_ID,DATA_DATE,PORTFOLIO_CODE,PORTFOLIO_NAME,UPPER_LEVEL_PORTFOLIO,LEVEL_CODE,CREATED_AT,UPDATED_AT",
-                "portfolio_hierarchy_" + batchId,
-                5000);
-
-        for (Map<String, Object> row : hierarchyRows) {
-            String portfolioCode = trimToNull(stringValue(row.get("PORTFOLIO_CODE")));
-            String levelCode = trimToNull(stringValue(row.get("LEVEL_CODE")));
-            String upperLevelPortfolio = trimToNull(stringValue(row.get("UPPER_LEVEL_PORTFOLIO")));
-            String uniqueKey = String.join("|",
-                    valueOrEmpty(portfolioCode),
-                    valueOrEmpty(levelCode),
-                    valueOrEmpty(upperLevelPortfolio));
-            if (!uniqueKeys.add(uniqueKey)) {
-                continue;
-            }
-            buffer.appendRow(
-                    batchId,
-                    normalizedDataDate,
-                    portfolioCode,
-                    trimToNull(stringValue(row.get("PORTFOLIO_NAME"))),
-                    upperLevelPortfolio,
-                    levelCode,
-                    now,
-                    now
-            );
-        }
-        buffer.flush();
-    }
-
-    private static String stringValue(Object value) {
-        return value == null ? null : String.valueOf(value);
-    }
-
-    private static String valueOrEmpty(String value) {
-        return value == null ? "" : value;
-    }
-
     private boolean batchExists(String batchId) {
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM MR_ASYNC_BATCH_JOB WHERE batch_id=?",
@@ -852,7 +492,7 @@ public class BatchJobService {
         return maxSeq == null ? 1 : maxSeq + 1;
     }
 
-    private void refreshBatchSummary(String batchId, String message) {
+    void refreshBatchSummary(String batchId, String message) {
         List<BatchItemRow> itemRows = loadBatchItems(batchId);
         int totalJobs = itemRows.size();
         AggregatedCount aggregated = aggregate(itemRows, totalJobs);
@@ -937,45 +577,6 @@ public class BatchJobService {
 
     // ==================== 工具方法 ====================
 
-    private static List<String> buildSupportedBatchOpCodes() {
-        List<String> supported = new ArrayList<>();
-        supported.add(Constants.CALC_MODE.PRICING);
-        return Collections.unmodifiableList(supported);
-    }
-
-    private String requireSupportedOpCode(String opCode) {
-        String normalized = trimToNull(opCode);
-        if (normalized == null) {
-            throw new IllegalArgumentException("opCode 不能为空");
-        }
-        String upperCode = normalized.toUpperCase(java.util.Locale.ROOT);
-        if (!SUPPORTED_BATCH_OP_CODES.contains(upperCode)) {
-            throw new IllegalArgumentException("opCode 不支持，当前仅支持: " + String.join(", ", SUPPORTED_BATCH_OP_CODES));
-        }
-        return upperCode;
-    }
-
-    private static LocalDate parseDataDate(String txt) {
-        String safe = requireNonBlank(txt, "dataDate 不能为空");
-        try {
-            if (!DATE_8_PATTERN.matcher(safe).matches()) {
-                throw new IllegalArgumentException("dataDate 格式错误，仅支持 yyyyMMdd");
-            }
-            return LocalDate.parse(safe, DateTimeFormatter.BASIC_ISO_DATE);
-        } catch (DateTimeParseException ex) {
-            throw new IllegalArgumentException("dataDate 格式错误，仅支持 yyyyMMdd");
-        }
-    }
-
-    private static String resolveBatchId(BatchSubmitRequest request, LocalDate dataDate) {
-        String raw = request == null ? null : trimToNull(request.getBatchId());
-        String batchId = raw == null ? dataDate.format(DateTimeFormatter.BASIC_ISO_DATE) + "_BATCH" : raw;
-        if (!BATCH_ID_PATTERN.matcher(batchId).matches()) {
-            throw new IllegalArgumentException("batchId 格式非法，仅支持字母、数字、点、下划线、中划线");
-        }
-        return batchId;
-    }
-
     static String buildJobId(String batchId, int seqNo) {
         return batchId + "_J" + seqNo;
     }
@@ -1026,18 +627,6 @@ public class BatchJobService {
         }
         String value = txt.trim();
         return value.isEmpty() ? null : value;
-    }
-
-    private static String normalizeRunMode(String runMode) {
-        String value = trimToNull(runMode);
-        if (value == null) {
-            return null;
-        }
-        value = value.toUpperCase(Locale.ROOT);
-        if (!"WHATIF".equals(value)) {
-            throw new IllegalArgumentException("runMode 仅支持 WHATIF 或空值，实际: " + runMode);
-        }
-        return value;
     }
 
     // ==================== 内部类 ====================

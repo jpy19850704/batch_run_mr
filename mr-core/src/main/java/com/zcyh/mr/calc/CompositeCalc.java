@@ -26,7 +26,7 @@ import java.util.Set;
  * 组合产品计算器。
  * 组合产品本身不实现定价模型，只负责将组成项 DATA 交给现有产品计算器，再按 WEIGHT 聚合结果。
  */
-public class CompositeCalc implements Runnable, Calc.ScenarioCapable {
+public class CompositeCalc implements ProductCalculator {
     private static final String FIELD_COMPONENTS = "COMPONENTS";
     private static final String FIELD_COMPONENT_ID = "COMPONENT_ID";
     private static final String FIELD_WEIGHT = "WEIGHT";
@@ -184,16 +184,12 @@ public class CompositeCalc implements Runnable, Calc.ScenarioCapable {
         ComponentRun run = new ComponentRun();
         for (Map.Entry<String, List<HashMap<String, Object>>> entry : grouped.entrySet()) {
             String productCode = entry.getKey();
-            Runnable calc = Calc.createRegisteredCalc(productCode, operCode, dataDate, entry.getValue(), md,
+            ProductCalculator calc = Calc.createRegisteredCalc(productCode, operCode, dataDate, entry.getValue(), md,
                     calendar, otherData);
             String json = Calc.invokeCalc(calc);
             collectComponentOutput(json, run);
             if (cacheScenarioCalcs) {
-                if (calc instanceof Calc.ScenarioCapable) {
-                    run.scenarioCalcs.add((Calc.ScenarioCapable) calc);
-                } else {
-                    run.unsupportedScenarioProducts.add(productCode);
-                }
+                run.scenarioCalcs.add(calc);
             }
         }
         ensureAllComponentMeasures(specs, run.componentMeasures);
@@ -202,7 +198,7 @@ public class CompositeCalc implements Runnable, Calc.ScenarioCapable {
 
     private ComponentRun runScenarioComponents(CompositeRuntime runtime, MarketData scenarioMd) {
         ComponentRun run = new ComponentRun();
-        for (Calc.ScenarioCapable calc : runtime.scenarioCalcs) {
+        for (ProductCalculator calc : runtime.scenarioCalcs) {
             JSONArray scenarioMeasures = calc.calcScenario(scenarioMd, null);
             collectMeasures(scenarioMeasures, run.componentMeasures);
         }
@@ -515,18 +511,18 @@ public class CompositeCalc implements Runnable, Calc.ScenarioCapable {
     private static final class ComponentRun {
         final Map<String, JSONObject> componentMeasures = new LinkedHashMap<>();
         final JSONArray componentLogs = new JSONArray();
-        final List<Calc.ScenarioCapable> scenarioCalcs = new ArrayList<>();
+        final List<ProductCalculator> scenarioCalcs = new ArrayList<>();
         final Set<String> unsupportedScenarioProducts = new LinkedHashSet<>();
     }
 
     private static final class CompositeRuntime {
         final String compositeId;
         final List<ComponentSpec> components;
-        final List<Calc.ScenarioCapable> scenarioCalcs;
+        final List<ProductCalculator> scenarioCalcs;
         final Set<String> unsupportedScenarioProducts;
 
         CompositeRuntime(String compositeId, List<ComponentSpec> components,
-                List<Calc.ScenarioCapable> scenarioCalcs, Set<String> unsupportedScenarioProducts) {
+                List<ProductCalculator> scenarioCalcs, Set<String> unsupportedScenarioProducts) {
             this.compositeId = compositeId;
             this.components = components;
             this.scenarioCalcs = scenarioCalcs;

@@ -3,8 +3,10 @@ package com.zcyh.mr.springboot.service;
 import com.zcyh.mr.springboot.out.file.BatchScenarioFileTask;
 
 import com.zcyh.mr.springboot.context.RequestContextHolder;
-import com.zcyh.mr.scenario.ScenarioCache;
+import com.zcyh.mr.calc.scenario.ScenarioCache;
 import com.zcyh.mr.springboot.model.BatchDetailResult;
+import com.zcyh.mr.springboot.model.BatchExecutionResult;
+import com.zcyh.mr.springboot.model.BatchPatchRequest;
 import com.zcyh.mr.springboot.model.BatchRunRequest;
 import com.zcyh.mr.springboot.model.BatchRunResult;
 import org.slf4j.Logger;
@@ -50,6 +52,7 @@ public class BatchRunService {
     private final ExecutorService batchRunWorkflowExecutor;
 
     public BatchRunService(
+            BatchMrCalcDetailCleanupTask detailCleanupTask,
             BatchPrepareTask prepareTask,
             BatchScenarioGenerateTask scenarioGenerateTask,
             BatchScenarioFileTask scenarioFileTask,
@@ -57,13 +60,14 @@ public class BatchRunService {
             BatchMarketDataLoadTask marketDataLoadTask,
             BatchChunkBuildTask chunkBuildTask,
             BatchPayloadBuildTask payloadBuildTask,
+            BatchLocalMrCalcDetailCleanupTask localDetailCleanupTask,
             BatchCalcSubmitTask calcSubmitTask,
             BatchCalcWaitTask calcWaitTask,
             BatchJobService batchJobService,
             AlertService alertService,
             TradeFilterResolver tradeFilterResolver,
             @Qualifier("batchRunWorkflowExecutor") ExecutorService batchRunWorkflowExecutor) {
-        this.batchPrepareTasks = Arrays.<BatchRunTask>asList(prepareTask);
+        this.batchPrepareTasks = Arrays.<BatchRunTask>asList(detailCleanupTask, prepareTask);
         this.scenarioTasks = Arrays.<BatchRunTask>asList(
                 scenarioGenerateTask,
                 scenarioFileTask);
@@ -73,6 +77,7 @@ public class BatchRunService {
                 chunkBuildTask,
                 payloadBuildTask);
         this.calcTasks = Arrays.<BatchRunTask>asList(
+                localDetailCleanupTask,
                 calcSubmitTask,
                 calcWaitTask);
         this.batchJobService = batchJobService;
@@ -82,7 +87,18 @@ public class BatchRunService {
     }
 
     public BatchRunResult run(BatchRunRequest request) {
-        BatchRunWorkflowContext context = buildContext(request);
+        BatchRunWorkflowContext context = buildContext(request, false);
+        submitWorkflow(context);
+        return buildAcceptedResult(context);
+    }
+
+    public BatchExecutionResult patch(BatchPatchRequest request) {
+        BatchRunWorkflowContext context = buildContext(request, true);
+        submitWorkflow(context);
+        return buildAcceptedPatchResult(context);
+    }
+
+    private void submitWorkflow(BatchRunWorkflowContext context) {
         claimBatchRunSlot(context);
         boolean submitted = false;
         try {
@@ -103,7 +119,6 @@ public class BatchRunService {
                 releaseBatchRunSlot(context);
             }
         }
-        return buildAcceptedResult(context);
     }
 
     private static void executeTasks(List<BatchRunTask> tasks, BatchRunWorkflowContext context) {
@@ -112,7 +127,7 @@ public class BatchRunService {
         }
     }
 
-    private BatchRunWorkflowContext buildContext(BatchRunRequest request) {
+    private BatchRunWorkflowContext buildContext(BatchRunRequest request, boolean localRerun) {
         if (request == null) {
             throw new IllegalArgumentException("request 不能为空");
         }
@@ -126,6 +141,12 @@ public class BatchRunService {
         String runMode = normalizeRunMode(request.getRunMode());
         String dataDate = normalizeDataDate(request.getDataDate());
         String externalBatchId = trimToNull(request.getBatchId());
+        if (localRerun && externalBatchId == null) {
+            throw new IllegalArgumentException("局部重跑 batchId 不能为空");
+        }
+        if (localRerun && Boolean.TRUE.equals(request.getPersistScenario())) {
+            throw new IllegalArgumentException("局部重跑不允许 persistScenario=true");
+        }
         String batchId = externalBatchId == null ? buildGeneratedBatchId(dataDate) : externalBatchId;
         validateBatchId(batchId);
         boolean persistResult = request.getPersistResult() == null
@@ -156,9 +177,15 @@ public class BatchRunService {
         context.setPersistResult(persistResult);
         context.setCacheScenarioResult(Boolean.TRUE.equals(request.getCacheScenarioResult()));
         context.setFrtbDisabled(frtbDisabled);
-        context.setFrtbSbaRuleIdList(trimToNull(request.getFrtbSbaRuleIdList()));
-        context.setVarRuleIdList(trimToNull(request.getVarRuleIdList()));
-        context.setDrcRuleIdList(trimToNull(request.getDrcRuleIdList()));
+        context.setLocalRerun(localRerun);
+        if (localRerun) {
+            List<String> instrumentIds = BatchTradeDataLoader.normalizeInstrumentIds(
+                    ((BatchPatchRequest) request).getInstrumentIdList());
+            if (instrumentIds.isEmpty()) {
+                throw new IllegalArgumentException("instrumentIdList 不能为空");
+            }
+            context.setInstrumentIds(instrumentIds);
+        }
         context.setTradeFilter(tradeFilterResolver.resolve(request.getTradeFilter()));
         return context;
     }
@@ -178,10 +205,36 @@ public class BatchRunService {
         return result;
     }
 
+    private BatchExecutionResult buildAcceptedPatchResult(BatchRunWorkflowContext context) {
+        BatchExecutionResult result = new BatchExecutionResult();
+        result.setBatchId(context.getBatchId());
+        result.setRequestId(context.getBatchId());
+        result.setEngineCode(ENGINE_CODE);
+        result.setOpCode(context.isScenarioMode() ? "SCENARIO" : "PRICING");
+        result.setDataDate(LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE).toString());
+        result.setStatus("ACCEPTED");
+        result.setTotalTrades(context.getInstrumentIds().size());
+        result.setTotalJobs(0);
+        result.setWeightBudget(batchJobService.getWeightBudget());
+        result.setSubmittedAt(System.currentTimeMillis());
+        result.setPollAfterMs(batchJobService.getPollAfterMs());
+        result.setDetailUrl(batchJobService.getDetailUrl(context.getBatchId()));
+        result.setMessage("批次局部重跑工作流已启动");
+        return result;
+    }
+
     private void initializeWorkflow(BatchRunWorkflowContext context) {
         RequestContextHolder.setBatchId(context.getBatchId());
         RequestContextHolder.setEngineCode(ENGINE_CODE);
         ScenarioCache.evictByBatchId(context.getBatchId());
+        if (context.isLocalRerun()) {
+            int firstJobSeqNo = batchJobService.prepareLocalRerun(
+                    context.getBatchId(),
+                    LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE));
+            context.setFirstJobSeqNo(firstJobSeqNo);
+            batchJobService.markWorkflowRunning(context.getBatchId(), "批次局部重跑工作流已启动");
+            return;
+        }
         batchJobService.initializeWorkflowBatch(
                 context.getBatchId(),
                 context.getBatchId(),
@@ -191,8 +244,7 @@ public class BatchRunService {
                 null,
                 null,
                 System.currentTimeMillis(),
-                "批次工作流已启动",
-                context.isPersistResult()
+                "批次工作流已启动"
         );
     }
 

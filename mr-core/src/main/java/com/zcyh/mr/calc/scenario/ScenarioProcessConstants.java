@@ -29,12 +29,4 @@ public final class ScenarioProcessConstants {
                 || IMA_MODELLABLE.equals(processType)
                 || IMA_NMRF.equals(processType);
     }
-
-    public static String imaRiskFactorConfigCacheKey(String dataDate) {
-        String safe = dataDate == null ? null : dataDate.trim();
-        if (safe == null || safe.isEmpty()) {
-            throw new IllegalArgumentException("data_date 不能为空，无法定位 IMA 风险因子配置");
-        }
-        return "ima:risk_factor_config:" + safe;
-    }
 }

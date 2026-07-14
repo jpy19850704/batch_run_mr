@@ -69,36 +69,45 @@ public class FrtbDrcDbRunnerService {
         return JSON.parseObject(JSON.toJSONString(rule, JSONWriter.Feature.WriteBigDecimalAsPlain));
     }
 
-    public String calculateByRule(String payloadJson) {
-        JSONObject req = JSON.parseObject(payloadJson);
-        if (req == null) {
-            throw new IllegalArgumentException("payload 必须是 JSON 对象");
-        }
-        String batchId = requireTopLevelString(req, "batch_id");
-        String dataDate = requireTopLevelString(req, "data_date");
-        String ruleId = requireTopLevelString(req, "rule_id");
-        AggregationRule rule = loadExecutableRule(ruleId);
-        JSONObject result = calculateByRule(batchId, dataDate, rule);
-        return JSON.toJSONString(result, JSONWriter.Feature.WriteBigDecimalAsPlain);
+    public AggregationRule loadRuleDefinition(String ruleId) {
+        return loadExecutableRule(ruleId);
     }
 
-    public String calculateByInlineRule(String payloadJson) {
-        JSONObject req = JSON.parseObject(payloadJson);
-        if (req == null) {
-            throw new IllegalArgumentException("payload 必须是 JSON 对象");
-        }
-        String batchId = requireTopLevelString(req, "batch_id");
-        String dataDate = requireTopLevelString(req, "data_date");
-        JSONObject ruleJson = req.getJSONObject("rule");
+    public AggregationRule parseRuleDefinition(JSONObject ruleJson, String runtimeRuleId) {
         if (ruleJson == null) {
-            throw new IllegalArgumentException("rule 不能为空，需要包含 rule_id/rule_type/build_order/filterTree");
+            throw new IllegalArgumentException("FRTB DRC 规则定义不能为空");
         }
-        AggregationRule rule = parseInlineRule(ruleJson);
-        JSONObject result = calculateByRule(batchId, dataDate, rule);
-        return JSON.toJSONString(result, JSONWriter.Feature.WriteBigDecimalAsPlain);
+        AggregationRule ruleDefinition = JSON.parseObject(
+                ruleJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain),
+                AggregationRule.class);
+        if (ruleDefinition == null) {
+            throw new IllegalArgumentException("FRTB DRC 规则定义解析失败");
+        }
+        ruleDefinition.setRuleId(runtimeRuleId);
+        ruleDefinition.setRuleType(CALC_TYPE_DRC);
+        normalizeExecutableRule(ruleDefinition);
+        return ruleDefinition;
     }
 
-    private JSONObject calculateByRule(String batchId, String dataDate, AggregationRule rule) {
+    public JSONObject calculate(String batchId, String dataDate, List<AggregationRule> ruleDefinitions) {
+        if (ruleDefinitions == null || ruleDefinitions.isEmpty()) {
+            throw new IllegalArgumentException("ruleDefinitions 不能为空");
+        }
+        JSONObject result = new JSONObject();
+        JSONArray drcValueRows = new JSONArray();
+        JSONArray legalEntityRows = new JSONArray();
+        for (AggregationRule ruleDefinition : ruleDefinitions) {
+            normalizeExecutableRule(ruleDefinition);
+            JSONObject singleResult = calculateOne(batchId, dataDate, ruleDefinition);
+            drcValueRows.addAll(singleResult.getJSONArray("DRC_VALUE"));
+            legalEntityRows.addAll(singleResult.getJSONArray("DECOMP_LEGALENTITY"));
+        }
+        result.put("DRC_VALUE", drcValueRows);
+        result.put("DECOMP_LEGALENTITY", legalEntityRows);
+        return result;
+    }
+
+    private JSONObject calculateOne(String batchId, String dataDate, AggregationRule rule) {
         List<FrtbDrcInputQueryService.RuleDrcDetailRow> rows =
                 inputQueryService.queryRuleDetailRows(batchId, dataDate, rule);
         Map<String, DrcGroup> groups = buildGroups(rule, rows);
@@ -168,17 +177,6 @@ public class FrtbDrcDbRunnerService {
 
     private AggregationRule loadExecutableRule(String ruleId) {
         AggregationRule rule = inputQueryService.loadAggregationRule(ruleId);
-        normalizeExecutableRule(rule);
-        return rule;
-    }
-
-    private AggregationRule parseInlineRule(JSONObject ruleJson) {
-        AggregationRule rule = JSON.parseObject(
-                ruleJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain),
-                AggregationRule.class);
-        if (rule == null) {
-            throw new IllegalArgumentException("DRC 规则解析失败");
-        }
         normalizeExecutableRule(rule);
         return rule;
     }

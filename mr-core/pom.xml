@@ -42,16 +42,6 @@
             <version>3.6.1</version>
         </dependency>
         <dependency>
-            <groupId>org.mybatis</groupId>
-            <artifactId>mybatis</artifactId>
-            <version>${mybatis.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-            <version>${mysql-connector-java.version}</version>
-        </dependency>
-        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
@@ -77,14 +67,6 @@
             </plugin>
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <includes>
-                        <include>**/ConfigureTest.java</include>
-                        <include>**/BondFuncTest.java</include>
-                        <include>**/CommFwdCalcHelperTest.java</include>
-                        <include>**/FrtbEngineAdapterInputContractTest.java</include>
-                    </includes>
-                </configuration>
             </plugin>
         </plugins>
     </build>

@@ -4,9 +4,6 @@ import com.zcyh.mr.springboot.support.DorisCsvStreamLoadBuffer;
 import com.zcyh.mr.springboot.support.DorisStreamLoadService;
 import com.zcyh.mr.springboot.support.ResultPersistTime;
 
-import static com.zcyh.mr.springboot.support.RequestParseSupport.readBoolean;
-import static com.zcyh.mr.springboot.support.RequestParseSupport.readRequiredString;
-import static com.zcyh.mr.springboot.support.RequestParseSupport.readString;
 import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
 import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.collectFilterFields;
 
@@ -18,6 +15,7 @@ import com.zcyh.mr.frtbsa.rrao.FrtbRraoCalculator;
 import com.zcyh.mr.springboot.out.db.CalcRuleMetaPersistService;
 import com.zcyh.mr.springboot.input.rule.AggregationRuleProvider;
 import com.zcyh.mr.springboot.model.AggregationRule;
+import com.zcyh.mr.springboot.model.RuleSummaryRequest;
 import com.zcyh.mr.springboot.prepare.filter.AggregationFilterSqlBuilder;
 import com.zcyh.mr.springboot.prepare.mapping.RuleColumnSqlResolver;
 import org.slf4j.Logger;
@@ -67,14 +65,13 @@ public class FrtbRraoResultService {
         this.dimensionAggregationService = dimensionAggregationService;
     }
 
-    public JSONObject summarize(JSONObject request) {
+    public JSONObject summarize(RuleSummaryRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("request 不能为空");
         }
-        String batchId = readRequiredString(request, "batch_id");
-        String dataDate = readRequiredString(request, "data_date");
-        boolean persistResult = readBoolean(request, true, "persist_result");
-        JSONArray ruleList = resolveRuleList(request);
+        String batchId = request.getBatchId();
+        String dataDate = request.getDataDate();
+        boolean persistResult = request.isPersistResult();
 
         if (persistResult) {
             deleteByBatchAndDataDate(batchId, dataDate);
@@ -82,24 +79,17 @@ public class FrtbRraoResultService {
         }
 
         JSONArray results = new JSONArray();
-        for (int i = 0; i < ruleList.size(); i++) {
-            JSONObject ruleItem = ruleList.getJSONObject(i);
-            if (ruleItem == null) {
-                throw new IllegalArgumentException("rule_list[" + i + "] 不能为空对象");
-            }
-            RuleExecution execution = resolveRuleExecution(ruleItem);
-            if ("db".equals(execution.sourceType)) {
-                execution.ruleJson = loadRuleSnapshot(execution.ruleId);
-            }
-            JSONArray summary = executeOne(batchId, dataDate, execution.ruleId, execution.ruleJson);
+        for (String ruleId : request.getRuleIds()) {
+            JSONObject ruleJson = loadRuleSnapshot(ruleId);
+            JSONArray summary = executeOne(batchId, dataDate, ruleId, ruleJson);
             if (persistResult) {
-                persist(batchId, dataDate, execution.ruleId, summary);
-                persistRuleMeta(batchId, dataDate, execution);
+                persist(batchId, dataDate, ruleId, summary);
+                persistRuleMeta(batchId, dataDate, ruleId, ruleJson);
             }
 
             JSONObject resultItem = new JSONObject();
-            resultItem.put("rule_id", execution.ruleId);
-            resultItem.put("source_type", execution.sourceType);
+            resultItem.put("rule_id", ruleId);
+            resultItem.put("source_type", "db");
             resultItem.put("summary", summary);
             results.add(resultItem);
         }
@@ -281,51 +271,9 @@ public class FrtbRraoResultService {
         log.info("RRAO 汇总结果落库完成: batchId={}, dataDate={}, ruleId={}, rows={}", batchId, dataDate, ruleId, summary.size());
     }
 
-    private void persistRuleMeta(String batchId, String dataDate, RuleExecution execution) {
-        String ruleJsonStr = execution.ruleJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
-        calcRuleMetaPersistService.persist(batchId, dataDate, CALC_TYPE_RRAO, execution.ruleId, ruleJsonStr);
-    }
-
-    private static JSONArray resolveRuleList(JSONObject request) {
-        JSONArray ruleList = request.getJSONArray("rule_list");
-        if (ruleList != null && !ruleList.isEmpty()) {
-            return ruleList;
-        }
-        JSONArray single = new JSONArray();
-        JSONObject item = new JSONObject();
-        String ruleId = readString(request, "rule_id");
-        JSONObject rule = request.getJSONObject("rule");
-        if (ruleId != null) {
-            item.put("rule_id", ruleId);
-            single.add(item);
-            return single;
-        }
-        if (rule != null) {
-            item.put("rule", rule);
-            single.add(item);
-            return single;
-        }
-        throw new IllegalArgumentException("FRTB RRAO 汇总必须显式提供 rule_id、rule 或 rule_list");
-    }
-
-    private static RuleExecution resolveRuleExecution(JSONObject ruleItem) {
-        JSONObject rule = ruleItem.getJSONObject("rule");
-        String ruleId = readString(ruleItem, "rule_id");
-        if (rule == null) {
-            if (ruleId == null) {
-                throw new IllegalArgumentException("rule_list 项必须提供 rule_id 或 rule");
-            }
-            return RuleExecution.db(ruleId);
-        }
-        if (ruleId == null) {
-            ruleId = readString(rule, "rule_id");
-        }
-        if (ruleId == null) {
-            throw new IllegalArgumentException("FRTB RRAO inline rule 必须显式提供 rule_id");
-        }
-        rule.put("rule_id", ruleId);
-        rule.put("rule_type", RULE_TYPE_RRAO);
-        return RuleExecution.inline(ruleId, rule);
+    private void persistRuleMeta(String batchId, String dataDate, String ruleId, JSONObject ruleJson) {
+        String ruleJsonStr = ruleJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
+        calcRuleMetaPersistService.persist(batchId, dataDate, CALC_TYPE_RRAO, ruleId, ruleJsonStr);
     }
 
     private static String resolveRuleColumn(String field) {
@@ -399,24 +347,4 @@ public class FrtbRraoResultService {
         return value == null ? null : String.valueOf(value);
     }
 
-    private static class RuleExecution {
-        private String ruleId;
-        private String sourceType;
-        private JSONObject ruleJson;
-
-        static RuleExecution db(String ruleId) {
-            RuleExecution execution = new RuleExecution();
-            execution.ruleId = ruleId;
-            execution.sourceType = "db";
-            return execution;
-        }
-
-        static RuleExecution inline(String ruleId, JSONObject ruleJson) {
-            RuleExecution execution = new RuleExecution();
-            execution.ruleId = ruleId;
-            execution.sourceType = "db_inline";
-            execution.ruleJson = ruleJson;
-            return execution;
-        }
-    }
 }

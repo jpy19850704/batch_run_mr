@@ -8,7 +8,6 @@ import com.zcyh.mr.frtbima.common.LiquidityHorizonTable;
 import com.zcyh.mr.frtbima.scenariopnl.SubsetScenarioRunner;
 import com.zcyh.mr.loader.Loader;
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.scenario.ScenarioCache;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -22,11 +21,19 @@ import java.util.Set;
 public final class CalcScenarioProcessService {
     private static final String RISK_CLASS_ALL = "ALL";
     private static final String[] VAR_RISK_CLASSES = {"IR", "FX", "EQ", "COMM", "ALL"};
+    private static final ScenarioMarketDataSlicer MARKET_DATA_SLICER = new ScenarioMarketDataSlicer();
 
     private CalcScenarioProcessService() {
     }
 
     public static List<Loader.ScenarioEntry> resolveScenarioData(String jsonData, Loader loader) {
+        return resolveScenarioData(jsonData, loader, null);
+    }
+
+    public static List<Loader.ScenarioEntry> resolveScenarioData(
+            String jsonData,
+            Loader loader,
+            LiquidityHorizonTable imaRiskFactorConfig) {
         List<Loader.ScenarioEntry> result = new ArrayList<>();
         List<Loader.ScenarioEntry> inline = loader.getScenarioDataList();
         if (inline != null && !inline.isEmpty()) {
@@ -40,22 +47,23 @@ public final class CalcScenarioProcessService {
         JSONObject jo = JSON.parseObject(jsonData);
         if (jo != null) {
             appendScenarioRefList(result, jo, ScenarioProcessConstants.REGULAR_SCENARIO_REF_LIST,
-                    ScenarioProcessConstants.REGULAR);
+                    ScenarioProcessConstants.REGULAR, imaRiskFactorConfig);
             appendScenarioRefList(result, jo, ScenarioProcessConstants.VAR_SCENARIO_REF_LIST,
-                    ScenarioProcessConstants.VAR);
+                    ScenarioProcessConstants.VAR, imaRiskFactorConfig);
             appendScenarioRefList(result, jo, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST,
-                    ScenarioProcessConstants.IMA_MODELLABLE);
+                    ScenarioProcessConstants.IMA_MODELLABLE, imaRiskFactorConfig);
             appendScenarioRefList(result, jo, ScenarioProcessConstants.IMA_NMRF_SCENARIO_REF_LIST,
-                    ScenarioProcessConstants.IMA_NMRF);
+                    ScenarioProcessConstants.IMA_NMRF, imaRiskFactorConfig);
         }
         validateScenarioRequiredKeys(result);
         return result;
     }
 
     private static void appendScenarioRefList(List<Loader.ScenarioEntry> target,
-                                              JSONObject payload,
-                                              String fieldName,
-                                              String processType) {
+                                               JSONObject payload,
+                                               String fieldName,
+                                               String processType,
+                                               LiquidityHorizonTable imaRiskFactorConfig) {
         JSONArray items = payload == null ? null : payload.getJSONArray(fieldName);
         if (items == null || items.isEmpty()) {
             return;
@@ -70,16 +78,16 @@ public final class CalcScenarioProcessService {
             if (cached == null) {
                 throw new IllegalArgumentException("ScenarioCache 未找到场景数据: cache_key=" + cacheKey.trim());
             }
-            appendScenarioRefEntries(target, cached, processType, payload, item, i);
+            appendScenarioRefEntries(target, cached, processType, item, i, imaRiskFactorConfig);
         }
     }
 
     private static void appendScenarioRefEntries(List<Loader.ScenarioEntry> target,
-                                                 List<Loader.ScenarioEntry> cached,
-                                                 String processType,
-                                                 JSONObject payload,
-                                                 JSONObject item,
-                                                 int itemIndex) {
+                                                  List<Loader.ScenarioEntry> cached,
+                                                  String processType,
+                                                  JSONObject item,
+                                                  int itemIndex,
+                                                  LiquidityHorizonTable imaRiskFactorConfig) {
         switch (processType) {
             case ScenarioProcessConstants.REGULAR:
                 appendCopiedEntries(target, cached, ScenarioProcessConstants.REGULAR, itemIndex);
@@ -88,10 +96,10 @@ public final class CalcScenarioProcessService {
                 appendVarEntries(target, cached, itemIndex);
                 return;
             case ScenarioProcessConstants.IMA_MODELLABLE:
-                appendImaModellableEntries(target, cached, payload, item, itemIndex);
+                appendImaModellableEntries(target, cached, item, itemIndex, imaRiskFactorConfig);
                 return;
             case ScenarioProcessConstants.IMA_NMRF:
-                appendImaNmrfEntries(target, cached, payload, itemIndex);
+                appendImaNmrfEntries(target, cached, itemIndex, imaRiskFactorConfig);
                 return;
             default:
                 throw new IllegalArgumentException("情景处理类型无效: itemIndex=" + itemIndex
@@ -128,10 +136,10 @@ public final class CalcScenarioProcessService {
             }
             String entryKey = ScenarioProcessConstants.VAR + ":" + itemIndex + ":" + i;
             for (String riskClass : VAR_RISK_CLASSES) {
-                MarketData sliced = ScenarioCache.sliceByGroup(raw.marketData, riskClass);
+                MarketData sliced = MARKET_DATA_SLICER.slice(raw.marketData, riskClass);
                 Set<String> impactKeys = RISK_CLASS_ALL.equals(riskClass)
                         ? raw.impactKeys
-                        : ScenarioCache.deriveKeysFromSlice(sliced, riskClass);
+                        : MARKET_DATA_SLICER.deriveImpactKeys(sliced, riskClass);
                 JSONObject tag = new JSONObject();
                 tag.put(ScenarioProcessConstants.TAG_RISK_CLASS, riskClass);
                 target.add(copyScenarioEntry(raw, ScenarioProcessConstants.VAR, tag, entryKey,
@@ -141,11 +149,11 @@ public final class CalcScenarioProcessService {
     }
 
     private static void appendImaModellableEntries(List<Loader.ScenarioEntry> target,
-                                                   List<Loader.ScenarioEntry> entries,
-                                                   JSONObject payload,
-                                                   JSONObject item,
-                                                   int itemIndex) {
-        LiquidityHorizonTable lhTable = loadImaRiskFactorConfig(payload);
+                                                    List<Loader.ScenarioEntry> entries,
+                                                    JSONObject item,
+                                                    int itemIndex,
+                                                    LiquidityHorizonTable imaRiskFactorConfig) {
+        LiquidityHorizonTable lhTable = requireImaRiskFactorConfig(imaRiskFactorConfig);
         String imaScenarioType = requireImaScenarioType(item, itemIndex);
         SubsetScenarioRunner runner = new SubsetScenarioRunner(lhTable);
         List<Loader.ScenarioEntry> processed = runner.buildModellableScenarioEntries(entries,
@@ -166,10 +174,10 @@ public final class CalcScenarioProcessService {
     }
 
     private static void appendImaNmrfEntries(List<Loader.ScenarioEntry> target,
-                                             List<Loader.ScenarioEntry> entries,
-                                             JSONObject payload,
-                                             int itemIndex) {
-        LiquidityHorizonTable lhTable = loadImaRiskFactorConfig(payload);
+                                              List<Loader.ScenarioEntry> entries,
+                                              int itemIndex,
+                                              LiquidityHorizonTable imaRiskFactorConfig) {
+        LiquidityHorizonTable lhTable = requireImaRiskFactorConfig(imaRiskFactorConfig);
         if (entries == null) {
             return;
         }
@@ -191,14 +199,12 @@ public final class CalcScenarioProcessService {
         }
     }
 
-    private static LiquidityHorizonTable loadImaRiskFactorConfig(JSONObject payload) {
-        String dataDate = payload == null ? null : payload.getString("data_date");
-        if (!hasText(dataDate)) {
-            throw new IllegalArgumentException("data_date 必填，无法读取 IMA 风险因子配置");
+    private static LiquidityHorizonTable requireImaRiskFactorConfig(
+            LiquidityHorizonTable imaRiskFactorConfig) {
+        if (imaRiskFactorConfig == null) {
+            throw new IllegalStateException("IMA 计量缺少风险因子配置");
         }
-        return requiredObject(
-                ScenarioProcessConstants.imaRiskFactorConfigCacheKey(dataDate.trim()),
-                LiquidityHorizonTable.class);
+        return imaRiskFactorConfig;
     }
 
     private static Loader.ScenarioEntry copyScenarioEntry(Loader.ScenarioEntry source,
@@ -250,18 +256,6 @@ public final class CalcScenarioProcessService {
                 throw new IllegalArgumentException("场景数据缺少 SCENARIO_ID 或 SUBSCENARIO_ID");
             }
         }
-    }
-
-    private static <T> T requiredObject(String cacheKey, Class<T> type) {
-        Object value = ScenarioCache.getObject(cacheKey);
-        if (value == null) {
-            throw new IllegalStateException("ScenarioCache 对象不存在: key=" + cacheKey);
-        }
-        if (!type.isInstance(value)) {
-            throw new IllegalStateException("ScenarioCache 对象类型不匹配: key=" + cacheKey
-                    + ", expected=" + type.getSimpleName());
-        }
-        return type.cast(value);
     }
 
     private static void validateNmrfSubScenarioId(Loader.ScenarioEntry entry) {

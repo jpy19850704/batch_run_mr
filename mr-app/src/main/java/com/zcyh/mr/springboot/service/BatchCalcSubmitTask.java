@@ -2,9 +2,8 @@ package com.zcyh.mr.springboot.service;
 
 import com.zcyh.mr.springboot.context.RequestContextHolder;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
-import com.zcyh.mr.springboot.model.BatchSubmitResult;
-import com.zcyh.mr.springboot.model.JobSubmitRequest;
-import com.zcyh.mr.springboot.model.JobSubmitResult;
+import com.zcyh.mr.springboot.model.BatchExecutionResult;
+import com.zcyh.mr.springboot.out.db.PortfolioHierarchySnapshotService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -20,18 +19,26 @@ import java.util.List;
 @Component
 public class BatchCalcSubmitTask implements BatchRunTask {
     private static final Logger log = LoggerFactory.getLogger(BatchCalcSubmitTask.class);
+    private static final String OP_CODE_PRICING = "PRICING";
+    private static final String OP_CODE_SCENARIO = "SCENARIO";
+    private static final String STATUS_SUBMITTED = "SUBMITTED";
+    private static final String STATUS_FAILED = "FAILED";
+    private static final String ALERT_BATCH_FAILED = "BATCH_FAILED";
 
     private final BatchJobService batchJobService;
     private final AsyncJobService asyncJobService;
     private final AlertService alertService;
+    private final PortfolioHierarchySnapshotService portfolioHierarchySnapshotService;
 
     public BatchCalcSubmitTask(
             BatchJobService batchJobService,
             AsyncJobService asyncJobService,
-            AlertService alertService) {
+            AlertService alertService,
+            PortfolioHierarchySnapshotService portfolioHierarchySnapshotService) {
         this.batchJobService = batchJobService;
         this.asyncJobService = asyncJobService;
         this.alertService = alertService;
+        this.portfolioHierarchySnapshotService = portfolioHierarchySnapshotService;
     }
 
     @Override
@@ -39,67 +46,55 @@ public class BatchCalcSubmitTask implements BatchRunTask {
         String batchId = context.getBatchId();
         String requestId = batchId;
         String engineCode = MrCalcEngineAdapter.CODE;
-        String opCode = context.isScenarioMode() ? "SCENARIO" : "PRICING";
+        String opCode = context.isScenarioMode() ? OP_CODE_SCENARIO : OP_CODE_PRICING;
         LocalDate dataDate = LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE);
         long now = System.currentTimeMillis();
         RequestContextHolder.setBatchId(batchId);
         RequestContextHolder.setEngineCode(engineCode);
 
-        batchJobService.prepareBatchSubmission(
-                batchId,
-                requestId,
-                engineCode,
-                opCode,
-                dataDate,
-                null,
-                null,
-                context.getLoadedTrades().size(),
-                context.getJobPayloads().size(),
-                now);
+        if (!context.isLocalRerun()) {
+            batchJobService.prepareBatchSubmission(
+                    batchId,
+                    requestId,
+                    engineCode,
+                    opCode,
+                    dataDate,
+                    null,
+                    null,
+                    context.getLoadedTrades().size(),
+                    context.getJobPayloads().size(),
+                    now);
+        }
         log.info("批量任务开始提交，batchId={}, totalTrades={}, totalJobs={}",
                 batchId, context.getLoadedTrades().size(), context.getJobPayloads().size());
 
         int submittedJobs = 0;
         List<String> submittedJobIds = new ArrayList<String>();
         try {
-            if (context.isPersistResult()) {
-                batchJobService.syncPortfolioHierarchySnapshot(batchId, dataDate);
+            if (context.isPersistResult() && !context.isLocalRerun()) {
+                portfolioHierarchySnapshotService.writeSnapshot(batchId, dataDate);
             }
             for (BatchJobPayload jobPayload : context.getJobPayloads()) {
-                JobSubmitRequest jobRequest = new JobSubmitRequest();
-                String jobId = BatchJobService.buildJobId(batchId, jobPayload.getSeqNo());
-                if (jobPayload.isFailed()) {
-                    asyncJobService.recordFailedJob(
-                            jobId,
-                            BatchJobService.buildJobRequestId(requestId, jobPayload.getSeqNo()),
-                            engineCode,
-                            jobPayload.getErrorCode(),
-                            jobPayload.getErrorMessage());
-                    batchJobService.insertBatchItem(batchId, jobPayload.getSeqNo(), jobId, jobPayload.getChunkTrades());
-                    submittedJobs++;
-                    continue;
+                String jobId = batchJobService.submitBatchChildJob(batchId, requestId, engineCode, jobPayload);
+                if (!jobPayload.isFailed()) {
+                    submittedJobIds.add(jobId);
                 }
-                jobRequest.setJobId(jobId);
-                jobRequest.setRequestId(BatchJobService.buildJobRequestId(requestId, jobPayload.getSeqNo()));
-                jobRequest.setEngineCode(engineCode);
-                jobRequest.setIdempotencyKey(jobId);
-                jobRequest.setPayload(jobPayload.getPayload());
-
-                JobSubmitResult submitResult = asyncJobService.submit(jobRequest);
-                submittedJobIds.add(submitResult.getJobId());
-                batchJobService.insertBatchItem(batchId, jobPayload.getSeqNo(), submitResult.getJobId(), jobPayload.getChunkTrades());
                 submittedJobs++;
             }
-            batchJobService.updateBatchStatus(
-                    batchId,
-                    "SUBMITTED",
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    now,
-                    "批量任务已提交");
+            if (context.isLocalRerun()) {
+                batchJobService.refreshBatchSummary(batchId, "批次局部重跑任务已提交");
+            } else {
+                batchJobService.updateBatchStatus(
+                        batchId,
+                        STATUS_SUBMITTED,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        now,
+                        "批量任务已提交");
+            }
         } catch (Exception ex) {
             for (String submittedId : submittedJobIds) {
                 try {
@@ -108,29 +103,35 @@ public class BatchCalcSubmitTask implements BatchRunTask {
                     log.warn("批量任务补偿取消失败，batchId={}, jobId={}", batchId, submittedId);
                 }
             }
-            int pending = Math.max(0, context.getJobPayloads().size() - submittedJobs);
-            batchJobService.updateBatchStatus(
-                    batchId,
-                    "FAILED",
-                    pending,
-                    0,
-                    0,
-                    submittedJobIds.size(),
-                    0,
-                    System.currentTimeMillis(),
-                    "批量提交失败(已取消" + submittedJobIds.size() + "个子任务): " + ex.getMessage());
-            alertService.error("BATCH_FAILED", "批量任务提交失败，batchId=" + batchId, ex);
+            if (context.isLocalRerun()) {
+                batchJobService.refreshBatchSummary(
+                        batchId,
+                        "批次局部重跑提交失败(已取消" + submittedJobIds.size() + "个子任务): " + ex.getMessage());
+            } else {
+                int pending = Math.max(0, context.getJobPayloads().size() - submittedJobs);
+                batchJobService.updateBatchStatus(
+                        batchId,
+                        STATUS_FAILED,
+                        pending,
+                        0,
+                        0,
+                        submittedJobIds.size(),
+                        0,
+                        System.currentTimeMillis(),
+                        "批量提交失败(已取消" + submittedJobIds.size() + "个子任务): " + ex.getMessage());
+            }
+            alertService.error(ALERT_BATCH_FAILED, "批量任务提交失败，batchId=" + batchId, ex);
             throw ex;
         }
         log.info("批量任务提交完成，batchId={}, totalJobs={}", batchId, context.getJobPayloads().size());
 
-        BatchSubmitResult submitResult = new BatchSubmitResult();
+        BatchExecutionResult submitResult = new BatchExecutionResult();
         submitResult.setBatchId(batchId);
         submitResult.setRequestId(requestId);
         submitResult.setEngineCode(engineCode);
         submitResult.setOpCode(opCode);
         submitResult.setDataDate(dataDate.toString());
-        submitResult.setStatus("SUBMITTED");
+        submitResult.setStatus(STATUS_SUBMITTED);
         submitResult.setTotalTrades(context.getLoadedTrades().size());
         submitResult.setTotalJobs(context.getJobPayloads().size());
         submitResult.setSubmittedAt(now);

@@ -16,10 +16,11 @@ import com.zcyh.mr.frtbima.model.NmrfPnlRecord;
 import com.zcyh.mr.frtbima.model.SesResult;
 import com.zcyh.mr.frtbima.model.SubsetPnlRecord;
 import com.zcyh.mr.springboot.model.AggregationRule;
+import com.zcyh.mr.springboot.model.RuleSummaryRequest;
 import com.zcyh.mr.springboot.service.BatchTradeDataLoader;
 import com.zcyh.mr.springboot.out.db.CalcRuleMetaPersistService;
 import com.zcyh.mr.springboot.service.DimensionAggregationService;
-import com.zcyh.mr.springboot.service.FrtbSbaSummaryService;
+import com.zcyh.mr.springboot.service.FrtbSbaDbRunnerService;
 import com.zcyh.mr.springboot.out.db.ImaCapitalResultPersistService;
 import com.zcyh.mr.springboot.out.db.ImaEsResultDetailPersistService;
 import com.zcyh.mr.springboot.out.db.ImaNmrfResultPersistService;
@@ -34,8 +35,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -97,20 +96,12 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
             + "FROM TB_OUT_IMA_NMRF_SCENARIO_PNL "
             + "WHERE BATCH_ID = ? AND DATA_DATE = ?";
 
-    private static final String COUNT_MODELLABLE_ERROR =
-            "SELECT COUNT(*) FROM TB_OUT_IMA_MODELLABLE_SCENARIO_PNL "
-            + "WHERE BATCH_ID = ? AND DATA_DATE = ? AND (STATUS IS NULL OR STATUS <> 'SUCCESS')";
-
-    private static final String COUNT_NMRF_ERROR =
-            "SELECT COUNT(*) FROM TB_OUT_IMA_NMRF_SCENARIO_PNL "
-            + "WHERE BATCH_ID = ? AND DATA_DATE = ? AND (STATUS IS NULL OR STATUS <> 'SUCCESS')";
-
     private final JdbcTemplate engineDbJdbcTemplate;
     private final JdbcTemplate resultDbJdbcTemplate;
     private final BatchTradeDataLoader tradeDataLoader;
     private final CalcRuleMetaPersistService calcRuleMetaPersistService;
     private final DimensionAggregationService dimensionAggregationService;
-    private final FrtbSbaSummaryService frtbSbaSummaryService;
+    private final FrtbSbaDbRunnerService frtbSbaDbRunnerService;
     private final ImaCapitalResultPersistService capitalPersistService;
     private final ImaEsResultDetailPersistService esResultDetailPersistService;
     private final ImaNmrfResultPersistService nmrfResultPersistService;
@@ -123,7 +114,7 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
             BatchTradeDataLoader tradeDataLoader,
             CalcRuleMetaPersistService calcRuleMetaPersistService,
             DimensionAggregationService dimensionAggregationService,
-            FrtbSbaSummaryService frtbSbaSummaryService,
+            FrtbSbaDbRunnerService frtbSbaDbRunnerService,
             ImaCapitalResultPersistService capitalPersistService,
             ImaEsResultDetailPersistService esResultDetailPersistService,
             ImaNmrfResultPersistService nmrfResultPersistService) {
@@ -132,7 +123,7 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
         this.tradeDataLoader = tradeDataLoader;
         this.calcRuleMetaPersistService = calcRuleMetaPersistService;
         this.dimensionAggregationService = dimensionAggregationService;
-        this.frtbSbaSummaryService = frtbSbaSummaryService;
+        this.frtbSbaDbRunnerService = frtbSbaDbRunnerService;
         this.capitalPersistService = capitalPersistService;
         this.esResultDetailPersistService = esResultDetailPersistService;
         this.nmrfResultPersistService = nmrfResultPersistService;
@@ -156,16 +147,28 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
         if (readBoolean(req, false, "trial")) {
             return JSON.toJSONString(calculateTrial(req), JSONWriter.Feature.WriteBigDecimalAsPlain);
         }
+        throw new IllegalArgumentException("IMA 资本汇总请使用 /api/summary/ima/capital");
+    }
 
-        String batchId  = required(req, "batch_id");
-        String dataDate = required(req, "data_date");
-        List<String> ruleIds = parseRuleIdList(required(req, "ima_rule_id_list"));
+    public JSONObject summarize(RuleSummaryRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request 不能为空");
+        }
+        return calculateSummary(
+                request.getBatchId(),
+                request.getDataDate(),
+                request.getRuleIds(),
+                Collections.emptyMap(),
+                Collections.emptySet(),
+                Collections.emptySet());
+    }
 
-        // 解析 Amber/Green 交易台 + 标准法资本
-        Map<String, BigDecimal> saByDesk = parseSaByDesk(req);
-        Set<String> amberDesks = parseStringSet(req, "amber_desks");
-        Set<String> greenDesks = parseStringSet(req, "green_desks");
-
+    private JSONObject calculateSummary(String batchId,
+                                        String dataDate,
+                                        List<String> ruleIds,
+                                        Map<String, BigDecimal> saByDesk,
+                                        Set<String> amberDesks,
+                                        Set<String> greenDesks) {
         // 从 Doris 读取情景 PnL 结果
         List<SubsetPnlRecord> subsetPnls = queryModellablePnl(batchId, dataDate);
         List<NmrfPnlRecord> nmrfPnls = queryNmrfPnl(batchId, dataDate);
@@ -217,7 +220,7 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
         response.put("batch_id", batchId);
         response.put("data_date", dataDate);
         response.put("results", capitalResults);
-        return JSON.toJSONString(response, JSONWriter.Feature.WriteBigDecimalAsPlain);
+        return response;
     }
 
     private JSONObject calculateTrial(JSONObject req) {
@@ -322,28 +325,22 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
             return SbaCapitalSnapshot.empty();
         }
         JSONObject rule = new JSONObject();
-        rule.put("rule_id", buildTrialSbaRuleId(filterRuleId, desks, purpose));
-        rule.put("rule_type", RULE_TYPE_FRTB_SBA);
-        rule.put("rule_name", "IMA资本试算SA汇总");
         JSONArray buildOrder = new JSONArray();
         buildOrder.add("DESK");
         rule.put("build_order", buildOrder);
         rule.put("filterTree", JSON.toJSON(andFilters(tradeFilter, deskInFilter(desks))));
 
-        JSONObject request = new JSONObject();
-        request.put("batch_id", batchId);
-        request.put("data_date", dataDate);
-        request.put("need_decompose", false);
-        request.put("persist_result", false);
-        request.put("rule", rule);
-
-        JSONObject response = frtbSbaSummaryService.summarize(request);
-        JSONArray results = response == null ? null : response.getJSONArray("results");
-        if (results == null || results.isEmpty()) {
-            throw new IllegalStateException("IMA试算SA汇总未返回结果");
-        }
-        JSONObject first = results.getJSONObject(0);
-        return parseSbaSnapshot(toJsonObject(first.get("summary")));
+        AggregationRule ruleDefinition = frtbSbaDbRunnerService.parseRuleDefinition(
+                rule,
+                buildTrialSbaRuleId(filterRuleId, desks, purpose));
+        Map<String, Object> result = frtbSbaDbRunnerService.calculate(
+                batchId,
+                dataDate,
+                java.util.Collections.singletonList(ruleDefinition),
+                false,
+                0);
+        return parseSbaSnapshot(JSON.parseObject(JSON.toJSONString(
+                result, JSONWriter.Feature.WriteBigDecimalAsPlain)));
     }
 
     private SbaCapitalSnapshot parseSbaSnapshot(JSONObject summary) {
@@ -874,24 +871,9 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
         return false;
     }
 
-    private static List<String> parseRuleIdList(String text) {
-        LinkedHashSet<String> values = new LinkedHashSet<String>();
-        for (String item : text.split(",")) {
-            String safe = trimToNull(item);
-            if (safe != null) {
-                values.add(safe);
-            }
-        }
-        if (values.isEmpty()) {
-            throw new IllegalArgumentException("ima_rule_id_list 不能为空");
-        }
-        return new ArrayList<String>(values);
-    }
-
     // ==================== 数据查询 ====================
 
     private List<SubsetPnlRecord> queryModellablePnl(String batchId, String dataDate) {
-        assertNoImaScenarioPnlErrors(COUNT_MODELLABLE_ERROR, "IMA 可建模情景 PnL", batchId, dataDate);
         return resultDbJdbcTemplate.query(QUERY_MODELLABLE, (rs, i) -> {
             SubsetPnlRecord r = new SubsetPnlRecord();
             r.setRequestId(rs.getString("REQUEST_ID"));
@@ -924,7 +906,6 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
     }
 
     private List<NmrfPnlRecord> queryNmrfPnl(String batchId, String dataDate) {
-        assertNoImaScenarioPnlErrors(COUNT_NMRF_ERROR, "IMA NMRF 情景 PnL", batchId, dataDate);
         return resultDbJdbcTemplate.query(QUERY_NMRF, (rs, i) -> {
             NmrfPnlRecord r = new NmrfPnlRecord();
             r.setRequestId(rs.getString("REQUEST_ID"));
@@ -946,36 +927,7 @@ public class ImaCapitalEngineAdapter implements EngineAdapter {
         }, batchId, dataDate);
     }
 
-    private void assertNoImaScenarioPnlErrors(String sql, String label, String batchId, String dataDate) {
-        Number count = resultDbJdbcTemplate.queryForObject(sql, Number.class, batchId, dataDate);
-        if (count != null && count.longValue() > 0L) {
-            throw new IllegalStateException(label + "存在异常或未标记状态，停止 IMA 资本汇总: batchId="
-                    + batchId + ", dataDate=" + dataDate + ", rows=" + count.longValue());
-        }
-    }
-
     // ==================== JSON 工具 ====================
-
-    @SuppressWarnings("unchecked")
-    private Map<String, BigDecimal> parseSaByDesk(JSONObject req) {
-        JSONObject sa = req.getJSONObject("sa_by_desk");
-        if (sa == null) return new HashMap<>();
-        Map<String, BigDecimal> map = new HashMap<>();
-        for (String k : sa.keySet()) {
-            map.put(k, sa.getBigDecimal(k));
-        }
-        return map;
-    }
-
-    private Set<String> parseStringSet(JSONObject req, String key) {
-        com.alibaba.fastjson2.JSONArray arr = req.getJSONArray(key);
-        if (arr == null) return new HashSet<>();
-        Set<String> set = new HashSet<>();
-        for (int i = 0; i < arr.size(); i++) {
-            set.add(arr.getString(i));
-        }
-        return set;
-    }
 
     private static String required(JSONObject obj, String key) {
         String v = obj.getString(key);

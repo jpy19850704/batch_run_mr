@@ -8,7 +8,6 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.frtbsa.drc.DRCModule;
 import com.zcyh.mr.product.basic.frtb.DrcDetail;
-import com.zcyh.mr.springboot.service.FrtbDrcDbRunnerService;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -20,14 +19,7 @@ import java.util.List;
  */
 public class FrtbDrcEngineAdapter implements EngineAdapter {
     public static final String CODE = "frtb_drc";
-    private final FrtbDrcDbRunnerService dbRunnerService;
-
     public FrtbDrcEngineAdapter() {
-        this(null);
-    }
-
-    public FrtbDrcEngineAdapter(FrtbDrcDbRunnerService dbRunnerService) {
-        this.dbRunnerService = dbRunnerService;
     }
 
     @Override
@@ -46,14 +38,6 @@ public class FrtbDrcEngineAdapter implements EngineAdapter {
         if (req == null) {
             throw new IllegalArgumentException("payload 必须是 JSON 对象");
         }
-        String sourceType = trimToNull(req.getString("source_type"));
-        if ("db".equalsIgnoreCase(sourceType)) {
-            return requireDbRunner().calculateByBatch(inputJson);
-        }
-        if (sourceType != null) {
-            throw new IllegalArgumentException("frtb_drc 不支持的 source_type: " + sourceType);
-        }
-
         JSONArray detailListJson = req.getJSONArray("drc_detail_list");
         if (detailListJson == null || detailListJson.isEmpty()) {
             throw new IllegalArgumentException("drc_detail_list 必填且不能为空");
@@ -68,13 +52,6 @@ public class FrtbDrcEngineAdapter implements EngineAdapter {
 
         JSONObject result = DRCModule.calc(detailList, dataDate);
         return result.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
-    }
-
-    private FrtbDrcDbRunnerService requireDbRunner() {
-        if (dbRunnerService == null) {
-            throw new IllegalStateException("frtb_drc 数据库执行服务未配置");
-        }
-        return dbRunnerService;
     }
 
     private static LocalDate parseDate(String raw) {

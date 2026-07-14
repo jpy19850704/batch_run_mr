@@ -25,12 +25,18 @@ public class BatchTradeLoadTask implements BatchRunTask {
     @Override
     public void execute(BatchRunWorkflowContext context) {
         LocalDate dataDate = LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE);
-        List<BatchTradeDataLoader.TradeRow> loadedTrades = dataLoader.loadTradeRows(dataDate, context.getTradeFilter());
+        List<BatchTradeDataLoader.TradeRow> loadedTrades;
+        if (context.isLocalRerun()) {
+            loadedTrades = dataLoader.loadTradeRowsByInstrumentIds(dataDate, context.getInstrumentIds());
+            BatchTradeDataLoader.ensureAllInstrumentIdsLoaded(context.getInstrumentIds(), loadedTrades);
+        } else {
+            loadedTrades = dataLoader.loadTradeRows(dataDate, context.getTradeFilter());
+        }
         if (loadedTrades.isEmpty()) {
             throw new IllegalArgumentException("未查询到交易数据，请检查 dataDate 条件");
         }
         context.setLoadedTrades(loadedTrades);
-        if (context.isCacheScenarioResult()) {
+        if (context.isCacheScenarioResult() && !context.isLocalRerun()) {
             tradeInfoCacheService.putBatchTradeInfo(
                     context.getBatchId(),
                     context.getDataDate(),

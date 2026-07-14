@@ -4,15 +4,11 @@ import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.context.RequestContextHolder;
 import com.zcyh.mr.springboot.model.ApiResponse;
 import com.zcyh.mr.springboot.model.BatchDetailResult;
+import com.zcyh.mr.springboot.model.BatchExecutionResult;
 import com.zcyh.mr.springboot.model.BatchPatchRequest;
 import com.zcyh.mr.springboot.model.BatchRunRequest;
 import com.zcyh.mr.springboot.model.BatchRunResult;
-import com.zcyh.mr.springboot.model.BatchSubmitRequest;
-import com.zcyh.mr.springboot.model.BatchSubmitResult;
-import com.zcyh.mr.springboot.model.EngineRunResult;
 import com.zcyh.mr.springboot.model.JobDetailResult;
-import com.zcyh.mr.springboot.model.JobSubmitRequest;
-import com.zcyh.mr.springboot.model.JobSubmitResult;
 import com.zcyh.mr.springboot.service.AlertService;
 import com.zcyh.mr.springboot.service.AsyncJobService;
 import com.zcyh.mr.springboot.service.AuditLogService;
@@ -59,17 +55,6 @@ public class MrJobController {
         this.tradeInfoCacheService = tradeInfoCacheService;
     }
 
-    @PostMapping("/submit")
-    public ApiResponse<JobSubmitResult> submit(@RequestBody JobSubmitRequest request) {
-        long start = System.currentTimeMillis();
-        RequestContextHolder.setEngineCode("MR_CALC");
-        String message = "异步子任务提交接口已下线，请统一使用 /api/jobs/batch/run";
-        IllegalStateException ex = new IllegalStateException(message);
-        alertService.error("JOB_SUBMIT_DISABLED", "异步子任务提交接口已禁用", ex);
-        auditLogService.recordFailure("JOB_SUBMIT", "JOB", null, request == null ? null : request.getEngineCode(), "JOB_SUBMIT_DISABLED", message, System.currentTimeMillis() - start);
-        throw ex;
-    }
-
     @GetMapping("/{jobId}")
     public ApiResponse<JobDetailResult> detail(@PathVariable("jobId") String jobId) {
         long start = System.currentTimeMillis();
@@ -102,21 +87,6 @@ public class MrJobController {
         }
     }
 
-    @GetMapping("/{jobId}/result")
-    public ApiResponse<EngineRunResult> result(@PathVariable("jobId") String jobId) {
-        long start = System.currentTimeMillis();
-        RequestContextHolder.setJobId(jobId);
-        try {
-            EngineRunResult result = asyncJobService.getResult(jobId);
-            RequestContextHolder.setEngineCode(result.getEngineCode());
-            auditLogService.recordSuccess("JOB_RESULT_QUERY", "JOB", jobId, result.getEngineCode(), "任务结果查询成功", System.currentTimeMillis() - start);
-            return ApiResponse.ok(result);
-        } catch (RuntimeException ex) {
-            auditLogService.recordFailure("JOB_RESULT_QUERY", "JOB", jobId, null, "JOB_RESULT_QUERY_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
-            throw ex;
-        }
-    }
-
     @GetMapping("/{jobId}/scenario-result")
     public ApiResponse<JSONObject> scenarioResult(@PathVariable("jobId") String jobId) {
         long start = System.currentTimeMillis();
@@ -129,17 +99,6 @@ public class MrJobController {
             auditLogService.recordFailure("JOB_SCENARIO_RESULT_QUERY", "JOB", jobId, "MR_CALC", "JOB_SCENARIO_RESULT_QUERY_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
             throw ex;
         }
-    }
-
-    @PostMapping("/batch/submit")
-    public ApiResponse<BatchSubmitResult> submitBatch(@RequestBody BatchSubmitRequest request) {
-        long start = System.currentTimeMillis();
-        RequestContextHolder.setEngineCode("MR_CALC");
-        String message = "批量提交接口已下线，请统一使用 /api/jobs/batch/run";
-        IllegalStateException ex = new IllegalStateException(message);
-        alertService.error("BATCH_SUBMIT_DISABLED", "批量提交接口已禁用", ex);
-        auditLogService.recordFailure("BATCH_SUBMIT", "BATCH", request == null ? null : request.getBatchId(), "MR_CALC", "BATCH_SUBMIT_DISABLED", message, System.currentTimeMillis() - start);
-        throw ex;
     }
 
     @PostMapping("/batch/run")
@@ -160,12 +119,12 @@ public class MrJobController {
     }
 
     @PostMapping("/batch/patch")
-    public ApiResponse<BatchSubmitResult> patchBatch(@RequestBody BatchPatchRequest request) {
+    public ApiResponse<BatchExecutionResult> patchBatch(@RequestBody BatchPatchRequest request) {
         long start = System.currentTimeMillis();
         RequestContextHolder.setBatchId(request == null ? null : request.getBatchId());
         RequestContextHolder.setEngineCode("MR_CALC");
         try {
-            BatchSubmitResult result = batchJobService.submitPatch(request);
+            BatchExecutionResult result = batchRunService.patch(request);
             RequestContextHolder.setBatchId(result.getBatchId());
             auditLogService.recordSuccess("BATCH_PATCH", "BATCH", result.getBatchId(), result.getEngineCode(), "批量补丁提交成功", System.currentTimeMillis() - start);
             return ApiResponse.ok(result);
@@ -203,4 +162,5 @@ public class MrJobController {
             throw ex;
         }
     }
+
 }

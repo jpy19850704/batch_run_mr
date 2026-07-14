@@ -74,7 +74,6 @@ public class FrtbSbaInputQueryService {
 
         List<Object> params = new ArrayList<Object>();
         Set<String> selectedFields = new LinkedHashSet<String>();
-        selectedFields.addAll(rule.getGroupByFields());
         for (String level : rule.getBuildOrder()) {
             String safeField = trimToNull(level);
             if (safeField != null && !"TOTAL".equalsIgnoreCase(safeField)) {

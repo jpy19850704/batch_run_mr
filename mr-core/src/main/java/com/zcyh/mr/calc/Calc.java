@@ -7,6 +7,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.calc.result.CalcResultProcessService;
 import com.zcyh.mr.calc.scenario.CalcScenarioProcessService;
+import com.zcyh.mr.frtbima.common.LiquidityHorizonTable;
 import com.zcyh.mr.core.Calendar;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.core.SystemCalendarCache;
@@ -46,30 +47,13 @@ public class Calc {
         List<String> curveGenerationErrors = new ArrayList<>();
 
         /**
-         * 场景复用接口。
-         * 实现该接口的计算器可在压力场景中复用基准阶段的状态，只用场景市场数据重算结果。
-         */
-        interface ScenarioCapable {
-                JSONArray calcScenario(MarketData scenarioMd);
-                /**
-                 * 场景估值（仅重估受影响的交易）。
-                 * @param scenarioMd    场景市场数据
-                 * @param affectedIds   受影响的交易 INSTRUMENT_ID 集合，null 表示全量重估
-                 * @return 场景估值结果的 trade_data 数组
-                 */
-                default JSONArray calcScenario(MarketData scenarioMd, Set<String> affectedIds) {
-                        return calcScenario(scenarioMd);
-                }
-        }
-
-        /**
          * 计算器工厂接口：按输入参数创建对应的计算器实例。
          */
         @FunctionalInterface
         interface CalcFactory {
-                Runnable create(String operCode, LocalDate dataDate,
-                                List<HashMap<String, Object>> trades,
-                                MarketData md, Calendar calendar, JSONObject otherData);
+                ProductCalculator create(String operCode, LocalDate dataDate,
+                                 List<HashMap<String, Object>> trades,
+                                 MarketData md, Calendar calendar, JSONObject otherData);
         }
 
         /**
@@ -174,6 +158,10 @@ public class Calc {
         }
 
         public Calc(String jsonData, Calendar calendar) {
+                this(jsonData, calendar, null);
+        }
+
+        public Calc(String jsonData, Calendar calendar, LiquidityHorizonTable imaRiskFactorConfig) {
                 Loader loader = new Loader(jsonData, SystemCalendarCache.resolve(calendar));
                 this.rawJsonData = jsonData;
                 this.trades = loader.getTrades();
@@ -187,7 +175,8 @@ public class Calc {
                 this.validationErrors = loader.getValidationErrors();
                 this.curveGenerationInputs = loader.getCurveGenerationInputs();
 
-                this.scenarioDataList = CalcScenarioProcessService.resolveScenarioData(jsonData, loader);
+                this.scenarioDataList = CalcScenarioProcessService.resolveScenarioData(
+                                jsonData, loader, imaRiskFactorConfig);
         }
 
         /**
@@ -208,7 +197,7 @@ public class Calc {
                         }
 
                         // 先执行基准估值，并收集计算器实例与可场景复用的产品类型
-                        List<Runnable> cachedCalcs = new ArrayList<>();
+                        List<ProductCalculator> cachedCalcs = new ArrayList<>();
                         Set<String> scenarioProductCodes = new LinkedHashSet<>();
                         String baseResult = runWithMarketData(this.marketData, cachedCalcs, scenarioProductCodes);
                         JSONObject baseJson = JSON.parseObject(baseResult);
@@ -226,12 +215,7 @@ public class Calc {
                         }
 
                         // 筛选支持场景复用的计算器
-                        List<ScenarioCapable> scenarioCalcs = new ArrayList<>();
-                        for (Runnable calc : cachedCalcs) {
-                                if (calc instanceof ScenarioCapable) {
-                                        scenarioCalcs.add((ScenarioCapable) calc);
-                                }
-                        }
+                        List<ProductCalculator> scenarioCalcs = new ArrayList<>(cachedCalcs);
 
                         // 解析基准结果并逐个场景追加结果（无场景数据时返回空 scenario_result）
                         if (dataObj == null) {
@@ -279,7 +263,7 @@ public class Calc {
                                 MarketData scenMarket = MarketData.updateMarketData(this.marketData, entry.marketData);
                                 // 汇总当前场景下的交易结果（仅重估受影响的交易）
                                 JSONArray scenTradeResults = new JSONArray();
-                                for (ScenarioCapable sc : scenarioCalcs) {
+                                for (ProductCalculator sc : scenarioCalcs) {
                                         scenTradeResults.addAll(sc.calcScenario(scenMarket, affectedIds));
                                 }
 
@@ -345,7 +329,7 @@ public class Calc {
          * @param scenarioProductCodes 非空时，用于记录支持场景复用的产品类型
          * @return 估值结果 JSON 字符串
          */
-        private String runWithMarketData(MarketData md, List<Runnable> cachedCalcs,
+        private String runWithMarketData(MarketData md, List<ProductCalculator> cachedCalcs,
                         Set<String> scenarioProductCodes) {
                 if (this.trades == null || this.trades.isEmpty()) {
                         JSONObject mergedData = new JSONObject();
@@ -382,7 +366,7 @@ public class Calc {
                         }
 
                         // 创建并执行计算器
-                        Runnable calcInstance;
+                        ProductCalculator calcInstance;
                         try {
                                 calcInstance = factory.create(
                                                 this.calcMode, this.dataDate, groupTrades, md, this.calendar,
@@ -404,14 +388,14 @@ public class Calc {
                         // 缓存计算器实例，并记录支持场景复用的产品类型
                         if (cachedCalcs != null) {
                                 cachedCalcs.add(calcInstance);
-                                if (calcInstance instanceof ScenarioCapable && scenarioProductCodes != null) {
+                                if (scenarioProductCodes != null) {
                                         scenarioProductCodes.add(productCode);
                                 }
                         }
 
                         String groupResult;
                         try {
-                                groupResult = (String) calcInstance.getClass().getMethod("calc").invoke(calcInstance);
+                                groupResult = calcInstance.calc();
                         } catch (Exception e) {
                                 log.error("计算执行异常: productCode={}", productCode, e);
                                 for (HashMap<String, Object> t : groupTrades) {
@@ -440,7 +424,7 @@ public class Calc {
                 return result.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
         }
 
-        static Runnable createRegisteredCalc(String productCode, String operCode, LocalDate dataDate,
+        static ProductCalculator createRegisteredCalc(String productCode, String operCode, LocalDate dataDate,
                         List<HashMap<String, Object>> trades, MarketData md, Calendar calendar, JSONObject otherData) {
                 CalcFactory factory = REGISTRY.get(productCode);
                 if (factory == null) {
@@ -449,8 +433,8 @@ public class Calc {
                 return factory.create(operCode, dataDate, trades, md, calendar, otherData);
         }
 
-        static String invokeCalc(Runnable calcInstance) throws Exception {
-                return (String) calcInstance.getClass().getMethod("calc").invoke(calcInstance);
+        static String invokeCalc(ProductCalculator calcInstance) {
+                return calcInstance.calc();
         }
 
 }

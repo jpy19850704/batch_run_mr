@@ -8,6 +8,8 @@ import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -20,6 +22,7 @@ import java.time.format.DateTimeFormatter;
  */
 @Service
 public class GeneratedMarketDataPersistService {
+    private static final Logger log = LoggerFactory.getLogger(GeneratedMarketDataPersistService.class);
     private static final DateTimeFormatter BASIC_DATE = DateTimeFormatter.BASIC_ISO_DATE;
     private static final String INSERT_SQL = ""
             + "INSERT INTO MR_MARKET_CURVE_INPUT "
@@ -50,7 +53,7 @@ public class GeneratedMarketDataPersistService {
         }
         JSONArray generatedMarketData = data.getJSONArray("generated_market_data");
         int persistedCount = persist(generatedMarketData);
-        data.put("generatedMarketDataPersisted", persistedCount);
+        log.info("曲线生成结果已写入市场数据表: persistedCount={}", persistedCount);
         return persistedCount;
     }
 

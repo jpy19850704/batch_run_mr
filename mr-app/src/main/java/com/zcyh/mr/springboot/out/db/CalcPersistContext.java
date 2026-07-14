@@ -16,6 +16,7 @@ final class CalcPersistContext {
     String dataDate;
     String createdAt;
     String updatedAt;
+    boolean localRerun;
 
     JSONObject payload;
     JSONObject resultData;

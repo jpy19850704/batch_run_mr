@@ -587,7 +587,7 @@ JTD_CNY 必填
 | `FrtbDrcSummaryService` | DRC 汇总入口，支持 rule_id 或 inline rule |
 | `FrtbDrcResultPersistService` | DRC 汇总结果落库 |
 
-批量工作流中，汇总任务由 `BatchSummaryTask` 执行。若 `frtb_disable=true`，会跳过 FRTB SBA / DRC 汇总。
+批量工作流只生成 FRTB 敏感性与 DRC 明细，不执行汇总。SBA、DRC 汇总由独立汇总接口按需触发。
 
 ---
 

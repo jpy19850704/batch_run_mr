@@ -93,13 +93,14 @@ public class MarketInputScenarioLoader {
                     null,
                     request.resolveQueryCurveIds());
             validateMarketInputRows(request, rows);
-            appendCurrentRows(result, rows, request);
+            appendCurrentRows(result, rows, request, scenarioId);
             warnings.addAll(collectMissingCurrentWarnings(scenarioId, valuationDate, request, result.get(request.getCurveType())));
         }
         return new CurrentLoadResult(result, warnings);
     }
 
     public Map<String, Map<LocalDate, List<ScenarioMarketSeries>>> loadHistorical(
+            String scenarioId,
             LocalDate valuationDate,
             List<ScenarioDefinition> definitions) {
         Map<String, TypeLoadRequest> requests = buildRequests(definitions);
@@ -125,7 +126,7 @@ public class MarketInputScenarioLoader {
                         range.getEndDate(),
                         request.resolveQueryCurveIds());
                 validateMarketInputRows(request, rows);
-                appendHistoricalRows(result, rows, request);
+                appendHistoricalRows(result, rows, request, scenarioId);
             }
         }
         return result;
@@ -179,12 +180,13 @@ public class MarketInputScenarioLoader {
     private void appendCurrentRows(
             Map<String, List<ScenarioMarketSeries>> result,
             List<Map<String, Object>> rows,
-            TypeLoadRequest request) {
+            TypeLoadRequest request,
+            String scenarioId) {
         if (rows == null || rows.isEmpty()) {
             return;
         }
         for (Map<String, Object> row : rows) {
-            List<ScenarioMarketSeries> seriesList = parseRow(row, request);
+            List<ScenarioMarketSeries> seriesList = parseRow(row, request, scenarioId);
             if (seriesList.isEmpty()) {
                 continue;
             }
@@ -196,12 +198,13 @@ public class MarketInputScenarioLoader {
     private void appendHistoricalRows(
             Map<String, Map<LocalDate, List<ScenarioMarketSeries>>> result,
             List<Map<String, Object>> rows,
-            TypeLoadRequest request) {
+            TypeLoadRequest request,
+            String scenarioId) {
         if (rows == null || rows.isEmpty()) {
             return;
         }
         for (Map<String, Object> row : rows) {
-            List<ScenarioMarketSeries> seriesList = parseRow(row, request);
+            List<ScenarioMarketSeries> seriesList = parseRow(row, request, scenarioId);
             for (ScenarioMarketSeries series : seriesList) {
                 LocalDate dataDate = series.getDataDate();
                 if (dataDate == null) {
@@ -214,7 +217,10 @@ public class MarketInputScenarioLoader {
         }
     }
 
-    private List<ScenarioMarketSeries> parseRow(Map<String, Object> row, TypeLoadRequest request) {
+    private List<ScenarioMarketSeries> parseRow(
+            Map<String, Object> row,
+            TypeLoadRequest request,
+            String scenarioId) {
         String curveType = normalize(toStringValue(row.get("MARKET_DATA_TYPE")));
         String curveId = normalize(toStringValue(row.get("CURVE_ID")));
         LocalDate dataDate = toLocalDate(row.get("DATA_DATE"));
@@ -222,7 +228,14 @@ public class MarketInputScenarioLoader {
         if (curveType == null || contentText == null || dataDate == null) {
             return Collections.emptyList();
         }
-        JSONObject root = JSONObject.parseObject(contentText);
+        JSONObject root;
+        try {
+            root = JSONObject.parseObject(contentText);
+        } catch (RuntimeException ex) {
+            logSkippedRiskFactorPoint(scenarioId, curveType, curveId, dataDate, request, null, null,
+                    "市场曲线内容 JSON 解析失败: " + safeText(ex.getMessage()));
+            return Collections.emptyList();
+        }
         if (root == null) {
             return Collections.emptyList();
         }
@@ -232,24 +245,25 @@ public class MarketInputScenarioLoader {
         }
         switch (curveType) {
             case "IR_SPOT":
-                return parseSpotSeries(curveType, curveId, dataDate, curveData, request, "RATE");
+                return parseSpotSeries(scenarioId, curveType, curveId, dataDate, curveData, request, "RATE");
             case "COMM_SPOT":
-                return parseSpotSeries(curveType, curveId, dataDate, curveData, request, "COMM_PRICE");
+                return parseSpotSeries(scenarioId, curveType, curveId, dataDate, curveData, request, "COMM_PRICE");
             case "EQ_SPOT":
-                return parseSpotSeries(curveType, curveId, dataDate, curveData, request, "EQ_PRICE");
+                return parseSpotSeries(scenarioId, curveType, curveId, dataDate, curveData, request, "EQ_PRICE");
             case FX_SPOT:
-                return parseFxSpotSeries(curveId, dataDate, curveData, request);
+                return parseFxSpotSeries(scenarioId, curveId, dataDate, curveData, request);
             case FX_VOL:
             case IR_VOL:
             case COMM_VOL:
             case EQ_VOL:
-                return parseVolSeries(curveType, curveId, dataDate, curveData, request);
+                return parseVolSeries(scenarioId, curveType, curveId, dataDate, curveData, request);
             default:
                 return Collections.emptyList();
         }
     }
 
     private List<ScenarioMarketSeries> parseSpotSeries(
+            String scenarioId,
             String curveType,
             String curveId,
             LocalDate dataDate,
@@ -260,22 +274,24 @@ public class MarketInputScenarioLoader {
             return Collections.emptyList();
         }
         List<ScenarioMarketSeries> result = new ArrayList<ScenarioMarketSeries>();
-        int skippedCount = 0;
+        ParseWarningStats parseStats = new ParseWarningStats();
         for (int i = 0; i < curveData.size(); i++) {
             JSONObject point = curveData.getJSONObject(i);
             if (point == null) {
                 continue;
             }
-            Integer termDays = readInteger(point, "TERM", "TERM_DAYS");
-            BigDecimal value = readBigDecimal(point, valueField);
+            Integer termDays = readInteger(point, parseStats, "TERM", "TERM_DAYS");
+            BigDecimal value = readBigDecimal(point, valueField, parseStats);
             if (termDays == null || value == null) {
-                skippedCount++;
+                parseStats.skippedPointCount++;
+                logSkippedRiskFactorPoint(scenarioId, curveType, curveId, dataDate, request, i, point,
+                        "风险因子点字段缺失或格式无效", "TERM", "TERM_DAYS", valueField);
                 continue;
             }
             ScenarioMarketSeries series = buildSeries(curveType, curveId, dataDate, termDays, resolveTermCode(point, termDays), value);
             result.add(series);
         }
-        warnSkippedMarketCurvePoints(curveType, curveId, dataDate, skippedCount, curveData.size(),
+        warnSkippedMarketCurvePoints(curveType, curveId, dataDate, parseStats, curveData.size(),
                 "TERM", "TERM_DAYS", valueField);
         return result;
     }
@@ -428,6 +444,7 @@ public class MarketInputScenarioLoader {
     }
 
     private List<ScenarioMarketSeries> parseFxSpotSeries(
+            String scenarioId,
             String curveId,
             LocalDate dataDate,
             JSONArray curveData,
@@ -438,16 +455,18 @@ public class MarketInputScenarioLoader {
         request.markMatchedFxContainer(curveId);
         List<ScenarioMarketSeries> result = new ArrayList<ScenarioMarketSeries>();
         boolean includeAllPairs = request.shouldIncludeAllFxPairs(curveId);
-        int skippedCount = 0;
+        ParseWarningStats parseStats = new ParseWarningStats();
         for (int i = 0; i < curveData.size(); i++) {
             JSONObject point = curveData.getJSONObject(i);
             if (point == null) {
                 continue;
             }
-            String currencyPair = normalize(toStringValue(point.get("CURRENCY")));
-            BigDecimal value = readBigDecimal(point, "RATE");
+            String currencyPair = readRequiredText(point, "CURRENCY", parseStats);
+            BigDecimal value = readBigDecimal(point, "RATE", parseStats);
             if (currencyPair == null || value == null) {
-                skippedCount++;
+                parseStats.skippedPointCount++;
+                logSkippedRiskFactorPoint(scenarioId, FX_SPOT, curveId, dataDate, request, i, point,
+                        "风险因子点字段缺失或格式无效", "CURRENCY", "RATE");
                 continue;
             }
             String normalizedPair = currencyPair.toUpperCase();
@@ -457,12 +476,13 @@ public class MarketInputScenarioLoader {
             ScenarioMarketSeries series = buildSeries(FX_SPOT, normalizedPair, dataDate, 0, "0", value);
             result.add(series);
         }
-        warnSkippedMarketCurvePoints(FX_SPOT, curveId, dataDate, skippedCount, curveData.size(),
+        warnSkippedMarketCurvePoints(FX_SPOT, curveId, dataDate, parseStats, curveData.size(),
                 "CURRENCY", "RATE");
         return result;
     }
 
     private List<ScenarioMarketSeries> parseVolSeries(
+            String scenarioId,
             String curveType,
             String curveId,
             LocalDate dataDate,
@@ -472,29 +492,34 @@ public class MarketInputScenarioLoader {
             return Collections.emptyList();
         }
         List<ScenarioMarketSeries> result = new ArrayList<ScenarioMarketSeries>();
-        int skippedCount = 0;
+        ParseWarningStats parseStats = new ParseWarningStats();
         for (int i = 0; i < curveData.size(); i++) {
             JSONObject point = curveData.getJSONObject(i);
             if (point == null) {
                 continue;
             }
-            Integer termDays = readInteger(point, "OPTION_TERM", "TERM", "TERM_DAYS");
-            BigDecimal value = readBigDecimal(point, "VOLATILITY_RATE");
+            Integer termDays = readInteger(point, parseStats, "OPTION_TERM", "TERM", "TERM_DAYS");
+            BigDecimal value = readBigDecimal(point, "VOLATILITY_RATE", parseStats);
             if (termDays == null || value == null) {
-                skippedCount++;
+                parseStats.skippedPointCount++;
+                logSkippedRiskFactorPoint(scenarioId, curveType, curveId, dataDate, request, i, point,
+                        "风险因子点字段缺失或格式无效", "OPTION_TERM", "TERM", "TERM_DAYS", "VOLATILITY_RATE");
                 continue;
             }
             String dimension2 = resolveVolDimension2(curveType, point);
             if (dimension2 == null) {
-                throw new IllegalArgumentException("历史市场波动率点缺少第二维: curveType="
-                        + curveType + ", curveId=" + curveId + ", termDays=" + termDays);
+                parseStats.skippedPointCount++;
+                parseStats.missingFieldCount++;
+                logSkippedRiskFactorPoint(scenarioId, curveType, curveId, dataDate, request, i, point,
+                        "风险因子点缺少第二维", resolveVolDimensionField(curveType));
+                continue;
             }
             String termCode = resolveTermCode(point, termDays);
             ScenarioMarketSeries series = buildSeries(curveType, curveId, dataDate, termDays, termCode, value);
             series.setDimension2(dimension2);
             result.add(series);
         }
-        warnSkippedMarketCurvePoints(curveType, curveId, dataDate, skippedCount, curveData.size(),
+        warnSkippedMarketCurvePoints(curveType, curveId, dataDate, parseStats, curveData.size(),
                 "OPTION_TERM", "TERM", "TERM_DAYS", "VOLATILITY_RATE");
         return result;
     }
@@ -503,19 +528,43 @@ public class MarketInputScenarioLoader {
             String curveType,
             String curveId,
             LocalDate dataDate,
-            int skippedCount,
+            ParseWarningStats parseStats,
             int totalCount,
             String... fieldNames) {
-        if (skippedCount <= 0) {
+        if (parseStats == null || parseStats.skippedPointCount <= 0) {
             return;
         }
-        log.warn("市场曲线存在无法解析的数据点，已跳过: curveType={}, curveId={}, dataDate={}, fields={}, skippedCount={}, totalCount={}",
+        log.info("市场曲线无效数据点处理汇总: curveType={}, curveId={}, dataDate={}, fields={}, skippedPointCount={}, missingFieldCount={}, parseErrorFieldCount={}, totalPointCount={}",
                 safeText(curveType),
                 safeText(curveId),
                 safeText(dataDate),
                 java.util.Arrays.toString(fieldNames),
-                skippedCount,
+                parseStats.skippedPointCount,
+                parseStats.missingFieldCount,
+                parseStats.parseErrorFieldCount,
                 totalCount);
+    }
+
+    private void logSkippedRiskFactorPoint(
+            String scenarioId,
+            String curveType,
+            String curveId,
+            LocalDate dataDate,
+            TypeLoadRequest request,
+            Integer pointIndex,
+            JSONObject point,
+            String reason,
+            String... fields) {
+        log.warn("情景风险因子已排除: scenarioId={}, riskFactorType={}, riskFactorId={}, riskGroupIds={}, dataDate={}, pointIndex={}, point={}, fields={}, reason={}",
+                safeText(scenarioId),
+                safeText(curveType),
+                safeText(curveId),
+                request == null ? Collections.emptySet() : request.getRiskGroupIds(),
+                safeText(dataDate),
+                pointIndex,
+                point == null ? null : point.toJSONString(),
+                java.util.Arrays.toString(fields),
+                safeText(reason));
     }
 
     private ScenarioMarketSeries buildSeries(
@@ -535,12 +584,14 @@ public class MarketInputScenarioLoader {
         return series;
     }
 
-    private Integer readInteger(JSONObject point, String... fieldNames) {
+    private Integer readInteger(JSONObject point, ParseWarningStats parseStats, String... fieldNames) {
+        boolean hasValue = false;
         for (String fieldName : fieldNames) {
             Object value = point.get(fieldName);
             if (value == null) {
                 continue;
             }
+            hasValue = true;
             if (value instanceof Number) {
                 return ((Number) value).intValue();
             }
@@ -549,18 +600,40 @@ public class MarketInputScenarioLoader {
             } catch (Exception ignored) {
             }
         }
+        recordInvalidField(parseStats, hasValue);
         return null;
     }
 
-    private BigDecimal readBigDecimal(JSONObject point, String fieldName) {
+    private BigDecimal readBigDecimal(JSONObject point, String fieldName, ParseWarningStats parseStats) {
         Object value = point.get(fieldName);
         if (value == null) {
+            recordInvalidField(parseStats, false);
             return null;
         }
         try {
             return new BigDecimal(value.toString());
         } catch (Exception ex) {
+            recordInvalidField(parseStats, true);
             return null;
+        }
+    }
+
+    private String readRequiredText(JSONObject point, String fieldName, ParseWarningStats parseStats) {
+        String value = normalize(toStringValue(point.get(fieldName)));
+        if (value == null) {
+            recordInvalidField(parseStats, false);
+        }
+        return value;
+    }
+
+    private void recordInvalidField(ParseWarningStats parseStats, boolean parseError) {
+        if (parseStats == null) {
+            return;
+        }
+        if (parseError) {
+            parseStats.parseErrorFieldCount++;
+        } else {
+            parseStats.missingFieldCount++;
         }
     }
 
@@ -658,6 +731,19 @@ public class MarketInputScenarioLoader {
         public List<String> getWarnings() {
             return warnings;
         }
+    }
+
+    private String resolveVolDimensionField(String curveType) {
+        if (IR_VOL.equals(curveType)) {
+            return "UNDERLYING_TERM";
+        }
+        return "DELTA";
+    }
+
+    private static class ParseWarningStats {
+        private int skippedPointCount;
+        private int missingFieldCount;
+        private int parseErrorFieldCount;
     }
 
     private static class TypeLoadRequest {

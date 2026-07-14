@@ -1,20 +1,25 @@
 package com.zcyh.mr.springboot.api;
 
-import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
-
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.context.RequestContextHolder;
 import com.zcyh.mr.springboot.model.ApiResponse;
+import com.zcyh.mr.springboot.model.FrtbDrcSummaryRequest;
+import com.zcyh.mr.springboot.model.FrtbSbaSummaryRequest;
+import com.zcyh.mr.springboot.model.RuleSummaryRequest;
+import com.zcyh.mr.springboot.model.VarSummaryRequest;
 import com.zcyh.mr.springboot.service.AlertService;
 import com.zcyh.mr.springboot.service.AuditLogService;
 import com.zcyh.mr.springboot.service.FrtbDrcSummaryService;
 import com.zcyh.mr.springboot.service.FrtbRraoResultService;
 import com.zcyh.mr.springboot.service.FrtbSbaSummaryService;
+import com.zcyh.mr.springboot.service.ImaCapitalSummaryService;
 import com.zcyh.mr.springboot.service.VarSummaryService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.function.Supplier;
 
 /**
  * 汇总接口控制器。
@@ -27,6 +32,7 @@ public class MrSummaryController {
     private final FrtbDrcSummaryService frtbDrcSummaryService;
     private final FrtbRraoResultService frtbRraoResultService;
     private final VarSummaryService varSummaryService;
+    private final ImaCapitalSummaryService imaCapitalSummaryService;
     private final AuditLogService auditLogService;
     private final AlertService alertService;
 
@@ -34,145 +40,81 @@ public class MrSummaryController {
                                FrtbDrcSummaryService frtbDrcSummaryService,
                                FrtbRraoResultService frtbRraoResultService,
                                VarSummaryService varSummaryService,
+                               ImaCapitalSummaryService imaCapitalSummaryService,
                                AuditLogService auditLogService,
                                AlertService alertService) {
         this.frtbSbaSummaryService = frtbSbaSummaryService;
         this.frtbDrcSummaryService = frtbDrcSummaryService;
         this.frtbRraoResultService = frtbRraoResultService;
         this.varSummaryService = varSummaryService;
+        this.imaCapitalSummaryService = imaCapitalSummaryService;
         this.auditLogService = auditLogService;
         this.alertService = alertService;
     }
 
     @PostMapping("/frtb/sba")
     public ApiResponse<Object> sbaSummary(@RequestBody JSONObject request) {
-        long start = System.currentTimeMillis();
-        String batchId = readBatchId(request);
-        RequestContextHolder.setBatchId(batchId);
-        RequestContextHolder.setEngineCode("frtb_sba");
-        try {
-            JSONObject result = frtbSbaSummaryService.summarize(request);
-            auditLogService.recordSuccess(
-                    "SUMMARY_FRTB_SBA",
-                    "SUMMARY",
-                    batchId,
-                    "frtb_sba",
-                    "FRTB SBA 汇总成功",
-                    System.currentTimeMillis() - start);
-            return ApiResponse.ok(result);
-        } catch (RuntimeException ex) {
-            alertService.error("SUMMARY_FRTB_SBA_FAILED", "FRTB SBA 汇总失败，batchId=" + batchId, ex);
-            auditLogService.recordFailure(
-                    "SUMMARY_FRTB_SBA",
-                    "SUMMARY",
-                    batchId,
-                    "frtb_sba",
-                    "SUMMARY_FRTB_SBA_FAILED",
-                    ex.getMessage(),
-                    System.currentTimeMillis() - start);
-            throw ex;
-        }
+        FrtbSbaSummaryRequest parsed = SummaryRequestParser.parseSba(request);
+        return executeSummary(parsed.getBatchId(), "frtb_sba", "SUMMARY_FRTB_SBA", "FRTB SBA",
+                () -> frtbSbaSummaryService.summarize(parsed));
     }
 
     @PostMapping("/frtb/drc")
     public ApiResponse<Object> drcSummary(@RequestBody JSONObject request) {
-        long start = System.currentTimeMillis();
-        String batchId = readBatchId(request);
-        RequestContextHolder.setBatchId(batchId);
-        RequestContextHolder.setEngineCode("frtb_drc");
-        try {
-            JSONObject result = frtbDrcSummaryService.summarize(request);
-            auditLogService.recordSuccess(
-                    "SUMMARY_FRTB_DRC",
-                    "SUMMARY",
-                    batchId,
-                    "frtb_drc",
-                    "FRTB DRC 汇总成功",
-                    System.currentTimeMillis() - start);
-            return ApiResponse.ok(result);
-        } catch (RuntimeException ex) {
-            alertService.error("SUMMARY_FRTB_DRC_FAILED", "FRTB DRC 汇总失败，batchId=" + batchId, ex);
-            auditLogService.recordFailure(
-                    "SUMMARY_FRTB_DRC",
-                    "SUMMARY",
-                    batchId,
-                    "frtb_drc",
-                    "SUMMARY_FRTB_DRC_FAILED",
-                    ex.getMessage(),
-                    System.currentTimeMillis() - start);
-            throw ex;
-        }
+        FrtbDrcSummaryRequest parsed = SummaryRequestParser.parseDrc(request);
+        return executeSummary(parsed.getBatchId(), "frtb_drc", "SUMMARY_FRTB_DRC", "FRTB DRC",
+                () -> frtbDrcSummaryService.summarize(parsed));
     }
 
     @PostMapping("/frtb/rrao")
     public ApiResponse<Object> rraoSummary(@RequestBody JSONObject request) {
-        long start = System.currentTimeMillis();
-        String batchId = readBatchId(request);
-        RequestContextHolder.setBatchId(batchId);
-        RequestContextHolder.setEngineCode("frtb_rrao");
-        try {
-            JSONObject result = frtbRraoResultService.summarize(request);
-            auditLogService.recordSuccess(
-                    "SUMMARY_FRTB_RRAO",
-                    "SUMMARY",
-                    batchId,
-                    "frtb_rrao",
-                    "FRTB RRAO 汇总成功",
-                    System.currentTimeMillis() - start);
-            return ApiResponse.ok(result);
-        } catch (RuntimeException ex) {
-            alertService.error("SUMMARY_FRTB_RRAO_FAILED", "FRTB RRAO 汇总失败，batchId=" + batchId, ex);
-            auditLogService.recordFailure(
-                    "SUMMARY_FRTB_RRAO",
-                    "SUMMARY",
-                    batchId,
-                    "frtb_rrao",
-                    "SUMMARY_FRTB_RRAO_FAILED",
-                    ex.getMessage(),
-                    System.currentTimeMillis() - start);
-            throw ex;
-        }
+        RuleSummaryRequest parsed = SummaryRequestParser.parseRrao(request);
+        return executeSummary(parsed.getBatchId(), "frtb_rrao", "SUMMARY_FRTB_RRAO", "FRTB RRAO",
+                () -> frtbRraoResultService.summarize(parsed));
     }
 
     @PostMapping("/var")
     public ApiResponse<Object> varSummary(@RequestBody JSONObject request) {
+        VarSummaryRequest parsed = SummaryRequestParser.parseVar(request);
+        return executeSummary(parsed.getBatchId(), "var", "SUMMARY_VAR", "VaR",
+                () -> varSummaryService.summarize(parsed));
+    }
+
+    @PostMapping("/ima/capital")
+    public ApiResponse<Object> imaCapitalSummary(@RequestBody JSONObject request) {
+        RuleSummaryRequest parsed = SummaryRequestParser.parseImaCapital(request);
+        return executeSummary(parsed.getBatchId(), "ima_capital", "SUMMARY_IMA_CAPITAL", "IMA资本",
+                () -> imaCapitalSummaryService.summarize(parsed));
+    }
+
+    private ApiResponse<Object> executeSummary(String batchId, String engineCode,
+            String operationCode, String displayName, Supplier<JSONObject> summaryAction) {
         long start = System.currentTimeMillis();
-        String batchId = readBatchId(request);
         RequestContextHolder.setBatchId(batchId);
-        RequestContextHolder.setEngineCode("var");
+        RequestContextHolder.setEngineCode(engineCode);
         try {
-            JSONObject result = varSummaryService.summarize(request);
+            JSONObject result = summaryAction.get();
             auditLogService.recordSuccess(
-                    "SUMMARY_VAR",
+                    operationCode,
                     "SUMMARY",
                     batchId,
-                    "var",
-                    "VaR 汇总成功",
+                    engineCode,
+                    displayName + " 汇总成功",
                     System.currentTimeMillis() - start);
             return ApiResponse.ok(result);
         } catch (RuntimeException ex) {
-            alertService.error("SUMMARY_VAR_FAILED", "VaR 汇总失败，batchId=" + batchId, ex);
+            String errorCode = operationCode + "_FAILED";
+            alertService.error(errorCode, displayName + " 汇总失败，batchId=" + batchId, ex);
             auditLogService.recordFailure(
-                    "SUMMARY_VAR",
+                    operationCode,
                     "SUMMARY",
                     batchId,
-                    "var",
-                    "SUMMARY_VAR_FAILED",
+                    engineCode,
+                    errorCode,
                     ex.getMessage(),
                     System.currentTimeMillis() - start);
             throw ex;
         }
-    }
-
-    private static String readBatchId(JSONObject request) {
-        if (request == null) {
-            return null;
-        }
-        String batchId = trimToNull(request.getString("batch_id"));
-        if (batchId != null) {
-            return batchId;
-        }
-        return null;
     }
 
 }

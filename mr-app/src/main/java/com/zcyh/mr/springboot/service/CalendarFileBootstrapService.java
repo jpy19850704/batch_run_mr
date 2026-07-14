@@ -150,7 +150,8 @@ public class CalendarFileBootstrapService {
         }
         try {
             return LocalDate.parse(text);
-        } catch (Exception ignore) {
+        } catch (Exception ex) {
+            log.warn("日历日期解析失败，已按无效记录跳过: key={}, value={}", key, text);
             return null;
         }
     }

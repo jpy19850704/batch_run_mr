@@ -147,25 +147,11 @@ public class BatchResultFileService {
         addResultDbSection(directory, sections, "trade_scenario_var_result_detail", "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL", batchId, dataDate);
         addResultDbSection(directory, sections, "trade_frtb_sensitivity_detail", "TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL", batchId, dataDate);
         addResultDbSection(directory, sections, "trade_drc_detail", "TB_OUT_TRADE_DRC_DETAIL", batchId, dataDate);
-        addResultDbSection(directory, sections, "trade_drc_result", "TB_OUT_TRADE_DRC_RESULT", batchId, dataDate);
-        addResultDbSection(directory, sections, "trade_rrao_result", "TB_OUT_TRADE_RRAO_RESULT", batchId, dataDate);
-        addResultDbSection(directory, sections, "frtb_sba_class_result", "TB_OUT_FRTB_SBA_CLASS_RESULT", batchId, dataDate);
-        addResultDbSection(directory, sections, "frtb_sba_decomp_detail", "TB_OUT_FRTB_SBA_DECOMP_DETAIL", batchId, dataDate);
-        addResultDbSection(directory, sections, "var_result", "TB_OUT_VAR_RESULT", batchId, dataDate);
         addResultDbSection(directory, sections, "market_data_detail", "TB_OUT_MARKET_DATA_DETAIL", batchId, dataDate);
-        addResultDbSection(directory, sections, "calc_rule_meta", "TB_OUT_CALC_RULE_META", batchId, dataDate);
+        addResultDbSection(directory, sections, "portfolio_hierarchy", "TB_OUT_PORTFOLIO_HIERARCHY", batchId, dataDate);
         addResultDbSection(directory, sections, "scenario_file_detail", "TB_OUT_SCENARIO_FILE_DETAIL", batchId, dataDate);
         addResultDbSection(directory, sections, "ima_modellable_scenario_pnl", "TB_OUT_IMA_MODELLABLE_SCENARIO_PNL", batchId, dataDate);
         addResultDbSection(directory, sections, "ima_nmrf_scenario_pnl", "TB_OUT_IMA_NMRF_SCENARIO_PNL", batchId, dataDate);
-        addResultDbSection(directory, sections, "ima_es_result", "TB_OUT_IMA_ES_RESULT", batchId, dataDate);
-        addResultDbSection(directory, sections, "ima_nmrf_result", "TB_OUT_IMA_NMRF_RESULT", batchId, dataDate);
-        addResultDbSection(directory, sections, "ima_capital_result", "TB_OUT_IMA_CAPITAL_RESULT", batchId, dataDate);
-        addResultDbSection(directory, sections, "ima_backtest_result", "TB_OUT_IMA_BACKTEST_RESULT", batchId, dataDate);
-        addResultDbSection(directory, sections, "ima_backtest_exception_detail", "TB_OUT_IMA_BACKTEST_EXCEPTION_DETAIL", batchId, dataDate);
-        addResultDbSection(directory, sections, "ima_ks_result", "TB_OUT_IMA_KS_RESULT", batchId, dataDate);
-        addResultDbSection(directory, sections, "saccr_result", "TB_OUT_SACCR_RESULT", batchId, dataDate);
-        addResultDbSection(directory, sections, "saccr_trade_detail", "TB_OUT_SACCR_TRADE_DETAIL", batchId, dataDate);
-        addResultDbSection(directory, sections, "saccr_collateral_detail", "TB_OUT_SACCR_COLLATERAL_DETAIL", batchId, dataDate);
     }
 
     private void addResultDbSection(Path directory, List<Map<String, Object>> sections, String sectionName,

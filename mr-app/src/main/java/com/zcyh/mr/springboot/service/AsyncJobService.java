@@ -1,12 +1,6 @@
 package com.zcyh.mr.springboot.service;
 
-import static com.zcyh.mr.springboot.support.RequestParseSupport.readBoolean;
-
-import com.zcyh.mr.springboot.out.file.BatchResultFileService;
-
 import com.zcyh.mr.springboot.out.cache.JobScenarioResultCacheService;
-
-import com.zcyh.mr.springboot.out.db.PricingResultPersistService;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
@@ -15,46 +9,17 @@ import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
 import com.zcyh.mr.springboot.context.RequestContext;
 import com.zcyh.mr.springboot.context.RequestContextHolder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import com.zcyh.mr.springboot.model.EngineRunRequest;
-import com.zcyh.mr.springboot.model.EngineRunResult;
 import com.zcyh.mr.springboot.model.JobDetailResult;
 import com.zcyh.mr.springboot.model.JobStatus;
 import com.zcyh.mr.springboot.model.JobSubmitRequest;
 import com.zcyh.mr.springboot.model.JobSubmitResult;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
-import org.springframework.dao.DuplicateKeyException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.support.TransactionCallback;
-import org.springframework.transaction.support.TransactionTemplate;
 
-import javax.annotation.PreDestroy;
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.SQLException;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -67,126 +32,49 @@ public class AsyncJobService {
     private static final String SUCCESS = "SUCCESS";
     private static final String FAILED = "FAILED";
     private static final String CANCELLED = "CANCELLED";
-    private static final String RESULT_PERSIST_FAILED = "RESULT_PERSIST_FAILED";
+    private static final String PAYLOAD_BUILD_FAILED = "PAYLOAD_BUILD_FAILED";
     /** MR_ASYNC_JOB.error_message 列长度保护阈值（留少量余量避免方言差异）。 */
     private static final int ERROR_MESSAGE_MAX_LEN = 1000;
-    private static final Logger log = LoggerFactory.getLogger(AsyncJobService.class);
 
-    private final EngineOrchestratorService orchestratorService;
-    private final PricingResultPersistService pricingResultPersistService;
-    private final BatchResultFileService batchResultFileService;
     private final JobScenarioResultCacheService jobScenarioResultCacheService;
     private final AlertService alertService;
-    private final JdbcTemplate jdbcTemplate;
     private final AsyncJobStateRepository jobStateRepository;
-    private final TransactionTemplate transactionTemplate;
-    private final ThreadPoolExecutor executor;
-    private final ScheduledExecutorService dispatcherExecutor;
-    /** 分发器定时任务句柄，null 表示分发器当前未运行。 */
-    private volatile ScheduledFuture<?> dispatcherFuture;
-    private final ConcurrentMap<String, Future<?>> localFutureMap = new ConcurrentHashMap<String, Future<?>>();
+    private final AsyncJobExecutionService executionService;
+    private final AsyncJobDispatcher dispatcher;
     private final AtomicLong submitCounter = new AtomicLong(0L);
-    private volatile boolean shuttingDown = false;
 
-    private final boolean dispatcherEnabled;
     private final String nodeId;
     private final int cleanupEverySubmit;
     private final int retentionDays;
-    private final int retryMaxAttempts;
-    private final long retryBackoffMs;
-    private final long dispatchIntervalMs;
-    private final int claimBatchSize;
-    private final long stalePendingMs;
-    private final long staleRunningMs;
-    private final long shutdownAwaitSeconds;
-    private final int engineRetryMaxAttempts;
-    private final long engineRetryBackoffMs;
     private final long pollAfterMs;
     private final String jobApiBasePath;
-    private final int pendingJobAlertThreshold;
-    private final int executorQueueAlertThreshold;
-    /** 是否使用 Oracle 方言分页。MySQL 走 LIMIT。 */
-    private final boolean oracleDialect;
-
     public AsyncJobService(
-            EngineOrchestratorService orchestratorService,
-            PricingResultPersistService pricingResultPersistService,
-            BatchResultFileService batchResultFileService,
             JobScenarioResultCacheService jobScenarioResultCacheService,
             AlertService alertService,
             AsyncJobStateRepository jobStateRepository,
-            @Qualifier("engineDbJdbcTemplate") JdbcTemplate jdbcTemplate,
-            @Qualifier("engineDbTransactionManager") PlatformTransactionManager transactionManager,
-            @Value("${mr.job.executor.core-size:4}") int coreSize,
-            @Value("${mr.job.executor.max-size:16}") int maxSize,
-            @Value("${mr.job.executor.queue-capacity:1000}") int queueCapacity,
+            AsyncJobExecutionService executionService,
+            AsyncJobDispatcher dispatcher,
             @Value("${mr.job.store.node-id:node-default}") String nodeId,
             @Value("${mr.job.store.cleanup.every-submit:100}") int cleanupEverySubmit,
             @Value("${mr.job.store.cleanup.retention-days:7}") int retentionDays,
-            @Value("${mr.job.store.retry.max-attempts:3}") int retryMaxAttempts,
-            @Value("${mr.job.store.retry.backoff-ms:80}") long retryBackoffMs,
-            @Value("${mr.job.dispatcher.enabled:false}") boolean dispatcherEnabled,
-            @Value("${mr.job.dispatcher.interval-ms:500}") long dispatchIntervalMs,
-            @Value("${mr.job.dispatcher.claim-batch-size:50}") int claimBatchSize,
-            @Value("${mr.job.dispatcher.stale-pending-ms:30000}") long stalePendingMs,
-            @Value("${mr.job.dispatcher.stale-running-ms:600000}") long staleRunningMs,
-            @Value("${mr.job.executor.shutdown-await-seconds:30}") long shutdownAwaitSeconds,
-            @Value("${mr.job.engine.retry.max-attempts:2}") int engineRetryMaxAttempts,
-            @Value("${mr.job.engine.retry.backoff-ms:200}") long engineRetryBackoffMs,
             @Value("${mr.job.client.poll-after-ms:500}") long pollAfterMs,
-            @Value("${mr.job.api.base-path:/api/jobs}") String jobApiBasePath,
-            @Value("${mr.alert.pending-job-threshold:200}") int pendingJobAlertThreshold,
-            @Value("${mr.alert.executor-queue-threshold:800}") int executorQueueAlertThreshold
+            @Value("${mr.job.api.base-path:/api/jobs}") String jobApiBasePath
     ) {
-        this.orchestratorService = orchestratorService;
-        this.pricingResultPersistService = pricingResultPersistService;
-        this.batchResultFileService = batchResultFileService;
         this.jobScenarioResultCacheService = jobScenarioResultCacheService;
         this.alertService = alertService;
-        this.jdbcTemplate = jdbcTemplate;
         this.jobStateRepository = jobStateRepository;
-        this.transactionTemplate = new TransactionTemplate(transactionManager);
-        this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
+        this.executionService = executionService;
+        this.dispatcher = dispatcher;
 
-        this.dispatcherEnabled = dispatcherEnabled;
         this.nodeId = nodeId;
         this.cleanupEverySubmit = Math.max(1, cleanupEverySubmit);
         this.retentionDays = Math.max(1, retentionDays);
-        this.retryMaxAttempts = Math.max(1, retryMaxAttempts);
-        this.retryBackoffMs = Math.max(0L, retryBackoffMs);
-        this.dispatchIntervalMs = Math.max(100L, dispatchIntervalMs);
-        this.claimBatchSize = Math.max(1, claimBatchSize);
-        this.stalePendingMs = Math.max(1000L, stalePendingMs);
-        this.staleRunningMs = Math.max(0L, staleRunningMs);
-        this.shutdownAwaitSeconds = Math.max(1L, shutdownAwaitSeconds);
-        this.engineRetryMaxAttempts = Math.max(1, engineRetryMaxAttempts);
-        this.engineRetryBackoffMs = Math.max(0L, engineRetryBackoffMs);
         this.pollAfterMs = Math.max(100L, pollAfterMs);
         this.jobApiBasePath = normalizeApiBasePath(jobApiBasePath);
-        this.pendingJobAlertThreshold = Math.max(1, pendingJobAlertThreshold);
-        this.executorQueueAlertThreshold = Math.max(1, executorQueueAlertThreshold);
-        this.oracleDialect = detectOracleDialect();
-
-        int safeCore = Math.max(1, coreSize);
-        int safeMax = Math.max(safeCore, maxSize);
-        int safeQueue = Math.max(100, queueCapacity);
-        this.executor = new ThreadPoolExecutor(
-                safeCore,
-                safeMax,
-                60L,
-                TimeUnit.SECONDS,
-                new LinkedBlockingQueue<Runnable>(safeQueue),
-                new NamedThreadFactory("mr-job-worker-"),
-                new ThreadPoolExecutor.AbortPolicy()
-        );
-        this.executor.allowCoreThreadTimeOut(true);
-        this.dispatcherExecutor = Executors.newSingleThreadScheduledExecutor(
-                new NamedThreadFactory("mr-job-dispatcher-", true));
-
         verifyJobSchema();
     }
 
-    public JobSubmitResult submit(JobSubmitRequest request) {
+    JobSubmitResult submit(JobSubmitRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("request 不能为空");
         }
@@ -230,15 +118,9 @@ public class AsyncJobService {
         }
 
         try {
-            runInTransaction(new Callable<Void>() {
-                @Override
-                public Void call() {
-                    insertJob(create);
-                    return null;
-                }
-            }, "任务入库");
+            jobStateRepository.insertJob(create, nodeId);
         } catch (DataAccessException ex) {
-            if (create.idempotencyKey != null && isDuplicateKey(ex)) {
+            if (create.idempotencyKey != null && jobStateRepository.isDuplicateKey(ex)) {
                 AsyncJobEntity existed = findByIdempotencyKey(create.idempotencyKey);
                 if (existed != null) {
                     return toSubmitResult(existed, true, "幂等键命中，返回已存在任务");
@@ -250,15 +132,16 @@ public class AsyncJobService {
         RequestContextHolder.setJobId(jobId);
         RequestContextHolder.setEngineCode(create.engineCode);
         try {
-            submitLocalExecution(jobId);
+            dispatcher.submit(jobId);
         } catch (RejectedExecutionException ex) {
-            markRejected(jobId, ex.getMessage());
-            handleTerminalSideEffects(jobId, create.requestId, create.payloadJson, create.engineCode, null);
+            executionService.markRejected(jobId, ex.getMessage());
+            executionService.handleTerminalSideEffects(
+                    jobId, create.requestId, create.payloadJson, create.engineCode, null);
             alertService.error("EXECUTOR_QUEUE_FULL", "任务队列已满，jobId=" + jobId, ex);
             throw new IllegalStateException("任务队列已满，请稍后重试");
         }
 
-        ensureDispatcherRunning();
+        dispatcher.ensureRunning();
         cleanupIfNeeded();
         return toSubmitResult(create, false, "任务已提交");
     }
@@ -291,7 +174,7 @@ public class AsyncJobService {
         create.finishedAt = now;
         create.elapsedMs = 0L;
         create.successFlag = 0;
-        create.errorCode = trimToNull(errorCode) == null ? "PAYLOAD_BUILD_FAILED" : trimToNull(errorCode);
+        create.errorCode = trimToNull(errorCode) == null ? PAYLOAD_BUILD_FAILED : trimToNull(errorCode);
         create.errorMessage = truncateForErrorMessage(errorMessage);
         create.idempotencyKey = safeJobId;
         create.updatedAt = now;
@@ -303,13 +186,7 @@ public class AsyncJobService {
             create.sourceSystem = trimToNull(requestContext.getSourceSystem());
         }
 
-        runInTransaction(new Callable<Void>() {
-            @Override
-            public Void call() {
-                jobStateRepository.insertFailedJob(create, nodeId);
-                return null;
-            }
-        }, "记录预失败任务");
+        jobStateRepository.insertFailedJob(create, nodeId);
         cleanupIfNeeded();
         return toSubmitResult(create, false, "任务已记录为失败");
     }
@@ -317,14 +194,6 @@ public class AsyncJobService {
     public JobDetailResult getDetail(String jobId) {
         AsyncJobEntity job = requireJob(jobId);
         return toDetail(job);
-    }
-
-    public EngineRunResult getResult(String jobId) {
-        AsyncJobEntity job = requireJob(jobId);
-        if (PENDING.equals(job.status) || RUNNING.equals(job.status)) {
-            throw new IllegalStateException("任务尚未完成");
-        }
-        return buildResult(job);
     }
 
     public JSONObject getScenarioResult(String jobId) {
@@ -353,21 +222,18 @@ public class AsyncJobService {
         }
         final long now = System.currentTimeMillis();
 
-        AsyncJobEntity job = runInTransaction(new Callable<AsyncJobEntity>() {
-            @Override
-            public AsyncJobEntity call() {
-                return markCancelRequestedIfNeeded(safeJobId, now);
-            }
-        }, "取消任务");
+        AsyncJobEntity job = jobStateRepository.markCancelRequestedIfNeeded(
+                safeJobId, now, PENDING, RUNNING);
 
         if (PENDING.equals(job.status)) {
-            markCancelled(safeJobId, now, PENDING);
-            handleTerminalSideEffects(safeJobId, job.requestId, job.payloadJson, job.engineCode, null);
+            executionService.markCancelled(safeJobId, now, PENDING);
+            executionService.handleTerminalSideEffects(
+                    safeJobId, job.requestId, job.payloadJson, job.engineCode, null);
         } else if (RUNNING.equals(job.status)) {
-            Future<?> future = localFutureMap.get(safeJobId);
-            if (future != null && future.cancel(true)) {
-                markCancelled(safeJobId, now, RUNNING);
-                handleTerminalSideEffects(safeJobId, job.requestId, job.payloadJson, job.engineCode, null);
+            if (dispatcher.cancelLocal(safeJobId)) {
+                executionService.markCancelled(safeJobId, now, RUNNING);
+                executionService.handleTerminalSideEffects(
+                        safeJobId, job.requestId, job.payloadJson, job.engineCode, null);
             }
         }
         return toDetail(requireJob(safeJobId));
@@ -377,391 +243,25 @@ public class AsyncJobService {
      * 生成就绪状态快照，供 /readyz 使用。
      */
     public Map<String, Object> readinessSnapshot() {
-        Map<String, Object> data = new LinkedHashMap<String, Object>();
+        Map<String, Object> data = dispatcher.readinessSnapshot();
         boolean dbReady = false;
         String dbMessage = "OK";
         try {
-            Integer one = jdbcTemplate.queryForObject("SELECT 1", Integer.class);
-            dbReady = (one != null && one.intValue() == 1);
-            if (!dbReady) {
-                dbMessage = "数据库探活返回异常结果";
-            }
+            jobStateRepository.verifyConnection();
+            dbReady = true;
         } catch (Exception ex) {
             dbMessage = ex.getMessage();
         }
 
-        int active = executor.getActiveCount();
-        int max = executor.getMaximumPoolSize();
-        int queueSize = executor.getQueue().size();
-        int queueRemain = executor.getQueue().remainingCapacity();
-        int pendingJobs = countPendingJobs();
-        boolean executorReady = !shuttingDown && queueRemain > 0;
-        boolean dispatcherReady = !dispatcherExecutor.isShutdown();
-
+        boolean executorReady = Boolean.TRUE.equals(data.get("executorReady"));
+        boolean dispatcherReady = Boolean.TRUE.equals(data.get("dispatcherReady"));
         boolean ready = dbReady && executorReady && dispatcherReady;
         data.put("status", ready ? "READY" : "NOT_READY");
         data.put("dbReady", dbReady);
         data.put("dbMessage", dbMessage);
-        data.put("executorReady", executorReady);
-        data.put("dispatcherReady", dispatcherReady);
-        data.put("activeThreads", active);
-        data.put("maxThreads", max);
-        data.put("queueSize", queueSize);
-        data.put("queueRemaining", queueRemain);
-        data.put("pendingJobs", pendingJobs);
-        data.put("nodeId", nodeId);
-        checkAlertThresholds(pendingJobs, queueSize);
         return data;
     }
 
-    @PreDestroy
-    public void shutdown() {
-        shuttingDown = true;
-        stopDispatcher();
-        dispatcherExecutor.shutdown();
-        executor.shutdown();
-        try {
-            dispatcherExecutor.awaitTermination(Math.min(5L, shutdownAwaitSeconds), TimeUnit.SECONDS);
-            if (!executor.awaitTermination(shutdownAwaitSeconds, TimeUnit.SECONDS)) {
-                executor.shutdownNow();
-            }
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            dispatcherExecutor.shutdownNow();
-            executor.shutdownNow();
-        }
-    }
-
-    private void executeJob(String jobId) {
-        try {
-            long start = System.currentTimeMillis();
-            if (!markRunning(jobId, start)) {
-                AsyncJobEntity current = findByJobId(jobId);
-                if (current != null && PENDING.equals(current.status) && current.cancelRequested) {
-                    markCancelled(jobId, start, PENDING);
-                    handleTerminalSideEffects(jobId, current.requestId, current.payloadJson, current.engineCode, null);
-                }
-                return;
-            }
-
-            AsyncJobEntity running = requireJob(jobId);
-            bindJobContext(running);
-            RequestContextHolder.setJobId(jobId);
-            RequestContextHolder.setEngineCode(running.engineCode);
-            EngineRunRequest runRequest = new EngineRunRequest();
-            runRequest.setRequestId(running.requestId);
-            runRequest.setEngineCode(running.engineCode);
-            runRequest.setPayload(running.payloadJson);
-
-            try {
-                log.info("异步任务开始执行，jobId={}, engineCode={}", jobId, running.engineCode);
-                EngineRunResult runResult = runEngineWithRetry(jobId, runRequest);
-                long finish = System.currentTimeMillis();
-                if (isCancelRequested(jobId)) {
-                    markCancelled(jobId, finish, RUNNING);
-                    handleTerminalSideEffects(jobId, running.requestId, running.payloadJson, running.engineCode, null);
-                    return;
-                }
-                persistRunResult(jobId, runResult, finish, running.payloadJson);
-                log.info("异步任务执行完成，jobId={}, engineCode={}, success={}, elapsedMs={}",
-                        jobId, running.engineCode, runResult.isSuccess(), runResult.getElapsedMs());
-                handleTerminalSideEffects(jobId, running.requestId, running.payloadJson, running.engineCode, runResult);
-            } catch (Exception ex) {
-                long finish = System.currentTimeMillis();
-                if (isCancelRequested(jobId)) {
-                    markCancelled(jobId, finish, RUNNING);
-                    handleTerminalSideEffects(jobId, running.requestId, running.payloadJson, running.engineCode, null);
-                    return;
-                }
-                persistRunFailure(jobId, running.requestId, running.engineCode, buildErrorMessage(ex), finish);
-                alertService.error("JOB_FAILED", "异步任务执行失败，jobId=" + jobId + ", engineCode=" + running.engineCode, ex);
-                handleTerminalSideEffects(jobId, running.requestId, running.payloadJson, running.engineCode, null);
-            }
-        } finally {
-            localFutureMap.remove(jobId);
-            RequestContextHolder.clear();
-        }
-    }
-
-    /**
-     * 处理任务终态后的附加动作。
-     * 结果明细落库属于关键动作，失败会将任务从 SUCCESS 回写为 FAILED；
-     * 批次结果快照生成属于非关键动作，失败仅记录日志。
-     */
-    private void handleTerminalSideEffects(String jobId, String requestId, String payloadJson, String engineCode, EngineRunResult runResult) {
-        boolean persistResult;
-        try {
-            persistResult = shouldPersistResult(payloadJson);
-        } catch (Exception ex) {
-            markResultPersistFailed(jobId, ex);
-            return;
-        }
-        try {
-            if (runResult != null
-                    && runResult.isSuccess()
-                    && MrCalcEngineAdapter.CODE.equalsIgnoreCase(defaultEngineCode(engineCode))
-                    && persistResult) {
-                pricingResultPersistService.persistJobResult(requestId, jobId, payloadJson, runResult);
-            }
-        } catch (Exception ex) {
-            markResultPersistFailed(jobId, ex);
-        }
-
-        try {
-            if (persistResult) {
-                batchResultFileService.tryWriteSnapshotForJob(jobId);
-            }
-        } catch (Exception ex) {
-            log.error("批次结果快照生成失败，jobId={}", jobId, ex);
-        }
-    }
-
-    private void markResultPersistFailed(String jobId, Exception cause) {
-        String message = buildErrorMessage(cause);
-        log.error("任务结果明细落库失败，jobId={}", jobId, cause);
-        alertService.error("JOB_RESULT_PERSIST_FAILED", "任务结果明细落库失败，jobId=" + jobId, cause);
-        try {
-            final long now = System.currentTimeMillis();
-            final String safeMessage = truncateForErrorMessage(message);
-            withRetry(new Callable<Void>() {
-                @Override
-                public Void call() {
-                    jobStateRepository.markResultPersistFailed(jobId, SUCCESS, FAILED, RESULT_PERSIST_FAILED, safeMessage, now);
-                    return null;
-                }
-            }, "回写结果落库失败状态");
-        } catch (Exception markEx) {
-            log.error("任务结果落库失败状态回写失败，jobId={}", jobId, markEx);
-            alertService.error("JOB_RESULT_PERSIST_MARK_FAILED", "任务结果落库失败状态回写失败，jobId=" + jobId, markEx);
-        }
-    }
-
-    /**
-     * 幂等启动分发器。已在运行中则跳过。
-     */
-    private synchronized void startDispatcher() {
-        if (shuttingDown) {
-            return;
-        }
-        if (dispatcherFuture != null && !dispatcherFuture.isDone()) {
-            return;
-        }
-        log.info("启动任务分发器，轮询间隔={}ms", dispatchIntervalMs);
-        dispatcherFuture = dispatcherExecutor.scheduleWithFixedDelay(new Runnable() {
-            @Override
-            public void run() {
-                runDispatchLoop();
-            }
-        }, 0, dispatchIntervalMs, TimeUnit.MILLISECONDS);
-    }
-
-    /**
-     * 停止分发器定时任务。分发线程本身不销毁，可再次启动。
-     */
-    private synchronized void stopDispatcher() {
-        if (dispatcherFuture != null && !dispatcherFuture.isDone()) {
-            dispatcherFuture.cancel(false);
-            log.info("任务分发器已停止（无待处理任务）");
-        }
-        dispatcherFuture = null;
-    }
-
-    /**
-     * 确保分发器正在运行。由 submit() 调用，按需唤醒分发器。
-     */
-    private void ensureDispatcherRunning() {
-        if (!dispatcherEnabled || shuttingDown) {
-            return;
-        }
-        if (dispatcherFuture != null && !dispatcherFuture.isDone()) {
-            return;
-        }
-        startDispatcher();
-    }
-
-    /**
-     * 分发循环：处理 PENDING 任务，并可选回收超时 RUNNING 任务。
-     * 空闲时自动停止分发器，等待下次 submit() 唤醒。
-     */
-    private void runDispatchLoop() {
-        if (shuttingDown) {
-            return;
-        }
-        try {
-            dispatchPendingJobs();
-            recoverStaleRunningJobs();
-            // 空闲检测：无本地执行中任务且无 DB 待处理任务时，停止轮询
-            if (localFutureMap.isEmpty() && countPendingJobs() == 0) {
-                stopDispatcher();
-            }
-        } catch (Exception ex) {
-            // 分发线程不抛出异常，避免被调度器终止
-            alertService.error("JOB_DISPATCH_FAILED", "任务分发线程执行异常", ex);
-        }
-    }
-
-    /**
-     * 抢占并提交待执行任务到本地执行器。
-     */
-    private void dispatchPendingJobs() {
-        int queueRemaining = executor.getQueue().remainingCapacity();
-        int queueSize = executor.getQueue().size();
-        int claimLimit = Math.min(claimBatchSize, Math.max(0, queueRemaining));
-        checkAlertThresholds(countPendingJobs(), queueSize);
-        if (claimLimit <= 0) {
-            return;
-        }
-        long now = System.currentTimeMillis();
-        long staleCutoff = now - stalePendingMs;
-        List<String> jobIds = withRetry(new Callable<List<String>>() {
-            @Override
-            public List<String> call() {
-                return jobStateRepository.listPendingJobs(PENDING, nodeId, staleCutoff, claimLimit, oracleDialect);
-            }
-        }, "拉取待分发任务");
-        if (jobIds == null || jobIds.isEmpty()) {
-            return;
-        }
-        for (String jobId : jobIds) {
-            if (trimToNull(jobId) == null) {
-                continue;
-            }
-            if (localFutureMap.containsKey(jobId)) {
-                continue;
-            }
-            if (!claimPendingJob(jobId, staleCutoff, now)) {
-                continue;
-            }
-            try {
-                submitLocalExecution(jobId);
-            } catch (RejectedExecutionException ex) {
-                // 队列短时占满，等待下一轮分发
-                alertService.error("EXECUTOR_QUEUE_FULL", "任务分发失败，执行队列已满，jobId=" + jobId, ex);
-                return;
-            }
-        }
-    }
-
-    /**
-     * 抢占任务归属权，避免多实例重复执行。
-     */
-    private boolean claimPendingJob(String jobId, long staleCutoff, long now) {
-        return withRetry(new Callable<Boolean>() {
-            @Override
-            public Boolean call() {
-                return jobStateRepository.claimPendingJob(jobId, staleCutoff, now, nodeId, PENDING);
-            }
-        }, "抢占待执行任务");
-    }
-
-    /**
-     * 回收超时 RUNNING 任务，防止任务永久挂起。
-     */
-    private void recoverStaleRunningJobs() {
-        if (staleRunningMs <= 0L) {
-            return;
-        }
-        long now = System.currentTimeMillis();
-        long cutoff = now - staleRunningMs;
-        Integer recovered = withRetry(new Callable<Integer>() {
-            @Override
-            public Integer call() {
-                return jobStateRepository.recoverStaleRunningJobs(now, cutoff, nodeId, RUNNING, FAILED);
-            }
-        }, "回收超时运行任务");
-        if (recovered != null && recovered.intValue() > 0) {
-            alertService.warn("JOB_OWNER_TIMEOUT", "检测到超时运行任务被系统回收，count=" + recovered);
-        }
-    }
-
-    /**
-     * 将任务提交到本地执行器。
-     */
-    private void submitLocalExecution(final String jobId) {
-        localFutureMap.computeIfAbsent(jobId, new java.util.function.Function<String, Future<?>>() {
-            @Override
-            public Future<?> apply(String k) {
-                return executor.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        executeJob(k);
-                    }
-                });
-            }
-        });
-    }
-
-    /**
-     * 执行引擎并按配置重试。
-     */
-    private EngineRunResult runEngineWithRetry(String jobId, EngineRunRequest runRequest) {
-        Exception last = null;
-        for (int attempt = 1; attempt <= engineRetryMaxAttempts; attempt++) {
-            if (isCancelRequested(jobId)) {
-                throw new IllegalStateException("任务已取消");
-            }
-            touchRunningHeartbeat(jobId);
-            try {
-                return orchestratorService.run(runRequest);
-            } catch (Exception ex) {
-                last = ex;
-                if (attempt >= engineRetryMaxAttempts || !isTransientEngineError(ex)) {
-                    break;
-                }
-                sleepEngineRetry(attempt);
-            }
-        }
-        if (last instanceof RuntimeException) {
-            throw (RuntimeException) last;
-        }
-        throw new IllegalStateException("引擎执行失败", last);
-    }
-
-    /**
-     * 更新运行心跳，避免误回收正在执行的任务。
-     */
-    private void touchRunningHeartbeat(String jobId) {
-        long now = System.currentTimeMillis();
-        withRetry(new Callable<Void>() {
-            @Override
-            public Void call() {
-                jobStateRepository.touchRunningHeartbeat(jobId, now, nodeId, RUNNING);
-                return null;
-            }
-        }, "更新任务运行心跳");
-    }
-
-    /**
-     * 判定引擎异常是否可重试。
-     */
-    private static boolean isTransientEngineError(Exception ex) {
-        if (ex instanceof IllegalArgumentException) {
-            return false;
-        }
-        String message = buildErrorMessage(ex).toLowerCase();
-        return message.contains("timeout")
-                || message.contains("temporarily")
-                || message.contains("connection")
-                || message.contains("reset")
-                || message.contains("busy")
-                || message.contains("unavailable");
-    }
-
-    /**
-     * 引擎重试等待。
-     */
-    private void sleepEngineRetry(int attempt) {
-        long waitMs = engineRetryBackoffMs * attempt;
-        if (waitMs <= 0L) {
-            return;
-        }
-        try {
-            Thread.sleep(waitMs);
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("引擎重试等待被中断", ex);
-        }
-    }
 
     private void cleanupIfNeeded() {
         long count = submitCounter.incrementAndGet();
@@ -772,173 +272,15 @@ public class AsyncJobService {
         deleteOldTerminalJobs(cutoff);
     }
 
-    private int countPendingJobs() {
-        return withRetry(new Callable<Integer>() {
-            @Override
-            public Integer call() {
-                return jobStateRepository.countPendingJobs(PENDING);
-            }
-        }, "统计待处理任务");
-    }
 
-    private void checkAlertThresholds(int pendingJobs, int queueSize) {
-        if (pendingJobs >= pendingJobAlertThreshold) {
-            alertService.warn("JOB_BACKLOG_HIGH", "待处理任务积压过高，pendingJobs=" + pendingJobs + ", threshold=" + pendingJobAlertThreshold);
-        }
-        if (queueSize >= executorQueueAlertThreshold) {
-            alertService.warn("EXECUTOR_QUEUE_HIGH", "执行队列占用过高，queueSize=" + queueSize + ", threshold=" + executorQueueAlertThreshold);
-        }
-    }
-
-    private void bindJobContext(AsyncJobEntity job) {
-        RequestContext context = new RequestContext();
-        context.setTraceId(trimToNull(job.traceId));
-        context.setRequestId(trimToNull(job.requestId));
-        context.setClientId(trimToNull(job.clientId));
-        context.setUserId(trimToNull(job.userId));
-        context.setUserName(trimToNull(job.userName));
-        context.setSourceSystem(trimToNull(job.sourceSystem));
-        context.setJobId(trimToNull(job.jobId));
-        context.setEngineCode(trimToNull(job.engineCode));
-        RequestContextHolder.bind(context);
-    }
 
     private void verifyJobSchema() {
-        withRetry(new Callable<Void>() {
-            @Override
-            public Void call() {
-                jobStateRepository.verifyJobSchema();
-                return null;
-            }
-        }, "校验任务表结构");
+        jobStateRepository.verifyJobSchema();
     }
 
-    private void insertJob(AsyncJobEntity create) {
-        jobStateRepository.insertJob(create, nodeId);
-    }
-
-    private boolean markRunning(String jobId, long start) {
-        return withRetry(new Callable<Boolean>() {
-            @Override
-            public Boolean call() {
-                return jobStateRepository.markRunning(jobId, start, nodeId, RUNNING, PENDING);
-            }
-        }, "更新运行状态");
-    }
-
-    private void persistRunResult(String jobId, EngineRunResult runResult, long finish, String payloadJson) {
-        AsyncJobEntity running = requireJob(jobId);
-        long elapsed = calcElapsed(running.startedAt, finish, runResult.getElapsedMs());
-        runResult.setElapsedMs(elapsed);
-        final String finalStatus = runResult.isSuccess() ? SUCCESS : FAILED;
-        final String safeErrorMessage = truncateForErrorMessage(runResult.getErrorMessage());
-        cacheScenarioResultIfRequested(jobId, payloadJson, runResult);
-        withRetry(new Callable<Void>() {
-            @Override
-            public Void call() {
-                jobStateRepository.persistRunResult(
-                        jobId, RUNNING, finalStatus, finish, elapsed,
-                        runResult.isSuccess(), runResult.getErrorCode(), safeErrorMessage, null);
-                return null;
-            }
-        }, "持久化任务结果");
-    }
-
-    private void cacheScenarioResultIfRequested(String jobId, String payloadJson, EngineRunResult runResult) {
-        if (runResult == null || !runResult.isSuccess()) {
-            return;
-        }
-        JSONObject payload = parseJsonObjectSafely(payloadJson);
-        if (payload == null) {
-            return;
-        }
-        if (!payload.getBooleanValue("cache_scenario_result")) {
-            return;
-        }
-        JSONArray scenarioResult = extractScenarioResult(runResult.getData());
-        if (scenarioResult == null) {
-            throw new IllegalStateException("cache_scenario_result=true 但计算结果缺少 scenario_result: " + jobId);
-        }
-        jobScenarioResultCacheService.putScenarioResult(jobId, scenarioResult);
-    }
-
-    private JSONArray extractScenarioResult(Object data) {
-        JSONObject dataObj = castToJsonObject(data);
-        if (dataObj == null) {
-            return null;
-        }
-        JSONObject nestedData = castToJsonObject(dataObj.get("data"));
-        JSONObject target = nestedData == null ? dataObj : nestedData;
-        return castToJsonArray(target.get("scenario_result"));
-    }
-
-    private void persistRunFailure(String jobId, String requestId, String engineCode, String message, long finish) {
-        AsyncJobEntity running = requireJob(jobId);
-        long elapsed = calcElapsed(running.startedAt, finish, 0L);
-        final String safeMessage = truncateForErrorMessage(message);
-        withRetry(new Callable<Void>() {
-            @Override
-            public Void call() {
-                jobStateRepository.persistRunFailure(
-                        jobId, RUNNING, FAILED, finish, elapsed, "ENGINE_EXECUTION_ERROR", safeMessage);
-                return null;
-            }
-        }, "持久化失败结果");
-    }
-
-    private void markRejected(String jobId, String reason) {
-        final long now = System.currentTimeMillis();
-        final String safeReason = truncateForErrorMessage(reason);
-        withRetry(new Callable<Void>() {
-            @Override
-            public Void call() {
-                jobStateRepository.markRejected(jobId, PENDING, FAILED, now, safeReason);
-                return null;
-            }
-        }, "更新队列拒绝状态");
-    }
-
-    private AsyncJobEntity markCancelRequestedIfNeeded(String jobId, long now) {
-        AsyncJobEntity current = requireJob(jobId);
-        if (!PENDING.equals(current.status) && !RUNNING.equals(current.status)) {
-            return current;
-        }
-        withRetry(new Callable<Void>() {
-            @Override
-            public Void call() {
-                jobStateRepository.markCancelRequested(jobId, now, PENDING, RUNNING);
-                return null;
-            }
-        }, "更新取消标记");
-        return requireJob(jobId);
-    }
-
-    private void markCancelled(String jobId, long now, String expectedStatus) {
-        AsyncJobEntity job = requireJob(jobId);
-        long elapsed = calcElapsed(job.startedAt, now, 0L);
-
-        withRetry(new Callable<Void>() {
-            @Override
-            public Void call() {
-                jobStateRepository.markCancelled(jobId, expectedStatus, CANCELLED, now, elapsed);
-                return null;
-            }
-        }, "更新取消状态");
-    }
-
-    private boolean isCancelRequested(String jobId) {
-        AsyncJobEntity job = findByJobId(jobId);
-        return job != null && job.cancelRequested;
-    }
 
     private void deleteOldTerminalJobs(long cutoff) {
-        withRetry(new Callable<Void>() {
-            @Override
-            public Void call() {
-                jobStateRepository.deleteOldTerminalJobs(cutoff);
-                return null;
-            }
-        }, "清理历史任务");
+        jobStateRepository.deleteOldTerminalJobs(cutoff);
     }
 
     private AsyncJobEntity requireJob(String rawJobId) {
@@ -954,21 +296,11 @@ public class AsyncJobService {
     }
 
     private AsyncJobEntity findByJobId(String jobId) {
-        return withRetry(new Callable<AsyncJobEntity>() {
-            @Override
-            public AsyncJobEntity call() {
-                return jobStateRepository.findByJobId(jobId);
-            }
-        }, "查询任务");
+        return jobStateRepository.findByJobId(jobId);
     }
 
     private AsyncJobEntity findByIdempotencyKey(String idempotencyKey) {
-        return withRetry(new Callable<AsyncJobEntity>() {
-            @Override
-            public AsyncJobEntity call() {
-                return jobStateRepository.findByIdempotencyKey(idempotencyKey);
-            }
-        }, "查询幂等任务");
+        return jobStateRepository.findByIdempotencyKey(idempotencyKey);
     }
 
     private JobSubmitResult toSubmitResult(AsyncJobEntity job, boolean reused, String message) {
@@ -1008,18 +340,6 @@ public class AsyncJobService {
         return detail;
     }
 
-    private EngineRunResult buildResult(AsyncJobEntity job) {
-        EngineRunResult result = new EngineRunResult();
-        result.setRequestId(job.requestId);
-        result.setEngineCode(defaultEngineCode(job.engineCode));
-        result.setSuccess(SUCCESS.equals(job.status));
-        result.setElapsedMs(resolveElapsed(job) == null ? 0L : resolveElapsed(job));
-        result.setErrorCode(job.errorCode);
-        result.setErrorMessage(job.errorMessage);
-        result.setData(parseJsonSafely(job.resultJson));
-        return result;
-    }
-
     private Long resolveElapsed(AsyncJobEntity job) {
         if (job.elapsedMs != null) {
             return job.elapsedMs;
@@ -1029,128 +349,6 @@ public class AsyncJobService {
         }
         long end = job.finishedAt != null ? job.finishedAt : System.currentTimeMillis();
         return Math.max(0L, end - job.startedAt);
-    }
-
-    private <T> T withRetry(Callable<T> callable, String action) {
-        for (int attempt = 1; attempt <= retryMaxAttempts; attempt++) {
-            try {
-                return callable.call();
-            } catch (DataAccessException ex) {
-                if (attempt >= retryMaxAttempts || !isTransientDbError(ex)) {
-                    throw ex;
-                }
-                sleepBeforeRetry(attempt);
-            } catch (RuntimeException ex) {
-                throw ex;
-            } catch (Exception ex) {
-                throw new IllegalStateException(action + "失败: " + ex.getMessage(), ex);
-            }
-        }
-        throw new IllegalStateException(action + "失败: 重试次数耗尽");
-    }
-
-    private <T> T runInTransaction(final Callable<T> callable, final String action) {
-        return withRetry(new Callable<T>() {
-            @Override
-            public T call() {
-                return transactionTemplate.execute(new TransactionCallback<T>() {
-                    @Override
-                    public T doInTransaction(TransactionStatus status) {
-                        try {
-                            return callable.call();
-                        } catch (RuntimeException ex) {
-                            throw ex;
-                        } catch (Exception ex) {
-                            throw new IllegalStateException(action + "失败: " + ex.getMessage(), ex);
-                        }
-                    }
-                });
-            }
-        }, action);
-    }
-
-    private void sleepBeforeRetry(int attempt) {
-        long waitMs = retryBackoffMs * attempt;
-        if (waitMs <= 0L) {
-            return;
-        }
-        try {
-            Thread.sleep(waitMs);
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("数据库重试等待被中断", ex);
-        }
-    }
-
-    private static boolean isTransientDbError(DataAccessException ex) {
-        Throwable root = ex.getMostSpecificCause();
-        if (root instanceof SQLException) {
-            String state = ((SQLException) root).getSQLState();
-            if (state != null) {
-                if (state.startsWith("08")) {
-                    return true;
-                }
-                if ("40001".equals(state) || "40P01".equals(state) || "HYT00".equals(state)) {
-                    return true;
-                }
-            }
-        }
-        String message = root == null ? ex.getMessage() : root.getMessage();
-        if (message == null) {
-            return false;
-        }
-        String lower = message.toLowerCase();
-        return lower.contains("deadlock")
-                || lower.contains("lock wait")
-                || lower.contains("timeout")
-                || lower.contains("temporarily")
-                || lower.contains("connection reset")
-                || lower.contains("communications link failure");
-    }
-
-    private static boolean isDuplicateKey(DataAccessException ex) {
-        if (ex instanceof DuplicateKeyException) {
-            return true;
-        }
-        Throwable root = ex.getMostSpecificCause();
-        if (root instanceof SQLException) {
-            String state = ((SQLException) root).getSQLState();
-            if ("23505".equals(state)
-                    || "23000".equals(state)
-                    || "42111".equals(state)
-                    || "42S11".equals(state)) {
-                return true;
-            }
-        }
-        String message = root == null ? ex.getMessage() : root.getMessage();
-        if (message == null) {
-            return false;
-        }
-        String lower = message.toLowerCase();
-        return lower.contains("duplicate")
-                || lower.contains("unique")
-                || lower.contains("already exists");
-    }
-
-    /**
-     * 检测底层数据库是否 Oracle。
-     * 检测失败时默认按 MySQL 方言执行（LIMIT）。
-     */
-    private boolean detectOracleDialect() {
-        if (jdbcTemplate.getDataSource() == null) {
-            return false;
-        }
-        try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
-            DatabaseMetaData metaData = connection.getMetaData();
-            if (metaData == null) {
-                return false;
-            }
-            String dbName = metaData.getDatabaseProductName();
-            return dbName != null && dbName.toLowerCase().contains("oracle");
-        } catch (Exception ex) {
-            log.warn("检测数据库方言失败，默认使用 MySQL LIMIT 语法", ex);
-            return false;
-        }
     }
 
     private static long calcElapsed(Long startedAt, long finishAt, long fallback) {
@@ -1223,78 +421,6 @@ public class AsyncJobService {
         return truncateForErrorMessage(ex.getClass().getSimpleName());
     }
 
-    private static boolean shouldPersistResult(String payloadJson) {
-        JSONObject payload = JSON.parseObject(payloadJson);
-        if (payload == null || !payload.containsKey("persist_result")) {
-            return true;
-        }
-        return readBoolean(payload, true, "persist_result");
-    }
-
-    private static String firstNonBlank(String... values) {
-        if (values == null) {
-            return null;
-        }
-        for (String value : values) {
-            String safe = trimToNull(value);
-            if (safe != null) {
-                return safe;
-            }
-        }
-        return null;
-    }
-
-    private static Object parseJsonSafely(String raw) {
-        String txt = trimToNull(raw);
-        if (txt == null) {
-            return null;
-        }
-        try {
-            return JSON.parse(txt);
-        } catch (Exception ignore) {
-            return txt;
-        }
-    }
-
-    private static JSONObject parseJsonObjectSafely(String raw) {
-        String txt = trimToNull(raw);
-        if (txt == null) {
-            return null;
-        }
-        try {
-            return JSON.parseObject(txt);
-        } catch (Exception ignore) {
-            return null;
-        }
-    }
-
-    private static JSONObject castToJsonObject(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof JSONObject) {
-            return (JSONObject) value;
-        }
-        try {
-            return JSON.parseObject(JSON.toJSONString(value));
-        } catch (Exception ignore) {
-            return null;
-        }
-    }
-
-    private static JSONArray castToJsonArray(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof JSONArray) {
-            return (JSONArray) value;
-        }
-        try {
-            return JSON.parseArray(JSON.toJSONString(value));
-        } catch (Exception ignore) {
-            return null;
-        }
-    }
 
     /**
      * 截断任务错误信息，避免写入 MR_ASYNC_JOB.error_message 时出现超长异常。
@@ -1325,29 +451,4 @@ public class AsyncJobService {
         return SUCCESS.equals(status) || FAILED.equals(status) || CANCELLED.equals(status);
     }
 
-    /**
-     * 异步线程命名工厂。
-     */
-    private static class NamedThreadFactory implements ThreadFactory {
-        private final String prefix;
-        private final boolean daemon;
-        private final AtomicLong seq = new AtomicLong(1L);
-
-        private NamedThreadFactory(String prefix) {
-            this(prefix, false);
-        }
-
-        private NamedThreadFactory(String prefix, boolean daemon) {
-            this.prefix = prefix;
-            this.daemon = daemon;
-        }
-
-        @Override
-        public Thread newThread(Runnable runnable) {
-            Thread t = new Thread(runnable);
-            t.setName(prefix + seq.getAndIncrement());
-            t.setDaemon(daemon);
-            return t;
-        }
-    }
 }

@@ -48,6 +48,7 @@ build/
 # Runtime DB files
 data/*.mv.db
 data/*.lock.db
+.runtime/
 
 # 本地场景与缓存数据
 mr-app/data/

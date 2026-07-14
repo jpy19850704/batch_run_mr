@@ -1,9 +1,9 @@
 package com.zcyh.mr.springboot.service;
 
 import com.zcyh.mr.springboot.model.BatchDetailResult;
+import com.zcyh.mr.springboot.model.BatchExecutionResult;
 import com.zcyh.mr.springboot.model.AggregationRule;
 import com.zcyh.mr.springboot.model.BatchRunRequest;
-import com.zcyh.mr.springboot.model.BatchSubmitResult;
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
 
 import java.util.ArrayList;
@@ -30,16 +30,16 @@ public class BatchRunWorkflowContext {
     private boolean persistResult;
     private boolean cacheScenarioResult;
     private boolean frtbDisabled;
-    private String frtbSbaRuleIdList;
-    private String varRuleIdList;
-    private String drcRuleIdList;
+    private boolean localRerun;
+    private int firstJobSeqNo = 1;
+    private List<String> instrumentIds = new ArrayList<String>();
     private AggregationRule.FilterExpression tradeFilter;
     private List<ScenarioGeneratedRecord> scenarioRecords = new ArrayList<ScenarioGeneratedRecord>();
     private List<BatchTradeDataLoader.TradeRow> loadedTrades = new ArrayList<BatchTradeDataLoader.TradeRow>();
     private List<BatchTradeDataLoader.CurveRow> loadedMarketData = new ArrayList<BatchTradeDataLoader.CurveRow>();
     private List<List<BatchTradeDataLoader.TradeRow>> tradeChunks = new ArrayList<List<BatchTradeDataLoader.TradeRow>>();
     private List<BatchJobPayload> jobPayloads = new ArrayList<BatchJobPayload>();
-    private BatchSubmitResult submitResult;
+    private BatchExecutionResult submitResult;
     private BatchDetailResult batchDetail;
 
     public BatchRunRequest getRequest() {
@@ -178,28 +178,30 @@ public class BatchRunWorkflowContext {
         this.frtbDisabled = frtbDisabled;
     }
 
-    public String getFrtbSbaRuleIdList() {
-        return frtbSbaRuleIdList;
+    public boolean isLocalRerun() {
+        return localRerun;
     }
 
-    public void setFrtbSbaRuleIdList(String frtbSbaRuleIdList) {
-        this.frtbSbaRuleIdList = frtbSbaRuleIdList;
+    public void setLocalRerun(boolean localRerun) {
+        this.localRerun = localRerun;
     }
 
-    public String getVarRuleIdList() {
-        return varRuleIdList;
+    public int getFirstJobSeqNo() {
+        return firstJobSeqNo;
     }
 
-    public void setVarRuleIdList(String varRuleIdList) {
-        this.varRuleIdList = varRuleIdList;
+    public void setFirstJobSeqNo(int firstJobSeqNo) {
+        this.firstJobSeqNo = firstJobSeqNo;
     }
 
-    public String getDrcRuleIdList() {
-        return drcRuleIdList;
+    public List<String> getInstrumentIds() {
+        return instrumentIds;
     }
 
-    public void setDrcRuleIdList(String drcRuleIdList) {
-        this.drcRuleIdList = drcRuleIdList;
+    public void setInstrumentIds(List<String> instrumentIds) {
+        this.instrumentIds = instrumentIds == null
+                ? new ArrayList<String>()
+                : instrumentIds;
     }
 
     public AggregationRule.FilterExpression getTradeFilter() {
@@ -260,11 +262,11 @@ public class BatchRunWorkflowContext {
                 : jobPayloads;
     }
 
-    public BatchSubmitResult getSubmitResult() {
+    public BatchExecutionResult getSubmitResult() {
         return submitResult;
     }
 
-    public void setSubmitResult(BatchSubmitResult submitResult) {
+    public void setSubmitResult(BatchExecutionResult submitResult) {
         this.submitResult = submitResult;
     }
 

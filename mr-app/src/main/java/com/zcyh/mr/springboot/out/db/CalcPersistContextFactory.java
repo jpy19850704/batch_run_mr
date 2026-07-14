@@ -52,6 +52,7 @@ public class CalcPersistContextFactory {
             JSONObject batchMeta = context.payload.getJSONObject("batch_meta");
             if (batchMeta != null) {
                 context.batchId = trimToNull(batchMeta.getString("batch_id"));
+                context.localRerun = batchMeta.getBooleanValue("localRerun");
                 if (batchMeta.get("seq_no") != null) {
                     context.seqNo = batchMeta.getLong("seq_no");
                 }

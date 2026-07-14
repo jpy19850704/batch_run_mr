@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 
 import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
 
@@ -49,6 +50,17 @@ public class AggregationRuleProvider {
         rule.setRuleType(row.ruleType);
         rule.setRuleName(row.ruleName);
         return rule;
+    }
+
+    public List<AggregationRule> loadRules(String ruleType, List<String> ruleIds, String ruleLabel) {
+        if (ruleIds == null || ruleIds.isEmpty()) {
+            throw new IllegalArgumentException("ruleIds 不能为空");
+        }
+        List<AggregationRule> ruleDefinitions = new ArrayList<AggregationRule>(ruleIds.size());
+        for (String ruleId : ruleIds) {
+            ruleDefinitions.add(loadRule(ruleType, ruleId, ruleLabel));
+        }
+        return ruleDefinitions;
     }
 
     public AggregationRule.FilterExpression loadFilterTree(String ruleType, String ruleId, String ruleLabel) {

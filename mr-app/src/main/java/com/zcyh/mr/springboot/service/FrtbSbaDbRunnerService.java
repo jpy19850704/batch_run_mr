@@ -1,7 +1,5 @@
 package com.zcyh.mr.springboot.service;
 
-import static com.zcyh.mr.springboot.support.RequestParseSupport.readBoolean;
-
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
@@ -19,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.addUniqueIgnoreCase;
-import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.normalizeUpperFieldList;
 import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.normalizeUpperFieldName;
 import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.toFilterExpression;
 
@@ -31,15 +28,6 @@ public class FrtbSbaDbRunnerService {
     private static final String TOTAL = "TOTAL";
     private static final String SBA_RULE_TYPE = "FRTB_SBA";
     private static final String SBA_SUM_FIELD = "SENSITIVITY_VAL_INST_CURR_CNY";
-    private static final String[] SBA_GROUP_BY_FIELDS = new String[]{
-            "RISK_FACTOR_ID",
-            "RISK_FACTOR_VERTEX_1",
-            "RISK_FACTOR_VERTEX_2",
-            "RISK_FACTOR_CLASS",
-            "RISK_FACTOR_BUCKET",
-            "RISK_FACTOR_TYPE",
-            "SENSITIVITY_TYPE"
-    };
     private static final List<String> RAW_DETAIL_SCHEMA = java.util.Collections.unmodifiableList(java.util.Arrays.asList(
             "riskFactorClass",
             "riskFactorBucket",
@@ -66,42 +54,6 @@ public class FrtbSbaDbRunnerService {
     }
 
     /**
-     * 按 rule_id 执行 FRTB SBA 全流程：规则读取、底层过滤、维度汇总、SBA 计量。
-     */
-    public String calculateByRule(String payloadJson) {
-        JSONObject req = JSON.parseObject(payloadJson);
-        if (req == null) {
-            throw new IllegalArgumentException("payload 必须是 JSON 对象");
-        }
-        boolean needDecompose = parseNeedDecompose(req);
-        int threadCount = parseThreadCount(req);
-        String batchId = requireTopLevelString(req, "batch_id");
-        String dataDate = requireTopLevelString(req, "data_date");
-        String ruleId = requireTopLevelString(req, "rule_id");
-
-        AggregationRule rule = loadExecutableRule(ruleId);
-
-        List<Map<String, Object>> rows = inputQueryService.queryRuleDetailRows(batchId, dataDate, rule);
-        if (rows == null || rows.isEmpty()) {
-            throw new IllegalArgumentException("未查到可用于规则汇总的 FRTB 敏感性明细");
-        }
-
-        List<FrtbInput> inputList = buildRuleDrivenInputs(batchId, dataDate, rule,
-                FrtbSbaInputValidator.validateAndNormalizeSbaRows(rows));
-        if (inputList.isEmpty()) {
-            throw new IllegalArgumentException("规则汇总后未生成有效的 frtb_sba 输入数据");
-        }
-        Map<String, List<FrtbInput>> tasks = inputQueryService.groupByRuleIdAndGroupValue(inputList);
-        if (tasks.isEmpty()) {
-            throw new IllegalArgumentException("规则汇总后未生成有效的 frtb_sba 组批任务");
-        }
-        Map<String, Map<String, Object>> batchResult = aggregator.calculateBatch(tasks, needDecompose, threadCount);
-        return JSON.toJSONString(
-                buildOutputWithRawDetails(tasks, batchResult),
-                JSONWriter.Feature.WriteBigDecimalAsPlain);
-    }
-
-    /**
      * 读取并补齐实际参与 SBA 计算的规则快照，供结果元数据落库复用。
      */
     public JSONObject loadRuleSnapshot(String ruleId) {
@@ -109,41 +61,47 @@ public class FrtbSbaDbRunnerService {
         return JSON.parseObject(JSON.toJSONString(rule, JSONWriter.Feature.WriteBigDecimalAsPlain));
     }
 
-    /**
-     * 前端直接传入完整 rule 定义的 FRTB SBA 计量。
-     * 跳过 MR_AGG_RULE 表查询，由前端构造过滤条件和维度排序。
-     */
-    public String calculateByInlineRule(String payloadJson) {
-        JSONObject req = JSON.parseObject(payloadJson);
-        if (req == null) {
-            throw new IllegalArgumentException("payload 必须是 JSON 对象");
-        }
-        boolean needDecompose = parseNeedDecompose(req);
-        int threadCount = parseThreadCount(req);
-        String batchId = requireTopLevelString(req, "batch_id");
-        String dataDate = requireTopLevelString(req, "data_date");
+    public AggregationRule loadRuleDefinition(String ruleId) {
+        return loadExecutableRule(ruleId);
+    }
 
-        JSONObject ruleJson = req.getJSONObject("rule");
+    public AggregationRule parseRuleDefinition(JSONObject ruleJson, String runtimeRuleId) {
         if (ruleJson == null) {
-            throw new IllegalArgumentException("rule 不能为空，需要包含 build_order/filterTree 等");
+            throw new IllegalArgumentException("FRTB SBA 规则定义不能为空");
         }
-        AggregationRule rule = parseInlineRule(ruleJson);
-        if (rule == null) {
-            throw new IllegalArgumentException("rule 解析失败");
-        }
-        if (rule.getRuleId() == null || rule.getRuleId().isEmpty()) {
-            throw new IllegalArgumentException("FRTB SBA inline rule 必须显式提供 rule_id");
-        }
+        AggregationRule ruleDefinition = new AggregationRule();
+        ruleDefinition.setRuleId(runtimeRuleId);
+        ruleDefinition.setRuleType(SBA_RULE_TYPE);
+        ruleDefinition.setBuildOrder(toStringList(ruleJson.get("build_order")));
+        ruleDefinition.setSumFields(toStringList(ruleJson.get("sum_fields")));
+        ruleDefinition.setFilterTree(toFilterExpression(ruleJson.get("filterTree")));
+        ruleDefinition.setVirtualSelectionMode(trimToNull(ruleJson.getString("virtual_selection_mode")));
+        ruleDefinition.setVirtualTradeIds(toStringList(ruleJson.get("virtual_trade_ids")));
+        applySbaRuleDefaults(ruleDefinition);
+        dimensionAggregationService.validateRule(ruleDefinition);
+        return ruleDefinition;
+    }
 
-        applySbaRuleDefaults(rule);
-        dimensionAggregationService.validateRule(rule);
-        List<Map<String, Object>> rows = inputQueryService.queryRuleDetailRows(batchId, dataDate, rule);
-        if (rows == null || rows.isEmpty()) {
-            throw new IllegalArgumentException("未查到可用于规则汇总的 FRTB 敏感性明细");
+    public Map<String, Object> calculate(String batchId,
+                                         String dataDate,
+                                         List<AggregationRule> ruleDefinitions,
+                                         boolean needDecompose,
+                                         int threadCount) {
+        if (ruleDefinitions == null || ruleDefinitions.isEmpty()) {
+            throw new IllegalArgumentException("ruleDefinitions 不能为空");
         }
-
-        List<FrtbInput> inputList = buildRuleDrivenInputs(batchId, dataDate, rule,
-                FrtbSbaInputValidator.validateAndNormalizeSbaRows(rows));
+        List<FrtbInput> inputList = new ArrayList<FrtbInput>();
+        for (AggregationRule ruleDefinition : ruleDefinitions) {
+            applySbaRuleDefaults(ruleDefinition);
+            dimensionAggregationService.validateRule(ruleDefinition);
+            List<Map<String, Object>> rows = inputQueryService.queryRuleDetailRows(batchId, dataDate, ruleDefinition);
+            if (rows == null || rows.isEmpty()) {
+                throw new IllegalArgumentException("未查到可用于规则汇总的 FRTB 敏感性明细: ruleId="
+                        + ruleDefinition.getRuleId());
+            }
+            inputList.addAll(buildRuleDrivenInputs(batchId, dataDate, ruleDefinition,
+                    FrtbSbaInputValidator.validateAndNormalizeSbaRows(rows)));
+        }
         if (inputList.isEmpty()) {
             throw new IllegalArgumentException("规则汇总后未生成有效的 frtb_sba 输入数据");
         }
@@ -151,10 +109,9 @@ public class FrtbSbaDbRunnerService {
         if (tasks.isEmpty()) {
             throw new IllegalArgumentException("规则汇总后未生成有效的 frtb_sba 组批任务");
         }
-        Object output = buildOutputWithRawDetails(
+        return buildOutputWithRawDetails(
                 tasks,
                 aggregator.calculateBatch(tasks, needDecompose, threadCount));
-        return JSON.toJSONString(output, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
 
     /**
@@ -247,36 +204,6 @@ public class FrtbSbaDbRunnerService {
         throw new IllegalStateException("FRTB SBA 原始明细缺少 groupType: groupValue=" + groupValue);
     }
 
-    private static boolean parseNeedDecompose(JSONObject req) {
-        return readBoolean(req, true, "need_decompose");
-    }
-
-    private static int parseThreadCount(JSONObject req) {
-        Integer threadCount = req.getInteger("thread_count");
-        if (threadCount == null) {
-            return 0;
-        }
-        return Math.max(1, threadCount);
-    }
-
-    /**
-     * 手工解析内联 rule，避免 fastjson2 在 Object/数组场景下反序列化异常。
-     */
-    private static AggregationRule parseInlineRule(JSONObject ruleJson) {
-        if (ruleJson == null) {
-            return null;
-        }
-        AggregationRule rule = new AggregationRule();
-        rule.setRuleId(trimToNull(ruleJson.getString("rule_id")));
-        rule.setRuleType(trimToNull(ruleJson.getString("rule_type")));
-        rule.setRuleName(trimToNull(ruleJson.getString("rule_name")));
-        rule.setBuildOrder(toStringList(ruleJson.get("build_order")));
-        rule.setGroupByFields(toStringList(ruleJson.get("group_by_fields")));
-        rule.setSumFields(toStringList(ruleJson.get("sum_fields")));
-        rule.setFilterTree(toFilterExpression(ruleJson.get("filterTree")));
-        return rule;
-    }
-
     private AggregationRule loadExecutableRule(String ruleId) {
         AggregationRule rule = inputQueryService.loadAggregationRule(ruleId);
         applySbaRuleDefaults(rule);
@@ -303,17 +230,6 @@ public class FrtbSbaDbRunnerService {
             addUniqueIgnoreCase(buildOrder, normalizeUpperFieldName(level));
         }
         rule.setBuildOrder(buildOrder);
-
-        List<String> groupByFields = normalizeUpperFieldList(rule.getGroupByFields());
-        for (String level : buildOrder) {
-            if (!TOTAL.equalsIgnoreCase(level)) {
-                addUniqueIgnoreCase(groupByFields, normalizeUpperFieldName(level));
-            }
-        }
-        for (String riskFactorField : SBA_GROUP_BY_FIELDS) {
-            addUniqueIgnoreCase(groupByFields, riskFactorField);
-        }
-        rule.setGroupByFields(groupByFields);
 
         List<String> sumFields = new ArrayList<String>();
         sumFields.add(SBA_SUM_FIELD);

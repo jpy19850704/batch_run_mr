@@ -9,7 +9,6 @@ import com.zcyh.mr.springboot.ima.ImaScenarioStrategy;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
 import com.zcyh.mr.springboot.scenario.mapper.ScenarioMapper;
 import com.zcyh.mr.springboot.service.AlertService;
-import com.zcyh.mr.springboot.service.ImaRiskFactorConfigService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -38,7 +37,6 @@ public class ScenarioModuleConfig {
             @Qualifier("mrHolidayCalendar") Calendar mrHolidayCalendar,
             AlertService alertService,
             ImaRfetDataRepository imaRfetDataRepository,
-            ImaRiskFactorConfigService imaRiskFactorConfigService,
             @Value("${mr.calendar.default-code:}") String defaultHolidayCalendarCode,
             @Value("${mr.fx-spot.base-currency:USD}") String fxSpotBaseCurrency) {
         return new ScenarioRequestAssembler(
@@ -46,7 +44,6 @@ public class ScenarioModuleConfig {
                 mrHolidayCalendar,
                 alertService,
                 imaRfetDataRepository,
-                imaRiskFactorConfigService,
                 defaultHolidayCalendarCode,
                 fxSpotBaseCurrency);
     }

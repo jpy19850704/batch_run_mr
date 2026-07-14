@@ -1,5 +1,7 @@
 package com.zcyh.mr.springboot.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +16,7 @@ import java.util.Map;
  */
 @Component
 public class TradeChunkSplitter {
+    private static final Logger log = LoggerFactory.getLogger(TradeChunkSplitter.class);
 
     private final int defaultWeight;
     private final Map<String, Integer> productWeightRules;
@@ -122,14 +125,15 @@ public class TradeChunkSplitter {
             }
             int idx = item.indexOf('=');
             if (idx <= 0 || idx >= item.length() - 1) {
+                log.warn("批量产品权重配置格式异常，已忽略: item={}", item);
                 continue;
             }
             String key = item.substring(0, idx).trim().toUpperCase();
             String val = item.substring(idx + 1).trim();
             try {
                 map.put(key, normalizeWeight(Integer.parseInt(val)));
-            } catch (NumberFormatException ignore) {
-                // 忽略非法权重配置
+            } catch (NumberFormatException ex) {
+                log.warn("批量产品权重配置数值异常，已忽略: productCode={}, value={}", key, val);
             }
         }
         return map;

@@ -78,8 +78,9 @@ public class PricingResultPersistService {
         }
 
         tradeResultWriter.write(context);
-        // 市场数据优先落库，避免后续敏感性/DRC异常导致 market_data 被一并跳过。
-        marketDataResultWriter.write(context);
+        if (!context.localRerun) {
+            marketDataResultWriter.write(context);
+        }
         drcDetailWriter.write(context);
         frtbSensitivityDetailWriter.write(context);
         tradeScenarioResultWriter.write(context, context.scenarioResults, context.baseTradeIndex, varTableExists);

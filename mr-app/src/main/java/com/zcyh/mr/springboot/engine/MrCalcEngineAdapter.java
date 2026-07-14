@@ -8,7 +8,9 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.calc.Calc;
 import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
-import com.zcyh.mr.scenario.ScenarioCache;
+import com.zcyh.mr.calc.scenario.ScenarioCache;
+import com.zcyh.mr.frtbima.common.LiquidityHorizonTable;
+import com.zcyh.mr.springboot.service.ImaRiskFactorConfigService;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -27,9 +29,13 @@ import java.util.Set;
 public class MrCalcEngineAdapter implements EngineAdapter {
     public static final String CODE = "MR_CALC";
     private final String scenarioSetRootDir;
+    private final ImaRiskFactorConfigService imaRiskFactorConfigService;
 
-    public MrCalcEngineAdapter(String scenarioSetRootDir) {
+    public MrCalcEngineAdapter(
+            String scenarioSetRootDir,
+            ImaRiskFactorConfigService imaRiskFactorConfigService) {
         this.scenarioSetRootDir = scenarioSetRootDir == null ? "" : scenarioSetRootDir.trim();
+        this.imaRiskFactorConfigService = imaRiskFactorConfigService;
     }
 
     @Override
@@ -54,12 +60,28 @@ public class MrCalcEngineAdapter implements EngineAdapter {
         }
 
         JSONObject singlePayload = injectScenarioDataIfNeeded(req);
-        return runSingle(singlePayload.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
+        return runSingle(singlePayload);
     }
 
-    private String runSingle(String taskPayloadJson) {
-        Calc calc = new Calc(taskPayloadJson, null);
+    private String runSingle(JSONObject taskPayload) {
+        LiquidityHorizonTable imaRiskFactorConfig = loadImaRiskFactorConfigIfNeeded(taskPayload);
+        Calc calc = new Calc(
+                taskPayload.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain),
+                null,
+                imaRiskFactorConfig);
         return calc.run();
+    }
+
+    LiquidityHorizonTable loadImaRiskFactorConfigIfNeeded(JSONObject payload) {
+        if (!hasImaScenarioRefList(payload)) {
+            return null;
+        }
+        if (imaRiskFactorConfigService == null) {
+            throw new IllegalStateException("IMA 计量缺少风险因子配置读取服务");
+        }
+        String dataDate = requiredPayloadField(payload, "data_date");
+        return imaRiskFactorConfigService.loadImaRiskFactorConfig(
+                LocalDate.parse(dataDate, DateTimeFormatter.BASIC_ISO_DATE));
     }
 
     private JSONObject injectScenarioDataIfNeeded(JSONObject payload) {
@@ -115,6 +137,11 @@ public class MrCalcEngineAdapter implements EngineAdapter {
         return hasArray(payload, ScenarioProcessConstants.REGULAR_SCENARIO_REF_LIST)
                 || hasArray(payload, ScenarioProcessConstants.VAR_SCENARIO_REF_LIST)
                 || hasArray(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST)
+                || hasArray(payload, ScenarioProcessConstants.IMA_NMRF_SCENARIO_REF_LIST);
+    }
+
+    private static boolean hasImaScenarioRefList(JSONObject payload) {
+        return hasArray(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST)
                 || hasArray(payload, ScenarioProcessConstants.IMA_NMRF_SCENARIO_REF_LIST);
     }
 

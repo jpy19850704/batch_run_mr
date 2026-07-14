@@ -16,7 +16,6 @@ public class AsyncJobEntity {
     public Integer successFlag;
     public String errorCode;
     public String errorMessage;
-    public String resultJson;
     public String idempotencyKey;
     public String traceId;
     public String clientId;

@@ -17,8 +17,6 @@ public class AggregationRule {
     private String ruleName;
     @JSONField(name = "build_order")
     private List<String> buildOrder = new ArrayList<String>();
-    @JSONField(name = "group_by_fields")
-    private List<String> groupByFields = new ArrayList<String>();
     @JSONField(name = "sum_fields")
     private List<String> sumFields = new ArrayList<String>();
     @JSONField(name = "virtual_selection_mode")
@@ -57,14 +55,6 @@ public class AggregationRule {
 
     public void setBuildOrder(List<String> buildOrder) {
         this.buildOrder = buildOrder == null ? new ArrayList<String>() : buildOrder;
-    }
-
-    public List<String> getGroupByFields() {
-        return groupByFields;
-    }
-
-    public void setGroupByFields(List<String> groupByFields) {
-        this.groupByFields = groupByFields == null ? new ArrayList<String>() : groupByFields;
     }
 
     public List<String> getSumFields() {

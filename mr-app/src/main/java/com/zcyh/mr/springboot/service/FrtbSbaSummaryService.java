@@ -1,9 +1,5 @@
 package com.zcyh.mr.springboot.service;
 
-import static com.zcyh.mr.springboot.support.RequestParseSupport.readBoolean;
-import static com.zcyh.mr.springboot.support.RequestParseSupport.readInteger;
-import static com.zcyh.mr.springboot.support.RequestParseSupport.readRequiredString;
-import static com.zcyh.mr.springboot.support.RequestParseSupport.readString;
 import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
 
 import com.alibaba.fastjson2.JSON;
@@ -13,6 +9,7 @@ import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
 import com.zcyh.mr.frtbsa.sba.pojo.FRTBClassResult;
 import com.zcyh.mr.frtbsa.sba.pojo.FRTBPosResult;
+import com.zcyh.mr.springboot.model.FrtbSbaSummaryRequest;
 import com.zcyh.mr.springboot.out.db.CalcRuleMetaPersistService;
 import com.zcyh.mr.springboot.out.db.FrtbSbaResultPersistService;
 import com.zcyh.mr.springboot.support.DorisCsvStreamLoadBuffer;
@@ -26,6 +23,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -67,16 +65,15 @@ public class FrtbSbaSummaryService {
     }
 
     @SuppressWarnings("unchecked")
-    public JSONObject summarize(JSONObject request) {
+    public JSONObject summarize(FrtbSbaSummaryRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("request 不能为空");
         }
-        String batchId = readRequiredString(request, "batch_id");
-        String dataDate = readRequiredString(request, "data_date");
-        boolean needDecompose = readBoolean(request, true, "need_decompose");
-        int threadCount = readInteger(request, 0, "thread_count");
-        boolean persistResult = readBoolean(request, true, "persist_result");
-        JSONArray ruleList = resolveRuleList(request);
+        String batchId = request.getBatchId();
+        String dataDate = request.getDataDate();
+        boolean needDecompose = request.isNeedDecompose();
+        int threadCount = request.getThreadCount();
+        boolean persistResult = request.isPersistResult();
 
         if (persistResult) {
             frtbSbaResultPersistService.deleteByBatchAndDataDate(batchId, dataDate);
@@ -85,24 +82,30 @@ public class FrtbSbaSummaryService {
         }
 
         JSONArray results = new JSONArray();
-        for (int i = 0; i < ruleList.size(); i++) {
-            JSONObject ruleItem = ruleList.getJSONObject(i);
-            if (ruleItem == null) {
-                throw new IllegalArgumentException("rule_list[" + i + "] 不能为空对象");
-            }
-            RuleExecution execution = resolveRuleExecution(ruleItem);
-            String raw = executeOne(batchId, dataDate, needDecompose, threadCount, execution);
+        for (String ruleId : request.getRuleIds()) {
+            com.zcyh.mr.springboot.model.AggregationRule ruleDefinition =
+                    frtbSbaDbRunnerService.loadRuleDefinition(ruleId);
+            JSONObject ruleJson = JSON.parseObject(JSON.toJSONString(
+                    ruleDefinition, JSONWriter.Feature.WriteBigDecimalAsPlain));
+            String raw = JSON.toJSONString(
+                    frtbSbaDbRunnerService.calculate(
+                            batchId,
+                            dataDate,
+                            Collections.singletonList(ruleDefinition),
+                            needDecompose,
+                            threadCount),
+                    JSONWriter.Feature.WriteBigDecimalAsPlain);
             Object parsed = JSON.parse(raw);
 
             if (persistResult) {
                 Map<String, Object> batchResult = JSON.parseObject(raw, Map.class);
-                persistRuleResult(batchId, dataDate, execution.ruleId, batchResult);
-                persistRuleMeta(batchId, dataDate, execution);
+                persistRuleResult(batchId, dataDate, ruleId, batchResult);
+                persistRuleMeta(batchId, dataDate, ruleId, ruleJson);
             }
 
             JSONObject resultItem = new JSONObject();
-            resultItem.put("rule_id", execution.ruleId);
-            resultItem.put("source_type", execution.sourceType);
+            resultItem.put("rule_id", ruleId);
+            resultItem.put("source_type", "db");
             resultItem.put("summary", parsed);
             results.add(resultItem);
         }
@@ -112,29 +115,6 @@ public class FrtbSbaSummaryService {
         response.put("data_date", dataDate);
         response.put("results", results);
         return response;
-    }
-
-    private String executeOne(String batchId,
-                              String dataDate,
-                              boolean needDecompose,
-                              int threadCount,
-                              RuleExecution execution) {
-        JSONObject payload = new JSONObject();
-        payload.put("batch_id", batchId);
-        payload.put("data_date", dataDate);
-        payload.put("need_decompose", needDecompose);
-        if (threadCount > 0) {
-            payload.put("thread_count", threadCount);
-        }
-        if ("db".equals(execution.sourceType)) {
-            execution.ruleJson = frtbSbaDbRunnerService.loadRuleSnapshot(execution.ruleId);
-            payload.put("rule", execution.ruleJson);
-            return frtbSbaDbRunnerService.calculateByInlineRule(
-                    payload.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
-        }
-        payload.put("rule", execution.ruleJson);
-        return frtbSbaDbRunnerService.calculateByInlineRule(
-                payload.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
     }
 
     @SuppressWarnings("unchecked")
@@ -258,83 +238,12 @@ public class FrtbSbaSummaryService {
     /**
      * 将 FRTB SBA 规则的完整 JSON 写入规则元数据表。
      */
-    private void persistRuleMeta(String batchId, String dataDate, RuleExecution execution) {
+    private void persistRuleMeta(String batchId, String dataDate, String ruleId, JSONObject ruleJson) {
         try {
-            String ruleJsonStr;
-            if (execution.ruleJson != null) {
-                ruleJsonStr = execution.ruleJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
-            } else {
-                JSONObject ruleSnapshot = frtbSbaDbRunnerService.loadRuleSnapshot(execution.ruleId);
-                ruleJsonStr = ruleSnapshot.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
-            }
-            calcRuleMetaPersistService.persist(batchId, dataDate, CALC_TYPE_FRTB_SBA, execution.ruleId, ruleJsonStr);
+            String ruleJsonStr = ruleJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
+            calcRuleMetaPersistService.persist(batchId, dataDate, CALC_TYPE_FRTB_SBA, ruleId, ruleJsonStr);
         } catch (Exception e) {
             log.warn("FRTB SBA 规则元数据落库失败（不影响主流程）: {}", e.getMessage(), e);
-        }
-    }
-
-    private static JSONArray resolveRuleList(JSONObject request) {
-        JSONArray ruleList = request.getJSONArray("rule_list");
-        if (ruleList != null && !ruleList.isEmpty()) {
-            return ruleList;
-        }
-        JSONArray single = new JSONArray();
-        JSONObject item = new JSONObject();
-        String ruleId = readString(request, "rule_id");
-        JSONObject rule = request.getJSONObject("rule");
-        if (ruleId != null) {
-            item.put("rule_id", ruleId);
-            single.add(item);
-            return single;
-        }
-        if (rule != null) {
-            item.put("rule", rule);
-            single.add(item);
-            return single;
-        }
-        throw new IllegalArgumentException("FRTB SBA 汇总必须显式提供 rule_id、rule 或 rule_list");
-    }
-
-    private static RuleExecution resolveRuleExecution(JSONObject ruleItem) {
-        JSONObject rule = ruleItem.getJSONObject("rule");
-        String ruleId = readString(ruleItem, "rule_id");
-        if (rule == null) {
-            if (ruleId == null) {
-                throw new IllegalArgumentException("rule_list 项必须提供 rule_id 或 rule");
-            }
-            return RuleExecution.db(ruleId);
-        }
-        if (ruleId == null) {
-            ruleId = readString(rule, "rule_id");
-        }
-        if (ruleId == null) {
-            throw new IllegalArgumentException("FRTB SBA inline rule 必须显式提供 rule_id");
-        }
-        rule.put("rule_id", ruleId);
-        return RuleExecution.inline(ruleId, rule);
-    }
-
-    /**
-     * 单条 SBA 汇总规则执行定义。
-     */
-    private static class RuleExecution {
-        private String ruleId;
-        private String sourceType;
-        private JSONObject ruleJson;
-
-        static RuleExecution db(String ruleId) {
-            RuleExecution execution = new RuleExecution();
-            execution.ruleId = ruleId;
-            execution.sourceType = "db";
-            return execution;
-        }
-
-        static RuleExecution inline(String ruleId, JSONObject ruleJson) {
-            RuleExecution execution = new RuleExecution();
-            execution.ruleId = ruleId;
-            execution.sourceType = "db_inline";
-            execution.ruleJson = ruleJson;
-            return execution;
         }
     }
 }

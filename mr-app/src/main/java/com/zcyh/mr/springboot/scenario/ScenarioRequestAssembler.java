@@ -5,17 +5,13 @@ import com.zcyh.mr.scenario.model.ScenarioGenerationRequest;
 import com.zcyh.mr.scenario.model.ScenarioMarketSeries;
 import com.zcyh.mr.scenario.model.ScenarioTaskRequest;
 import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
-import com.zcyh.mr.frtbima.common.LiquidityHorizonTable;
 import com.zcyh.mr.frtbima.rfet.model.RfetResult;
-import com.zcyh.mr.scenario.ScenarioCache;
 import com.zcyh.mr.springboot.ima.ImaRfetDataRepository;
 import com.zcyh.mr.springboot.scenario.mapper.ScenarioMapper;
 import com.zcyh.mr.springboot.service.AlertService;
-import com.zcyh.mr.springboot.service.ImaRiskFactorConfigService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -34,14 +30,13 @@ public class ScenarioRequestAssembler {
     private final ScenarioMapper scenarioMapper;
     private final MarketInputScenarioLoader marketInputScenarioLoader;
     private final ImaRfetDataRepository imaRfetDataRepository;
-    private final ImaRiskFactorConfigService imaRiskFactorConfigService;
     private final String defaultHolidayCalendarCode;
 
     public ScenarioRequestAssembler(
             ScenarioMapper scenarioMapper,
             com.zcyh.mr.core.Calendar holidayCalendar,
             String defaultHolidayCalendarCode) {
-        this(scenarioMapper, holidayCalendar, null, null, null, defaultHolidayCalendarCode, "USD");
+        this(scenarioMapper, holidayCalendar, null, null, defaultHolidayCalendarCode, "USD");
     }
 
     public ScenarioRequestAssembler(
@@ -49,7 +44,7 @@ public class ScenarioRequestAssembler {
             com.zcyh.mr.core.Calendar holidayCalendar,
             AlertService alertService,
             String defaultHolidayCalendarCode) {
-        this(scenarioMapper, holidayCalendar, alertService, null, null, defaultHolidayCalendarCode, "USD");
+        this(scenarioMapper, holidayCalendar, alertService, null, defaultHolidayCalendarCode, "USD");
     }
 
     public ScenarioRequestAssembler(
@@ -57,7 +52,6 @@ public class ScenarioRequestAssembler {
             com.zcyh.mr.core.Calendar holidayCalendar,
             AlertService alertService,
             ImaRfetDataRepository imaRfetDataRepository,
-            ImaRiskFactorConfigService imaRiskFactorConfigService,
             String defaultHolidayCalendarCode,
             String fxSpotBaseCurrency) {
         if (scenarioMapper == null) {
@@ -66,7 +60,6 @@ public class ScenarioRequestAssembler {
         this.scenarioMapper = scenarioMapper;
         this.marketInputScenarioLoader = new MarketInputScenarioLoader(scenarioMapper, holidayCalendar, alertService, fxSpotBaseCurrency);
         this.imaRfetDataRepository = imaRfetDataRepository;
-        this.imaRiskFactorConfigService = imaRiskFactorConfigService;
         this.defaultHolidayCalendarCode = normalize(defaultHolidayCalendarCode);
     }
 
@@ -86,17 +79,13 @@ public class ScenarioRequestAssembler {
         boolean hasImaScenario = hasImaScenario(scenarioRows);
         List<RfetResult> imaRfetResults = Collections.emptyList();
         if (hasImaScenario) {
-            if (imaRfetDataRepository == null || imaRiskFactorConfigService == null) {
-                throw new IllegalStateException("IMA 情景需要配置 RFET 和风险因子配置数据读取组件");
+            if (imaRfetDataRepository == null) {
+                throw new IllegalStateException("IMA 情景需要配置 RFET 数据读取组件");
             }
             imaRfetResults = imaRfetDataRepository.loadRfetResults(valuationDate);
             if (imaRfetResults.isEmpty()) {
                 throw new IllegalStateException("MR_IMA_RFET_RESULT 未找到当前估值日数据，dataDate=" + valuationDate);
             }
-            LiquidityHorizonTable table = imaRiskFactorConfigService.loadImaRiskFactorConfig(valuationDate);
-            ScenarioCache.putObject(
-                    ScenarioProcessConstants.imaRiskFactorConfigCacheKey(valuationDate.format(DateTimeFormatter.BASIC_ISO_DATE)),
-                    table);
         }
 
         for (Map<String, Object> scenarioRow : scenarioRows) {
@@ -129,7 +118,8 @@ public class ScenarioRequestAssembler {
             task.setDefinitions(finalDefinitions);
             task.setWarnings(currentLoadResult.getWarnings());
             task.setCurrentMarketData(currentLoadResult.getMarketData());
-            task.setHistoricalMarketData(marketInputScenarioLoader.loadHistorical(valuationDate, marketLoadDefinitions));
+            task.setHistoricalMarketData(marketInputScenarioLoader.loadHistorical(
+                    scenarioId, valuationDate, marketLoadDefinitions));
             if (isImaScenario(scenarioType)) {
                 task.setImaRfetResults(imaRfetResults);
             }
