@@ -59,6 +59,15 @@ public class FrtbDrcResultPersistService {
         }
     }
 
+    public void deleteByBatchDataDateAndRuleIds(String batchId, String dataDate, List<String> ruleIds) {
+        int deleted = RuleScopedDeleteSupport.deleteByRuleIds(
+                jdbcTemplate, TARGET_TABLE, batchId, dataDate, ruleIds);
+        if (deleted > 0) {
+            log.info("按规则清理 DRC 汇总历史结果: batchId={}, dataDate={}, ruleIds={}, deleted={}",
+                    batchId, dataDate, ruleIds, deleted);
+        }
+    }
+
     /**
      * 将 DRC 计量结果写入单表。
      * DRC_VALUE 写为 NONADDITIVE，DECOMP_LEGALENTITY 写为 ADDITIVE，聚合层级由核心模块输出。

@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.eq;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.marketdata.EqSpot;
 import com.zcyh.mr.marketdata.EqVol;
 import com.zcyh.mr.marketdata.IrSpot;
@@ -249,6 +250,7 @@ public class EqStepUpOpt extends StepUpOptBase<EqStepUpOpt.EqStepUpInfo, OptionM
     }
 
     public static class EqStepUpInfo extends StepUpOptBase.StepUpBaseInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
     }

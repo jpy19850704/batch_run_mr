@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;

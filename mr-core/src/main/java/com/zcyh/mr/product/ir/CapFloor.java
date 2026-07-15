@@ -10,6 +10,7 @@ import com.zcyh.mr.basic.util.ReflectionUtils;
 import com.zcyh.mr.core.Calendar;
 import com.zcyh.mr.core.*;
 import com.zcyh.mr.marketdata.*;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
@@ -243,31 +244,68 @@ public class CapFloor {
         if (capFloorInfo == null) {
             throw new IllegalArgumentException("交易信息为空");
         }
+        requireText(capFloorInfo.instrumentId, "INSTRUMENT_ID");
+        requireText(capFloorInfo.productCode, "PRODUCT_CODE");
+        if (!"CAP".equalsIgnoreCase(capFloorInfo.capOrFloor)
+                && !"FLOOR".equalsIgnoreCase(capFloorInfo.capOrFloor)) {
+            throw new IllegalArgumentException("CAP_OR_FLOOR 仅支持 CAP/FLOOR: " + capFloorInfo.capOrFloor);
+        }
+        if (!"B".equalsIgnoreCase(capFloorInfo.buyOrSell)
+                && !"S".equalsIgnoreCase(capFloorInfo.buyOrSell)) {
+            throw new IllegalArgumentException("BUY_OR_SELL 仅支持 B/S: " + capFloorInfo.buyOrSell);
+        }
+        requireCurrencyCode(capFloorInfo.currencyCode, "CURRENCY_CODE");
+        requireNonNegativeFinite(capFloorInfo.notional, "NOTIONAL");
+        if (capFloorInfo.startDate == null) {
+            throw new IllegalArgumentException("START_DATE 不能为空");
+        }
+        if (capFloorInfo.maturityDate == null) {
+            throw new IllegalArgumentException("MATURITY_DATE 不能为空");
+        }
+        requireFinite(capFloorInfo.strikeRate, "STRIKE_RATE");
+        requireText(capFloorInfo.dayCountBasis, "DAY_COUNT_BASIS");
+        requireText(capFloorInfo.payFreq, "PAY_FREQ");
+        requireText(capFloorInfo.discountCurve, "DISCOUNT_CURVE");
+        requireText(capFloorInfo.referenceCurve, "REFERENCE_CURVE");
+        requireText(capFloorInfo.volatilitySurface, "VOLATILITY_SURFACE");
+        resolveValuationModel();
         if (marketData == null) {
             throw new IllegalArgumentException("市场数据为空: instrumentId=" + capFloorInfo.instrumentId);
-        }
-        if (StringUtils.isBlank(capFloorInfo.discountCurve)) {
-            throw new IllegalArgumentException("折现曲线为空: instrumentId=" + capFloorInfo.instrumentId);
         }
         if (marketData.irSpot == null || marketData.irSpot.get(capFloorInfo.discountCurve) == null) {
             throw new IllegalArgumentException("折现曲线不存在: " + capFloorInfo.discountCurve);
         }
-        if (StringUtils.isBlank(capFloorInfo.referenceCurve)) {
-            throw new IllegalArgumentException("参考曲线为空: instrumentId=" + capFloorInfo.instrumentId);
-        }
         if (marketData.irSpot == null || marketData.irSpot.get(capFloorInfo.referenceCurve) == null) {
             throw new IllegalArgumentException("参考曲线不存在: " + capFloorInfo.referenceCurve);
-        }
-        if (StringUtils.isBlank(capFloorInfo.volatilitySurface)) {
-            throw new IllegalArgumentException("波动率曲面为空: instrumentId=" + capFloorInfo.instrumentId);
         }
         if (marketData.irVol == null || marketData.irVol.get(capFloorInfo.volatilitySurface) == null) {
             throw new IllegalArgumentException("波动率曲面不存在: " + capFloorInfo.volatilitySurface);
         }
-        if (capFloorInfo.notional == null) {
-            throw new IllegalArgumentException("名义本金为空: instrumentId=" + capFloorInfo.instrumentId);
+    }
+
+    private static void requireText(String value, String field) {
+        if (StringUtils.isBlank(value)) {
+            throw new IllegalArgumentException(field + " 不能为空");
         }
-        resolveValuationModel();
+    }
+
+    private static void requireCurrencyCode(String value, String field) {
+        requireText(value, field);
+        if (value.length() != 3) {
+            throw new IllegalArgumentException(field + " 必须为3位货币代码: " + value);
+        }
+    }
+
+    private static void requireFinite(Double value, String field) {
+        if (value == null || !Double.isFinite(value)) {
+            throw new IllegalArgumentException(field + " 必须为有限数: " + value);
+        }
+    }
+
+    private static void requireNonNegativeFinite(Double value, String field) {
+        if (value == null || !Double.isFinite(value) || value < 0.0) {
+            throw new IllegalArgumentException(field + " 必须为非负有限数: " + value);
+        }
     }
 
     private void getFrtbSensList() {
@@ -431,26 +469,37 @@ public class CapFloor {
     
     /*capFloor内部类，封装入参信息，入参Json转化为内部类的形式,方便后面使用*/
     public static class CapFloorInfo{
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
+        @ProductInputField(required = true, allowedValues = {"CAP", "FLOOR"}, ignoreCase = true)
         @JSONField(name = "CAP_OR_FLOOR")
         public String capOrFloor;
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
+        @ProductInputField(required = true, allowedValues = {"B", "S"}, ignoreCase = true)
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
+        @ProductInputField(required = true, length = 3)
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "NOTIONAL")
         public Double notional;
+        @ProductInputField(required = true)
         @JSONField(name = "START_DATE", format = "yyyyMMdd")
         public LocalDate startDate;
+        @ProductInputField(required = true)
         @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
         public LocalDate maturityDate;
+        @ProductInputField(required = true, finite = true)
         @JSONField(name = "STRIKE_RATE")
         public Double strikeRate;
+        @ProductInputField(required = true)
         @JSONField(name = "DAY_COUNT_BASIS")
-        public String dayCountBasis;
+        public String dayCountBasis = "actual/365";
+        @ProductInputField(required = true)
         @JSONField(name = "PAY_FREQ")
         public String payFreq;
         @JSONField(name = "SETTLE_CALENDAR")
@@ -467,19 +516,24 @@ public class CapFloor {
         public String fixingRule;
         @JSONField(name = "FIXING_DAYOFF")
         public Integer fixingDayoff;
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
         @JSONField(name = "DATA_DATE", format = "yyyyMMdd")
         public LocalDate dataDate;
 
+        @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
         @JSONField(name = "RESET_FREQ")
         public String resetFreq;
         @JSONField(name = "FIXING_ID")
         public String fixingId;
+        @ProductInputField(required = true)
         @JSONField(name = "VOLATILITY_SURFACE")
         public String volatilitySurface;
+        @ProductInputField(allowedValues = {"BACHELIER", "NORMAL", "BLACK76", "BLACK", "LOGNORMAL"},
+                ignoreCase = true)
         @JSONField(name = "VALUATION_MODEL")
         public String valuationModel;
     }

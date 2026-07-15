@@ -19,6 +19,7 @@ import com.zcyh.mr.core.Calendar;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.scf.StructuredCashflow;
@@ -615,34 +616,48 @@ public class Cds implements FrtbDrcInterface {
     }
 
     public static class CdsInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
+        @ProductInputField(required = true, allowedValues = {"B", "S"}, ignoreCase = true)
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
-        @JSONField(name = "START_DATE")
+        @ProductInputField(required = true)
+        @JSONField(name = "START_DATE", format = "yyyyMMdd")
         public LocalDate startDate;
-        @JSONField(name = "MATURITY_DATE")
+        @ProductInputField(required = true)
+        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
         public LocalDate maturityDate;
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "NOTIONAL")
         public Double notional;
+        @ProductInputField(required = true, length = 3)
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_BOND_ID")
         public String underlyingBondId;
+        @ProductInputField(required = true, finite = true, min = "0", max = "1", maxInclusive = false)
         @JSONField(name = "RECOVERY_RATE")
         public Double recoveryRate;
+        @ProductInputField(required = true, finite = true)
         @JSONField(name = "FIXED_RATE")
         public Double fixedRate;
+        @ProductInputField(required = true)
         @JSONField(name = "DAY_COUNT_BASIS")
-        public String dayCountBasis;
+        public String dayCountBasis = "actual/365";
+        @ProductInputField(required = true)
         @JSONField(name = "PAY_FREQ")
         public String payFreq;
+        @ProductInputField(required = true)
         @JSONField(name = "INTEREST_STUB")
         public String interestStub;
         @JSONField(name = "SETTLE_CALENDAR")
         public String settleCalendar;
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
         @JSONField(name = "FIXED_PREMIUM")

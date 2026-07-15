@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.marketdata.Fixing;
@@ -177,11 +178,13 @@ public class IrSharkFin extends SharkFinBase<IrSharkFin.IrSharkFinInfo, IrSharkF
     }
 
     public static class IrSharkFinInfo extends SharkFinBase.SharkFinBaseInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
         /** 利率模式：ZERO(远期零息) / PAR(平价互换) */
+        @ProductInputField(allowedValues = {"ZERO", "PAR"}, ignoreCase = true)
         @JSONField(name = "RATE_TYPE")
         public String rateType;
         /** 利率期限代码，如 3M/1Y/10Y */

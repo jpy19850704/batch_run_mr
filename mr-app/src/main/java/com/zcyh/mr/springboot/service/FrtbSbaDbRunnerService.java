@@ -3,7 +3,8 @@ package com.zcyh.mr.springboot.service;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
-import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
+import com.zcyh.mr.frtbsa.sba.core.FrtbBatchCalculator;
+import com.zcyh.mr.frtbsa.sba.core.FrtbResultMapper;
 import com.zcyh.mr.frtbsa.sba.pojo.FRTBPosResult;
 import com.zcyh.mr.frtbsa.sba.pojo.FrtbInput;
 import com.zcyh.mr.springboot.input.db.FrtbSbaInputQueryService;
@@ -42,14 +43,17 @@ public class FrtbSbaDbRunnerService {
     ));
 
     private final FrtbSbaInputQueryService inputQueryService;
-    private final FrtbAggregator aggregator;
+    private final FrtbBatchCalculator batchCalculator;
+    private final FrtbResultMapper resultMapper;
     private final DimensionAggregationService dimensionAggregationService;
 
     public FrtbSbaDbRunnerService(FrtbSbaInputQueryService inputQueryService,
-                                  FrtbAggregator aggregator,
+                                  FrtbBatchCalculator batchCalculator,
+                                  FrtbResultMapper resultMapper,
                                   DimensionAggregationService dimensionAggregationService) {
         this.inputQueryService = inputQueryService;
-        this.aggregator = aggregator;
+        this.batchCalculator = batchCalculator;
+        this.resultMapper = resultMapper;
         this.dimensionAggregationService = dimensionAggregationService;
     }
 
@@ -111,7 +115,7 @@ public class FrtbSbaDbRunnerService {
         }
         return buildOutputWithRawDetails(
                 tasks,
-                aggregator.calculateBatch(tasks, needDecompose, threadCount));
+                batchCalculator.calculateBatch(tasks, needDecompose, threadCount));
     }
 
     /**
@@ -151,7 +155,7 @@ public class FrtbSbaDbRunnerService {
             String groupType = normalizeGroupType(sample.getGroupType(), sample.getGroupValue());
             String groupValue = normalizeGroupValue(sample.getGroupValue());
 
-            Map<String, List<?>> pojoResult = aggregator.buildResults(calcResult, ruleId, groupType, groupValue);
+            Map<String, List<?>> pojoResult = resultMapper.buildResults(calcResult, ruleId, groupType, groupValue);
             Map<String, Object> detailEntry = new LinkedHashMap<String, Object>();
             detailEntry.put("ruleId", ruleId);
             detailEntry.put("groupType", groupType);

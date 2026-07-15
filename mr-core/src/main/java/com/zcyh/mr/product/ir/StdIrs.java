@@ -14,6 +14,7 @@ import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
@@ -23,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -70,7 +72,7 @@ public class StdIrs {
         measure.status = "SUCCESS";
         measure.logs = new ArrayList<>();
         Map<String, Object> detail = new LinkedHashMap<>();
-        detail.put("valuation_marity_date", tradeInfo.maturityDate == null ? null : tradeInfo.maturityDate.toString());
+        detail.put("valuation_marity_date", tradeInfo.maturityDate.toString());
         measure.detail = detail;
 
         return measure;
@@ -80,11 +82,9 @@ public class StdIrs {
      * 使用指定市场数据估值
      */
     public StdIrsMeasure calcWithMarketData(MarketData md) {
+        validateInputs(md);
         StdIrsMeasure measure = new StdIrsMeasure();
 
-        if (md == null || md.irSpot == null || md.irSpot.get(tradeInfo.referenceCurve) == null) {
-            throw new IllegalArgumentException("未找到参考曲线: " + tradeInfo.referenceCurve);
-        }
         IrSpot irSpot = new IrSpot(md.irSpot.get(tradeInfo.referenceCurve));
 
         // 计息起始日：固定按 F 规则向后 1 个工作日；若无日历则取下一自然日
@@ -100,8 +100,8 @@ public class StdIrs {
         }
         LocalDate accrualEnd = adjustAccrualEnd(calcAccrualEnd(accrualStart, tradeInfo.termCode));
 
-        // 日算因子 A/A-Bond
-        String dcbType = tradeInfo.dayCountBasis != null ? tradeInfo.dayCountBasis : "actual/actual";
+        // 使用交易输入定义的日计数口径
+        String dcbType = tradeInfo.dayCountBasis;
         // 计算远期利率，并统一转换为单利计息口径
         double forwardRate = irSpot.fwdRate(accrualStart, accrualEnd);
         forwardRate = CurveFunc.convertIrRate(forwardRate, accrualStart, accrualEnd,
@@ -163,21 +163,16 @@ public class StdIrs {
      * 根据期限代码计算计息期结束日
      */
     private LocalDate calcAccrualEnd(LocalDate start, String termCode) {
-        if (termCode == null || termCode.isEmpty()) {
-            return start.plusYears(1);
-        }
-        String code = termCode.toUpperCase().trim();
+        String code = termCode.trim().toUpperCase(Locale.ROOT);
+        int amount = Integer.parseInt(code.substring(0, code.length() - 1));
         if (code.endsWith("Y")) {
-            int years = Integer.parseInt(code.substring(0, code.length() - 1));
-            return start.plusYears(years);
+            return start.plusYears(amount);
         } else if (code.endsWith("M")) {
-            int months = Integer.parseInt(code.substring(0, code.length() - 1));
-            return start.plusMonths(months);
+            return start.plusMonths(amount);
         } else if (code.endsWith("D")) {
-            int days = Integer.parseInt(code.substring(0, code.length() - 1));
-            return start.plusDays(days);
+            return start.plusDays(amount);
         }
-        return start.plusYears(1);
+        throw new IllegalArgumentException("TERM_CODE 仅支持正整数加 Y/M/D: " + termCode);
     }
 
     private LocalDate adjustAccrualEnd(LocalDate accrualEnd) {
@@ -228,6 +223,76 @@ public class StdIrs {
         return direction * tradeInfo.notional;
     }
 
+    private void validateInputs(MarketData md) {
+        if (tradeInfo == null) {
+            throw new IllegalArgumentException("交易信息为空");
+        }
+        if (dataDate == null) {
+            throw new IllegalArgumentException("数据日期为空");
+        }
+        requireText(tradeInfo.instrumentId, "INSTRUMENT_ID");
+        requireText(tradeInfo.productCode, "PRODUCT_CODE");
+        requireCurrencyCode(tradeInfo.currencyCode, "CURRENCY_CODE");
+        if (!"B".equalsIgnoreCase(tradeInfo.buyOrSell) && !"S".equalsIgnoreCase(tradeInfo.buyOrSell)) {
+            throw new IllegalArgumentException("BUY_OR_SELL 仅支持 B/S: " + tradeInfo.buyOrSell);
+        }
+        requireFinite(tradeInfo.tradePrice, "TRADE_PRICE");
+        requireNonNegativeFinite(tradeInfo.notional, "NOTIONAL");
+        if (tradeInfo.maturityDate == null) {
+            throw new IllegalArgumentException("MATURITY_DATE 不能为空");
+        }
+        validateTermCode(tradeInfo.termCode);
+        requireText(tradeInfo.referenceCurve, "REFERENCE_CURVE");
+        requireText(tradeInfo.dayCountBasis, "DAY_COUNT_BASIS");
+        if (md == null) {
+            throw new IllegalArgumentException("市场数据为空");
+        }
+        if (md.irSpot == null || md.irSpot.get(tradeInfo.referenceCurve) == null) {
+            throw new IllegalArgumentException("未找到参考曲线: " + tradeInfo.referenceCurve);
+        }
+        if (md.fxSpot == null || md.fxSpot.curveData == null || md.fxSpot.curveData.isEmpty()) {
+            throw new IllegalArgumentException("市场数据缺少外汇即期曲线");
+        }
+    }
+
+    private static void validateTermCode(String termCode) {
+        requireText(termCode, "TERM_CODE");
+        String normalized = termCode.trim().toUpperCase(Locale.ROOT);
+        if (!normalized.matches("[1-9][0-9]*[YMD]")) {
+            throw new IllegalArgumentException("TERM_CODE 仅支持正整数加 Y/M/D: " + termCode);
+        }
+        try {
+            Integer.parseInt(normalized.substring(0, normalized.length() - 1));
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("TERM_CODE 数值超出支持范围: " + termCode, ex);
+        }
+    }
+
+    private static void requireText(String value, String field) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(field + " 不能为空");
+        }
+    }
+
+    private static void requireCurrencyCode(String value, String field) {
+        requireText(value, field);
+        if (value.length() != 3) {
+            throw new IllegalArgumentException(field + " 必须为3位货币代码: " + value);
+        }
+    }
+
+    private static void requireFinite(Double value, String field) {
+        if (value == null || !Double.isFinite(value)) {
+            throw new IllegalArgumentException(field + " 必须为有限数: " + value);
+        }
+    }
+
+    private static void requireNonNegativeFinite(Double value, String field) {
+        if (value == null || !Double.isFinite(value) || value < 0.0) {
+            throw new IllegalArgumentException(field + " 必须为非负有限数: " + value);
+        }
+    }
+
     /**
      * 补齐基础和场景估值都会依赖的通用结果字段。
      */
@@ -263,34 +328,44 @@ public class StdIrs {
      * 交易信息
      */
     public static class StdIrsInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
 
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
+        @ProductInputField(required = true, length = 3)
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
 
+        @ProductInputField(required = true, allowedValues = {"B", "S"}, ignoreCase = true)
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
 
+        @ProductInputField(required = true, finite = true)
         @JSONField(name = "TRADE_PRICE")
-        public double tradePrice;
+        public Double tradePrice;
 
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "NOTIONAL")
-        public double notional;
+        public Double notional;
 
+        @ProductInputField(required = true)
         @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
         public LocalDate maturityDate;
 
+        @ProductInputField(required = true)
         @JSONField(name = "TERM_CODE")
-        public String termCode;
+        public String termCode = "1Y";
 
+        @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
 
+        @ProductInputField(required = true)
         @JSONField(name = "DAY_COUNT_BASIS")
-        public String dayCountBasis;
+        public String dayCountBasis = "actual/365";
 
         @JSONField(name = "SETTLE_CALENDAR")
         public String settleCalendar;

@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.basic.structure;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.common.Measure;
@@ -538,6 +539,9 @@ public abstract class WeddingCakeBase<T extends WeddingCakeBase.WeddingCakeBaseI
         if (!"B".equalsIgnoreCase(info.buyOrSell) && !"S".equalsIgnoreCase(info.buyOrSell)) {
             throw new IllegalArgumentException("BUY_OR_SELL 仅支持 B 或 S: " + info.buyOrSell);
         }
+        if (info.contractSize == null || !Double.isFinite(info.contractSize) || info.contractSize <= 0.0) {
+            throw new IllegalArgumentException("CONTRACT_SIZE 必须为正有限数: " + info.contractSize);
+        }
 
         requireNotNull(info.startDate, "START_DATE");
         requireNotNull(info.maturityDate, "MATURITY_DATE");
@@ -550,8 +554,8 @@ public abstract class WeddingCakeBase<T extends WeddingCakeBase.WeddingCakeBaseI
         }
 
         requireNotNull(info.notional, "NOTIONAL");
-        if (info.notional <= 0) {
-            throw new IllegalArgumentException("NOTIONAL 必须大于 0");
+        if (!Double.isFinite(info.notional) || info.notional < 0) {
+            throw new IllegalArgumentException("NOTIONAL 必须为非负有限数");
         }
 
         requireNotNull(info.outerLowerBarrier, "OUTER_LOWER_BARRIER");
@@ -681,48 +685,68 @@ public abstract class WeddingCakeBase<T extends WeddingCakeBase.WeddingCakeBaseI
     }
 
     public static class WeddingCakeBaseInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
+        @ProductInputField(required = true, allowedValues = {"B", "S"}, ignoreCase = true)
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
+        @ProductInputField(required = true, finite = true, min = "0", minInclusive = false)
         @JSONField(name = "CONTRACT_SIZE")
         public Double contractSize;
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "NOTIONAL")
         public Double notional;
+        @ProductInputField(required = true)
         @JSONField(name = "START_DATE", format = "yyyyMMdd")
         public LocalDate startDate;
+        @ProductInputField(required = true)
         @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
         public LocalDate maturityDate;
+        @ProductInputField(required = true)
         @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
         public LocalDate settleDate;
 
+        @ProductInputField(required = true)
         @JSONField(name = "VOLATILITY_SURFACE")
         public String volatilitySurface;
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "FIXING_ID")
         public String fixingId;
 
+        @ProductInputField(required = true)
         @JSONField(name = "OUTER_LOWER_BARRIER")
         public Double outerLowerBarrier;
+        @ProductInputField(required = true)
         @JSONField(name = "OUTER_UPPER_BARRIER")
         public Double outerUpperBarrier;
+        @ProductInputField(required = true)
         @JSONField(name = "INNER_LOWER_BARRIER")
         public Double innerLowerBarrier;
+        @ProductInputField(required = true)
         @JSONField(name = "INNER_UPPER_BARRIER")
         public Double innerUpperBarrier;
 
+        @ProductInputField(required = true)
         @JSONField(name = "OUT_RATE")
         public Double outRate;
+        @ProductInputField(required = true)
         @JSONField(name = "MID_RATE")
         public Double midRate;
+        @ProductInputField(required = true)
         @JSONField(name = "INNER_RATE")
         public Double innerRate;
 
+        @ProductInputField(finite = true, min = "0", minInclusive = false)
         @JSONField(name = "EPS")
         public Double eps;
         @JSONField(name = "ABS_FLAG")

@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.Convert;
 import com.zcyh.mr.core.Constants;
@@ -235,12 +236,16 @@ public class FxBarOpt extends BarOptBase<FxBarOpt.FxBarOptInfo> {
     }
 
     public static class FxBarOptInfo extends BarOptBase.BarOptBaseInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_CURRENCY_CODE")
         public String underlyingCurrencyCode;
+        @ProductInputField(required = true)
         @JSONField(name = "BASE_CURRENCY_CODE")
         public String baseCurrencyCode;
+        @ProductInputField(required = true)
         @JSONField(name = "BASE_DISCOUNT_CURVE")
         public String baseDiscountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_DISCOUNT_CURVE")
         public String underlyingDiscountCurve;
         @JSONField(name = "DISCOUNT_CURVE")

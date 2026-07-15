@@ -11,6 +11,7 @@ import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
 import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
@@ -116,6 +117,7 @@ public class IrsCcs {
     }
 
     private CalcSnapshot calcSnapshot(MarketData marketData) {
+        validateInputs(marketData);
         StructuredCashflow.ScfInfo scfInfo = new StructuredCashflow.ScfInfo();
         scfInfo.issueDate = irsCcsInfo.startDate;
         scfInfo.maturityDate = irsCcsInfo.maturityDate;
@@ -141,6 +143,7 @@ public class IrsCcs {
         scfInfo.referenceCurve = irsCcsInfo.payReferenceCurve;
         scfInfo.fixingCalendar = irsCcsInfo.payFixingCalendar;
         scfInfo.lastResetRate = irsCcsInfo.payLastFixingRate;
+        scfInfo.allowMissingReferenceCurveAsZeroForward = false;
 
         if ("fixed".equalsIgnoreCase(irsCcsInfo.payInterestType)) {
 
@@ -180,6 +183,7 @@ public class IrsCcs {
         recScf.referenceCurve = irsCcsInfo.recReferenceCurve;
         recScf.fixingCalendar = irsCcsInfo.recFixingCalendar;
         recScf.lastResetRate = irsCcsInfo.recLastFixingRate;
+        recScf.allowMissingReferenceCurveAsZeroForward = false;
 
         if ("fixed".equalsIgnoreCase(irsCcsInfo.recInterestType)) {
 
@@ -434,39 +438,163 @@ public class IrsCcs {
         return cashflowList;
     }
 
+    private void validateInputs(MarketData md) {
+        if (irsCcsInfo == null) {
+            throw new IllegalArgumentException("交易信息为空");
+        }
+        if (dataDate == null) {
+            throw new IllegalArgumentException("数据日期为空");
+        }
+        if (calendar == null) {
+            throw new IllegalArgumentException("交易日历为空");
+        }
+        requireText(irsCcsInfo.productCode, "PRODUCT_CODE");
+        requireText(irsCcsInfo.instrumentId, "INSTRUMENT_ID");
+        if (!"IRS".equalsIgnoreCase(irsCcsInfo.swapType) && !"CCS".equalsIgnoreCase(irsCcsInfo.swapType)) {
+            throw new IllegalArgumentException("SWAP_TYPE 仅支持 IRS/CCS: " + irsCcsInfo.swapType);
+        }
+        if (irsCcsInfo.startDate == null) {
+            throw new IllegalArgumentException("START_DATE 不能为空");
+        }
+        if (irsCcsInfo.maturityDate == null) {
+            throw new IllegalArgumentException("MATURITY_DATE 不能为空");
+        }
+        if (!isNotionalExchangeType(irsCcsInfo.notionalExchangeType)) {
+            throw new IllegalArgumentException("NOTIONAL_EXCHANGE_TYPE 仅支持 START/END/START_END/NONE: "
+                    + irsCcsInfo.notionalExchangeType);
+        }
+        if (md == null) {
+            throw new IllegalArgumentException("市场数据为空");
+        }
+        validateLeg(md, "PAY", irsCcsInfo.payNotional, irsCcsInfo.payCurrencyCode,
+                irsCcsInfo.payInterestType, irsCcsInfo.payInterest, irsCcsInfo.payReferenceCurve,
+                irsCcsInfo.paySpread, irsCcsInfo.payFreq, irsCcsInfo.payDayCountBasis,
+                irsCcsInfo.payDiscountCurve, irsCcsInfo.payResetFreq, irsCcsInfo.payFixingFreq,
+                irsCcsInfo.payLastFixingRate);
+        validateLeg(md, "REC", irsCcsInfo.recNotional, irsCcsInfo.recCurrencyCode,
+                irsCcsInfo.recInterestType, irsCcsInfo.recInterest, irsCcsInfo.recReferenceCurve,
+                irsCcsInfo.recSpread, irsCcsInfo.recFreq, irsCcsInfo.recDayCountBasis,
+                irsCcsInfo.recDiscountCurve, irsCcsInfo.recResetFreq, irsCcsInfo.recFixingFreq,
+                irsCcsInfo.recLastFixingRate);
+        if (md.fxSpot == null || md.fxSpot.curveData == null || md.fxSpot.curveData.isEmpty()) {
+            throw new IllegalArgumentException("市场数据缺少外汇即期曲线");
+        }
+    }
+
+    private void validateLeg(MarketData md, String leg, Double notional, String currencyCode,
+            String interestType, Double interest, String referenceCurve, Double spread, String payFreq,
+            String dayCountBasis, String discountCurve, String resetFreq, String fixingFreq,
+            Double lastFixingRate) {
+        requireNonNegativeFinite(notional, leg + "_NOTIONAL");
+        requireCurrencyCode(currencyCode, leg + "_CURRENCY_CODE");
+        if (!"FIXED".equalsIgnoreCase(interestType) && !"FLOATING".equalsIgnoreCase(interestType)) {
+            throw new IllegalArgumentException(leg + "_INTEREST_TYPE 仅支持 FIXED/FLOATING: " + interestType);
+        }
+        requireText(payFreq, leg + "_FREQ");
+        requireText(dayCountBasis, leg + "_DAY_COUNT_BASIS");
+        requireText(discountCurve, leg + "_DISCOUNT_CURVE");
+        requireFiniteIfPresent(spread, leg + "_SPREAD");
+        requireFiniteIfPresent(lastFixingRate, leg + "_LAST_FIXING_RATE");
+        if (md.irSpot == null || md.irSpot.get(discountCurve) == null) {
+            throw new IllegalArgumentException("未找到" + leg + "折现曲线: " + discountCurve);
+        }
+        if ("FIXED".equalsIgnoreCase(interestType)) {
+            requireFinite(interest, leg + "_INTEREST");
+            return;
+        }
+        requireText(referenceCurve, leg + "_REFERENCE_CURVE");
+        requireText(resetFreq, leg + "_RESET_FREQ");
+        requireText(fixingFreq, leg + "_FIXING_FREQ");
+        if (md.irSpot.get(referenceCurve) == null) {
+            throw new IllegalArgumentException("未找到" + leg + "参考曲线: " + referenceCurve);
+        }
+        requireFiniteIfPresent(interest, leg + "_INTEREST");
+    }
+
+    private static boolean isNotionalExchangeType(String value) {
+        return "START".equalsIgnoreCase(value) || "END".equalsIgnoreCase(value)
+                || "START_END".equalsIgnoreCase(value) || "NONE".equalsIgnoreCase(value);
+    }
+
+    private static void requireText(String value, String field) {
+        if (StringUtils.isBlank(value)) {
+            throw new IllegalArgumentException(field + " 不能为空");
+        }
+    }
+
+    private static void requireCurrencyCode(String value, String field) {
+        requireText(value, field);
+        if (value.length() != 3) {
+            throw new IllegalArgumentException(field + " 必须为3位货币代码: " + value);
+        }
+    }
+
+    private static void requireFinite(Double value, String field) {
+        if (value == null || !Double.isFinite(value)) {
+            throw new IllegalArgumentException(field + " 必须为有限数: " + value);
+        }
+    }
+
+    private static void requireFiniteIfPresent(Double value, String field) {
+        if (value != null && !Double.isFinite(value)) {
+            throw new IllegalArgumentException(field + " 必须为有限数: " + value);
+        }
+    }
+
+    private static void requireNonNegativeFinite(Double value, String field) {
+        if (value == null || !Double.isFinite(value) || value < 0.0) {
+            throw new IllegalArgumentException(field + " 必须为非负有限数: " + value);
+        }
+    }
+
     public static class IrsCcsInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
+        @ProductInputField(required = true, allowedValues = {"IRS", "CCS"}, ignoreCase = true)
         @JSONField(name = "SWAP_TYPE")
         public String swapType;
-        @JSONField(name = "START_DATE")
+        @ProductInputField(required = true)
+        @JSONField(name = "START_DATE", format = "yyyyMMdd")
         public LocalDate startDate;
-        @JSONField(name = "MATURITY_DATE")
+        @ProductInputField(required = true)
+        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
         public LocalDate maturityDate;
+        @ProductInputField(required = true, allowedValues = {"START", "END", "START_END", "NONE"},
+                ignoreCase = true)
         @JSONField(name = "NOTIONAL_EXCHANGE_TYPE")
         public String notionalExchangeType;
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "PAY_NOTIONAL")
         public Double payNotional;
+        @ProductInputField(required = true, length = 3)
         @JSONField(name = "PAY_CURRENCY_CODE")
         public String payCurrencyCode;
+        @ProductInputField(required = true, allowedValues = {"FIXED", "FLOATING"}, ignoreCase = true)
         @JSONField(name = "PAY_INTEREST_TYPE")
         public String payInterestType;
+        @ProductInputField(finite = true)
         @JSONField(name = "PAY_INTEREST")
         public Double payInterest;
+        @ProductInputField
         @JSONField(name = "PAY_REFERENCE_CURVE")
         public String payReferenceCurve;
         @JSONField(name = "PAY_FIXING_ID")
         public String payFixingId;
         @JSONField(name = "PAY_FIXING_CALENDAR")
         public String payFixingCalendar;
+        @ProductInputField(finite = true)
         @JSONField(name = "PAY_SPREAD")
-        public Double paySpread;
+        public Double paySpread = 0.0;
+        @ProductInputField(required = true)
         @JSONField(name = "PAY_FREQ")
         public String payFreq;
+        @ProductInputField(required = true)
         @JSONField(name = "PAY_DAY_COUNT_BASIS")
-        public String payDayCountBasis;
+        public String payDayCountBasis = "actual/365";
         @JSONField(name = "PAY_SETTLE_CALENDAR")
         public String paySettleCalendar;
         @JSONField(name = "PAY_SETTLE_RULE")
@@ -477,38 +605,52 @@ public class IrsCcs {
         public String payFixingRule;
         @JSONField(name = "PAY_FIXING_DAYOFF")
         public Integer payFixingDayoff;
+        @ProductInputField(finite = true)
         @JSONField(name = "PAY_LAST_FIXING_RATE")
         public Double payLastFixingRate;
+        @ProductInputField(required = true)
         @JSONField(name = "PAY_DISCOUNT_CURVE")
         public String payDiscountCurve;
+        @ProductInputField
         @JSONField(name = "PAY_RESET_FREQ")
         public String payResetFreq;
+        @ProductInputField
         @JSONField(name = "PAY_FIXING_FREQ")
         public String payFixingFreq;
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "REC_NOTIONAL")
         public Double recNotional;
+        @ProductInputField(required = true, length = 3)
         @JSONField(name = "REC_CURRENCY_CODE")
         public String recCurrencyCode;
+        @ProductInputField(required = true, allowedValues = {"FIXED", "FLOATING"}, ignoreCase = true)
         @JSONField(name = "REC_INTEREST_TYPE")
         public String recInterestType;
+        @ProductInputField(finite = true)
         @JSONField(name = "REC_INTEREST")
         public Double recInterest;
+        @ProductInputField
         @JSONField(name = "REC_REFERENCE_CURVE")
         public String recReferenceCurve;
         @JSONField(name = "REC_FIXING_ID")
         public String recFixingId;
         @JSONField(name = "REC_FIXING_CALENDAR")
         public String recFixingCalendar;
+        @ProductInputField(finite = true)
         @JSONField(name = "REC_SPREAD")
-        public Double recSpread;
+        public Double recSpread = 0.0;
+        @ProductInputField(required = true)
         @JSONField(name = "REC_FREQ")
         public String recFreq;
+        @ProductInputField
         @JSONField(name = "REC_RESET_FREQ")
         public String recResetFreq;
+        @ProductInputField
         @JSONField(name = "REC_FIXING_FREQ")
         public String recFixingFreq;
+        @ProductInputField(required = true)
         @JSONField(name = "REC_DAY_COUNT_BASIS")
-        public String recDayCountBasis;
+        public String recDayCountBasis = "actual/365";
         @JSONField(name = "REC_SETTLE_CALENDAR")
         public String recSettleCalendar;
         @JSONField(name = "REC_SETTLE_RULE")
@@ -519,8 +661,10 @@ public class IrsCcs {
         public String recFixingRule;
         @JSONField(name = "REC_FIXING_DAYOFF")
         public Integer recFixingDayoff;
+        @ProductInputField(finite = true)
         @JSONField(name = "REC_LAST_FIXING_RATE")
         public Double recLastFixingRate;
+        @ProductInputField(required = true)
         @JSONField(name = "REC_DISCOUNT_CURVE")
         public String recDiscountCurve;
         @JSONField(name = "DATA_DATE")

@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.basic.util.EnginePreconditions;
 import com.zcyh.mr.core.Constants;
@@ -259,8 +260,9 @@ public class CommFwd {
                 || (!"B".equalsIgnoreCase(commFwdInfo.buyOrSell) && !"S".equalsIgnoreCase(commFwdInfo.buyOrSell))) {
             throw new IllegalArgumentException("BUY_OR_SELL 仅支持 B/S: " + commFwdInfo.buyOrSell);
         }
-        if (commFwdInfo.contractSize == null || !Double.isFinite(commFwdInfo.contractSize)) {
-            throw new IllegalArgumentException("CONTRACT_SIZE 无效: " + commFwdInfo.contractSize);
+        if (commFwdInfo.contractSize == null || !Double.isFinite(commFwdInfo.contractSize)
+                || commFwdInfo.contractSize <= 0.0) {
+            throw new IllegalArgumentException("CONTRACT_SIZE 必须为正有限数: " + commFwdInfo.contractSize);
         }
         if (commFwdInfo.strikePrice == null || !Double.isFinite(commFwdInfo.strikePrice)) {
             throw new IllegalArgumentException("STRIKE_PRICE 无效: " + commFwdInfo.strikePrice);
@@ -342,26 +344,35 @@ public class CommFwd {
 
     // 商品远期内部类，封装传入的基本信息
     static public class CommFwdInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
+        @ProductInputField(required = true, allowedValues = {"B", "S"}, ignoreCase = true)
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_CODE")
         public String underlyingCode;
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
         @JSONField(name = "STRIKE_CURRENCY_CODE")
         public String strikeCurrencyCode;
+        @ProductInputField(required = true, finite = true, min = "0", minInclusive = false)
         @JSONField(name = "CONTRACT_SIZE")
         public Double contractSize;
+        @ProductInputField(required = true)
         @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
         public LocalDate settleDate;
+        @ProductInputField(required = true)
         @JSONField(name = "STRIKE_PRICE")
         public Double strikePrice;
+        @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
         @JSONField(name = "FRTB_COMM_ASSET")

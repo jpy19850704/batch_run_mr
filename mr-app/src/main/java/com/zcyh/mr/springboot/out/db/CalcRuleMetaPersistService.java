@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 /**
  * 计算规则元数据持久化服务。
  * 在每次计算结果落库时，将完整的规则 JSON 同步写入 TB_OUT_CALC_RULE_META，
@@ -43,6 +45,22 @@ public class CalcRuleMetaPersistService {
         if (deleted > 0) {
             log.info("清理规则元数据: batchId={}, dataDate={}, calcType={}, deleted={}",
                     batchId, dataDate, calcType, deleted);
+        }
+    }
+
+    /**
+     * 一次删除指定规则集合的元数据历史记录。
+     */
+    public void deleteByBatchCalcTypeAndRuleIds(
+            String batchId,
+            String dataDate,
+            String calcType,
+            List<String> ruleIds) {
+        int deleted = RuleScopedDeleteSupport.deleteMetaByRuleIds(
+                jdbcTemplate, TARGET_TABLE, batchId, dataDate, calcType, ruleIds);
+        if (deleted > 0) {
+            log.info("清理规则元数据: batchId={}, dataDate={}, calcType={}, ruleIds={}, deleted={}",
+                    batchId, dataDate, calcType, ruleIds, deleted);
         }
     }
 

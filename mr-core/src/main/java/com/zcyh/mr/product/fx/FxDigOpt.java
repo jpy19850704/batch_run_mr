@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.core.Convert;
@@ -230,12 +231,16 @@ public class FxDigOpt extends DigOptBase<FxDigOpt.FxDigOptInfo> {
     // ---------- 内部类 ----------
 
     public static class FxDigOptInfo extends DigOptBase.DigOptBaseInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_CURRENCY_CODE")
         public String underlyingCurrencyCode;
+        @ProductInputField(required = true)
         @JSONField(name = "BASE_CURRENCY_CODE")
         public String baseCurrencyCode;
+        @ProductInputField(required = true)
         @JSONField(name = "BASE_DISCOUNT_CURVE")
         public String baseDiscountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_DISCOUNT_CURVE")
         public String underlyingDiscountCurve;
         @JSONField(name = "DISCOUNT_CURVE")

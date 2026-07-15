@@ -120,6 +120,15 @@ public class FrtbSbaResultPersistService {
         }
     }
 
+    public void deleteByBatchDataDateAndRuleIds(String batchId, String dataDate, List<String> ruleIds) {
+        int deleted = RuleScopedDeleteSupport.deleteByRuleIds(
+                jdbcTemplate, TARGET_TABLE, batchId, dataDate, ruleIds);
+        if (deleted > 0) {
+            log.info("按规则清理 FRTB SBA 历史结果: batchId={}, dataDate={}, ruleIds={}, deleted={}",
+                    batchId, dataDate, ruleIds, deleted);
+        }
+    }
+
     /**
      * 计算 ADDITIVE 行的 RISK_CHARGE：alloc 三场景各 sensType 之和取 max。
      */

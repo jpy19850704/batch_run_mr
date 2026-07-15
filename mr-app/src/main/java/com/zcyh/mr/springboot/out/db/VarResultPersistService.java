@@ -9,6 +9,7 @@ import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.trimToNull;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.zcyh.mr.springboot.model.SummaryCleanupMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -52,11 +53,24 @@ public class VarResultPersistService {
         }
     }
 
+    public void deleteByBatchDataDateAndRuleIds(String batchId, String dataDate, List<String> ruleIds) {
+        int deleted = RuleScopedDeleteSupport.deleteByRuleIds(
+                jdbcTemplate, TARGET_TABLE, batchId, dataDate, ruleIds);
+        if (deleted > 0) {
+            log.info("按规则清理 VaR 汇总历史结果: batchId={}, dataDate={}, ruleIds={}, deleted={}",
+                    batchId, dataDate, ruleIds, deleted);
+        }
+    }
+
     /**
      * 按 quantile -> rule -> dimension -> risk_class 展平写入 TB_OUT_VAR_RESULT。
      */
     @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
-    public void persist(String batchId, String dataDate, JSONObject varResult) {
+    public void replace(String batchId,
+                        String dataDate,
+                        SummaryCleanupMode cleanupMode,
+                        List<String> ruleIds,
+                        JSONObject varResult) {
         String safeBatchId = trimToNull(batchId);
         String safeDataDate = trimToNull(dataDate);
         if (safeBatchId == null) {
@@ -68,8 +82,6 @@ public class VarResultPersistService {
         if (varResult == null) {
             throw new IllegalArgumentException("varResult 不能为空");
         }
-
-        deleteByBatchAndDataDate(safeBatchId, safeDataDate);
 
         List<ResultRow> rows = new ArrayList<ResultRow>();
         JSONObject summaryFile = varResult.getJSONObject("summary_file");
@@ -95,6 +107,9 @@ public class VarResultPersistService {
                         continue;
                     }
                     String ruleId = trimToNull(ruleResult.getString("rule_id"));
+                    if (ruleId == null) {
+                        throw new IllegalArgumentException("VaR 汇总结果缺少 rule_id");
+                    }
                     String ruleName = trimToNull(ruleResult.getString("rule_name"));
                     String mode = trimToNull(ruleResult.getString("mode"));
                     String scenarioId = trimToNull(ruleResult.getString("scenario_id"));
@@ -150,6 +165,14 @@ public class VarResultPersistService {
                     }
                 }
             }
+        }
+
+        if (cleanupMode == SummaryCleanupMode.FULL) {
+            deleteByBatchAndDataDate(safeBatchId, safeDataDate);
+        } else if (cleanupMode == SummaryCleanupMode.RULE) {
+            deleteByBatchDataDateAndRuleIds(safeBatchId, safeDataDate, ruleIds);
+        } else {
+            throw new IllegalArgumentException("cleanupMode 不能为空");
         }
 
         if (rows.isEmpty()) {

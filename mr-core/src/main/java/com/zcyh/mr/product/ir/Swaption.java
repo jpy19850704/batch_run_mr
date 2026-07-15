@@ -9,6 +9,7 @@ import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.*;
 import com.zcyh.mr.core.Calendar;
 import com.zcyh.mr.marketdata.*;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
@@ -444,31 +445,35 @@ public class Swaption {
     }
 
     private void validateInputs(MarketData md) {
-        if (md == null) {
-            throw new IllegalArgumentException("市场数据为空: instrumentId=" + swaptionInfo.instrumentId);
-        }
         if (swaptionInfo == null) {
             throw new IllegalArgumentException("交易信息为空");
         }
-        if (StringUtils.isBlank(swaptionInfo.discountCurve)) {
-            throw new IllegalArgumentException("折现曲线为空: instrumentId=" + swaptionInfo.instrumentId);
+        requireText(swaptionInfo.productCode, "PRODUCT_CODE");
+        requireText(swaptionInfo.instrumentId, "INSTRUMENT_ID");
+        isCallOption();
+        if (!"B".equalsIgnoreCase(swaptionInfo.buyOrSell)
+                && !"S".equalsIgnoreCase(swaptionInfo.buyOrSell)) {
+            throw new IllegalArgumentException("BUY_OR_SELL 仅支持 B/S: " + swaptionInfo.buyOrSell);
         }
-        if (StringUtils.isBlank(swaptionInfo.referenceCurve)) {
-            throw new IllegalArgumentException("参考曲线为空: instrumentId=" + swaptionInfo.instrumentId);
-        }
+        requireCurrencyCode(swaptionInfo.currencyCode, "CURRENCY_CODE");
+        requireNonNegativeFinite(swaptionInfo.notional, "NOTIONAL");
         if (swaptionInfo.maturityDate == null) {
             throw new IllegalArgumentException("到期日为空: instrumentId=" + swaptionInfo.instrumentId);
         }
         if (swaptionInfo.underlyingStartDate == null || swaptionInfo.underlyingMaturityDate == null) {
             throw new IllegalArgumentException("标的起止日期为空: instrumentId=" + swaptionInfo.instrumentId);
         }
-        if (swaptionInfo.fixedRate == null) {
-            throw new IllegalArgumentException("固定利率为空: instrumentId=" + swaptionInfo.instrumentId);
-        }
-        if (swaptionInfo.notional == null) {
-            throw new IllegalArgumentException("名义本金为空: instrumentId=" + swaptionInfo.instrumentId);
-        }
+        requireText(swaptionInfo.underlyingFreq, "UNDERLYING_FREQ");
+        requireFinite(swaptionInfo.fixedRate, "FIXED_RATE");
+        requireText(swaptionInfo.fixedDayCountBasis, "FIXED_DAY_COUNT_BASIS");
+        requireText(swaptionInfo.fixingFreq, "FIXING_FREQ");
+        requireText(swaptionInfo.discountCurve, "DISCOUNT_CURVE");
+        requireText(swaptionInfo.referenceCurve, "REFERENCE_CURVE");
+        requireText(swaptionInfo.volatilitySurface, "VOLATILITY_SURFACE");
         resolveValuationModel();
+        if (md == null) {
+            throw new IllegalArgumentException("市场数据为空: instrumentId=" + swaptionInfo.instrumentId);
+        }
         if (isMaturedOrExpired()) {
             return;
         }
@@ -477,9 +482,6 @@ public class Swaption {
         }
         if (md.irSpot.get(swaptionInfo.referenceCurve) == null) {
             throw new IllegalArgumentException("参考曲线不存在: " + swaptionInfo.referenceCurve);
-        }
-        if (StringUtils.isBlank(swaptionInfo.volatilitySurface)) {
-            throw new IllegalArgumentException("波动率曲面为空: instrumentId=" + swaptionInfo.instrumentId);
         }
         if (md.irVol == null || md.irVol.get(swaptionInfo.volatilitySurface) == null) {
             throw new IllegalArgumentException("波动率曲面不存在: " + swaptionInfo.volatilitySurface);
@@ -490,7 +492,31 @@ public class Swaption {
                         "波动率曲面字段缺失，仅支持 OPTION_TERM/UNDERLYING_TERM/VOLATILITY_RATE 标准格式");
             }
         }
-        isCallOption();
+    }
+
+    private static void requireText(String value, String field) {
+        if (StringUtils.isBlank(value)) {
+            throw new IllegalArgumentException(field + " 不能为空");
+        }
+    }
+
+    private static void requireCurrencyCode(String value, String field) {
+        requireText(value, field);
+        if (value.length() != 3) {
+            throw new IllegalArgumentException(field + " 必须为3位货币代码: " + value);
+        }
+    }
+
+    private static void requireFinite(Double value, String field) {
+        if (value == null || !Double.isFinite(value)) {
+            throw new IllegalArgumentException(field + " 必须为有限数: " + value);
+        }
+    }
+
+    private static void requireNonNegativeFinite(Double value, String field) {
+        if (value == null || !Double.isFinite(value) || value < 0.0) {
+            throw new IllegalArgumentException(field + " 必须为非负有限数: " + value);
+        }
     }
 
     /*swaption内部类，封装计量指标*/
@@ -498,24 +524,34 @@ public class Swaption {
     }
     
     public static class SwaptionInfo{
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
+        @ProductInputField(required = true, allowedValues = {"CALL", "PUT"}, ignoreCase = true)
         @JSONField(name = "CALL_OR_PUT")
         public String callOrPut;
+        @ProductInputField(required = true, allowedValues = {"B", "S"}, ignoreCase = true)
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
-        @JSONField(name = "MATURITY_DATE")
+        @ProductInputField(required = true)
+        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
         public LocalDate maturityDate;
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "NOTIONAL")
         public Double notional;
+        @ProductInputField(required = true, length = 3)
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
-        @JSONField(name = "UNDERLYING_START_DATE")
+        @ProductInputField(required = true)
+        @JSONField(name = "UNDERLYING_START_DATE", format = "yyyyMMdd")
         public LocalDate underlyingStartDate;
-        @JSONField(name = "UNDERLYING_MATURITY_DATE")
+        @ProductInputField(required = true)
+        @JSONField(name = "UNDERLYING_MATURITY_DATE", format = "yyyyMMdd")
         public LocalDate underlyingMaturityDate;
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_FREQ")
         public String underlyingFreq;
         @JSONField(name = "UNDERLYING_SETTLE_CALENDAR")
@@ -524,25 +560,33 @@ public class Swaption {
         public String underlyingSettleRule;
         @JSONField(name = "UNDERLYING_SETTLE_DAYOFF")
         public Integer underlyingSettleDayoff;
+        @ProductInputField(required = true, finite = true)
         @JSONField(name = "FIXED_RATE")
         public Double fixedRate;
+        @ProductInputField(required = true)
         @JSONField(name = "FIXED_DAY_COUNT_BASIS")
-        public String fixedDayCountBasis;
+        public String fixedDayCountBasis = "actual/365";
         @JSONField(name = "FIXING_CALENDAR")
         public String fixingCalendar;
         @JSONField(name = "FIXING_RULE")
         public String fixingRule;
         @JSONField(name = "FIXING_DAYOFF")
         public Integer fixingDayoff;
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "VOLATILITY_SURFACE")
         public String volatilitySurface;
+        @ProductInputField(allowedValues = {"BACHELIER", "NORMAL", "BLACK76", "BLACK", "LOGNORMAL"},
+                ignoreCase = true)
         @JSONField(name = "VALUATION_MODEL")
         public String valuationModel;
 
+        @ProductInputField(required = true)
         @JSONField(name = "FIXING_FREQ")
         public String fixingFreq;
+        @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
     }

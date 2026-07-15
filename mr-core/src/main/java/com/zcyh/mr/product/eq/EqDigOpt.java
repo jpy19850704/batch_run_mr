@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.eq;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.option.DigOptBase;
@@ -92,8 +93,10 @@ public class EqDigOpt extends DigOptBase<EqDigOpt.EqDigOptInfo> {
     }
 
     public static class EqDigOptInfo extends DigOptBase.DigOptBaseInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
     }

@@ -9,6 +9,7 @@ import com.zcyh.mr.core.CurveFunc;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
@@ -75,31 +76,50 @@ public class WillowBond {
     }
 
     private void validate() {
+        requireText(info.productCode, "PRODUCT_CODE");
         requireText(info.instrumentId, "INSTRUMENT_ID");
-        requireText(info.currencyCode, "CURRENCY_CODE");
+        requireText(info.bondId, "BOND_ID");
+        requireCurrencyCode(info.currencyCode, "CURRENCY_CODE");
         requireText(info.discountCurve, "DISCOUNT_CURVE");
         requireText(info.willowReferenceCurve, "WILLOW_REFERENCE_CURVE");
-        requireText(info.willowModelType, "WILLOW_MODEL_TYPE");
+        parseModelType(info.willowModelType);
+        if (info.issueDate == null) {
+            throw new IllegalArgumentException("ISSUE_DATE 不能为空");
+        }
+        if (info.maturityDate == null) {
+            throw new IllegalArgumentException("MATURITY_DATE 不能为空");
+        }
+        requireText(info.interestStub, "INTEREST_STUB");
+        requireText(info.payFreq, "PAY_FREQ");
+        requireText(info.dayCountBasis, "DAY_COUNT_BASIS");
         if (!"Fixed".equalsIgnoreCase(info.interestType)) {
             throw new IllegalArgumentException("WILLOW_BOND第一版仅支持固定息: INTEREST_TYPE=" + info.interestType);
         }
-        if (info.notional == null || info.notional <= 0.0) {
-            throw new IllegalArgumentException("NOTIONAL必须大于0");
-        }
-        if (info.positionTrade == null) {
-            throw new IllegalArgumentException("POSITION_TRADE不能为空");
-        }
-        if (info.interestRate == null) {
-            throw new IllegalArgumentException("INTEREST_RATE不能为空");
-        }
-        if (info.willowVolatility == null || info.willowVolatility < 0.0) {
-            throw new IllegalArgumentException("WILLOW_VOLATILITY必须大于等于0");
+        requireNonNegativeFinite(info.notional, "NOTIONAL");
+        requireFinite(info.positionTrade, "POSITION_TRADE");
+        requireFinite(info.interestRate, "INTEREST_RATE");
+        requireFinite(info.spread, "SPREAD");
+        if (info.willowVolatility == null || !Double.isFinite(info.willowVolatility)
+                || info.willowVolatility < 0.0) {
+            throw new IllegalArgumentException("WILLOW_VOLATILITY必须为非负有限数");
         }
         if (info.willowStepDays == null || info.willowStepDays <= 0) {
             throw new IllegalArgumentException("WILLOW_STEP_DAYS必须大于0");
         }
         if (info.callPutDates == null || info.callPutDates.isEmpty()) {
             throw new IllegalArgumentException("WILLOW_BOND必须提供CALLPUT_DATES");
+        }
+        for (Bond.CallPutDate item : info.callPutDates) {
+            if (item == null || item.date == null) {
+                throw new IllegalArgumentException("CALLPUT_DATES.DATE 不能为空");
+            }
+            if (!"CALL".equalsIgnoreCase(item.type) && !"PUT".equalsIgnoreCase(item.type)) {
+                throw new IllegalArgumentException("CALLPUT_DATES.TYPE 仅支持 CALL/PUT: "
+                        + (item == null ? null : item.type));
+            }
+        }
+        if (calendar == null) {
+            throw new IllegalArgumentException("交易日历为空");
         }
         if (marketData.irSpot == null || !marketData.irSpot.containsKey(info.discountCurve)) {
             throw new IllegalArgumentException("折现曲线不存在: " + info.discountCurve);
@@ -116,6 +136,10 @@ public class WillowBond {
         if (!treeForDiscount) {
             throw new IllegalArgumentException("WILLOW_BOND第一版要求WILLOW_REFERENCE_CURVE命中DISCOUNT_CURVE");
         }
+        if (marketData.fxSpot == null || marketData.fxSpot.curveData == null
+                || marketData.fxSpot.curveData.isEmpty()) {
+            throw new IllegalArgumentException("市场数据缺少外汇即期曲线");
+        }
     }
 
     private LinkedList<StructuredCashflow.Cashflow> buildCashflows() {
@@ -124,6 +148,7 @@ public class WillowBond {
         scfInfo.notionalFlag = "END";
         scfInfo.fixingCalendar = info.settleCalendar;
         scfInfo.amortizationSchedule = null;
+        scfInfo.allowMissingReferenceCurveAsZeroForward = false;
         StructuredCashflow scf = new StructuredCashflow(dataDate, scfInfo, marketData, calendar);
         return new LinkedList<>(scf.calc().cashFlowList);
     }
@@ -597,6 +622,25 @@ public class WillowBond {
         return value.trim();
     }
 
+    private static void requireCurrencyCode(String value, String fieldName) {
+        String normalized = requireText(value, fieldName);
+        if (normalized.length() != 3) {
+            throw new IllegalArgumentException(fieldName + "必须为3位货币代码: " + value);
+        }
+    }
+
+    private static void requireFinite(Double value, String fieldName) {
+        if (value == null || !Double.isFinite(value)) {
+            throw new IllegalArgumentException(fieldName + "必须为有限数: " + value);
+        }
+    }
+
+    private static void requireNonNegativeFinite(Double value, String fieldName) {
+        if (value == null || !Double.isFinite(value) || value < 0.0) {
+            throw new IllegalArgumentException(fieldName + "必须为非负有限数: " + value);
+        }
+    }
+
     private static class CalibratedTree {
         private final double[][] discountFactors;
         private final double[] alphas;
@@ -638,12 +682,16 @@ public class WillowBond {
     }
 
     public static class WillowBondInfo extends Bond.BondInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "WILLOW_REFERENCE_CURVE")
         public String willowReferenceCurve;
+        @ProductInputField(required = true, allowedValues = {"NORMAL", "LOG_NORMAL"}, ignoreCase = true)
         @JSONField(name = "WILLOW_MODEL_TYPE")
         public String willowModelType;
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "WILLOW_VOLATILITY")
         public Double willowVolatility;
+        @ProductInputField(required = true, min = "0", minInclusive = false)
         @JSONField(name = "WILLOW_STEP_DAYS")
         public Integer willowStepDays = 30;
     }

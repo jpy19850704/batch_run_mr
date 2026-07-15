@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.structure.StepUpOptBase;
@@ -284,9 +285,11 @@ public class IrStepUpOpt extends StepUpOptBase<IrStepUpOpt.IrStepUpInfo, OptionM
     }
 
     public static class IrStepUpInfo extends StepUpOptBase.StepUpBaseInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
         /** 利率模式：ZERO(远期零息) / PAR(平价互换)。 */
+        @ProductInputField(allowedValues = {"ZERO", "PAR"}, ignoreCase = true)
         @JSONField(name = "RATE_TYPE")
         public String rateType;
         /** 标的期限代码，如 3M/1Y/10Y。 */

@@ -5,6 +5,7 @@ import com.zcyh.mr.core.*;
 import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
@@ -654,13 +655,22 @@ public class StructuredCashflow {
         if (scfInfo.amortizationSchedule == null || scfInfo.amortizationSchedule.isEmpty()) {
             return;
         }
+        for (AmortizationEntry entry : scfInfo.amortizationSchedule) {
+            if (entry == null) {
+                throw new IllegalArgumentException("AMORTIZATION_SCHEDULE 条目不能为空");
+            }
+            if (entry.date == null) {
+                throw new IllegalArgumentException("AMORTIZATION_SCHEDULE.DATE 不能为空");
+            }
+            if (entry.amount == null || !Double.isFinite(entry.amount) || entry.amount < 0.0) {
+                throw new IllegalArgumentException("AMORTIZATION_SCHEDULE.AMOUNT 必须为非负有限数: " + entry.amount);
+            }
+        }
         // 付息日列表（跳过第一个发行日）
         List<LocalDate> couponDates = new ArrayList<>(cfDatelist.subList(1, cfDatelist.size()));
 
         Map<LocalDate, Double> merged = new LinkedHashMap<>();
         for (AmortizationEntry entry : scfInfo.amortizationSchedule) {
-            if (entry.date == null)
-                continue;
             // 找最近的付息日（取绝对距离最小的）
             LocalDate nearest = null;
             long minDays = Long.MAX_VALUE;
@@ -803,7 +813,7 @@ public class StructuredCashflow {
         @JSONField(name = "FIXING_FREQ")
         public String fixingFreq;
         @JSONField(name = "DAY_COUNT_BASIS")
-        public String dayCountBasis;
+        public String dayCountBasis = "actual/365";
         @JSONField(name = "SETTLE_CALENDAR")
         public String settleCalendar;
         @JSONField(name = "SETTLE_RULE")
@@ -844,10 +854,12 @@ public class StructuredCashflow {
      * 摊销计划条目，每条表示一个日期的摊销金额
      */
     public static class AmortizationEntry {
+        @ProductInputField(required = true)
         @JSONField(name = "DATE", format = "yyyyMMdd")
         public LocalDate date;
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "AMOUNT")
-        public double amount; /* 当期摊销金额（正数表示偿还本金） */
+        public Double amount; /* 当期摊销金额（正数表示偿还本金） */
     }
 }
 

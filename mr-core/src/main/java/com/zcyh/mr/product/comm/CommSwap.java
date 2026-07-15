@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.basic.util.EnginePreconditions;
 import com.zcyh.mr.core.Constants;
@@ -289,8 +290,9 @@ public class CommSwap {
                 || (!"B".equalsIgnoreCase(commSwapInfo.buyOrSell) && !"S".equalsIgnoreCase(commSwapInfo.buyOrSell))) {
             throw new IllegalArgumentException("BUY_OR_SELL 仅支持 B/S: " + commSwapInfo.buyOrSell);
         }
-        if (commSwapInfo.contractSize == null || !Double.isFinite(commSwapInfo.contractSize)) {
-            throw new IllegalArgumentException("CONTRACT_SIZE 无效: " + commSwapInfo.contractSize);
+        if (commSwapInfo.contractSize == null || !Double.isFinite(commSwapInfo.contractSize)
+                || commSwapInfo.contractSize <= 0.0) {
+            throw new IllegalArgumentException("CONTRACT_SIZE 必须为正有限数: " + commSwapInfo.contractSize);
         }
         if (commSwapInfo.spotStrike == null || !Double.isFinite(commSwapInfo.spotStrike)) {
             throw new IllegalArgumentException("SPOT_STRIKE 无效: " + commSwapInfo.spotStrike);
@@ -386,30 +388,41 @@ public class CommSwap {
 
     /* 商品掉期内部类，封装传入的基本信息 */
     public static class CommSwapInfo{
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
+        @ProductInputField(required = true, allowedValues = {"B", "S"}, ignoreCase = true)
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_CODE")
         public String underlyingCode;
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
         @JSONField(name = "STRIKE_CURRENCY_CODE")
         public String strikeCurrencyCode;
+        @ProductInputField(required = true, finite = true, min = "0", minInclusive = false)
         @JSONField(name = "CONTRACT_SIZE")
         public Double contractSize;
+        @ProductInputField(required = true)
         @JSONField(name = "SPOT_STRIKE")
         public Double spotStrike;
+        @ProductInputField(required = true)
         @JSONField(name = "SPOT_SETTLE_DATE", format = "yyyyMMdd")
         public LocalDate spotSettleDate;
+        @ProductInputField(required = true)
         @JSONField(name = "FWD_STRIKE")
         public Double fwdStrike;
+        @ProductInputField(required = true)
         @JSONField(name = "FWD_SETTLE_DATE", format = "yyyyMMdd")
         public LocalDate fwdSettleDate;
+        @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
         @JSONField(name = "FRTB_COMM_ASSET")

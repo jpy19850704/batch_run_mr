@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.eq;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.marketdata.EqSpot;
@@ -89,8 +90,10 @@ public class EqSpreadOpt extends SpreadOptBase<EqSpreadOpt.SpreadOptInfo, EqSpre
     }
 
     public static class SpreadOptInfo extends SpreadOptBase.SpreadOptBaseInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
     }

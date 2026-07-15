@@ -172,7 +172,7 @@ FrtbAggregator.calculateAsMap(rawList, needDecompose)
 批量计算：
 
 ```text
-FrtbAggregator.calculateBatch(tasks, needDecompose, threadCount)
+FrtbBatchCalculator.calculateBatch(tasks, needDecompose, threadCount)
   ├── threadCount <= 0 使用默认线程数
   ├── threadCount == 1 或任务数 <= 1 时串行
   ├── 多线程模式使用 Spring 注入的 ExecutorService

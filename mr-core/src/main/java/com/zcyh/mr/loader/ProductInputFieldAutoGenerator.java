@@ -3,6 +3,7 @@ package com.zcyh.mr.loader;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.zcyh.mr.calc.ProductCalculatorRegistry;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -56,10 +57,6 @@ public final class ProductInputFieldAutoGenerator {
             "\\bclass\\s+([A-Za-z0-9_]+)\\s+extends\\s+([A-Za-z0-9_$.<>]+)");
     private static final Pattern PUBLIC_FIELD_PATTERN = Pattern.compile(
             "\\bpublic\\s+[A-Za-z0-9_$.<>\\[\\], ?]+\\s+([A-Za-z0-9_]+)\\s*(?:=[^;]*)?;");
-    private static final Pattern REGISTRY_PRODUCT_PATTERN = Pattern.compile(
-            "REGISTRY\\.put\\s*\\(\\s*Constants\\.PRODUCT_CODE\\.([A-Z0-9_]+)\\s*,");
-    private static final Pattern PRODUCT_CODE_CONST_PATTERN = Pattern.compile(
-            "public\\s+final\\s+static\\s+String\\s+([A-Z0-9_]+)\\s*=\\s*\"([A-Z0-9_]+)\"\\s*;");
     private static final Map<String, List<String>> PRODUCT_CLASS_KEY_ALIASES = buildProductClassKeyAliases();
 
     private ProductInputFieldAutoGenerator() {
@@ -68,11 +65,9 @@ public final class ProductInputFieldAutoGenerator {
     public static void main(String[] args) throws Exception {
         Path engineRoot = resolveEngineRoot(args);
         Path csvPath = engineRoot.resolve("mr-core/src/main/resources/data/product_input_fields.csv");
-        Path validationPath = engineRoot.resolve("mr-core/src/main/java/com/zcyh/mr/loader/validationRules.json");
+        Path validationPath = engineRoot.resolve("mr-core/src/main/resources/data/model/validationRules.json");
         Path modelPath = engineRoot.resolve("mr-core/src/main/resources/data/model/productModel.json");
         Path productSrcRoot = engineRoot.resolve("mr-core/src/main/java/com/zcyh/mr/product");
-        Path calcPath = engineRoot.resolve("mr-core/src/main/java/com/zcyh/mr/calc/Calc.java");
-        Path constantsPath = engineRoot.resolve("mr-core/src/main/java/com/zcyh/mr/core/Constants.java");
         Path outputCsvPath = resolveOutputCsvPath(engineRoot, args);
         Path outputDiffPath = resolveOutputDiffPath(engineRoot, args);
 
@@ -88,18 +83,11 @@ public final class ProductInputFieldAutoGenerator {
         if (!Files.exists(productSrcRoot)) {
             throw new IllegalStateException("未找到产品源码目录: " + productSrcRoot);
         }
-        if (!Files.exists(calcPath)) {
-            throw new IllegalStateException("未找到Calc注册文件: " + calcPath);
-        }
-        if (!Files.exists(constantsPath)) {
-            throw new IllegalStateException("未找到产品码常量文件: " + constantsPath);
-        }
-
         ExistingCsvSnapshot existing = readExistingCsv(csvPath);
         ValidationSnapshot validation = readValidation(validationPath);
         ModelSnapshot model = readModel(modelPath);
         JavaFieldSnapshot javaFields = scanJavaInfoFields(productSrcRoot);
-        Set<String> calcProductCodes = readCalcRegistryProducts(calcPath, constantsPath);
+        Set<String> calcProductCodes = ProductCalculatorRegistry.productCodes();
 
         List<FieldRow> generatedRows = generateRows(calcProductCodes, validation, model, javaFields);
         writeCsv(outputCsvPath, generatedRows);
@@ -275,33 +263,6 @@ public final class ProductInputFieldAutoGenerator {
             }
         }
         return snapshot;
-    }
-
-    private static Set<String> readCalcRegistryProducts(Path calcPath, Path constantsPath) throws IOException {
-        String calcText = Files.readString(calcPath, StandardCharsets.UTF_8);
-        String constantsText = Files.readString(constantsPath, StandardCharsets.UTF_8);
-
-        Map<String, String> constToProductCode = new LinkedHashMap<>();
-        Matcher constMatcher = PRODUCT_CODE_CONST_PATTERN.matcher(constantsText);
-        while (constMatcher.find()) {
-            constToProductCode.put(constMatcher.group(1), constMatcher.group(2));
-        }
-
-        Set<String> products = new LinkedHashSet<>();
-        Matcher registryMatcher = REGISTRY_PRODUCT_PATTERN.matcher(calcText);
-        while (registryMatcher.find()) {
-            String constName = safe(registryMatcher.group(1));
-            if (constName.isEmpty()) {
-                continue;
-            }
-            String productCode = safe(constToProductCode.get(constName));
-            if (!productCode.isEmpty()) {
-                products.add(productCode);
-            } else {
-                products.add(constName);
-            }
-        }
-        return products;
     }
 
     private static Set<String> parseInfoParentClassKeys(Path javaFile, String currentClassKey) throws IOException {

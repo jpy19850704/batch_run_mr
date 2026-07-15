@@ -10,6 +10,7 @@ import com.zcyh.mr.calc.Calc;
 import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
 import com.zcyh.mr.calc.scenario.ScenarioCache;
 import com.zcyh.mr.frtbima.common.LiquidityHorizonTable;
+import com.zcyh.mr.springboot.out.file.ScenarioSetPathResolver;
 import com.zcyh.mr.springboot.service.ImaRiskFactorConfigService;
 
 import java.time.LocalDate;
@@ -17,7 +18,6 @@ import java.time.format.DateTimeFormatter;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -28,13 +28,13 @@ import java.util.Set;
  */
 public class MrCalcEngineAdapter implements EngineAdapter {
     public static final String CODE = "MR_CALC";
-    private final String scenarioSetRootDir;
+    private final ScenarioSetPathResolver scenarioSetPathResolver;
     private final ImaRiskFactorConfigService imaRiskFactorConfigService;
 
     public MrCalcEngineAdapter(
-            String scenarioSetRootDir,
+            ScenarioSetPathResolver scenarioSetPathResolver,
             ImaRiskFactorConfigService imaRiskFactorConfigService) {
-        this.scenarioSetRootDir = scenarioSetRootDir == null ? "" : scenarioSetRootDir.trim();
+        this.scenarioSetPathResolver = scenarioSetPathResolver;
         this.imaRiskFactorConfigService = imaRiskFactorConfigService;
     }
 
@@ -127,8 +127,10 @@ public class MrCalcEngineAdapter implements EngineAdapter {
             if (scenarioIdList == null) {
                 throw new IllegalArgumentException(fieldName + "[" + i + "].scenario_set_id 必填");
             }
-            String cacheKey = existingCacheKey == null ? buildCacheKey(fieldName, batchId, scenarioIdList) : existingCacheKey;
-            ScenarioCache.loadFromFiles(cacheKey, resolveScenarioPaths(scenarioIdList, batchId), date);
+            String cacheKey = existingCacheKey == null
+                    ? buildCacheKey(fieldName, date, batchId, scenarioIdList)
+                    : existingCacheKey;
+            ScenarioCache.loadFromFiles(cacheKey, resolveScenarioPaths(scenarioIdList, date, batchId), date);
             item.put("cache_key", cacheKey);
         }
     }
@@ -158,28 +160,11 @@ public class MrCalcEngineAdapter implements EngineAdapter {
         return val.trim();
     }
 
-    private List<String> resolveScenarioPaths(String scenarioIdList, String batchId) {
-        String root = scenarioSetRootDir;
-        if (root == null || root.trim().isEmpty()) {
-            throw new IllegalArgumentException("缺少 scenario 数据目录，请配置 mr.calc.scenario-set.root-dir");
-        }
-        if (root.contains("src/main/resources")) {
-            throw new IllegalArgumentException("scenario 数据目录不能再指向源码目录，请改为外部目录: " + root);
-        }
-
-        Path rootPath = Paths.get(root.trim());
-        if (!rootPath.isAbsolute()) {
-            rootPath = rootPath.toAbsolutePath();
-        }
-        rootPath = rootPath.normalize();
-
-        Path batchDir = rootPath.resolve(toSafePathName(batchId, "batch_id")).normalize();
+    private List<String> resolveScenarioPaths(String scenarioIdList, LocalDate dataDate, String batchId) {
         List<String> result = new ArrayList<String>();
         for (String scenarioId : parseScenarioIds(scenarioIdList)) {
-            Path path = batchDir.resolve(toSafePathName(scenarioId, "SCENARIO_ID") + ".csv.gz").normalize();
-            if (!path.startsWith(batchDir)) {
-                throw new IllegalArgumentException("非法 scenario 文件路径: " + path);
-            }
+            Path path = scenarioSetPathResolver.resolveScenarioFile(
+                    dataDate.format(DateTimeFormatter.BASIC_ISO_DATE), batchId, scenarioId);
             if (!Files.exists(path)) {
                 throw new IllegalArgumentException("scenario 文件不存在: " + path);
             }
@@ -203,21 +188,8 @@ public class MrCalcEngineAdapter implements EngineAdapter {
         return result;
     }
 
-    private String toSafePathName(String value, String fieldName) {
-        String safe = trimToNull(value);
-        if (safe == null) {
-            throw new IllegalArgumentException(fieldName + " 为空，无法定位情景文件");
-        }
-        if (safe.contains("/") || safe.contains("\\") || safe.contains(":")
-                || safe.contains("*") || safe.contains("?") || safe.contains("\"")
-                || safe.contains("<") || safe.contains(">") || safe.contains("|")
-                || safe.contains("..")) {
-            throw new IllegalArgumentException(fieldName + " 包含非法文件名字符: " + safe);
-        }
-        return safe;
-    }
-
-    private String buildCacheKey(String type, String batchId, String scenarioIdList) {
-        return type + ":" + batchId + ":" + scenarioIdList;
+    private String buildCacheKey(String type, LocalDate dataDate, String batchId, String scenarioIdList) {
+        return type + ":" + dataDate.format(DateTimeFormatter.BASIC_ISO_DATE)
+                + ":" + batchId + ":" + scenarioIdList;
     }
 }

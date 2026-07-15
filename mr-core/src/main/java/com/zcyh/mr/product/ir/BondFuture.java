@@ -19,6 +19,7 @@ import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.scf.StructuredCashflow;
@@ -48,15 +49,10 @@ public class BondFuture implements FrtbDrcInterface {
         this.bondFutureInfo = bondFutureInfo;
         this.marketData = marketData;
         this.cal = calendar;
+        validateInputs(udData);
         JSONArray array = new JSONArray();
-        if (Objects.isNull(bondFutureInfo.convertFactors))
-            bondFutureInfo.convertFactors = new JSONArray(); // 交易字段缺失情况，保证代码健壮性
-        for (Object o : bondFutureInfo.convertFactors) {
-            JSONObject json = (JSONObject) o;
-            String bdId = json.getOrDefault("UNDERLYING_BOND_ID", "").toString();
-            Double cfRaw = json.getDouble("CONVERT_FACTOR");
-            double cf = (cfRaw != null) ? cfRaw : 1.0;
-            cfMap.put(bdId, cf);
+        for (ConvertFactor item : bondFutureInfo.convertFactors) {
+            cfMap.put(item.underlyingBondId, item.convertFactor);
         }
         udData.forEach((k, v) -> {
             if (cfMap.containsKey(k)) {
@@ -270,7 +266,7 @@ public class BondFuture implements FrtbDrcInterface {
         IrSpot irSpot = new IrSpot(marketData.irSpot.get(bondFutureInfo.discountCurve));
         double df = irSpot.discount(bondFutureInfo.maturityDate);
         double price = (baseValue - q) / df - ai;
-        double cf = cfMap.getOrDefault(bondInfo.bondId, 1.0);
+        double cf = cfMap.get(bondInfo.bondId);
 
         Result s = new Result();
         s.spreadOverYield = measure.spreadOverYield;
@@ -405,7 +401,7 @@ public class BondFuture implements FrtbDrcInterface {
     @Override
     public double jtd() {
         double units = bondFutureInfo.underlyingPosition;
-        double lgd = Optional.ofNullable(this.result.undBondInfo.lgd).isPresent() ? this.result.undBondInfo.lgd : 0.75;
+        double lgd = this.result.undBondInfo.lgd;
         double notional = this.result.undBondInfo.notional;
         double jtd;
         if (result.undBondInfo.absFlag) {
@@ -432,23 +428,97 @@ public class BondFuture implements FrtbDrcInterface {
         double convertFactor;
     }
 
+    private void validateInputs(JSONObject udData) {
+        if (bondFutureInfo == null) {
+            throw new IllegalArgumentException("交易信息为空");
+        }
+        if (dataDate == null) {
+            throw new IllegalArgumentException("数据日期为空");
+        }
+        if (cal == null) {
+            throw new IllegalArgumentException("交易日历为空");
+        }
+        requireText(bondFutureInfo.productCode, "PRODUCT_CODE");
+        requireText(bondFutureInfo.instrumentId, "INSTRUMENT_ID");
+        requireCurrencyCode(bondFutureInfo.currencyCode, "CURRENCY_CODE");
+        requireFinite(bondFutureInfo.underlyingPosition, "UNDERLYING_POSITION");
+        requireText(bondFutureInfo.discountCurve, "DISCOUNT_CURVE");
+        requireFinite(bondFutureInfo.futurePrice, "FUTURE_PRICE");
+        if (bondFutureInfo.maturityDate == null) {
+            throw new IllegalArgumentException("MATURITY_DATE 不能为空");
+        }
+        if (bondFutureInfo.convertFactors == null || bondFutureInfo.convertFactors.isEmpty()) {
+            throw new IllegalArgumentException("CONVERT_FACTORS 不能为空");
+        }
+        for (ConvertFactor item : bondFutureInfo.convertFactors) {
+            if (item == null) {
+                throw new IllegalArgumentException("CONVERT_FACTORS 条目不能为空");
+            }
+            requireText(item.underlyingBondId, "CONVERT_FACTORS.UNDERLYING_BOND_ID");
+            if (item.convertFactor == null || !Double.isFinite(item.convertFactor) || item.convertFactor <= 0.0) {
+                throw new IllegalArgumentException("CONVERT_FACTORS.CONVERT_FACTOR 必须为正有限数: "
+                        + item.convertFactor);
+            }
+        }
+        if (udData == null) {
+            throw new IllegalArgumentException("UNDERLYING_DATA 不能为空");
+        }
+        if (marketData == null) {
+            throw new IllegalArgumentException("市场数据为空");
+        }
+        if (marketData.irSpot == null || marketData.irSpot.get(bondFutureInfo.discountCurve) == null) {
+            throw new IllegalArgumentException("折现曲线不存在: " + bondFutureInfo.discountCurve);
+        }
+        if (marketData.fxSpot == null || marketData.fxSpot.curveData == null
+                || marketData.fxSpot.curveData.isEmpty()) {
+            throw new IllegalArgumentException("市场数据缺少外汇即期曲线");
+        }
+    }
+
+    private static void requireText(String value, String field) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(field + " 不能为空");
+        }
+    }
+
+    private static void requireCurrencyCode(String value, String field) {
+        requireText(value, field);
+        if (value.length() != 3) {
+            throw new IllegalArgumentException(field + " 必须为3位货币代码: " + value);
+        }
+    }
+
+    private static void requireFinite(Double value, String field) {
+        if (value == null || !Double.isFinite(value)) {
+            throw new IllegalArgumentException(field + " 必须为有限数: " + value);
+        }
+    }
+
     public static class BondFutureInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
+        @ProductInputField(required = true, length = 3)
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
+        @ProductInputField(required = true, finite = true)
         @JSONField(name = "UNDERLYING_POSITION")
         public Double underlyingPosition;
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
+        @ProductInputField(required = true, finite = true)
         @JSONField(name = "FUTURE_PRICE")
         public Double futurePrice;
-        @JSONField(name = "MATURITY_DATE")
+        @ProductInputField(required = true)
+        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
         public LocalDate maturityDate;
+        @ProductInputField(required = true)
         @JSONField(name = "CONVERT_FACTORS")
-        public JSONArray convertFactors;
+        public List<ConvertFactor> convertFactors;
         @JSONField(serialize = false, deserialize = false)
         public List<Bond.BondInfo> bondInfos;
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
         @JSONField(name = "ISSUER")
@@ -456,7 +526,16 @@ public class BondFuture implements FrtbDrcInterface {
         @JSONField(name = "FRTB_CSR_BUCKET")
         public String frtbCsrBucket;
         @JSONField(name = "ABS_FLAG")
-        public boolean absFlag;
+        public boolean absFlag = false;
+    }
+
+    public static class ConvertFactor {
+        @ProductInputField(required = true)
+        @JSONField(name = "UNDERLYING_BOND_ID")
+        public String underlyingBondId;
+        @ProductInputField(required = true, finite = true, min = "0", minInclusive = false)
+        @JSONField(name = "CONVERT_FACTOR")
+        public Double convertFactor;
     }
 
     static public class BondFutureMeasure extends Measure {

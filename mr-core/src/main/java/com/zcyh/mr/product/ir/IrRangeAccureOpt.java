@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.structure.RangeAccureOptBase;
@@ -148,6 +149,7 @@ public class IrRangeAccureOpt extends RangeAccureOptBase<IrRangeAccureOpt.IrRang
 
     public static class IrRangeAccureInfo extends RangeAccureOptBase.RangeAccureFrtbInfo {
         /** 利率类型：ZERO（零息远期利率）或 PAR（平价互换利率），不区分大小写 */
+        @ProductInputField(allowedValues = {"ZERO", "PAR"}, ignoreCase = true)
         @JSONField(name = "RATE_TYPE")
         public String rateType;
 

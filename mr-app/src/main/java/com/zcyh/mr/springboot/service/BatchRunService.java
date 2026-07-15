@@ -253,7 +253,12 @@ public class BatchRunService {
         RequestContextHolder.setEngineCode(ENGINE_CODE);
         try {
             executeTaskGroup("PREPARE_RUNNING", batchPrepareTasks, context);
-            executeTaskGroup("SCENARIO_RUNNING", scenarioTasks, context);
+            if (!context.isLocalRerun()) {
+                executeTaskGroup("SCENARIO_RUNNING", scenarioTasks, context);
+            } else if (context.isScenarioMode()) {
+                log.info("局部重跑复用既有情景文件，跳过情景生成与文件写入，batchId={}, dataDate={}",
+                        context.getBatchId(), context.getDataDate());
+            }
             executeTaskGroup("PAYLOAD_BUILDING", payloadTasks, context);
             executeTaskGroup("CALC_RUNNING", calcTasks, context);
             BatchDetailResult batchDetail = context.getBatchDetail();

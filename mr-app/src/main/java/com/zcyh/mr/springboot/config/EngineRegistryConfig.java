@@ -7,26 +7,20 @@ import com.zcyh.mr.springboot.engine.FrtbSaEngineAdapter;
 import com.zcyh.mr.springboot.engine.ImaCapitalEngineAdapter;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
 import com.zcyh.mr.springboot.engine.SaccrEngineAdapter;
+import com.zcyh.mr.springboot.ima.ImaCapitalTrialService;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
+import com.zcyh.mr.frtbsa.sba.core.FrtbBatchCalculator;
+import com.zcyh.mr.frtbsa.sba.core.FrtbResultMapper;
 import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.springboot.engine.ScenarioEngineAdapter;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
-import com.zcyh.mr.springboot.out.db.ImaCapitalResultPersistService;
-import com.zcyh.mr.springboot.out.db.ImaEsResultDetailPersistService;
-import com.zcyh.mr.springboot.out.db.ImaNmrfResultPersistService;
-import com.zcyh.mr.springboot.service.BatchTradeDataLoader;
-import com.zcyh.mr.springboot.out.db.CalcRuleMetaPersistService;
-import com.zcyh.mr.springboot.service.DimensionAggregationService;
-import com.zcyh.mr.springboot.service.FrtbDrcDbRunnerService;
-import com.zcyh.mr.springboot.service.FrtbSbaDbRunnerService;
-import com.zcyh.mr.springboot.service.FrtbSbaDbRunnerService;
+import com.zcyh.mr.springboot.out.file.ScenarioSetPathResolver;
 import com.zcyh.mr.springboot.service.ImaRiskFactorConfigService;
 import com.zcyh.mr.springboot.out.db.ScenarioDetailResultService;
 import com.zcyh.mr.springboot.out.cache.ScenarioResultCacheService;
 import com.zcyh.mr.springboot.out.db.SaccrResultPersistService;
 import com.zcyh.mr.springboot.saccr.SaccrInputQueryService;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -46,9 +40,9 @@ public class EngineRegistryConfig {
 
     @Bean
     public MrCalcEngineAdapter mrCalcEngineAdapter(
-            @Value("${mr.calc.scenario-set.root-dir:}") String scenarioSetRootDir,
+            ScenarioSetPathResolver scenarioSetPathResolver,
             ImaRiskFactorConfigService imaRiskFactorConfigService) {
-        return new MrCalcEngineAdapter(scenarioSetRootDir, imaRiskFactorConfigService);
+        return new MrCalcEngineAdapter(scenarioSetPathResolver, imaRiskFactorConfigService);
     }
 
     @Bean(destroyMethod = "shutdown")
@@ -68,8 +62,19 @@ public class EngineRegistryConfig {
     }
 
     @Bean
-    public FrtbAggregator frtbAggregator(@Qualifier("frtbBatchExecutor") ExecutorService frtbBatchExecutor) {
-        return new FrtbAggregator(frtbBatchExecutor);
+    public FrtbAggregator frtbAggregator() {
+        return new FrtbAggregator();
+    }
+
+    @Bean
+    public FrtbBatchCalculator frtbBatchCalculator(
+            @Qualifier("frtbBatchExecutor") ExecutorService frtbBatchExecutor) {
+        return new FrtbBatchCalculator(frtbBatchExecutor);
+    }
+
+    @Bean
+    public FrtbResultMapper frtbResultMapper() {
+        return new FrtbResultMapper();
     }
 
     @Bean
@@ -102,26 +107,8 @@ public class EngineRegistryConfig {
     }
 
     @Bean
-    public ImaCapitalEngineAdapter imaCapitalEngineAdapter(
-            @Qualifier("engineDbJdbcTemplate") org.springframework.jdbc.core.JdbcTemplate engineDbJdbcTemplate,
-            @Qualifier("engineResultDbJdbcTemplate") org.springframework.jdbc.core.JdbcTemplate engineResultDbJdbcTemplate,
-            BatchTradeDataLoader batchTradeDataLoader,
-            CalcRuleMetaPersistService calcRuleMetaPersistService,
-            DimensionAggregationService dimensionAggregationService,
-            FrtbSbaDbRunnerService frtbSbaDbRunnerService,
-            ImaCapitalResultPersistService imaCapitalResultPersistService,
-            ImaEsResultDetailPersistService imaEsResultDetailPersistService,
-            ImaNmrfResultPersistService imaNmrfResultPersistService) {
-        return new ImaCapitalEngineAdapter(
-                engineDbJdbcTemplate,
-                engineResultDbJdbcTemplate,
-                batchTradeDataLoader,
-                calcRuleMetaPersistService,
-                dimensionAggregationService,
-                frtbSbaDbRunnerService,
-                imaCapitalResultPersistService,
-                imaEsResultDetailPersistService,
-                imaNmrfResultPersistService);
+    public ImaCapitalEngineAdapter imaCapitalEngineAdapter(ImaCapitalTrialService trialService) {
+        return new ImaCapitalEngineAdapter(trialService);
     }
 
     @Bean

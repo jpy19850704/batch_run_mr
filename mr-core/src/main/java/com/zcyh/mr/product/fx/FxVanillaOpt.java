@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.core.Convert;
@@ -167,6 +168,10 @@ public class FxVanillaOpt {
      */
     private List<String> validate() {
         List<String> errors = new ArrayList<>();
+        if (!"B".equalsIgnoreCase(info.buyOrSell) && !"S".equalsIgnoreCase(info.buyOrSell))
+            errors.add("BUY_OR_SELL 仅支持 B/S: " + info.buyOrSell);
+        if (info.contractSize == null || !Double.isFinite(info.contractSize) || info.contractSize <= 0.0)
+            errors.add("CONTRACT_SIZE 必须为正有限数: " + info.contractSize);
         if (info.strikePrice == null || info.strikePrice <= 0)
             errors.add("STRIKE_PRICE 无效: " + info.strikePrice);
         if (info.maturityDate == null)
@@ -350,36 +355,50 @@ public class FxVanillaOpt {
     }
 
     public static class VanillaOptInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
         @JSONField(name = "OPTION_TYPE")
         public String optionType;
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
+        @ProductInputField(required = true, allowedValues = {"Call", "Put"}, ignoreCase = true)
         @JSONField(name = "CALL_OR_PUT")
         public String callOrPut;
+        @ProductInputField(required = true, allowedValues = {"B", "S"}, ignoreCase = true)
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_CURRENCY_CODE")
         public String underlyingCurrencyCode;
+        @ProductInputField(required = true)
         @JSONField(name = "BASE_CURRENCY_CODE")
         public String baseCurrencyCode;
+        @ProductInputField(required = true, finite = true, min = "0", minInclusive = false)
         @JSONField(name = "CONTRACT_SIZE", defaultValue = "1")
         public Double contractSize;
+        @ProductInputField(required = true, finite = true, min = "0", minInclusive = false)
         @JSONField(name = "STRIKE_PRICE")
         public Double strikePrice;
+        @ProductInputField(required = true)
         @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
         public LocalDate maturityDate;
+        @ProductInputField(required = true)
         @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
         public LocalDate settleDate;
         @JSONField(name = "SETTLE_TYPE")
         public String settleType;
+        @ProductInputField(required = true)
         @JSONField(name = "BASE_DISCOUNT_CURVE")
         public String baseDiscountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_DISCOUNT_CURVE")
         public String underlyingDiscountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "VOLATILITY_SURFACE")
         public String volatilitySurface;
+        @ProductInputField(required = true)
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
     }

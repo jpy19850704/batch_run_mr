@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.marketdata.*;
@@ -217,14 +218,19 @@ public class FxAsian extends AsianBase<FxAsian.FxAsianInfo, FxAsian.FxAsianMeasu
     }
 
     public static class FxAsianInfo extends AsianBase.AsianBaseInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_CURRENCY_CODE")
         public String underlyingCurrencyCode;
+        @ProductInputField(required = true)
         @JSONField(name = "BASE_CURRENCY_CODE")
         public String baseCurrencyCode;
+        @ProductInputField(required = true)
         @JSONField(name = "BASE_DISCOUNT_CURVE")
         public String baseDiscountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_DISCOUNT_CURVE")
         public String underlyingDiscountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "VOLATILITY_SURFACE")
         public String volatilitySurface;
     }

@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.option.BarOptBase;
@@ -131,12 +132,15 @@ public class IrBarOpt extends BarOptBase<IrBarOpt.IrBarOptInfo> {
     }
 
     public static class IrBarOptInfo extends BarOptBase.BarOptBaseInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
         @JSONField(name = "FIXING_ID")
         public String fixingId;
+        @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
+        @ProductInputField(allowedValues = {"ZERO", "PAR"}, ignoreCase = true)
         @JSONField(name = "RATE_TYPE")
         public String rateType;
         @JSONField(name = "TERM_CODE")

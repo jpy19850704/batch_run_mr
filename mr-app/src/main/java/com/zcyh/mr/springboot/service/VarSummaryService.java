@@ -6,14 +6,14 @@ import com.zcyh.mr.springboot.out.db.CalcRuleMetaPersistService;
 
 import static com.zcyh.mr.springboot.support.RequestParseSupport.readString;
 
-import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
+import com.zcyh.mr.springboot.model.SummaryCleanupMode;
 import com.zcyh.mr.springboot.model.VarSummaryRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * VaR 汇总服务。
@@ -21,7 +21,6 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class VarSummaryService {
-    private static final Logger log = LoggerFactory.getLogger(VarSummaryService.class);
     private static final String CALC_TYPE_VAR = "VAR";
 
     private final VarDbRunnerService varDbRunnerService;
@@ -46,8 +45,10 @@ public class VarSummaryService {
 
         JSONObject summary = varDbRunnerService.calculateConfigured(request);
         if (persistResult) {
-            varResultPersistService.persist(batchId, dataDate, summary);
-            persistRuleMeta(batchId, dataDate, request.getRuleIds());
+            JSONArray ruleSnapshots = loadRuleSnapshots(request.getRuleIds());
+            varResultPersistService.replace(
+                    batchId, dataDate, request.getCleanupMode(), request.getRuleIds(), summary);
+            persistRuleMeta(batchId, dataDate, request, ruleSnapshots);
         }
 
         JSONObject response = new JSONObject();
@@ -60,27 +61,38 @@ public class VarSummaryService {
     /**
      * 将 VaR 计算请求中每条规则的完整 JSON 写入规则元数据表。
      */
-    private void persistRuleMeta(String batchId, String dataDate, java.util.List<String> ruleIds) {
-        try {
-            JSONArray ruleSnapshots = varDbRunnerService.resolveRuleSnapshots(ruleIds);
-            if (ruleSnapshots == null || ruleSnapshots.isEmpty()) {
-                return;
+    private JSONArray loadRuleSnapshots(List<String> ruleIds) {
+        JSONArray ruleSnapshots = varDbRunnerService.resolveRuleSnapshots(ruleIds);
+        if (ruleSnapshots == null || ruleSnapshots.size() != ruleIds.size()) {
+            throw new IllegalArgumentException("VaR 规则快照数量与 ruleIds 不一致");
+        }
+        for (int i = 0; i < ruleSnapshots.size(); i++) {
+            JSONObject ruleJson = ruleSnapshots.getJSONObject(i);
+            String ruleId = ruleJson == null ? null : readString(ruleJson, "rule_id");
+            if (ruleId == null) {
+                throw new IllegalArgumentException("VaR 规则快照缺少 rule_id: index=" + i);
             }
+        }
+        return ruleSnapshots;
+    }
+
+    private void persistRuleMeta(String batchId,
+                                 String dataDate,
+                                 VarSummaryRequest request,
+                                 JSONArray ruleSnapshots) {
+        if (request.getCleanupMode() == SummaryCleanupMode.FULL) {
             calcRuleMetaPersistService.deleteByBatchAndCalcType(batchId, dataDate, CALC_TYPE_VAR);
-            for (int i = 0; i < ruleSnapshots.size(); i++) {
-                JSONObject ruleJson = ruleSnapshots.getJSONObject(i);
-                if (ruleJson == null) {
-                    continue;
-                }
-                String ruleId = readString(ruleJson, "rule_id");
-                if (ruleId == null) {
-                    ruleId = "VAR_RULE_" + (i + 1);
-                }
-                String ruleJsonStr = ruleJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
-                calcRuleMetaPersistService.persist(batchId, dataDate, CALC_TYPE_VAR, ruleId, ruleJsonStr);
-            }
-        } catch (Exception e) {
-            log.warn("VaR 规则元数据落库失败（不影响主流程）: {}", e.getMessage(), e);
+        } else if (request.getCleanupMode() == SummaryCleanupMode.RULE) {
+            calcRuleMetaPersistService.deleteByBatchCalcTypeAndRuleIds(
+                    batchId, dataDate, CALC_TYPE_VAR, request.getRuleIds());
+        } else {
+            throw new IllegalArgumentException("cleanupMode 不能为空");
+        }
+        for (int i = 0; i < ruleSnapshots.size(); i++) {
+            JSONObject ruleJson = ruleSnapshots.getJSONObject(i);
+            String ruleId = readString(ruleJson, "rule_id");
+            String ruleJsonStr = ruleJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
+            calcRuleMetaPersistService.persist(batchId, dataDate, CALC_TYPE_VAR, ruleId, ruleJsonStr);
         }
     }
 

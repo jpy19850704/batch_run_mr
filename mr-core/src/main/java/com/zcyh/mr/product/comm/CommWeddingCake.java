@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.marketdata.CommSpot;
@@ -93,6 +94,7 @@ public class CommWeddingCake extends WeddingCakeBase<CommWeddingCake.CommWedding
     }
 
     public static class CommWeddingCakeInfo extends WeddingCakeBase.WeddingCakeBaseInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
         @JSONField(name = "FRTB_COMM_BUCKET")

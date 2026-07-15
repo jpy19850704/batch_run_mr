@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.basic.structure;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.core.Convert;
@@ -514,8 +515,8 @@ public abstract class StepUpOptBase<T, M extends OptionMeasure> {
         }
 
         requireNotNull(getNotional(), "NOTIONAL");
-        if (getNotional() <= 0) {
-            throw new IllegalArgumentException("NOTIONAL 必须大于 0: " + getNotional());
+        if (!Double.isFinite(getNotional()) || getNotional() < 0) {
+            throw new IllegalArgumentException("NOTIONAL 必须为非负有限数: " + getNotional());
         }
         requireText(getCurrencyCode(), "CURRENCY_CODE");
         double fx = getCnyFxRate(md, getCurrencyCode());
@@ -802,48 +803,66 @@ public abstract class StepUpOptBase<T, M extends OptionMeasure> {
      * StepUp 期权产品公共输入信息基类，子类 Info 继承此类。
      */
     public static class StepUpBaseInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
+        @ProductInputField(required = true, allowedValues = {"Call", "Put"}, ignoreCase = true)
         @JSONField(name = "CALL_OR_PUT")
         public String callOrPut;
+        @ProductInputField(required = true, allowedValues = {"B", "S"}, ignoreCase = true)
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
+        @ProductInputField(required = true)
         @JSONField(name = "START_DATE", format = "yyyyMMdd")
         public LocalDate startDate;
+        @ProductInputField(required = true)
         @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
         public LocalDate maturityDate;
         @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
         public LocalDate settleDate;
+        @ProductInputField(required = true)
         @JSONField(name = "FIXING_DATE", format = "yyyyMMdd")
         public LocalDate fixingDate;
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "NOTIONAL")
         public Double notional;
+        @ProductInputField(required = true)
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
+        @ProductInputField(required = true)
         @JSONField(name = "UPPER_BARRIER")
         public Double upperBarrier;
+        @ProductInputField(required = true)
         @JSONField(name = "LOWER_BARRIER")
         public Double lowerBarrier;
+        @ProductInputField(required = true)
         @JSONField(name = "LOW_RATE")
         public Double lowRate;
+        @ProductInputField(required = true)
         @JSONField(name = "MID_RATE")
         public Double midRate;
+        @ProductInputField(required = true)
         @JSONField(name = "HIGH_RATE")
         public Double highRate;
         @JSONField(name = "DAY_COUNT_BASIS")
-        public String dayCountBasis;
+        public String dayCountBasis = "actual/365";
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "VOLATILITY_SURFACE")
         public String volatilitySurface;
         @JSONField(name = "MODEL_TYPE")
         public String modelType;
+        @ProductInputField(finite = true, min = "0", minInclusive = false)
         @JSONField(name = "EPS")
         public Double eps;
         @JSONField(name = "ABS_FLAG")
         public Boolean absFlag;
+        @ProductInputField(required = true)
         @JSONField(name = "FIXING_ID")
         public String fixingId;
         /** VV 开关：true 时启用 Vanna-Volga overhedge 调整 */

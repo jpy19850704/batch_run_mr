@@ -3,6 +3,7 @@ package com.zcyh.mr.refactoring;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.basic.util.EnginePreconditions;
+import com.zcyh.mr.calc.ProductCalculator;
 import com.zcyh.mr.frtbima.common.LiquidityHorizonTable;
 import com.zcyh.mr.frtbima.scenariopnl.SubsetScenarioRunner;
 import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
@@ -10,12 +11,14 @@ import com.zcyh.mr.loader.FileUtils;
 import com.zcyh.mr.loader.Loader;
 import com.zcyh.mr.loader.TradeValidator;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.frtb.builder.CmtySensitivityBuilder;
 import com.zcyh.mr.product.ir.IrDigOpt;
 import com.zcyh.mr.saccr.addon.EquityAddOnCalc;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -26,6 +29,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StrictContractTest {
+
+    @Test
+    void productCalculatorOnlyExposesResultReturningEntry() {
+        assertFalse(Arrays.stream(ProductCalculator.class.getDeclaredMethods())
+                .anyMatch(method -> "run".equals(method.getName())));
+    }
 
     @Test
     void enginePreconditionsThrowsStandardException() {
@@ -57,6 +66,25 @@ class StrictContractTest {
 
         assertTrue(errors.contains("缺少必填字段: NOTIONAL"));
         assertTrue(errors.contains("缺少必填字段: FIXING_ID"));
+    }
+
+    @Test
+    void tradeValidatorDomainIgnoresCase() {
+        JSONObject trade = new JSONObject();
+        trade.put("INSTRUMENT_ID", "T_COMM_WEDDING_002");
+        trade.put("PRODUCT_CODE", "COMM_WEDDING_CAKE");
+        trade.put("BUY_OR_SELL", "b");
+
+        List<String> errors = TradeValidator.validate(trade, "COMM_WEDDING_CAKE", "TRADE");
+
+        assertFalse(errors.stream().anyMatch(error -> error.startsWith("BUY_OR_SELL 值不在允许范围内")));
+    }
+
+    @Test
+    void productInputFieldIgnoresCaseByDefault() throws NoSuchMethodException {
+        Object defaultValue = ProductInputField.class.getMethod("ignoreCase").getDefaultValue();
+
+        assertEquals(Boolean.TRUE, defaultValue);
     }
 
     @Test

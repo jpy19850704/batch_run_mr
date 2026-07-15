@@ -10,8 +10,9 @@ public class FrtbDrcSummaryRequest extends RuleSummaryRequest {
     private final String jobId;
 
     public FrtbDrcSummaryRequest(String batchId, String dataDate, List<String> ruleIds,
-                                 boolean persistResult, String requestId, String jobId) {
-        super(batchId, dataDate, ruleIds, persistResult);
+                                 boolean persistResult, SummaryCleanupMode cleanupMode,
+                                 String requestId, String jobId) {
+        super(batchId, dataDate, ruleIds, persistResult, cleanupMode);
         this.requestId = requestId;
         this.jobId = jobId;
     }

@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.basic.structure;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
@@ -727,40 +728,58 @@ public abstract class SpreadOptBase<T extends SpreadOptBase.SpreadOptBaseInfo, M
 
     /** 公共字段基类 */
     public static class SpreadOptBaseInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
+        @ProductInputField(required = true, allowedValues = {"Call", "Put"}, ignoreCase = true)
         @JSONField(name = "OPTION_TYPE")
         public String optionType;
+        @ProductInputField(allowedValues = {"Call", "Put"}, ignoreCase = true)
         @JSONField(name = "CALL_OR_PUT")
         public String callOrPut;
+        @ProductInputField(required = true, allowedValues = {"B", "S"}, ignoreCase = true)
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
+        @ProductInputField(requiredFor = {"IR_SPREADOPT"}, finite = true, min = "0", minInclusive = false)
         @JSONField(name = "CONTRACT_SIZE", defaultValue = "1")
         public Double contractSize;
+        @ProductInputField(requiredFor = {"IR_SPREADOPT"}, allowedValues = {"CASH", "PHYSICAL"}, ignoreCase = true)
         @JSONField(name = "SETTLE_TYPE")
         public String settleType;
+        @ProductInputField(required = true)
         @JSONField(name = "START_DATE", format = "yyyyMMdd")
         public LocalDate startDate;
+        @ProductInputField(required = true)
         @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
         public LocalDate maturityDate;
+        @ProductInputField(required = true)
         @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
         public LocalDate settleDate;
+        @ProductInputField(required = true)
         @JSONField(name = "VOLATILITY_SURFACE")
         public String volatilitySurface;
+        @ProductInputField(required = true)
         @JSONField(name = "DOWN_BARRIER")
         public Double downBarrierPrice;
+        @ProductInputField(required = true)
         @JSONField(name = "UPPER_BARRIER")
         public Double upBarrierPrice;
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "NOTIONAL")
         public Double notional;
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "INITIAL_PRICE")
         public Double initialPrice;
+        @ProductInputField(requiredFor = {"EQ_SPREADOPT", "COMM_SPREADOPT", "IR_SPREADOPT"})
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
+        @ProductInputField(requiredFor = {"FX_SPREADOPT"})
         @JSONField(name = "UNDERLYING_CURRENCY_CODE")
         public String underlyingCurrencyCode;
+        @ProductInputField(requiredFor = {"FX_SPREADOPT"})
         @JSONField(name = "BASE_CURRENCY_CODE")
         public String baseCurrencyCode;
         @JSONField(name = "STRIKE_PRICE")

@@ -10,7 +10,8 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class CalcResultProcessServiceTest {
+class ScenarioPnlServiceTest {
+    private final ScenarioPnlService service = new ScenarioPnlService();
 
     @Test
     void baseErrorScenarioPnlUsesSummaryLog() {
@@ -20,7 +21,7 @@ class CalcResultProcessServiceTest {
         baseTrade.put("STATUS", "ERROR");
         baseTrade.put("LOGS", logs("具体基准错误"));
 
-        JSONObject row = CalcResultProcessService.buildBaseErrorPnlRow(baseTrade);
+        JSONObject row = service.buildBaseErrorPnlRow(baseTrade);
 
         assertEquals("ERROR", row.getString("STATUS"));
         assertEquals(0.0, row.getDoubleValue("BASE_VALUATION_CNY"));
@@ -40,7 +41,7 @@ class CalcResultProcessServiceTest {
         scenarioTrade.put("STATUS", "ERROR");
         scenarioTrade.put("LOGS", logs("情景市场数据异常"));
 
-        JSONObject row = CalcResultProcessService.buildScenarioErrorPnlRow(baseTrade, scenarioTrade);
+        JSONObject row = service.buildScenarioErrorPnlRow(baseTrade, scenarioTrade);
 
         assertEquals("ERROR", row.getString("STATUS"));
         assertEquals(100.0, row.getDoubleValue("BASE_VALUATION_CNY"));
@@ -55,13 +56,14 @@ class CalcResultProcessServiceTest {
         baseTrade.put("INSTRUMENT_ID", "T_UNSUPPORTED");
         baseTrade.put("PRODUCT_CODE", "PROD_UNSUPPORTED");
         baseTrade.put("VALUATION_CNY", 100.0);
-        Map<String, JSONObject> baseIndex = new LinkedHashMap<>();
+        Map<String, JSONObject> baseIndex = new LinkedHashMap<String, JSONObject>();
         baseIndex.put("T_UNSUPPORTED", baseTrade);
 
-        JSONArray rows = CalcResultProcessService.buildPnlResults(
+        JSONArray rows = service.buildPnlResults(
                 baseIndex,
                 new JSONArray(),
-                Collections.singleton("PROD_UNSUPPORTED"));
+                Collections.singleton("PROD_UNSUPPORTED"),
+                null);
         JSONObject row = rows.getJSONObject(0);
 
         assertEquals("ERROR", row.getString("STATUS"));
@@ -75,13 +77,13 @@ class CalcResultProcessServiceTest {
         JSONObject baseTrade = new JSONObject();
         baseTrade.put("INSTRUMENT_ID", "T_MISSING");
         baseTrade.put("VALUATION_CNY", 100.0);
-        Map<String, JSONObject> baseIndex = new LinkedHashMap<>();
+        Map<String, JSONObject> baseIndex = new LinkedHashMap<String, JSONObject>();
         baseIndex.put("T_MISSING", baseTrade);
 
-        JSONArray rows = CalcResultProcessService.buildPnlResults(
+        JSONArray rows = service.buildPnlResults(
                 baseIndex,
                 new JSONArray(),
-                Collections.emptySet(),
+                Collections.<String>emptySet(),
                 Collections.singleton("T_MISSING"));
         JSONObject row = rows.getJSONObject(0);
 
@@ -95,13 +97,13 @@ class CalcResultProcessServiceTest {
         JSONObject baseTrade = new JSONObject();
         baseTrade.put("INSTRUMENT_ID", "T_UNAFFECTED");
         baseTrade.put("VALUATION_CNY", 100.0);
-        Map<String, JSONObject> baseIndex = new LinkedHashMap<>();
+        Map<String, JSONObject> baseIndex = new LinkedHashMap<String, JSONObject>();
         baseIndex.put("T_UNAFFECTED", baseTrade);
 
-        JSONArray rows = CalcResultProcessService.buildPnlResults(
+        JSONArray rows = service.buildPnlResults(
                 baseIndex,
                 new JSONArray(),
-                Collections.emptySet(),
+                Collections.<String>emptySet(),
                 Collections.singleton("OTHER_TRADE"));
         JSONObject row = rows.getJSONObject(0);
 

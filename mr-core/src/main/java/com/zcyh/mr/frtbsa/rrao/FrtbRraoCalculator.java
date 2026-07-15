@@ -19,9 +19,7 @@ public class FrtbRraoCalculator {
             return new ArrayList<Result>();
         }
         for (Input input : inputs) {
-            if (input == null || input.rraoType == null || input.notional == null) {
-                continue;
-            }
+            validateInput(input);
             BigDecimal weight = resolveWeight(input.rraoType);
             GroupKey key = new GroupKey(input.groupType, input.groupValue, input.rraoType);
             Aggregate aggregate = grouped.get(key);
@@ -46,6 +44,16 @@ public class FrtbRraoCalculator {
         return results;
     }
 
+    private static void validateInput(Input input) {
+        if (input == null) {
+            throw new IllegalArgumentException("RRAO 计算输入不能为空");
+        }
+        if (input.groupType == null || input.groupValue == null
+                || input.rraoType == null || input.notional == null) {
+            throw new IllegalArgumentException("RRAO 计算输入字段不能为空");
+        }
+    }
+
     private static BigDecimal resolveWeight(String rraoType) {
         if ("EXOTIC".equals(rraoType)) {
             return EXOTIC_WEIGHT;
@@ -67,6 +75,22 @@ public class FrtbRraoCalculator {
             this.groupValue = groupValue;
             this.rraoType = rraoType;
             this.notional = notional;
+        }
+
+        public String getGroupType() {
+            return groupType;
+        }
+
+        public String getGroupValue() {
+            return groupValue;
+        }
+
+        public String getRraoType() {
+            return rraoType;
+        }
+
+        public BigDecimal getNotional() {
+            return notional;
         }
     }
 

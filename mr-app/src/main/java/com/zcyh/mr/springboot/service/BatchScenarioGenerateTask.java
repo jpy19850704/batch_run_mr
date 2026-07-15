@@ -25,6 +25,9 @@ public class BatchScenarioGenerateTask implements BatchRunTask {
         if (!context.isScenarioMode()) {
             return;
         }
+        if (context.isLocalRerun()) {
+            return;
+        }
         String mergedScenarioIdList = mergeScenarioIdLists(
                 context.getRegularScenarioIdList(),
                 context.getVarScenarioIdList(),
@@ -41,9 +44,7 @@ public class BatchScenarioGenerateTask implements BatchRunTask {
         payload.put("data_date", context.getDataDate());
         payload.put("user", context.getUser());
         payload.put("batch_id", context.getBatchId());
-        if (context.isLocalRerun()) {
-            payload.put("persist_scenario", false);
-        } else if (context.getRequest().getPersistScenario() != null) {
+        if (context.getRequest().getPersistScenario() != null) {
             payload.put("persist_scenario", context.getRequest().getPersistScenario());
         }
 

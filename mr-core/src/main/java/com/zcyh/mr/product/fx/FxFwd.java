@@ -7,6 +7,7 @@ import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
@@ -84,6 +85,8 @@ public class FxFwd {
     }
 
     public FxFwdMeasure calc(MarketData newMarketData) {
+        EnginePreconditions.require(dataDate != null, "dataDate must be set");
+        validateInputs(newMarketData);
         LocalDate settleDate = fxFwdInfo.settleDate;
 
         IrSpot uIrSpot = new IrSpot(newMarketData.irSpot.get(fxFwdInfo.underlyingDiscountCurve));
@@ -98,7 +101,7 @@ public class FxFwd {
 
         double uNotional = fxFwdInfo.underlyingCurrencyNotional;
         double bNotional = fxFwdInfo.baseCurrencyNotional;
-        int sign = fxFwdInfo.buyOrSell.equals("B") ? 1 : -1;
+        int sign = "B".equalsIgnoreCase(fxFwdInfo.buyOrSell) ? 1 : -1;
 
         double cnyFxrate = 1.0;
         if (!"CNY".equals(bCurrency)) {
@@ -130,7 +133,7 @@ public class FxFwd {
         double uNotional = fxFwdInfo.underlyingCurrencyNotional;
         double bNotional = fxFwdInfo.baseCurrencyNotional;
         int dayCount = (int) ChronoUnit.DAYS.between(dataDate, settleDate);
-        int sign = fxFwdInfo.buyOrSell.equals("B") ? 1 : -1;
+        int sign = "B".equalsIgnoreCase(fxFwdInfo.buyOrSell) ? 1 : -1;
         List<BaseCashFlow> cfList = new ArrayList<>();
         if (dayCount > 0) {
             BaseCashFlow uCashFlow = new BaseCashFlow();
@@ -210,6 +213,62 @@ public class FxFwd {
         return FrtbSensitivityBuilder.buildFxDeltaDependencies(riskCurrencies);
     }
 
+    private void validateInputs(MarketData md) {
+        if (fxFwdInfo == null) {
+            throw new IllegalArgumentException("交易信息为空");
+        }
+        requireText(fxFwdInfo.productCode, "PRODUCT_CODE");
+        requireText(fxFwdInfo.instrumentId, "INSTRUMENT_ID");
+        if (!"B".equalsIgnoreCase(fxFwdInfo.buyOrSell)
+                && !"S".equalsIgnoreCase(fxFwdInfo.buyOrSell)) {
+            throw new IllegalArgumentException("BUY_OR_SELL 仅支持 B/S: " + fxFwdInfo.buyOrSell);
+        }
+        requireCurrencyCode(fxFwdInfo.underlyingCurrencyCode, "UNDERLYING_CURRENCY_CODE");
+        requireCurrencyCode(fxFwdInfo.baseCurrencyCode, "BASE_CURRENCY_CODE");
+        requireNonNegativeFinite(fxFwdInfo.underlyingCurrencyNotional, "UNDERLYING_CURRENCY_NOTIONAL");
+        requireNonNegativeFinite(fxFwdInfo.baseCurrencyNotional, "BASE_CURRENCY_NOTIONAL");
+        if (fxFwdInfo.settleDate == null) {
+            throw new IllegalArgumentException("SETTLE_DATE 不能为空");
+        }
+        requireText(fxFwdInfo.underlyingDiscountCurve, "UNDERLYING_DISCOUNT_CURVE");
+        requireText(fxFwdInfo.baseDiscountCurve, "BASE_DISCOUNT_CURVE");
+        validateMarketData(md, fxFwdInfo.underlyingDiscountCurve, fxFwdInfo.baseDiscountCurve);
+    }
+
+    private static void validateMarketData(MarketData md, String underlyingCurve, String baseCurve) {
+        if (md == null) {
+            throw new IllegalArgumentException("市场数据为空");
+        }
+        if (md.irSpot == null || !md.irSpot.containsKey(underlyingCurve)) {
+            throw new IllegalArgumentException("市场数据缺少标的货币折现曲线: " + underlyingCurve);
+        }
+        if (!md.irSpot.containsKey(baseCurve)) {
+            throw new IllegalArgumentException("市场数据缺少基础货币折现曲线: " + baseCurve);
+        }
+        if (md.fxSpot == null || md.fxSpot.curveData == null || md.fxSpot.curveData.isEmpty()) {
+            throw new IllegalArgumentException("市场数据缺少外汇即期曲线");
+        }
+    }
+
+    private static void requireText(String value, String field) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(field + " 不能为空");
+        }
+    }
+
+    private static void requireCurrencyCode(String value, String field) {
+        requireText(value, field);
+        if (value.length() != 3) {
+            throw new IllegalArgumentException(field + " 必须为3位货币代码: " + value);
+        }
+    }
+
+    private static void requireNonNegativeFinite(Double value, String field) {
+        if (value == null || !Double.isFinite(value) || value < 0.0) {
+            throw new IllegalArgumentException(field + " 必须为非负有限数: " + value);
+        }
+    }
+
     static public class FxFwdMeasure extends Measure {
         @JSONField(serialize = false)
         public double uPv01;
@@ -218,24 +277,34 @@ public class FxFwd {
     }
 
     static public class FxFwdInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
+        @ProductInputField(required = true, allowedValues = {"B", "S"}, ignoreCase = true)
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
+        @ProductInputField(required = true, length = 3)
         @JSONField(name = "UNDERLYING_CURRENCY_CODE")
         public String underlyingCurrencyCode;
+        @ProductInputField(required = true, length = 3)
         @JSONField(name = "BASE_CURRENCY_CODE")
         public String baseCurrencyCode;
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "UNDERLYING_CURRENCY_NOTIONAL")
         public Double underlyingCurrencyNotional;
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "BASE_CURRENCY_NOTIONAL")
         public Double baseCurrencyNotional;
+        @ProductInputField(required = true)
         @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
         public LocalDate settleDate;
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_DISCOUNT_CURVE")
         public String underlyingDiscountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "BASE_DISCOUNT_CURVE")
         public String baseDiscountCurve;
         @Override

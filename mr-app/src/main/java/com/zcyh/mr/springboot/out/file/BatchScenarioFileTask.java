@@ -6,7 +6,6 @@ import com.zcyh.mr.springboot.service.BatchRunWorkflowContext;
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedWriter;
@@ -16,7 +15,6 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -53,10 +51,10 @@ public class BatchScenarioFileTask implements BatchRunTask {
             "DATA_DATE"
     };
 
-    private final String scenarioSetRootDir;
+    private final ScenarioSetPathResolver pathResolver;
 
-    public BatchScenarioFileTask(@Value("${mr.calc.scenario-set.root-dir:}") String scenarioSetRootDir) {
-        this.scenarioSetRootDir = scenarioSetRootDir == null ? "" : scenarioSetRootDir.trim();
+    public BatchScenarioFileTask(ScenarioSetPathResolver pathResolver) {
+        this.pathResolver = pathResolver;
     }
 
     @Override
@@ -64,8 +62,8 @@ public class BatchScenarioFileTask implements BatchRunTask {
         if (!context.isScenarioMode()) {
             return;
         }
-        if (trimToNull(scenarioSetRootDir) == null) {
-            throw new IllegalStateException("SCENARIO 模式要求已配置 mr.calc.scenario-set.root-dir，用于生成并落地情景文件");
+        if (context.isLocalRerun()) {
+            return;
         }
         List<ScenarioGeneratedRecord> records = context.getScenarioRecords();
         if (records == null || records.isEmpty()) {
@@ -73,9 +71,7 @@ public class BatchScenarioFileTask implements BatchRunTask {
         }
 
         try {
-            Path rootDir = prepareRootDir();
-            Path batchDir = rootDir.resolve(toSafePathName(context.getBatchId(), "batch_id")).normalize();
-            Files.createDirectories(batchDir);
+            Path batchDir = prepareBatchDirectory(context.getDataDate(), context.getBatchId());
 
             Set<String> requestedScenarioIds = mergeScenarioIds(
                     context.getRegularScenarioIdList(),
@@ -92,10 +88,8 @@ public class BatchScenarioFileTask implements BatchRunTask {
                     throw new IllegalStateException("情景生成结果缺少指定 SCENARIO_ID: " + scenarioId
                             + ", batchId=" + context.getBatchId());
                 }
-                Path filePath = batchDir.resolve(toSafePathName(scenarioId, "SCENARIO_ID") + ".csv.gz").normalize();
-                if (!filePath.startsWith(batchDir)) {
-                    throw new IllegalStateException("非法情景文件路径: " + filePath);
-                }
+                Path filePath = pathResolver.resolveScenarioFile(
+                        context.getDataDate(), context.getBatchId(), scenarioId);
                 writeScenarioCsvGzip(filePath, scenarioRecords);
                 log.info("情景文件已写入: {}, SCENARIO_ID={}, 记录数={}",
                         filePath, scenarioId, scenarioRecords.size());
@@ -105,35 +99,11 @@ public class BatchScenarioFileTask implements BatchRunTask {
         }
     }
 
-    private Path prepareRootDir() throws IOException {
-        Path rootDir = Paths.get(scenarioSetRootDir).toAbsolutePath().normalize();
-        validateRootDir(rootDir);
-        Files.createDirectories(rootDir);
-        clearChildren(rootDir);
-        return rootDir;
-    }
-
-    private void validateRootDir(Path rootDir) {
-        if (rootDir == null || rootDir.getParent() == null) {
-            throw new IllegalStateException("scenario 数据根目录不能是磁盘根目录");
-        }
-        String normalized = rootDir.toString().replace('\\', '/').toLowerCase();
-        if (normalized.contains("/src/main/resources")) {
-            throw new IllegalStateException("scenario 数据目录不能指向源码资源目录: " + rootDir);
-        }
-    }
-
-    private void clearChildren(Path rootDir) throws IOException {
-        if (!Files.exists(rootDir)) {
-            return;
-        }
-        List<Path> children = new ArrayList<Path>();
-        try (java.util.stream.Stream<Path> stream = Files.list(rootDir)) {
-            stream.forEach(children::add);
-        }
-        for (Path child : children) {
-            deleteRecursively(child);
-        }
+    private Path prepareBatchDirectory(String dataDate, String batchId) throws IOException {
+        Path batchDir = pathResolver.resolveBatchDirectory(dataDate, batchId);
+        deleteRecursively(batchDir);
+        Files.createDirectories(batchDir);
+        return batchDir;
     }
 
     private void deleteRecursively(Path target) throws IOException {
@@ -183,20 +153,6 @@ public class BatchScenarioFileTask implements BatchRunTask {
             result.computeIfAbsent(scenarioId, k -> new ArrayList<ScenarioGeneratedRecord>()).add(record);
         }
         return result;
-    }
-
-    private String toSafePathName(String value, String fieldName) {
-        String safe = trimToNull(value);
-        if (safe == null) {
-            throw new IllegalStateException(fieldName + " 为空，无法生成情景文件路径");
-        }
-        if (safe.contains("/") || safe.contains("\\") || safe.contains(":")
-                || safe.contains("*") || safe.contains("?") || safe.contains("\"")
-                || safe.contains("<") || safe.contains(">") || safe.contains("|")
-                || safe.contains("..")) {
-            throw new IllegalStateException(fieldName + " 包含非法文件名字符: " + safe);
-        }
-        return safe;
     }
 
     private void writeScenarioCsvGzip(Path filePath, List<ScenarioGeneratedRecord> records) throws IOException {

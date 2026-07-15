@@ -10,10 +10,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * 交易数据字段校验器
@@ -175,8 +172,14 @@ public class TradeValidator {
     private static void validateDomain(String field, String strVal, String rule, List<String> errors) {
         String domainStr = rule.substring("domain:".length());
         String[] allowedValues = domainStr.split("\\|");
-        Set<String> allowed = new HashSet<>(Arrays.asList(allowedValues));
-        if (!allowed.contains(strVal)) {
+        boolean matched = false;
+        for (String allowedValue : allowedValues) {
+            if (allowedValue.equalsIgnoreCase(strVal)) {
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) {
             errors.add(field + " 值不在允许范围内: " + strVal + ", 允许值: " + domainStr);
         }
     }

@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
@@ -372,34 +373,45 @@ public class CommVanillaOpt {
     }
 
     public static class CommOptInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
         @JSONField(name = "OPTION_TYPE")
         public String optionType;
+        @ProductInputField(required = true, allowedValues = {"Call", "Put"}, ignoreCase = true)
         @JSONField(name = "CALL_OR_PUT")
         public String callOrPut;
+        @ProductInputField(required = true, allowedValues = {"B", "S"}, ignoreCase = true)
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
         @JSONField(name = "UNDERLYING_CODE")
         public String underlyingCode;
         @JSONField(name = "STRIKE_CURRENCY_CODE")
         public String strikeCurrencyCode;
+        @ProductInputField(required = true, finite = true, min = "0", minInclusive = false)
         @JSONField(name = "CONTRACT_SIZE", defaultValue = "1")
         public Double contractSize;
+        @ProductInputField(required = true, finite = true, min = "0", minInclusive = false)
         @JSONField(name = "STRIKE_PRICE")
         public Double strikePrice;
+        @ProductInputField(required = true)
         @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
         public LocalDate maturityDate;
+        @ProductInputField(required = true)
         @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
         public LocalDate settleDate;
         @JSONField(name = "SETTLE_TYPE")
         public String settleType;
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "VOLATILITY_SURFACE")
         public String volatilitySurface;
         @JSONField(name = "FRTB_COMM_ASSET")
@@ -408,6 +420,7 @@ public class CommVanillaOpt {
         public String frtbCommLocation;
         @JSONField(name = "FRTB_COMM_BUCKET")
         public String frtbCommBucket;
+        @ProductInputField(required = true)
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
     }
@@ -537,14 +550,16 @@ public class CommVanillaOpt {
             errors.add("市场数据为空");
             return errors;
         }
-        if (commOptInfo.contractSize == null) {
-            errors.add("CONTRACT_SIZE 为空");
+        if (commOptInfo.contractSize == null || !Double.isFinite(commOptInfo.contractSize)
+                || commOptInfo.contractSize <= 0.0) {
+            errors.add("CONTRACT_SIZE 必须为正有限数: " + commOptInfo.contractSize);
         }
         if (!hasText(commOptInfo.callOrPut)) {
             errors.add("CALL_OR_PUT 未设置");
         }
-        if (!hasText(commOptInfo.buyOrSell)) {
-            errors.add("BUY_OR_SELL 未设置");
+        if (!hasText(commOptInfo.buyOrSell)
+                || (!"B".equalsIgnoreCase(commOptInfo.buyOrSell) && !"S".equalsIgnoreCase(commOptInfo.buyOrSell))) {
+            errors.add("BUY_OR_SELL 仅支持 B/S: " + commOptInfo.buyOrSell);
         }
         if (commOptInfo.strikePrice == null || commOptInfo.strikePrice <= 0) {
             errors.add("STRIKE_PRICE 无效: " + commOptInfo.strikePrice);

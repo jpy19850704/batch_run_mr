@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.model.FrtbDrcSummaryRequest;
 import com.zcyh.mr.springboot.model.FrtbSbaSummaryRequest;
 import com.zcyh.mr.springboot.model.RuleSummaryRequest;
+import com.zcyh.mr.springboot.model.SummaryCleanupMode;
 import com.zcyh.mr.springboot.model.VarSummaryRequest;
 
 import java.math.BigDecimal;
@@ -23,6 +24,7 @@ import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
  */
 final class SummaryRequestParser {
     private static final String RULE_ID_LIST = "rule_id_list";
+    private static final String CLEANUP_MODE = "cleanupMode";
     private static final List<BigDecimal> DEFAULT_VAR_QUANTILES = Arrays.asList(
             new BigDecimal("0.95"), new BigDecimal("0.99"));
 
@@ -31,53 +33,59 @@ final class SummaryRequestParser {
 
     static FrtbSbaSummaryRequest parseSba(JSONObject request) {
         validateKeys(request, "batch_id", "data_date", RULE_ID_LIST,
-                "persist_result", "need_decompose", "thread_count");
+                "persist_result", CLEANUP_MODE, "need_decompose", "thread_count");
         return new FrtbSbaSummaryRequest(
                 readBatchId(request),
                 readDataDate(request),
                 parseRequiredIdList(request, RULE_ID_LIST),
                 readBoolean(request, "persist_result", true),
+                readCleanupMode(request),
                 readBoolean(request, "need_decompose", true),
                 readNonNegativeInteger(request, "thread_count", 0));
     }
 
     static FrtbDrcSummaryRequest parseDrc(JSONObject request) {
         validateKeys(request, "batch_id", "data_date", RULE_ID_LIST,
-                "persist_result", "request_id", "job_id");
+                "persist_result", CLEANUP_MODE, "request_id", "job_id");
         return new FrtbDrcSummaryRequest(
                 readBatchId(request),
                 readDataDate(request),
                 parseRequiredIdList(request, RULE_ID_LIST),
                 readBoolean(request, "persist_result", true),
+                readCleanupMode(request),
                 readOptionalString(request, "request_id"),
                 readOptionalString(request, "job_id"));
     }
 
     static RuleSummaryRequest parseRrao(JSONObject request) {
-        validateKeys(request, "batch_id", "data_date", RULE_ID_LIST, "persist_result");
+        validateKeys(request, "batch_id", "data_date", RULE_ID_LIST, "persist_result", CLEANUP_MODE);
         return new RuleSummaryRequest(
                 readBatchId(request),
                 readDataDate(request),
                 parseRequiredIdList(request, RULE_ID_LIST),
-                readBoolean(request, "persist_result", true));
+                readBoolean(request, "persist_result", true),
+                readCleanupMode(request));
     }
 
     static RuleSummaryRequest parseImaCapital(JSONObject request) {
-        validateKeys(request, "batch_id", "data_date", RULE_ID_LIST);
+        validateKeys(request, "batch_id", "data_date", RULE_ID_LIST, "persist_result", CLEANUP_MODE);
         return new RuleSummaryRequest(
                 readBatchId(request),
                 readDataDate(request),
                 parseRequiredIdList(request, RULE_ID_LIST),
-                true);
+                readBoolean(request, "persist_result", true),
+                readCleanupMode(request));
     }
 
     static VarSummaryRequest parseVar(JSONObject request) {
-        validateKeys(request, "batch_id", "data_date", RULE_ID_LIST, "persist_result", "quantiles");
+        validateKeys(request, "batch_id", "data_date", RULE_ID_LIST,
+                "persist_result", CLEANUP_MODE, "quantiles");
         return new VarSummaryRequest(
                 readBatchId(request),
                 readDataDate(request),
                 parseRequiredIdList(request, RULE_ID_LIST),
                 readBoolean(request, "persist_result", true),
+                readCleanupMode(request),
                 parseQuantiles(request));
     }
 
@@ -138,6 +146,18 @@ final class SummaryRequestParser {
             throw new IllegalArgumentException("参数必须为布尔值: " + key);
         }
         return (Boolean) value;
+    }
+
+    private static SummaryCleanupMode readCleanupMode(JSONObject request) {
+        String value = readOptionalString(request, CLEANUP_MODE);
+        if (value == null) {
+            return SummaryCleanupMode.FULL;
+        }
+        try {
+            return SummaryCleanupMode.valueOf(value);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("cleanupMode 仅支持 FULL 或 RULE");
+        }
     }
 
     private static int readNonNegativeInteger(JSONObject request, String key, int defaultValue) {

@@ -18,6 +18,7 @@ import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.math.Newton;
 import com.zcyh.mr.math.Ops;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
@@ -39,9 +40,6 @@ import java.util.stream.Collectors;
 
 public class Bond implements FrtbDrcInterface {
 
-    /** 违约损失率默认值 */
-    private static final double DEFAULT_LGD = 0.75;
-
     private LocalDate dataDate;
     private BondInfo bondInfo;
     private MarketData marketData;
@@ -57,6 +55,7 @@ public class Bond implements FrtbDrcInterface {
         this.bondInfo = bondInfo;
         this.marketData = marketData;
         this.cal = calendar;
+        validateInputs(marketData);
         // 含权债忽略摊销计划
         if (bondInfo.optionBondFlag) {
             bondInfo.amortizationSchedule = null;
@@ -65,16 +64,13 @@ public class Bond implements FrtbDrcInterface {
         scfInfo.paymentTiming = "arrear";
         scfInfo.notionalFlag = "END";
         scfInfo.fixingCalendar = bondInfo.settleCalendar;
+        scfInfo.allowMissingReferenceCurveAsZeroForward = false;
         scf = new StructuredCashflow(dataDate, scfInfo, marketData, calendar);
 
     }
 
     public BondMeasure calc() {
-        // 空值防护：折现曲线必须存在
-        if (bondInfo.discountCurve == null || !marketData.irSpot.containsKey(bondInfo.discountCurve)) {
-            throw new IllegalArgumentException("折现曲线不存在: " + bondInfo.discountCurve);
-        }
-        // 浮息参考曲线缺失由 SCF 按零远期利率处理，并在交易级 LOGS 中记录警告。
+        validateInputs(marketData);
         // 含权债：在 SOY 校准前选取最优行权日
         if (bondInfo.optionBondFlag) {
             resolveCallPutMaturity();
@@ -98,7 +94,7 @@ public class Bond implements FrtbDrcInterface {
         bondMeasure.drcDetail = FrtbCalcControl.isDrcEnabled() ? getDrc() : null;
         bondMeasure.productCode = bondInfo.productCode;
         bondMeasure.dataDate = dataDate;
-        bondMeasure.position = bondInfo.positionTrade == null ? 1.0 : bondInfo.positionTrade;
+        bondMeasure.position = bondInfo.positionTrade;
         bondMeasure.valuationCcy = bondInfo.currencyCode;
         bondMeasure.valuationUnit = bondMeasure.position == 0.0 ? 0.0 : bondMeasure.valuation / bondMeasure.position;
         bondMeasure.status = "SUCCESS";
@@ -122,6 +118,7 @@ public class Bond implements FrtbDrcInterface {
      * 不修改传入的 MarketData，不做全量深拷贝。
      */
     public BondMeasure calc(MarketData scenarioMd) {
+        validateInputs(scenarioMd);
         // SCF 用场景数据更新现金流（浮息投射用 referenceCurve，不触及 discountCurve）
         scf.calc(scenarioMd);
         LinkedList<StructuredCashflow.Cashflow> cashflows = scf.getCashflowList();
@@ -132,7 +129,7 @@ public class Bond implements FrtbDrcInterface {
         FxSpot fxSpot = new FxSpot(Configure.getInstance()
                 .getValue(Constants.CFG.FX_BASE_CODE), scenarioMd.fxSpot);
         BondMeasure measure = new BondMeasure();
-        double positionTrade = bondInfo.positionTrade == null ? 1.0 : bondInfo.positionTrade;
+        double positionTrade = bondInfo.positionTrade;
         measure.instrumentId = bondInfo.instrumentId;
         measure.position = positionTrade;
         measure.valuationCcy = bondInfo.currencyCode;
@@ -156,7 +153,7 @@ public class Bond implements FrtbDrcInterface {
                 .getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
 
         BondMeasure bondMeasure = new BondMeasure();
-        double positionTrade = bondInfo.positionTrade == null ? 1.0 : bondInfo.positionTrade;
+        double positionTrade = bondInfo.positionTrade;
         bondMeasure.instrumentId = bondInfo.instrumentId;
         bondMeasure.position = positionTrade;
         bondMeasure.valuationCcy = bondInfo.currencyCode;
@@ -218,7 +215,7 @@ public class Bond implements FrtbDrcInterface {
             res = cfAccruedSimDate.get(0).cf * ChronoUnit.DAYS.between(left, dataDate)
                     / (double) ChronoUnit.DAYS.between(left, right);
         }
-        double positionTrade = bondInfo.positionTrade == null ? 1.0 : bondInfo.positionTrade;
+        double positionTrade = bondInfo.positionTrade;
         return res * positionTrade;
     }
 
@@ -601,6 +598,10 @@ public class Bond implements FrtbDrcInterface {
 
         // 重建 SCF（maturityDate 已变化，现金流需重新生成）
         StructuredCashflow.ScfInfo scfInfo = ReflectionUtils.bean2Bean(bondInfo, StructuredCashflow.ScfInfo.class);
+        scfInfo.paymentTiming = "arrear";
+        scfInfo.notionalFlag = "END";
+        scfInfo.fixingCalendar = bondInfo.settleCalendar;
+        scfInfo.allowMissingReferenceCurveAsZeroForward = false;
         scf = new StructuredCashflow(dataDate, scfInfo, marketData, cal);
     }
 
@@ -620,6 +621,10 @@ public class Bond implements FrtbDrcInterface {
             StructuredCashflow.ScfInfo scfInfo = ReflectionUtils.bean2Bean(bondInfo,
                     StructuredCashflow.ScfInfo.class);
             scfInfo.maturityDate = cpd.date;
+            scfInfo.paymentTiming = "arrear";
+            scfInfo.notionalFlag = "END";
+            scfInfo.fixingCalendar = bondInfo.settleCalendar;
+            scfInfo.allowMissingReferenceCurveAsZeroForward = false;
             StructuredCashflow tmpScf = new StructuredCashflow(dataDate, scfInfo, marketData, cal);
             List<StructuredCashflow.Cashflow> cashflows = tmpScf.calc().cashFlowList;
             double pv = calculatePresentValue(marketData, cashflows);
@@ -684,7 +689,7 @@ public class Bond implements FrtbDrcInterface {
     public double jtd() {
         double units = bondInfo.positionTrade;
         // LGD 默认值常量化，且不修改 bondInfo 状态
-        double lgd = (bondInfo.lgd != null) ? bondInfo.lgd : DEFAULT_LGD;
+        double lgd = bondInfo.lgd;
         double jtd;
         if (bondInfo.absFlag) {
             jtd = bondMeasure.valuation;
@@ -720,42 +725,169 @@ public class Bond implements FrtbDrcInterface {
         }
     }
 
+    private void validateInputs(MarketData md) {
+        if (bondInfo == null) {
+            throw new IllegalArgumentException("交易信息为空");
+        }
+        if (dataDate == null) {
+            throw new IllegalArgumentException("数据日期为空");
+        }
+        if (cal == null) {
+            throw new IllegalArgumentException("交易日历为空");
+        }
+        requireText(bondInfo.productCode, "PRODUCT_CODE");
+        requireText(bondInfo.instrumentId, "INSTRUMENT_ID");
+        requireText(bondInfo.bondId, "BOND_ID");
+        requireCurrencyCode(bondInfo.currencyCode, "CURRENCY_CODE");
+        if (bondInfo.issueDate == null) {
+            throw new IllegalArgumentException("ISSUE_DATE 不能为空");
+        }
+        if (bondInfo.maturityDate == null) {
+            throw new IllegalArgumentException("MATURITY_DATE 不能为空");
+        }
+        requireText(bondInfo.interestStub, "INTEREST_STUB");
+        if (!"FIXED".equalsIgnoreCase(bondInfo.interestType)
+                && !"FLOATING".equalsIgnoreCase(bondInfo.interestType)) {
+            throw new IllegalArgumentException("INTEREST_TYPE 仅支持 FIXED/FLOATING: " + bondInfo.interestType);
+        }
+        requireText(bondInfo.payFreq, "PAY_FREQ");
+        requireText(bondInfo.dayCountBasis, "DAY_COUNT_BASIS");
+        requireText(bondInfo.discountCurve, "DISCOUNT_CURVE");
+        requireNonNegativeFinite(bondInfo.notional, "NOTIONAL");
+        requireFinite(bondInfo.positionTrade, "POSITION_TRADE");
+        requireFinite(bondInfo.spread, "SPREAD");
+        requireFiniteIfPresent(bondInfo.dirtyPrice, "DIRTY_PRICE");
+        requireFiniteIfPresent(bondInfo.lastResetRate, "LAST_RESET_RATE");
+        requireRange(bondInfo.lgd, "DRC_LGD", 0.0, 1.0);
+        bondInfo.isDrcEnabled();
+        if ("FIXED".equalsIgnoreCase(bondInfo.interestType)) {
+            requireFinite(bondInfo.interestRate, "INTEREST_RATE");
+        } else {
+            requireText(bondInfo.referenceCurve, "REFERENCE_CURVE");
+            requireText(bondInfo.resetFreq, "RESET_FREQ");
+            requireText(bondInfo.fixingFreq, "FIXING_FREQ");
+        }
+        validateCallPutDates();
+        if (md == null) {
+            throw new IllegalArgumentException("市场数据为空");
+        }
+        if (md.irSpot == null || md.irSpot.get(bondInfo.discountCurve) == null) {
+            throw new IllegalArgumentException("折现曲线不存在: " + bondInfo.discountCurve);
+        }
+        if ("FLOATING".equalsIgnoreCase(bondInfo.interestType)
+                && md.irSpot.get(bondInfo.referenceCurve) == null) {
+            throw new IllegalArgumentException("参考曲线不存在: " + bondInfo.referenceCurve);
+        }
+        if (md.fxSpot == null || md.fxSpot.curveData == null || md.fxSpot.curveData.isEmpty()) {
+            throw new IllegalArgumentException("市场数据缺少外汇即期曲线");
+        }
+    }
+
+    private void validateCallPutDates() {
+        if (bondInfo.optionBondFlag && (bondInfo.callPutDates == null || bondInfo.callPutDates.isEmpty())) {
+            throw new IllegalArgumentException("含权债必须提供 CALLPUT_DATES");
+        }
+        if (bondInfo.callPutDates == null) {
+            return;
+        }
+        for (CallPutDate item : bondInfo.callPutDates) {
+            if (item == null || item.date == null) {
+                throw new IllegalArgumentException("CALLPUT_DATES.DATE 不能为空");
+            }
+            if (!"CALL".equalsIgnoreCase(item.type) && !"PUT".equalsIgnoreCase(item.type)) {
+                throw new IllegalArgumentException("CALLPUT_DATES.TYPE 仅支持 CALL/PUT: "
+                        + (item == null ? null : item.type));
+            }
+        }
+    }
+
+    private static void requireText(String value, String field) {
+        if (StringUtils.isBlank(value)) {
+            throw new IllegalArgumentException(field + " 不能为空");
+        }
+    }
+
+    private static void requireCurrencyCode(String value, String field) {
+        requireText(value, field);
+        if (value.length() != 3) {
+            throw new IllegalArgumentException(field + " 必须为3位货币代码: " + value);
+        }
+    }
+
+    private static void requireFinite(Double value, String field) {
+        if (value == null || !Double.isFinite(value)) {
+            throw new IllegalArgumentException(field + " 必须为有限数: " + value);
+        }
+    }
+
+    private static void requireFiniteIfPresent(Double value, String field) {
+        if (value != null && !Double.isFinite(value)) {
+            throw new IllegalArgumentException(field + " 必须为有限数: " + value);
+        }
+    }
+
+    private static void requireNonNegativeFinite(Double value, String field) {
+        if (value == null || !Double.isFinite(value) || value < 0.0) {
+            throw new IllegalArgumentException(field + " 必须为非负有限数: " + value);
+        }
+    }
+
+    private static void requireRange(Double value, String field, double min, double max) {
+        if (value == null || !Double.isFinite(value) || value < min || value > max) {
+            throw new IllegalArgumentException(field + " 必须在[" + min + "," + max + "]范围内: " + value);
+        }
+    }
+
     // 债券内部类，封装基本信息
     static public class BondInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
         @JSONField(name = "DATA_DATE", format = "yyyyMMdd")
         public LocalDate dataDate;
+        @ProductInputField(required = true)
         @JSONField(name = "BOND_ID")
         public String bondId;
+        @ProductInputField(required = true, length = 3)
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
         @JSONField(name = "ISSUER")
         public String issuer;
+        @ProductInputField(required = true)
         @JSONField(name = "ISSUE_DATE", format = "yyyyMMdd")
         public LocalDate issueDate;
+        @ProductInputField(required = true)
         @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
         public LocalDate maturityDate;
+        @ProductInputField(required = true)
         @JSONField(name = "INTEREST_STUB")
         public String interestStub;
+        @ProductInputField(required = true, allowedValues = {"FIXED", "FLOATING"}, ignoreCase = true)
         @JSONField(name = "INTEREST_TYPE")
         public String interestType;
+        @ProductInputField(finite = true)
         @JSONField(name = "INTEREST_RATE")
         public Double interestRate;
+        @ProductInputField(required = true)
         @JSONField(name = "PAY_FREQ")
         public String payFreq;
+        @ProductInputField
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
         @JSONField(name = "FIXING_ID")
         public String fixingId;
+        @ProductInputField(finite = true)
         @JSONField(name = "SPREAD")
-        public Double spread;
+        public Double spread = 0.0;
+        @ProductInputField
         @JSONField(name = "FIXING_FREQ")
         public String fixingFreq;
+        @ProductInputField(required = true)
         @JSONField(name = "DAY_COUNT_BASIS")
-        public String dayCountBasis;
+        public String dayCountBasis = "actual/365";
         @JSONField(name = "SETTLE_CALENDAR")
         public String settleCalendar;
         @JSONField(name = "SETTLE_RULE")
@@ -766,27 +898,36 @@ public class Bond implements FrtbDrcInterface {
         public String resetRule;
         @JSONField(name = "RESET_DAYOFF")
         public Integer resetDayoff;
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
         @JSONField(name = "CREDIT_SPREAD_CURVE")
         public String creditSpreadCurve;
         @JSONField(name = "ABS_FLAG")
-        public boolean absFlag;
+        public boolean absFlag = false;
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "NOTIONAL")
-        public Double notional;
+        public Double notional = 100.0;
+        @ProductInputField(required = true, finite = true)
         @JSONField(name = "POSITION_TRADE")
-        public Double positionTrade;
+        public Double positionTrade = 1.0;
+        @ProductInputField(finite = true)
         @JSONField(name = "DIRTY_PRICE")
         public Double dirtyPrice;
         @JSONField(name = "ISSUER_RATING")
         public String issuerRating;
+        @ProductInputField
         @JSONField(name = "RESET_FREQ")
         public String resetFreq;
+        @ProductInputField(required = true, finite = true, min = "0", max = "1")
         @JSONField(name = "DRC_LGD")
-        public Double lgd;
+        public Double lgd = 0.75;
+        @ProductInputField(required = true,
+                allowedValues = {"1", "Y", "YES", "TRUE", "0", "N", "NO", "FALSE"}, ignoreCase = true)
         @JSONField(name = "DRC_FLAG")
-        public String drcFlag;
+        public String drcFlag = "Y";
 
+        @ProductInputField(finite = true)
         @JSONField(name = "LAST_RESET_RATE")
         public Double lastResetRate;
 
@@ -806,20 +947,24 @@ public class Bond implements FrtbDrcInterface {
         @JSONField(name = "OPTION_BOND_FLAG")
         public boolean optionBondFlag = false;
 
+        @ProductInputField
         @JSONField(name = "CALLPUT_DATES")
         public List<CallPutDate> callPutDates;
 
+        @ProductInputField
         @JSONField(name = "AMORTIZATION_SCHEDULE")
         public List<StructuredCashflow.AmortizationEntry> amortizationSchedule;
 
         public boolean isDrcEnabled() {
-            if (Objects.isNull(drcFlag) || drcFlag.isBlank()) {
+            if ("1".equalsIgnoreCase(drcFlag) || "Y".equalsIgnoreCase(drcFlag)
+                    || "YES".equalsIgnoreCase(drcFlag) || "TRUE".equalsIgnoreCase(drcFlag)) {
                 return true;
             }
-            return !("0".equalsIgnoreCase(drcFlag)
-                    || "N".equalsIgnoreCase(drcFlag)
-                    || "NO".equalsIgnoreCase(drcFlag)
-                    || "FALSE".equalsIgnoreCase(drcFlag));
+            if ("0".equalsIgnoreCase(drcFlag) || "N".equalsIgnoreCase(drcFlag)
+                    || "NO".equalsIgnoreCase(drcFlag) || "FALSE".equalsIgnoreCase(drcFlag)) {
+                return false;
+            }
+            throw new IllegalArgumentException("DRC_FLAG 仅支持 1/Y/YES/TRUE/0/N/NO/FALSE: " + drcFlag);
         }
     }
 
@@ -827,8 +972,10 @@ public class Bond implements FrtbDrcInterface {
      * 行权日期，每个日期独立标注 Call 或 Put 类型
      */
     public static class CallPutDate {
+        @ProductInputField(required = true)
         @JSONField(name = "DATE", format = "yyyyMMdd")
         public LocalDate date;
+        @ProductInputField(required = true, allowedValues = {"CALL", "PUT"}, ignoreCase = true)
         @JSONField(name = "TYPE")
         public String type; /* "Call" 或 "Put" */
     }

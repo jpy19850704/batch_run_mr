@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
@@ -306,12 +307,16 @@ public class FxStepUpOpt extends StepUpOptBase<FxStepUpOpt.FxStepUpInfo, OptionM
     }
 
     public static class FxStepUpInfo extends StepUpOptBase.StepUpBaseInfo {
+        @ProductInputField(required = true, length = 3)
         @JSONField(name = "UNDERLYING_CURRENCY_CODE")
         public String underlyingCurrencyCode;
+        @ProductInputField(required = true, length = 3)
         @JSONField(name = "BASE_CURRENCY_CODE")
         public String baseCurrencyCode;
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_DISCOUNT_CURVE")
         public String underlyingDiscountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "BASE_DISCOUNT_CURVE")
         public String baseDiscountCurve;
     }

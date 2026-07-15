@@ -6,12 +6,14 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
-import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
+import com.zcyh.mr.frtbsa.sba.core.FrtbResultMapper;
 import com.zcyh.mr.frtbsa.sba.pojo.FRTBClassResult;
 import com.zcyh.mr.frtbsa.sba.pojo.FRTBPosResult;
 import com.zcyh.mr.springboot.model.FrtbSbaSummaryRequest;
+import com.zcyh.mr.springboot.model.SummaryCleanupMode;
 import com.zcyh.mr.springboot.out.db.CalcRuleMetaPersistService;
 import com.zcyh.mr.springboot.out.db.FrtbSbaResultPersistService;
+import com.zcyh.mr.springboot.out.db.RuleScopedDeleteSupport;
 import com.zcyh.mr.springboot.support.DorisCsvStreamLoadBuffer;
 import com.zcyh.mr.springboot.support.DorisStreamLoadService;
 import com.zcyh.mr.springboot.support.ResultPersistTime;
@@ -45,20 +47,20 @@ public class FrtbSbaSummaryService {
 
     private final FrtbSbaDbRunnerService frtbSbaDbRunnerService;
     private final FrtbSbaResultPersistService frtbSbaResultPersistService;
-    private final FrtbAggregator frtbAggregator;
+    private final FrtbResultMapper frtbResultMapper;
     private final CalcRuleMetaPersistService calcRuleMetaPersistService;
     private final JdbcTemplate engineResultDbJdbcTemplate;
     private final DorisStreamLoadService dorisStreamLoadService;
 
     public FrtbSbaSummaryService(FrtbSbaDbRunnerService frtbSbaDbRunnerService,
                                  FrtbSbaResultPersistService frtbSbaResultPersistService,
-                                 FrtbAggregator frtbAggregator,
+                                 FrtbResultMapper frtbResultMapper,
                                  CalcRuleMetaPersistService calcRuleMetaPersistService,
                                  @Qualifier("engineResultDbJdbcTemplate") JdbcTemplate engineResultDbJdbcTemplate,
                                  DorisStreamLoadService dorisStreamLoadService) {
         this.frtbSbaDbRunnerService = frtbSbaDbRunnerService;
         this.frtbSbaResultPersistService = frtbSbaResultPersistService;
-        this.frtbAggregator = frtbAggregator;
+        this.frtbResultMapper = frtbResultMapper;
         this.calcRuleMetaPersistService = calcRuleMetaPersistService;
         this.engineResultDbJdbcTemplate = engineResultDbJdbcTemplate;
         this.dorisStreamLoadService = dorisStreamLoadService;
@@ -75,13 +77,8 @@ public class FrtbSbaSummaryService {
         int threadCount = request.getThreadCount();
         boolean persistResult = request.isPersistResult();
 
-        if (persistResult) {
-            frtbSbaResultPersistService.deleteByBatchAndDataDate(batchId, dataDate);
-            deleteDecompDetailByBatchAndDataDate(batchId, dataDate);
-            calcRuleMetaPersistService.deleteByBatchAndCalcType(batchId, dataDate, CALC_TYPE_FRTB_SBA);
-        }
-
         JSONArray results = new JSONArray();
+        List<RuleOutput> ruleOutputs = new ArrayList<RuleOutput>();
         for (String ruleId : request.getRuleIds()) {
             com.zcyh.mr.springboot.model.AggregationRule ruleDefinition =
                     frtbSbaDbRunnerService.loadRuleDefinition(ruleId);
@@ -99,8 +96,7 @@ public class FrtbSbaSummaryService {
 
             if (persistResult) {
                 Map<String, Object> batchResult = JSON.parseObject(raw, Map.class);
-                persistRuleResult(batchId, dataDate, ruleId, batchResult);
-                persistRuleMeta(batchId, dataDate, ruleId, ruleJson);
+                ruleOutputs.add(new RuleOutput(ruleId, ruleJson, batchResult));
             }
 
             JSONObject resultItem = new JSONObject();
@@ -108,6 +104,13 @@ public class FrtbSbaSummaryService {
             resultItem.put("source_type", "db");
             resultItem.put("summary", parsed);
             results.add(resultItem);
+        }
+        if (persistResult) {
+            cleanup(batchId, dataDate, request);
+            for (RuleOutput output : ruleOutputs) {
+                persistRuleResult(batchId, dataDate, output.ruleId, output.batchResult);
+                persistRuleMeta(batchId, dataDate, output.ruleId, output.ruleJson);
+            }
         }
 
         JSONObject response = new JSONObject();
@@ -140,7 +143,7 @@ public class FrtbSbaSummaryService {
             if (!(calcResult instanceof Map)) {
                 throw new IllegalArgumentException("FRTB SBA 任务结果格式异常: taskKey=" + taskKey);
             }
-            Map<String, List<?>> pojoResult = frtbAggregator.buildResults(
+            Map<String, List<?>> pojoResult = frtbResultMapper.buildResults(
                     (Map<String, Object>) calcResult, detailRuleId, groupType, groupValue);
             List<?> classResults = pojoResult.get("classResults");
             if (classResults != null && !classResults.isEmpty()) {
@@ -202,6 +205,32 @@ public class FrtbSbaSummaryService {
         }
     }
 
+    private void deleteDecompDetailByRuleIds(String batchId, String dataDate, List<String> ruleIds) {
+        int deleted = RuleScopedDeleteSupport.deleteByRuleIds(
+                engineResultDbJdbcTemplate, DECOMP_DETAIL_TABLE, batchId, dataDate, ruleIds);
+        if (deleted > 0) {
+            log.info("按规则清理 FRTB SBA Decomp 历史结果: batchId={}, dataDate={}, ruleIds={}, deleted={}",
+                    batchId, dataDate, ruleIds, deleted);
+        }
+    }
+
+    private void cleanup(String batchId, String dataDate, FrtbSbaSummaryRequest request) {
+        if (request.getCleanupMode() == SummaryCleanupMode.FULL) {
+            frtbSbaResultPersistService.deleteByBatchAndDataDate(batchId, dataDate);
+            deleteDecompDetailByBatchAndDataDate(batchId, dataDate);
+            calcRuleMetaPersistService.deleteByBatchAndCalcType(batchId, dataDate, CALC_TYPE_FRTB_SBA);
+            return;
+        }
+        if (request.getCleanupMode() != SummaryCleanupMode.RULE) {
+            throw new IllegalArgumentException("cleanupMode 不能为空");
+        }
+        frtbSbaResultPersistService.deleteByBatchDataDateAndRuleIds(
+                batchId, dataDate, request.getRuleIds());
+        deleteDecompDetailByRuleIds(batchId, dataDate, request.getRuleIds());
+        calcRuleMetaPersistService.deleteByBatchCalcTypeAndRuleIds(
+                batchId, dataDate, CALC_TYPE_FRTB_SBA, request.getRuleIds());
+    }
+
     private static BigDecimal decVal(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
     }
@@ -244,6 +273,18 @@ public class FrtbSbaSummaryService {
             calcRuleMetaPersistService.persist(batchId, dataDate, CALC_TYPE_FRTB_SBA, ruleId, ruleJsonStr);
         } catch (Exception e) {
             log.warn("FRTB SBA 规则元数据落库失败（不影响主流程）: {}", e.getMessage(), e);
+        }
+    }
+
+    private static class RuleOutput {
+        private final String ruleId;
+        private final JSONObject ruleJson;
+        private final Map<String, Object> batchResult;
+
+        private RuleOutput(String ruleId, JSONObject ruleJson, Map<String, Object> batchResult) {
+            this.ruleId = ruleId;
+            this.ruleJson = ruleJson;
+            this.batchResult = batchResult;
         }
     }
 }

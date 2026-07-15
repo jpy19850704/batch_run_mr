@@ -18,6 +18,7 @@ import com.zcyh.mr.core.Calendar;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.scf.StructuredCashflow;
@@ -119,8 +120,7 @@ public class Trs implements FrtbDrcInterface {
 
             // 融资折现曲线
             String fundingCurve = trsInfo.discountCurve;
-            // 标的腿名义本金：跨币种时必须显式提供 UNDERLYING_NOTIONAL；同币种可回退到 NOTIONAL
-            double underlyingNotional = resolveUnderlyingNotional();
+            double underlyingNotional = trsInfo.underlyingNotional;
 
             // 曲线存在性校验
             if (marketData.irSpot == null || !marketData.irSpot.containsKey(fundingCurve)) {
@@ -532,11 +532,8 @@ public class Trs implements FrtbDrcInterface {
         if (!"B".equalsIgnoreCase(trsInfo.buyOrSell) && !"S".equalsIgnoreCase(trsInfo.buyOrSell)) {
             return "BUY_OR_SELL 仅支持 B/S: INSTRUMENT_ID=" + trsInfo.instrumentId;
         }
-        if (trsInfo.notional == null || trsInfo.notional <= 0.0) {
-            return "NOTIONAL 必须大于0: INSTRUMENT_ID=" + trsInfo.instrumentId;
-        }
-        if (!Double.isFinite(trsInfo.notional)) {
-            return "NOTIONAL 必须为有限数: INSTRUMENT_ID=" + trsInfo.instrumentId;
+        if (trsInfo.notional == null || !Double.isFinite(trsInfo.notional) || trsInfo.notional < 0.0) {
+            return "NOTIONAL 必须为非负有限数: INSTRUMENT_ID=" + trsInfo.instrumentId;
         }
         if (trsInfo.recoveryRate == null || trsInfo.recoveryRate < 0.0 || trsInfo.recoveryRate >= 1.0) {
             return "RECOVERY_RATE 必须在 [0,1) 范围: INSTRUMENT_ID=" + trsInfo.instrumentId;
@@ -565,25 +562,11 @@ public class Trs implements FrtbDrcInterface {
         if (StringUtils.isBlank(trsInfo.underlyingBondId)) {
             return "UNDERLYING_BOND_ID 不能为空: INSTRUMENT_ID=" + trsInfo.instrumentId;
         }
-        boolean crossCurrency = !StringUtils.equalsIgnoreCase(
-                StringUtils.trimToEmpty(trsInfo.currencyCode),
-                StringUtils.trimToEmpty(trsInfo.underlyingCurrencyCode));
-        if (trsInfo.underlyingNotional != null) {
-            if (!Double.isFinite(trsInfo.underlyingNotional) || trsInfo.underlyingNotional <= 0.0) {
-                return "UNDERLYING_NOTIONAL 必须为大于0的有限数: INSTRUMENT_ID=" + trsInfo.instrumentId;
-            }
-        }
-        if (crossCurrency && trsInfo.underlyingNotional == null) {
-            return "跨币种TRS必须提供 UNDERLYING_NOTIONAL: INSTRUMENT_ID=" + trsInfo.instrumentId;
+        if (trsInfo.underlyingNotional == null || !Double.isFinite(trsInfo.underlyingNotional)
+                || trsInfo.underlyingNotional < 0.0) {
+            return "UNDERLYING_NOTIONAL 必须为非负有限数: INSTRUMENT_ID=" + trsInfo.instrumentId;
         }
         return null;
-    }
-
-    /**
-     * 获取标的腿名义本金。
-     */
-    private double resolveUnderlyingNotional() {
-        return trsInfo.underlyingNotional != null ? trsInfo.underlyingNotional : trsInfo.notional;
     }
 
     private List<BaseCashFlow> buildTrsCashFlowList(List<TrsCashFlow> bondLegCfs,
@@ -621,58 +604,78 @@ public class Trs implements FrtbDrcInterface {
     // ===== 内部静态类 =====
 
     public static class TrsInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
+        @ProductInputField(required = true, allowedValues = {"B", "S"}, ignoreCase = true)
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
-        @JSONField(name = "START_DATE")
+        @ProductInputField(required = true)
+        @JSONField(name = "START_DATE", format = "yyyyMMdd")
         public LocalDate startDate;
-        @JSONField(name = "MATURITY_DATE")
+        @ProductInputField(required = true)
+        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
         public LocalDate maturityDate;
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "NOTIONAL")
         public Double notional;
-        /** 标的腿名义本金（标的币种），跨币种场景必填 */
+        /** 标的腿名义本金（标的币种） */
+        @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "UNDERLYING_NOTIONAL")
         public Double underlyingNotional;
         /** 融资币种 */
+        @ProductInputField(required = true, length = 3)
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
         /** 标的债券币种 */
+        @ProductInputField(required = true, length = 3)
         @JSONField(name = "UNDERLYING_CURRENCY_CODE")
         public String underlyingCurrencyCode;
         /** 融资折现曲线 */
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
         /** 标的无风险折现曲线 */
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_CURRENCY_DISCOUNT_CURVE")
         public String underlyingCurrencyDiscountCurve;
         /** 信用利差曲线（保留输入字段，计量口径使用底层债券 creditSpreadCurve） */
         @JSONField(name = "CREDIT_SPREAD_CURVE")
         public String creditSpreadCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_BOND_ID")
         public String underlyingBondId;
         /** 标的类型，当前支持 BOND */
+        @ProductInputField(allowedValues = {"BOND"}, ignoreCase = true)
         @JSONField(name = "UNDERLYING_TYPE")
         public String underlyingType;
+        @ProductInputField(required = true, finite = true, min = "0", max = "1", maxInclusive = false)
         @JSONField(name = "RECOVERY_RATE")
         public Double recoveryRate;
         /** 融资腿利率（固息）或利差（浮息） */
+        @ProductInputField(required = true, finite = true)
         @JSONField(name = "INTEREST_RATE")
         public Double interestRate;
         /** 融资腿利率类型：fixed/float */
+        @ProductInputField(required = true, allowedValues = {"FIXED", "FLOATING"}, ignoreCase = true)
         @JSONField(name = "INTEREST_TYPE")
         public String interestType;
         /** 浮息参考曲线 */
+        @ProductInputField
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "PAY_FREQ")
         public String payFreq;
+        @ProductInputField(required = true)
         @JSONField(name = "DAY_COUNT_BASIS")
-        public String dayCountBasis;
+        public String dayCountBasis = "actual/365";
+        @ProductInputField(required = true)
         @JSONField(name = "INTEREST_STUB")
         public String interestStub;
         @JSONField(name = "SETTLE_CALENDAR")
         public String settleCalendar;
+        @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
     }

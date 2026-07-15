@@ -12,8 +12,9 @@ public class VarSummaryRequest extends RuleSummaryRequest {
     private final List<BigDecimal> quantiles;
 
     public VarSummaryRequest(String batchId, String dataDate, List<String> ruleIds,
-                             boolean persistResult, List<BigDecimal> quantiles) {
-        super(batchId, dataDate, ruleIds, persistResult);
+                             boolean persistResult, SummaryCleanupMode cleanupMode,
+                             List<BigDecimal> quantiles) {
+        super(batchId, dataDate, ruleIds, persistResult, cleanupMode);
         this.quantiles = Collections.unmodifiableList(new ArrayList<BigDecimal>(quantiles));
     }
 

@@ -18,7 +18,7 @@ import java.util.Set;
 
 /**
  * 计算器抽象基类。
- * 封装所有 Calc 共用的字段声明、calc/run/calcScenario/错误处理等样板逻辑。
+ * 封装所有 Calc 共用的字段声明、基准计量、情景计量和错误处理等样板逻辑。
  * 子类只需实现产品特定的构建和估值方法。
  */
 public abstract class AbstractCalc implements ProductCalculator {
@@ -58,7 +58,7 @@ public abstract class AbstractCalc implements ProductCalculator {
      * 执行基准估值并封装结果 JSON
      */
     public String calc() {
-        this.run();
+        calculateTrades();
         this.result.put("data", new JSONObject());
         ((JSONObject) this.result.get("data")).put("trade_data", trade);
         ((JSONObject) this.result.get("data")).put("log_data", log);
@@ -69,8 +69,7 @@ public abstract class AbstractCalc implements ProductCalculator {
     /**
      * 遍历交易列表执行基准估值，统一处理异常
      */
-    @Override
-    public void run() {
+    private void calculateTrades() {
         if (Constants.CALC_MODE.PRICING.equalsIgnoreCase(operCode)) {
             for (HashMap<String, Object> t : trades) {
                 try {

@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.eq;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.marketdata.EqSpot;
@@ -96,8 +97,10 @@ public class EqSharkFin extends SharkFinBase<EqSharkFin.EqSharkFinInfo, EqSharkF
     public static class EqSharkFinInfo extends SharkFinBase.SharkFinBaseInfo {
         @JSONField(name = "UNDERLYING_CODE")
         public String underlyingCode;
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
     }

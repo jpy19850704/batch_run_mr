@@ -39,7 +39,7 @@ public class GenericMcCalc implements ProductCalculator {
     }
 
     public String calc() {
-        run();
+        calculateTrades();
         result.put("data", new JSONObject());
         result.getJSONObject("data").put("trade_data", trade);
         result.getJSONObject("data").put("log_data", log);
@@ -47,8 +47,7 @@ public class GenericMcCalc implements ProductCalculator {
         return JSON.toJSONString(result, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
 
-    @Override
-    public void run() {
+    private void calculateTrades() {
         for (HashMap<String, Object> tradeData : trades) {
             OptionMeasure measure = calcOne(tradeData, marketData);
             trade.add(measure);

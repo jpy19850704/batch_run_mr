@@ -9,9 +9,12 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.springboot.model.FrtbDrcSummaryRequest;
+import com.zcyh.mr.springboot.model.SummaryCleanupMode;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 /**
  * FRTB DRC 汇总服务。
@@ -40,12 +43,9 @@ public class FrtbDrcSummaryService {
         String batchId = request.getBatchId();
         String dataDate = request.getDataDate();
         boolean persistResult = request.isPersistResult();
-        if (persistResult) {
-            frtbDrcResultPersistService.deleteByBatchAndDataDate(batchId, dataDate);
-            calcRuleMetaPersistService.deleteByBatchAndCalcType(batchId, dataDate, CALC_TYPE_DRC);
-        }
 
         JSONArray results = new JSONArray();
+        List<RuleOutput> ruleOutputs = new ArrayList<RuleOutput>();
         for (String ruleId : request.getRuleIds()) {
             com.zcyh.mr.springboot.model.AggregationRule ruleDefinition =
                     frtbDrcDbRunnerService.loadRuleDefinition(ruleId);
@@ -53,16 +53,21 @@ public class FrtbDrcSummaryService {
                     batchId,
                     dataDate,
                     Collections.singletonList(ruleDefinition));
-            if (persistResult) {
-                frtbDrcResultPersistService.persist(request.getRequestId(), request.getJobId(),
-                        batchId, dataDate, ruleId, summary);
-                persistRuleMeta(batchId, dataDate, ruleId);
-            }
+            JSONObject ruleSnapshot = frtbDrcDbRunnerService.loadRuleSnapshot(ruleId);
+            ruleOutputs.add(new RuleOutput(ruleId, summary, ruleSnapshot));
             JSONObject resultItem = new JSONObject();
             resultItem.put("rule_id", ruleId);
             resultItem.put("source_type", "db");
             resultItem.put("summary", summary);
             results.add(resultItem);
+        }
+        if (persistResult) {
+            cleanup(batchId, dataDate, request);
+            for (RuleOutput output : ruleOutputs) {
+                frtbDrcResultPersistService.persist(request.getRequestId(), request.getJobId(),
+                        batchId, dataDate, output.ruleId, output.summary);
+                persistRuleMeta(batchId, dataDate, output.ruleId, output.ruleSnapshot);
+            }
         }
 
         JSONObject response = new JSONObject();
@@ -72,10 +77,39 @@ public class FrtbDrcSummaryService {
         return response;
     }
 
-    private void persistRuleMeta(String batchId, String dataDate, String ruleId) {
-        JSONObject ruleSnapshot = frtbDrcDbRunnerService.loadRuleSnapshot(ruleId);
+    private void cleanup(String batchId, String dataDate, FrtbDrcSummaryRequest request) {
+        if (request.getCleanupMode() == SummaryCleanupMode.FULL) {
+            frtbDrcResultPersistService.deleteByBatchAndDataDate(batchId, dataDate);
+            calcRuleMetaPersistService.deleteByBatchAndCalcType(batchId, dataDate, CALC_TYPE_DRC);
+            return;
+        }
+        if (request.getCleanupMode() != SummaryCleanupMode.RULE) {
+            throw new IllegalArgumentException("cleanupMode 不能为空");
+        }
+        frtbDrcResultPersistService.deleteByBatchDataDateAndRuleIds(
+                batchId, dataDate, request.getRuleIds());
+        calcRuleMetaPersistService.deleteByBatchCalcTypeAndRuleIds(
+                batchId, dataDate, CALC_TYPE_DRC, request.getRuleIds());
+    }
+
+    private void persistRuleMeta(String batchId,
+                                 String dataDate,
+                                 String ruleId,
+                                 JSONObject ruleSnapshot) {
         String ruleJsonStr = ruleSnapshot.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
         calcRuleMetaPersistService.persist(batchId, dataDate, CALC_TYPE_DRC, ruleId, ruleJsonStr);
+    }
+
+    private static class RuleOutput {
+        private final String ruleId;
+        private final JSONObject summary;
+        private final JSONObject ruleSnapshot;
+
+        private RuleOutput(String ruleId, JSONObject summary, JSONObject ruleSnapshot) {
+            this.ruleId = ruleId;
+            this.summary = summary;
+            this.ruleSnapshot = ruleSnapshot;
+        }
     }
 
 }

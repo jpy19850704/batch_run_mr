@@ -12,8 +12,6 @@ public interface ProductCalculator {
 
     String calc();
 
-    void run();
-
     JSONArray calcScenario(MarketData scenarioMd);
 
     default JSONArray calcScenario(MarketData scenarioMd, Set<String> affectedIds) {

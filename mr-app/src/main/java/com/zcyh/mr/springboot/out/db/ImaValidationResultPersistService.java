@@ -5,6 +5,7 @@ import com.zcyh.mr.springboot.support.DorisStreamLoadService;
 import com.zcyh.mr.springboot.support.ResultPersistTime;
 
 import com.zcyh.mr.frtbima.validation.common.TrafficLightZone;
+import com.zcyh.mr.springboot.model.SummaryCleanupMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -50,6 +51,7 @@ public class ImaValidationResultPersistService {
     @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
     public void replace(String batchId,
                         String dataDate,
+                        SummaryCleanupMode cleanupMode,
                         String startDate,
                         String endDate,
                         String ruleId,
@@ -58,7 +60,9 @@ public class ImaValidationResultPersistService {
                         List<BacktestRow> backtestRows,
                         List<ExceptionRow> exceptionRows,
                         List<KsRow> ksRows) {
-        deleteExisting(batchId, dataDate, backtestRows != null, ksRows != null);
+        deleteExisting(
+                batchId, dataDate, cleanupMode, ruleId, quantile, varScenarioId,
+                backtestRows != null, ksRows != null);
         persistBacktestRows(batchId, backtestRows);
         persistExceptionRows(batchId, exceptionRows);
         persistKsRows(batchId, ksRows);
@@ -72,21 +76,52 @@ public class ImaValidationResultPersistService {
 
     private void deleteExisting(String batchId,
                                 String dataDate,
+                                SummaryCleanupMode cleanupMode,
+                                String ruleId,
+                                String quantile,
+                                String varScenarioId,
                                 boolean deleteBacktest,
                                 boolean deleteKs) {
+        if (cleanupMode == null) {
+            throw new IllegalArgumentException("cleanupMode 不能为空");
+        }
         if (deleteBacktest) {
+            deleteBacktestExisting(
+                    batchId, dataDate, cleanupMode, ruleId, quantile, varScenarioId);
+        }
+        if (deleteKs) {
+            if (cleanupMode == SummaryCleanupMode.FULL) {
+                jdbcTemplate.update("DELETE FROM " + KS_TABLE
+                                + " WHERE BATCH_ID=? AND DATA_DATE=?",
+                        batchId, dataDate);
+            } else {
+                RuleScopedDeleteSupport.deleteByRuleIds(
+                        jdbcTemplate, KS_TABLE, batchId, dataDate, java.util.Collections.singletonList(ruleId));
+            }
+        }
+    }
+
+    private void deleteBacktestExisting(String batchId,
+                                        String dataDate,
+                                        SummaryCleanupMode cleanupMode,
+                                        String ruleId,
+                                        String quantile,
+                                        String varScenarioId) {
+        if (cleanupMode == SummaryCleanupMode.FULL) {
             jdbcTemplate.update("DELETE FROM " + BACKTEST_DETAIL_TABLE
                             + " WHERE BATCH_ID=? AND DATA_DATE=?",
                     batchId, dataDate);
             jdbcTemplate.update("DELETE FROM " + BACKTEST_TABLE
                             + " WHERE BATCH_ID=? AND DATA_DATE=?",
                     batchId, dataDate);
+            return;
         }
-        if (deleteKs) {
-            jdbcTemplate.update("DELETE FROM " + KS_TABLE
-                            + " WHERE BATCH_ID=? AND DATA_DATE=?",
-                    batchId, dataDate);
-        }
+        String predicate = " WHERE BATCH_ID=? AND DATA_DATE=? AND RULE_ID=?"
+                + " AND QUANTILE=? AND VAR_SCENARIO_ID=?";
+        jdbcTemplate.update("DELETE FROM " + BACKTEST_DETAIL_TABLE + predicate,
+                batchId, dataDate, ruleId, quantile, varScenarioId);
+        jdbcTemplate.update("DELETE FROM " + BACKTEST_TABLE + predicate,
+                batchId, dataDate, ruleId, quantile, varScenarioId);
     }
 
     private void persistBacktestRows(String batchId, List<BacktestRow> rows) {

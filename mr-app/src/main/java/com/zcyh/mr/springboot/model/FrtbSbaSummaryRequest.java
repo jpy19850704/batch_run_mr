@@ -10,8 +10,9 @@ public class FrtbSbaSummaryRequest extends RuleSummaryRequest {
     private final int threadCount;
 
     public FrtbSbaSummaryRequest(String batchId, String dataDate, List<String> ruleIds,
-                                 boolean persistResult, boolean needDecompose, int threadCount) {
-        super(batchId, dataDate, ruleIds, persistResult);
+                                 boolean persistResult, SummaryCleanupMode cleanupMode,
+                                 boolean needDecompose, int threadCount) {
+        super(batchId, dataDate, ruleIds, persistResult, cleanupMode);
         this.needDecompose = needDecompose;
         this.threadCount = threadCount;
     }

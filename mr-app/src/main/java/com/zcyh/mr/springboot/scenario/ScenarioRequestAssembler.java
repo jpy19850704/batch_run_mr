@@ -1,11 +1,9 @@
 package com.zcyh.mr.springboot.scenario;
 
+import com.zcyh.mr.frtbima.rfet.model.RfetResult;
 import com.zcyh.mr.scenario.model.ScenarioDefinition;
 import com.zcyh.mr.scenario.model.ScenarioGenerationRequest;
-import com.zcyh.mr.scenario.model.ScenarioMarketSeries;
 import com.zcyh.mr.scenario.model.ScenarioTaskRequest;
-import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
-import com.zcyh.mr.frtbima.rfet.model.RfetResult;
 import com.zcyh.mr.springboot.ima.ImaRfetDataRepository;
 import com.zcyh.mr.springboot.scenario.mapper.ScenarioMapper;
 import com.zcyh.mr.springboot.service.AlertService;
@@ -14,21 +12,16 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * 情景请求装配器。
  */
 public class ScenarioRequestAssembler {
-
-    private static final String FX_SPOT = "FX_SPOT";
-
     private final ScenarioMapper scenarioMapper;
     private final MarketInputScenarioLoader marketInputScenarioLoader;
+    private final ScenarioDefinitionExpansionService definitionExpansionService;
     private final ImaRfetDataRepository imaRfetDataRepository;
     private final String defaultHolidayCalendarCode;
 
@@ -58,12 +51,18 @@ public class ScenarioRequestAssembler {
             throw new IllegalArgumentException("scenarioMapper 不能为空");
         }
         this.scenarioMapper = scenarioMapper;
-        this.marketInputScenarioLoader = new MarketInputScenarioLoader(scenarioMapper, holidayCalendar, alertService, fxSpotBaseCurrency);
+        this.marketInputScenarioLoader = new MarketInputScenarioLoader(
+                scenarioMapper, holidayCalendar, alertService, fxSpotBaseCurrency);
+        this.definitionExpansionService = new ScenarioDefinitionExpansionService(scenarioMapper);
         this.imaRfetDataRepository = imaRfetDataRepository;
         this.defaultHolidayCalendarCode = normalize(defaultHolidayCalendarCode);
     }
 
-    public ScenarioGenerationRequest build(String scenarioIdList, LocalDate valuationDate, String user, String source) {
+    public ScenarioGenerationRequest build(
+            String scenarioIdList,
+            LocalDate valuationDate,
+            String user,
+            String source) {
         ScenarioGenerationRequest request = new ScenarioGenerationRequest();
         request.setScenarioIdList(scenarioIdList);
         request.setValuationDate(valuationDate);
@@ -76,58 +75,72 @@ public class ScenarioRequestAssembler {
             request.setTasks(tasks);
             return request;
         }
-        boolean hasImaScenario = hasImaScenario(scenarioRows);
-        List<RfetResult> imaRfetResults = Collections.emptyList();
-        if (hasImaScenario) {
-            if (imaRfetDataRepository == null) {
-                throw new IllegalStateException("IMA 情景需要配置 RFET 数据读取组件");
-            }
-            imaRfetResults = imaRfetDataRepository.loadRfetResults(valuationDate);
-            if (imaRfetResults.isEmpty()) {
-                throw new IllegalStateException("MR_IMA_RFET_RESULT 未找到当前估值日数据，dataDate=" + valuationDate);
-            }
-        }
-
+        List<RfetResult> imaRfetResults = loadImaRfetResults(scenarioRows, valuationDate);
         for (Map<String, Object> scenarioRow : scenarioRows) {
             String scenarioId = toStringValue(scenarioRow.get("SCENARIO_ID"));
             String scenarioType = toStringValue(scenarioRow.get("SCENARIO_TYPE"));
             if (scenarioId == null || scenarioType == null) {
                 continue;
             }
-
-            List<Map<String, Object>> definitionRows = loadDefinitionRows(scenarioId, scenarioType);
-            if (definitionRows.isEmpty()) {
-                continue;
+            ScenarioTaskRequest task = buildTask(
+                    scenarioId, scenarioType, valuationDate, imaRfetResults);
+            if (task != null) {
+                tasks.add(task);
             }
-
-            List<ScenarioDefinition> baseDefinitions = convertDefinitions(scenarioId, scenarioType, definitionRows);
-            List<ScenarioDefinition> expandedDefinitions = expandRiskGroupDefinitions(baseDefinitions);
-            MarketInputScenarioLoader.CurrentLoadResult fxSeedLoadResult =
-                    marketInputScenarioLoader.loadCurrent(scenarioId, valuationDate, expandedDefinitions);
-            List<ScenarioDefinition> finalDefinitions =
-                    expandFxSpotContainerDefinitions(expandedDefinitions, fxSeedLoadResult.getMarketData());
-            List<ScenarioDefinition> marketLoadDefinitions =
-                    buildMarketLoadDefinitions(expandedDefinitions, finalDefinitions);
-            MarketInputScenarioLoader.CurrentLoadResult currentLoadResult =
-                    marketInputScenarioLoader.loadCurrent(scenarioId, valuationDate, marketLoadDefinitions);
-
-            ScenarioTaskRequest task = new ScenarioTaskRequest();
-            task.setScenarioId(scenarioId);
-            task.setScenarioType(scenarioType);
-            task.setValuationDate(valuationDate);
-            task.setDefinitions(finalDefinitions);
-            task.setWarnings(currentLoadResult.getWarnings());
-            task.setCurrentMarketData(currentLoadResult.getMarketData());
-            task.setHistoricalMarketData(marketInputScenarioLoader.loadHistorical(
-                    scenarioId, valuationDate, marketLoadDefinitions));
-            if (isImaScenario(scenarioType)) {
-                task.setImaRfetResults(imaRfetResults);
-            }
-            tasks.add(task);
         }
-
         request.setTasks(tasks);
         return request;
+    }
+
+    private ScenarioTaskRequest buildTask(
+            String scenarioId,
+            String scenarioType,
+            LocalDate valuationDate,
+            List<RfetResult> imaRfetResults) {
+        List<Map<String, Object>> definitionRows = loadDefinitionRows(scenarioId, scenarioType);
+        if (definitionRows.isEmpty()) {
+            return null;
+        }
+        List<ScenarioDefinition> baseDefinitions = convertDefinitions(scenarioId, scenarioType, definitionRows);
+        List<ScenarioDefinition> expandedDefinitions = definitionExpansionService.expandRiskGroups(baseDefinitions);
+        MarketInputScenarioLoader.CurrentLoadResult fxSeedLoadResult =
+                marketInputScenarioLoader.loadCurrent(scenarioId, valuationDate, expandedDefinitions);
+        List<ScenarioDefinition> finalDefinitions = definitionExpansionService.expandFxSpotContainers(
+                expandedDefinitions, fxSeedLoadResult.getMarketData());
+        List<ScenarioDefinition> marketLoadDefinitions = definitionExpansionService.buildMarketLoadDefinitions(
+                expandedDefinitions, finalDefinitions);
+        MarketInputScenarioLoader.CurrentLoadResult currentLoadResult =
+                marketInputScenarioLoader.loadCurrent(scenarioId, valuationDate, marketLoadDefinitions);
+
+        ScenarioTaskRequest task = new ScenarioTaskRequest();
+        task.setScenarioId(scenarioId);
+        task.setScenarioType(scenarioType);
+        task.setValuationDate(valuationDate);
+        task.setDefinitions(finalDefinitions);
+        task.setWarnings(currentLoadResult.getWarnings());
+        task.setCurrentMarketData(currentLoadResult.getMarketData());
+        task.setHistoricalMarketData(marketInputScenarioLoader.loadHistorical(
+                scenarioId, valuationDate, marketLoadDefinitions));
+        if (isImaScenario(scenarioType)) {
+            task.setImaRfetResults(imaRfetResults);
+        }
+        return task;
+    }
+
+    private List<RfetResult> loadImaRfetResults(
+            List<Map<String, Object>> scenarioRows,
+            LocalDate valuationDate) {
+        if (!hasImaScenario(scenarioRows)) {
+            return Collections.emptyList();
+        }
+        if (imaRfetDataRepository == null) {
+            throw new IllegalStateException("IMA 情景需要配置 RFET 数据读取组件");
+        }
+        List<RfetResult> results = imaRfetDataRepository.loadRfetResults(valuationDate);
+        if (results.isEmpty()) {
+            throw new IllegalStateException("MR_IMA_RFET_RESULT 未找到当前估值日数据，dataDate=" + valuationDate);
+        }
+        return results;
     }
 
     private List<Map<String, Object>> loadDefinitionRows(String scenarioId, String scenarioType) {
@@ -181,9 +194,6 @@ public class ScenarioRequestAssembler {
     }
 
     private boolean hasImaScenario(List<Map<String, Object>> scenarioRows) {
-        if (scenarioRows == null || scenarioRows.isEmpty()) {
-            return false;
-        }
         for (Map<String, Object> row : scenarioRows) {
             if (isImaScenario(toStringValue(row.get("SCENARIO_TYPE")))) {
                 return true;
@@ -195,150 +205,6 @@ public class ScenarioRequestAssembler {
     private boolean isImaScenario(String scenarioType) {
         String safe = normalize(scenarioType);
         return "IMA_NORMAL".equals(safe) || "IMA_STRESS".equals(safe) || "IMA_NMRF".equals(safe);
-    }
-
-    private List<ScenarioDefinition> expandRiskGroupDefinitions(List<ScenarioDefinition> definitions) {
-        Map<String, List<RiskGroupMember>> membersByGroup = loadRiskGroupMembers(definitions);
-        List<ScenarioDefinition> result = new ArrayList<ScenarioDefinition>();
-        for (ScenarioDefinition definition : definitions) {
-            String riskGroupId = normalize(definition.getRiskGroupId());
-            if (riskGroupId == null) {
-                result.add(definition);
-                continue;
-            }
-            List<RiskGroupMember> members = membersByGroup.get(riskGroupId);
-            boolean expanded = false;
-            if (members != null) {
-                for (RiskGroupMember member : members) {
-                    if (!matchCurveType(definition.getCurveType(), member.riskFactorType)) {
-                        continue;
-                    }
-                    ScenarioDefinition copied = copyDefinition(definition);
-                    copied.setCurveType(member.riskFactorType);
-                    copied.setCurveCode(member.riskFactorId);
-                    result.add(copied);
-                    expanded = true;
-                }
-            }
-            if (!expanded && normalize(definition.getCurveCode()) != null) {
-                result.add(definition);
-            }
-        }
-        return result;
-    }
-
-    private Map<String, List<RiskGroupMember>> loadRiskGroupMembers(List<ScenarioDefinition> definitions) {
-        Set<String> groupIds = new LinkedHashSet<String>();
-        for (ScenarioDefinition definition : definitions) {
-            String riskGroupId = normalize(definition.getRiskGroupId());
-            if (riskGroupId != null) {
-                groupIds.add(riskGroupId);
-            }
-        }
-        if (groupIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        List<Map<String, Object>> rows = scenarioMapper.selectRiskGroupMembers(new ArrayList<String>(groupIds));
-        Map<String, List<RiskGroupMember>> result = new LinkedHashMap<String, List<RiskGroupMember>>();
-        for (Map<String, Object> row : rows) {
-            String riskGroupId = normalize(toStringValue(row.get("RISKGROUP_ID")));
-            String riskFactorType = normalize(toStringValue(row.get("RISKFACTOR_TYPE")));
-            String riskFactorId = normalize(toStringValue(row.get("RISKFACTOR_ID")));
-            if (riskGroupId == null || riskFactorType == null || riskFactorId == null) {
-                continue;
-            }
-            result.computeIfAbsent(riskGroupId, key -> new ArrayList<RiskGroupMember>())
-                    .add(new RiskGroupMember(riskFactorType, riskFactorId));
-        }
-        return result;
-    }
-
-    private List<ScenarioDefinition> expandFxSpotContainerDefinitions(
-            List<ScenarioDefinition> definitions,
-            Map<String, List<ScenarioMarketSeries>> currentMarketData) {
-        List<ScenarioMarketSeries> fxSeries = currentMarketData == null ? null : currentMarketData.get(FX_SPOT);
-        if (fxSeries == null || fxSeries.isEmpty()) {
-            return definitions;
-        }
-        LinkedHashSet<String> fxPairs = new LinkedHashSet<String>();
-        for (ScenarioMarketSeries series : fxSeries) {
-            String curveCode = normalize(series.getCurveCode());
-            if (curveCode != null) {
-                fxPairs.add(curveCode);
-            }
-        }
-        if (fxPairs.isEmpty()) {
-            return definitions;
-        }
-        List<ScenarioDefinition> result = new ArrayList<ScenarioDefinition>();
-        for (ScenarioDefinition definition : definitions) {
-            String curveType = normalize(definition.getCurveType());
-            String curveCode = normalize(definition.getCurveCode());
-            String riskGroupId = normalize(definition.getRiskGroupId());
-            if (!FX_SPOT.equals(curveType) || riskGroupId != null || curveCode == null || curveCode.contains("/")) {
-                result.add(definition);
-                continue;
-            }
-            for (String fxPair : fxPairs) {
-                ScenarioDefinition copied = copyDefinition(definition);
-                copied.setCurveCode(fxPair);
-                result.add(copied);
-            }
-        }
-        return result;
-    }
-
-    private List<ScenarioDefinition> buildMarketLoadDefinitions(
-            List<ScenarioDefinition> expandedDefinitions,
-            List<ScenarioDefinition> finalDefinitions) {
-        List<ScenarioDefinition> result = new ArrayList<ScenarioDefinition>();
-        if (finalDefinitions != null && !finalDefinitions.isEmpty()) {
-            result.addAll(finalDefinitions);
-        }
-        if (expandedDefinitions == null || expandedDefinitions.isEmpty()) {
-            return result;
-        }
-        for (ScenarioDefinition definition : expandedDefinitions) {
-            String curveType = normalize(definition.getCurveType());
-            String curveCode = normalize(definition.getCurveCode());
-            if (!FX_SPOT.equals(curveType) || curveCode == null || curveCode.contains("/")) {
-                continue;
-            }
-            result.add(copyDefinition(definition));
-        }
-        return result;
-    }
-
-    private ScenarioDefinition copyDefinition(ScenarioDefinition source) {
-        ScenarioDefinition copied = new ScenarioDefinition();
-        copied.setScenarioId(source.getScenarioId());
-        copied.setScenarioName(source.getScenarioName());
-        copied.setScenarioType(source.getScenarioType());
-        copied.setReducedSetFlag(source.getReducedSetFlag());
-        copied.setCurveType(source.getCurveType());
-        copied.setCurveCode(source.getCurveCode());
-        copied.setRiskGroupId(source.getRiskGroupId());
-        copied.setTermCode(source.getTermCode());
-        copied.setTermDays(source.getTermDays());
-        copied.setShockValue(source.getShockValue());
-        copied.setScenarioShiftRule(source.getScenarioShiftRule());
-        copied.setScenarioNo(source.getScenarioNo());
-        copied.setHoldingPeriod(source.getHoldingPeriod());
-        copied.setJumpDayNo(source.getJumpDayNo());
-        copied.setIncreaseDays(source.getIncreaseDays());
-        copied.setHolidayCalendarCode(source.getHolidayCalendarCode());
-        copied.setStartDate(source.getStartDate());
-        copied.setEndDate(source.getEndDate());
-        return copied;
-    }
-
-    private boolean matchCurveType(String definitionCurveType, String riskFactorType) {
-        String normalizedCurveType = normalize(definitionCurveType);
-        String normalizedRiskFactorType = normalize(riskFactorType);
-        if (normalizedCurveType == null) {
-            return normalizedRiskFactorType == null;
-        }
-        return normalizedCurveType.equals(normalizedRiskFactorType);
     }
 
     private List<Map<String, Object>> emptyIfNull(List<Map<String, Object>> rows) {
@@ -419,8 +285,7 @@ public class ScenarioRequestAssembler {
             return ((java.sql.Date) value).toLocalDate();
         }
         if (value instanceof java.util.Date) {
-            java.util.Date date = (java.util.Date) value;
-            return new java.sql.Date(date.getTime()).toLocalDate();
+            return new java.sql.Date(((java.util.Date) value).getTime()).toLocalDate();
         }
         String text = value.toString().trim();
         if (text.isEmpty()) {
@@ -445,17 +310,20 @@ public class ScenarioRequestAssembler {
     }
 
     private String resolveDefinitionTermCode(String scenarioType, Map<String, Object> row) {
-        if (isCustomLikeScenarioType(scenarioType)) {
+        if ("CUSTOM".equals(scenarioType) || "KEY_RATE".equals(scenarioType)) {
             return null;
         }
         return toStringValue(row.get("TERM_CODE"));
     }
 
-    private boolean isCustomLikeScenarioType(String scenarioType) {
-        return "CUSTOM".equals(scenarioType) || "KEY_RATE".equals(scenarioType);
-    }
-
-    private String resolveDefaultScenarioShiftRule(String scenarioType) {
+    private String resolveScenarioShiftRule(String scenarioType, Map<String, Object> row) {
+        String explicitRule = normalize(toStringValue(row.get("SCENARIO_SHIFT_RULE")));
+        if ("RELATIVE".equalsIgnoreCase(explicitRule)) {
+            return "RELATIVE";
+        }
+        if ("ABSOLUTE".equalsIgnoreCase(explicitRule)) {
+            return "ABSOLUTE";
+        }
         String normalized = normalize(scenarioType);
         if ("MC".equals(normalized)) {
             return "ABSOLUTE";
@@ -470,26 +338,5 @@ public class ScenarioRequestAssembler {
             return "RELATIVE";
         }
         return "ABSOLUTE";
-    }
-
-    private String resolveScenarioShiftRule(String scenarioType, Map<String, Object> row) {
-        String explicitRule = normalize(toStringValue(row.get("SCENARIO_SHIFT_RULE")));
-        if ("RELATIVE".equalsIgnoreCase(explicitRule)) {
-            return "RELATIVE";
-        }
-        if ("ABSOLUTE".equalsIgnoreCase(explicitRule)) {
-            return "ABSOLUTE";
-        }
-        return resolveDefaultScenarioShiftRule(scenarioType);
-    }
-
-    private static class RiskGroupMember {
-        private final String riskFactorType;
-        private final String riskFactorId;
-
-        private RiskGroupMember(String riskFactorType, String riskFactorId) {
-            this.riskFactorType = riskFactorType;
-            this.riskFactorId = riskFactorId;
-        }
     }
 }

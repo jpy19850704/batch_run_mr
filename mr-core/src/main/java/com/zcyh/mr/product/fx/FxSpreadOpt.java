@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.marketdata.FxSpot;
@@ -106,8 +107,10 @@ public class FxSpreadOpt extends SpreadOptBase<FxSpreadOpt.SpreadOptInfo, FxSpre
     }
 
     public static class SpreadOptInfo extends SpreadOptBase.SpreadOptBaseInfo {
+        @ProductInputField(required = true)
         @JSONField(name = "BASE_DISCOUNT_CURVE")
         public String baseDiscountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_DISCOUNT_CURVE")
         public String underlyingDiscountCurve;
     }

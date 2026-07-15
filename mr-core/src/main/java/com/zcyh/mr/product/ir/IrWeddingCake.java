@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.marketdata.Fixing;
@@ -134,6 +135,7 @@ public class IrWeddingCake
     public static class IrWeddingCakeInfo extends WeddingCakeBase.WeddingCakeBaseInfo {
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
+        @ProductInputField(allowedValues = {"ZERO", "PAR"}, ignoreCase = true)
         @JSONField(name = "RATE_TYPE")
         public String rateType;
         @JSONField(name = "TERM_CODE")

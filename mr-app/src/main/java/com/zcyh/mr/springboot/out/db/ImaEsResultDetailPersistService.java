@@ -50,6 +50,13 @@ public class ImaEsResultDetailPersistService {
         log.info("清理 IMA ES 中间历史结果: batchId={}, dataDate={}, deleted={}", batchId, dataDate, deleted);
     }
 
+    public void deleteByBatchDataDateAndRuleIds(String batchId, String dataDate, List<String> ruleIds) {
+        int deleted = RuleScopedDeleteSupport.deleteByRuleIds(
+                jdbcTemplate, TARGET_TABLE, batchId, dataDate, ruleIds);
+        log.info("按规则清理 IMA ES 中间历史结果: batchId={}, dataDate={}, ruleIds={}, deleted={}",
+                batchId, dataDate, ruleIds, deleted);
+    }
+
     @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
     public void persist(List<ImaEsResultDetail> details) {
         if (details == null || details.isEmpty()) {

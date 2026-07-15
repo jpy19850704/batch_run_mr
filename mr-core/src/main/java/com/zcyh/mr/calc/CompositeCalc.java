@@ -59,7 +59,7 @@ public class CompositeCalc implements ProductCalculator {
     }
 
     public String calc() {
-        this.run();
+        calculateTrades();
         this.result.put("data", new JSONObject());
         ((JSONObject) this.result.get("data")).put("trade_data", tradeResult);
         ((JSONObject) this.result.get("data")).put("log_data", logData);
@@ -67,8 +67,7 @@ public class CompositeCalc implements ProductCalculator {
         return JSON.toJSONString(this.result, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
 
-    @Override
-    public void run() {
+    private void calculateTrades() {
         if (!Constants.CALC_MODE.PRICING.equalsIgnoreCase(operCode)) {
             return;
         }
@@ -184,9 +183,10 @@ public class CompositeCalc implements ProductCalculator {
         ComponentRun run = new ComponentRun();
         for (Map.Entry<String, List<HashMap<String, Object>>> entry : grouped.entrySet()) {
             String productCode = entry.getKey();
-            ProductCalculator calc = Calc.createRegisteredCalc(productCode, operCode, dataDate, entry.getValue(), md,
+            ProductCalculator calc = ProductCalculatorRegistry.create(productCode, operCode, dataDate,
+                    entry.getValue(), md,
                     calendar, otherData);
-            String json = Calc.invokeCalc(calc);
+            String json = calc.calc();
             collectComponentOutput(json, run);
             if (cacheScenarioCalcs) {
                 run.scenarioCalcs.add(calc);

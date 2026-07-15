@@ -1,6 +1,7 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.Constants;
 import com.zcyh.mr.marketdata.CommSpot;
@@ -101,8 +102,10 @@ public class CommSharkFin extends SharkFinBase<CommSharkFin.CommSharkFinInfo, Co
     public static class CommSharkFinInfo extends SharkFinBase.SharkFinBaseInfo {
         @JSONField(name = "UNDERLYING_CODE")
         public String underlyingCode;
+        @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
+        @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
         @JSONField(name = "FRTB_COMM_BUCKET")

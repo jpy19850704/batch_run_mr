@@ -1,6 +1,5 @@
 package com.zcyh.mr.springboot.scenario;
 
-import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.basic.util.Configure;
 import com.zcyh.mr.core.Constants;
@@ -31,28 +30,41 @@ public class MarketInputScenarioValidator {
     }
 
     public void validateFxSpotRows(List<Map<String, Object>> rows) {
+        validateParsedFxSpotRows(ScenarioMarketCurveRow.parseAll(rows));
+    }
+
+    void validateParsedFxSpotRows(List<ScenarioMarketCurveRow> rows) {
         if (rows == null || rows.isEmpty()) {
             return;
         }
         Map<LocalDate, FxSpotDateState> states = new LinkedHashMap<LocalDate, FxSpotDateState>();
-        for (Map<String, Object> row : rows) {
-            String marketDataType = normalize(toStringValue(row.get("MARKET_DATA_TYPE")));
+        for (ScenarioMarketCurveRow row : rows) {
+            String marketDataType = row.getCurveType();
             if (!FX_SPOT.equals(marketDataType)) {
                 continue;
             }
-            LocalDate dataDate = toLocalDate(row.get("DATA_DATE"));
-            String curveId = normalize(toStringValue(row.get("CURVE_ID")));
-            String contentText = toStringValue(row.get("CURVE_CONTENT_TEXT"));
+            LocalDate dataDate = row.getDataDate();
+            String curveId = row.getCurveId();
+            String contentText = row.getContentText();
             if (dataDate == null || curveId == null || contentText == null) {
                 throw new IllegalStateException("FX_SPOT 市场数据字段缺失: dataDate=" + safeText(dataDate)
                         + ", curveId=" + safeText(curveId));
             }
-            JSONArray curveData = readCurveData(contentText, dataDate, curveId);
+            if (row.getParseException() != null) {
+                RuntimeException ex = row.getParseException();
+                throw new IllegalStateException("FX_SPOT 市场数据JSON解析失败: dataDate=" + dataDate
+                        + ", curveId=" + curveId + ", reason=" + ex.getMessage(), ex);
+            }
+            if (!row.isCurveDataPresent()) {
+                throw new IllegalStateException("FX_SPOT 市场数据JSON解析失败: dataDate=" + dataDate
+                        + ", curveId=" + curveId + ", reason=CURVE_DATA 为空");
+            }
             FxSpotDateState state = states.computeIfAbsent(dataDate,
                     key -> new FxSpotDateState(key, fxSpotBaseCurrency));
             state.addContainer(curveId);
-            for (int i = 0; i < curveData.size(); i++) {
-                JSONObject point = curveData.getJSONObject(i);
+            List<JSONObject> points = row.getCurveData();
+            for (int i = 0; i < points.size(); i++) {
+                JSONObject point = points.get(i);
                 if (point == null) {
                     continue;
                 }
@@ -100,57 +112,16 @@ public class MarketInputScenarioValidator {
         }
     }
 
-    private JSONArray readCurveData(String contentText, LocalDate dataDate, String curveId) {
-        try {
-            JSONObject root = JSONObject.parseObject(contentText);
-            JSONArray curveData = root == null ? null : root.getJSONArray("CURVE_DATA");
-            if (curveData == null) {
-                throw new IllegalStateException("CURVE_DATA 为空");
-            }
-            return curveData;
-        } catch (RuntimeException ex) {
-            throw new IllegalStateException("FX_SPOT 市场数据JSON解析失败: dataDate=" + dataDate
-                    + ", curveId=" + curveId + ", reason=" + ex.getMessage(), ex);
-        }
-    }
-
-    private LocalDate toLocalDate(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof LocalDate) {
-            return (LocalDate) value;
-        }
-        if (value instanceof java.sql.Date) {
-            return ((java.sql.Date) value).toLocalDate();
-        }
-        if (value instanceof java.util.Date) {
-            return new java.sql.Date(((java.util.Date) value).getTime()).toLocalDate();
-        }
-        String text = value.toString().trim();
-        if (text.isEmpty()) {
-            return null;
-        }
-        try {
-            if (text.length() == 8 && text.chars().allMatch(Character::isDigit)) {
-                return LocalDate.parse(text, java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
-            }
-            return LocalDate.parse(text);
-        } catch (Exception ex) {
-            return null;
-        }
-    }
-
-    private String toStringValue(Object value) {
-        return value == null ? null : value.toString();
-    }
-
     private String normalize(String text) {
         if (text == null) {
             return null;
         }
         String trimmed = text.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String toStringValue(Object value) {
+        return value == null ? null : value.toString();
     }
 
     private String safeText(Object value) {
@@ -176,7 +147,6 @@ public class MarketInputScenarioValidator {
         private final LocalDate dataDate;
         private final String fxSpotBaseCurrency;
         private final Map<String, List<String>> pairSources = new LinkedHashMap<String, List<String>>();
-        private final Set<String> baseCurrencies = new LinkedHashSet<String>();
         private final Set<String> containers = new LinkedHashSet<String>();
 
         private FxSpotDateState(LocalDate dataDate, String fxSpotBaseCurrency) {
@@ -189,18 +159,39 @@ public class MarketInputScenarioValidator {
         }
 
         private void addCurrencyPair(String currencyPair, String curveId) {
-            String baseCurrency = extractBaseCurrency(currencyPair, curveId);
-            baseCurrencies.add(baseCurrency);
-            pairSources.computeIfAbsent(currencyPair, key -> new ArrayList<String>()).add(curveId);
+            String[] currencies = parseCurrencyPair(currencyPair, curveId);
+            if (currencies[0].equals(currencies[1])) {
+                throw new IllegalStateException("FX_SPOT 货币对币种不能相同: dataDate=" + dataDate
+                        + ", currencyPair=" + currencyPair + ", curveId=" + curveId);
+            }
+            if (!fxSpotBaseCurrency.equals(currencies[0]) && !fxSpotBaseCurrency.equals(currencies[1])) {
+                throw new IllegalStateException("FX_SPOT 货币对必须包含基础币种: dataDate=" + dataDate
+                        + ", currencyPair=" + currencyPair
+                        + ", expectedBaseCurrency=" + fxSpotBaseCurrency
+                        + ", curveId=" + curveId);
+            }
+            String canonicalPair = currencies[0].compareTo(currencies[1]) <= 0
+                    ? currencies[0] + "/" + currencies[1]
+                    : currencies[1] + "/" + currencies[0];
+            pairSources.computeIfAbsent(canonicalPair, key -> new ArrayList<String>())
+                    .add(currencyPair + "@" + curveId);
         }
 
-        private String extractBaseCurrency(String currencyPair, String curveId) {
+        private String[] parseCurrencyPair(String currencyPair, String curveId) {
             int separatorIndex = currencyPair.indexOf('/');
-            if (separatorIndex <= 0 || separatorIndex == currencyPair.length() - 1) {
+            if (separatorIndex <= 0
+                    || separatorIndex == currencyPair.length() - 1
+                    || separatorIndex != currencyPair.lastIndexOf('/')) {
                 throw new IllegalStateException("FX_SPOT 货币对格式错误: dataDate=" + dataDate
                         + ", currencyPair=" + currencyPair + ", curveId=" + curveId);
             }
-            return currencyPair.substring(0, separatorIndex);
+            String left = currencyPair.substring(0, separatorIndex).trim().toUpperCase(Locale.ROOT);
+            String right = currencyPair.substring(separatorIndex + 1).trim().toUpperCase(Locale.ROOT);
+            if (left.isEmpty() || right.isEmpty()) {
+                throw new IllegalStateException("FX_SPOT 货币对格式错误: dataDate=" + dataDate
+                        + ", currencyPair=" + currencyPair + ", curveId=" + curveId);
+            }
+            return new String[]{left, right};
         }
 
         private void validate() {
@@ -213,13 +204,6 @@ public class MarketInputScenarioValidator {
             if (!duplicatePairs.isEmpty()) {
                 throw new IllegalStateException("FX_SPOT 市场数据冲突: dataDate=" + dataDate
                         + ", duplicateCurrencyPairs=" + duplicatePairs
-                        + ", containers=" + containers);
-            }
-            if (!baseCurrencies.isEmpty()
-                    && (baseCurrencies.size() > 1 || !baseCurrencies.contains(fxSpotBaseCurrency))) {
-                throw new IllegalStateException("FX_SPOT 兑换货币不一致: dataDate=" + dataDate
-                        + ", expectedBaseCurrency=" + fxSpotBaseCurrency
-                        + ", baseCurrencies=" + baseCurrencies
                         + ", containers=" + containers);
             }
         }

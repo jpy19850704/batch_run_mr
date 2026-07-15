@@ -58,6 +58,13 @@ public class ImaCapitalResultPersistService {
         log.info("清理 IMA 资本历史结果: batchId={}, dataDate={}, deleted={}", batchId, dataDate, deleted);
     }
 
+    public void deleteByBatchDataDateAndRuleIds(String batchId, String dataDate, List<String> ruleIds) {
+        int deleted = RuleScopedDeleteSupport.deleteByRuleIds(
+                jdbcTemplate, TARGET_TABLE, batchId, dataDate, ruleIds);
+        log.info("按规则清理 IMA 资本历史结果: batchId={}, dataDate={}, ruleIds={}, deleted={}",
+                batchId, dataDate, ruleIds, deleted);
+    }
+
     /**
      * 写入 IMA 最终资本结果。
      *
