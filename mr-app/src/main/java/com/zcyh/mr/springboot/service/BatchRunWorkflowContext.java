@@ -7,7 +7,9 @@ import com.zcyh.mr.springboot.model.BatchRunRequest;
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 批量运行工作流上下文。
@@ -38,6 +40,7 @@ public class BatchRunWorkflowContext {
     private List<BatchTradeDataLoader.TradeRow> loadedTrades = new ArrayList<BatchTradeDataLoader.TradeRow>();
     private List<BatchTradeDataLoader.CurveRow> loadedMarketData = new ArrayList<BatchTradeDataLoader.CurveRow>();
     private List<List<BatchTradeDataLoader.TradeRow>> tradeChunks = new ArrayList<List<BatchTradeDataLoader.TradeRow>>();
+    private Set<String> scenarioMarketKeys = new LinkedHashSet<String>();
     private List<BatchJobPayload> jobPayloads = new ArrayList<BatchJobPayload>();
     private BatchExecutionResult submitResult;
     private BatchDetailResult batchDetail;
@@ -250,6 +253,16 @@ public class BatchRunWorkflowContext {
         this.tradeChunks = tradeChunks == null
                 ? new ArrayList<List<BatchTradeDataLoader.TradeRow>>()
                 : tradeChunks;
+    }
+
+    public Set<String> getScenarioMarketKeys() {
+        return scenarioMarketKeys;
+    }
+
+    public void setScenarioMarketKeys(Set<String> scenarioMarketKeys) {
+        this.scenarioMarketKeys = scenarioMarketKeys == null
+                ? new LinkedHashSet<String>()
+                : new LinkedHashSet<String>(scenarioMarketKeys);
     }
 
     public List<BatchJobPayload> getJobPayloads() {

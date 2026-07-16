@@ -16,14 +16,14 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Calc 情景预处理服务：将输入情景统一转换为标准 ScenarioEntry。
+ * Calc 计量情景输入解析器：将输入情景统一转换为标准 ScenarioEntry。
  */
-public final class CalcScenarioProcessService {
+public final class CalcScenarioInputResolver {
     private static final String RISK_CLASS_ALL = "ALL";
     private static final String[] VAR_RISK_CLASSES = {"IR", "FX", "EQ", "COMM", "ALL"};
     private static final ScenarioMarketDataSlicer MARKET_DATA_SLICER = new ScenarioMarketDataSlicer();
 
-    private CalcScenarioProcessService() {
+    private CalcScenarioInputResolver() {
     }
 
     public static List<Loader.ScenarioEntry> resolveScenarioData(String jsonData, Loader loader) {
@@ -74,9 +74,9 @@ public final class CalcScenarioProcessService {
             if (!hasText(cacheKey)) {
                 throw new IllegalArgumentException(fieldName + "[" + i + "].cache_key 必填");
             }
-            List<Loader.ScenarioEntry> cached = ScenarioCache.get(cacheKey.trim());
+            List<Loader.ScenarioEntry> cached = CalcScenarioInputCache.get(cacheKey.trim());
             if (cached == null) {
-                throw new IllegalArgumentException("ScenarioCache 未找到场景数据: cache_key=" + cacheKey.trim());
+                throw new IllegalArgumentException("计量情景输入缓存未找到场景数据: cache_key=" + cacheKey.trim());
             }
             appendScenarioRefEntries(target, cached, processType, item, i, imaRiskFactorConfig);
         }
@@ -184,6 +184,9 @@ public final class CalcScenarioProcessService {
         for (int i = 0; i < entries.size(); i++) {
             Loader.ScenarioEntry raw = entries.get(i);
             if (raw == null) {
+                continue;
+            }
+            if (raw.impactKeys == null || raw.impactKeys.isEmpty()) {
                 continue;
             }
             validateNmrfSubScenarioId(raw);

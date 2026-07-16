@@ -10,7 +10,7 @@ import com.zcyh.mr.springboot.context.RequestContextHolder;
 import com.zcyh.mr.springboot.engine.MrCalcEngineAdapter;
 import com.zcyh.mr.springboot.model.EngineRunRequest;
 import com.zcyh.mr.springboot.model.EngineRunResult;
-import com.zcyh.mr.springboot.out.cache.JobScenarioResultCacheService;
+import com.zcyh.mr.springboot.out.cache.JobScenarioPnlCacheService;
 import com.zcyh.mr.springboot.out.db.PricingResultPersistService;
 import com.zcyh.mr.springboot.out.file.BatchResultFileService;
 import org.slf4j.Logger;
@@ -36,7 +36,7 @@ class AsyncJobExecutionService {
     private final EngineOrchestratorService orchestratorService;
     private final PricingResultPersistService pricingResultPersistService;
     private final BatchResultFileService batchResultFileService;
-    private final JobScenarioResultCacheService jobScenarioResultCacheService;
+    private final JobScenarioPnlCacheService jobScenarioPnlCacheService;
     private final AlertService alertService;
     private final AsyncJobStateRepository jobStateRepository;
     private final String nodeId;
@@ -47,7 +47,7 @@ class AsyncJobExecutionService {
             EngineOrchestratorService orchestratorService,
             PricingResultPersistService pricingResultPersistService,
             BatchResultFileService batchResultFileService,
-            JobScenarioResultCacheService jobScenarioResultCacheService,
+            JobScenarioPnlCacheService jobScenarioPnlCacheService,
             AlertService alertService,
             AsyncJobStateRepository jobStateRepository,
             @Value("${mr.job.store.node-id:node-default}") String nodeId,
@@ -56,7 +56,7 @@ class AsyncJobExecutionService {
         this.orchestratorService = orchestratorService;
         this.pricingResultPersistService = pricingResultPersistService;
         this.batchResultFileService = batchResultFileService;
-        this.jobScenarioResultCacheService = jobScenarioResultCacheService;
+        this.jobScenarioPnlCacheService = jobScenarioPnlCacheService;
         this.alertService = alertService;
         this.jobStateRepository = jobStateRepository;
         this.nodeId = nodeId;
@@ -221,7 +221,7 @@ class AsyncJobExecutionService {
             throw new IllegalStateException(
                     "cache_scenario_result=true 但计算结果缺少 scenario_result: " + jobId);
         }
-        jobScenarioResultCacheService.putScenarioResult(jobId, scenarioResult);
+        jobScenarioPnlCacheService.putScenarioPnl(jobId, scenarioResult);
     }
 
     private void markResultPersistFailed(String jobId, Exception cause) {

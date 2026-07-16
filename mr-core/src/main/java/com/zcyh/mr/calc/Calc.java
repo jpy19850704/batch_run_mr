@@ -7,8 +7,8 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.calc.result.CalcResultMergeService;
 import com.zcyh.mr.calc.result.ScenarioPnlService;
-import com.zcyh.mr.calc.result.ScenarioResultAssembler;
-import com.zcyh.mr.calc.scenario.CalcScenarioProcessService;
+import com.zcyh.mr.calc.result.ScenarioPnlResultAssembler;
+import com.zcyh.mr.calc.scenario.CalcScenarioInputResolver;
 import com.zcyh.mr.frtbima.common.LiquidityHorizonTable;
 import com.zcyh.mr.core.Calendar;
 import com.zcyh.mr.core.Constants;
@@ -34,7 +34,7 @@ public class Calc {
         private static final String RESULT_KIND_SCENARIO = "SCENARIO";
         private static final CalcResultMergeService RESULT_MERGE_SERVICE = new CalcResultMergeService();
         private static final ScenarioPnlService SCENARIO_PNL_SERVICE = new ScenarioPnlService();
-        private static final ScenarioResultAssembler SCENARIO_RESULT_ASSEMBLER = new ScenarioResultAssembler();
+        private static final ScenarioPnlResultAssembler SCENARIO_PNL_RESULT_ASSEMBLER = new ScenarioPnlResultAssembler();
 
         List<HashMap<String, Object>> trades;
         MarketData marketData;
@@ -69,7 +69,7 @@ public class Calc {
                 this.validationErrors = loader.getValidationErrors();
                 this.curveGenerationInputs = loader.getCurveGenerationInputs();
 
-                this.scenarioDataList = CalcScenarioProcessService.resolveScenarioData(
+                this.scenarioDataList = CalcScenarioInputResolver.resolveScenarioData(
                                 jsonData, loader, imaRiskFactorConfig);
         }
 
@@ -146,7 +146,7 @@ public class Calc {
 
                                 // 无任何交易受影响 → 整个场景 PnL=0
                                 if (affectedIds != null && affectedIds.isEmpty()) {
-                                        scenarioResults.add(SCENARIO_RESULT_ASSEMBLER.assemble(
+                                        scenarioResults.add(SCENARIO_PNL_RESULT_ASSEMBLER.assemble(
                                                         entry,
                                                         SCENARIO_PNL_SERVICE.buildZeroPnlResults(
                                                                         baseTrades, unsupportedScenarioProducts),
@@ -166,7 +166,7 @@ public class Calc {
                                                 baseTradeIndex, scenTradeResults, unsupportedScenarioProducts,
                                                 affectedIds);
 
-                                scenarioResults.add(SCENARIO_RESULT_ASSEMBLER.assemble(
+                                scenarioResults.add(SCENARIO_PNL_RESULT_ASSEMBLER.assemble(
                                                 entry, pnlResults, RESULT_KIND_SCENARIO));
                         }
 

@@ -11,8 +11,8 @@ import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.scenario.model.ScenarioGenerationRequest;
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
-import com.zcyh.mr.springboot.out.db.ScenarioDetailResultService;
-import com.zcyh.mr.springboot.out.cache.ScenarioResultCacheService;
+import com.zcyh.mr.springboot.out.db.ScenarioDetailPersistService;
+import com.zcyh.mr.springboot.out.cache.ScenarioDetailCacheService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,18 +33,18 @@ public class ScenarioEngineAdapter implements EngineAdapter {
     public static final String CODE = "scenario";
     private final ScenarioGenerationEngine scenarioGenerationEngine;
     private final ScenarioRequestAssembler scenarioRequestAssembler;
-    private final ScenarioDetailResultService ScenarioDetailResultService;
-    private final ScenarioResultCacheService scenarioResultCacheService;
+    private final ScenarioDetailPersistService scenarioDetailPersistService;
+    private final ScenarioDetailCacheService scenarioDetailCacheService;
 
     public ScenarioEngineAdapter(
             ScenarioGenerationEngine scenarioGenerationEngine,
             ScenarioRequestAssembler scenarioRequestAssembler,
-            ScenarioDetailResultService ScenarioDetailResultService,
-            ScenarioResultCacheService scenarioResultCacheService) {
+            ScenarioDetailPersistService scenarioDetailPersistService,
+            ScenarioDetailCacheService scenarioDetailCacheService) {
         this.scenarioGenerationEngine = scenarioGenerationEngine;
         this.scenarioRequestAssembler = scenarioRequestAssembler;
-        this.ScenarioDetailResultService = ScenarioDetailResultService;
-        this.scenarioResultCacheService = scenarioResultCacheService;
+        this.scenarioDetailPersistService = scenarioDetailPersistService;
+        this.scenarioDetailCacheService = scenarioDetailCacheService;
     }
 
     @Override
@@ -109,8 +109,8 @@ public class ScenarioEngineAdapter implements EngineAdapter {
             log.info("Scenario 生成完成: scenario_id_list={}, data_date={}, batch_id={}, record_count={}, scenario_summary={}, elapsedMs={}",
                     scenarioIdList, dataDate, batchId, result == null ? 0 : result.size(),
                     summarizeScenarioIds(result), System.currentTimeMillis() - startTime);
-            if (ScenarioDetailResultService != null) {
-                ScenarioDetailResultService.persist(batchId, dataDate, persistScenario, result);
+            if (scenarioDetailPersistService != null) {
+                scenarioDetailPersistService.persist(batchId, dataDate, persistScenario, result);
                 if (Boolean.TRUE.equals(persistScenario) && batchId != null && result != null && !result.isEmpty()) {
                     log.info("Scenario 生成结果落库完成: batch_id={}, data_date={}, record_count={}",
                             batchId, dataDate, result.size());
@@ -170,8 +170,8 @@ public class ScenarioEngineAdapter implements EngineAdapter {
                                     String batchId,
                                     List<ScenarioGeneratedRecord> records) {
         JSONObject summary;
-        if (scenarioResultCacheService != null) {
-            summary = scenarioResultCacheService.cacheRunResult(runId, scenarioIdList, dataDate, records);
+        if (scenarioDetailCacheService != null) {
+            summary = scenarioDetailCacheService.cacheRunDetails(runId, scenarioIdList, dataDate, records);
         } else {
             summary = new JSONObject();
             summary.put("run_id", runId);

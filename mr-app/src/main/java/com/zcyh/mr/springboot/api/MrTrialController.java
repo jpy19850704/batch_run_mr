@@ -56,9 +56,7 @@ public class MrTrialController {
         return ApiResponse.ok(varDbRunnerService.calculateTrial(
                 parsed.getBatchId(),
                 parsed.getDataDate(),
-                parsed.getRuleDefinitions(),
-                parsed.getQuantiles(),
-                parsed.getMeasures(),
+                parsed.getCalculations(),
                 parsed.isIncludeDetail(),
                 parsed.getRequestId()));
     }

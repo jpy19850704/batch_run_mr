@@ -1,10 +1,12 @@
 package com.zcyh.mr.springboot.api;
 
+import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.model.FrtbDrcSummaryRequest;
 import com.zcyh.mr.springboot.model.FrtbSbaSummaryRequest;
 import com.zcyh.mr.springboot.model.RuleSummaryRequest;
 import com.zcyh.mr.springboot.model.SummaryCleanupMode;
+import com.zcyh.mr.springboot.model.VarCalculation;
 import com.zcyh.mr.springboot.model.VarSummaryRequest;
 
 import java.math.BigDecimal;
@@ -24,9 +26,8 @@ import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
  */
 final class SummaryRequestParser {
     private static final String RULE_ID_LIST = "rule_id_list";
+    private static final String CALCULATIONS = "calculations";
     private static final String CLEANUP_MODE = "cleanupMode";
-    private static final List<BigDecimal> DEFAULT_VAR_QUANTILES = Arrays.asList(
-            new BigDecimal("0.95"), new BigDecimal("0.99"));
 
     private SummaryRequestParser() {
     }
@@ -78,15 +79,14 @@ final class SummaryRequestParser {
     }
 
     static VarSummaryRequest parseVar(JSONObject request) {
-        validateKeys(request, "batch_id", "data_date", RULE_ID_LIST,
-                "persist_result", CLEANUP_MODE, "quantiles");
+        validateKeys(request, "batch_id", "data_date", CALCULATIONS,
+                "persist_result", CLEANUP_MODE);
         return new VarSummaryRequest(
                 readBatchId(request),
                 readDataDate(request),
-                parseRequiredIdList(request, RULE_ID_LIST),
+                parseVarCalculations(request),
                 readBoolean(request, "persist_result", true),
-                readCleanupMode(request),
-                parseQuantiles(request));
+                readCleanupMode(request));
     }
 
     private static void validateKeys(JSONObject request, String... allowedKeys) {
@@ -191,31 +191,29 @@ final class SummaryRequestParser {
         return new ArrayList<String>(values);
     }
 
-    private static List<BigDecimal> parseQuantiles(JSONObject request) {
-        String text = readOptionalString(request, "quantiles");
-        if (text == null) {
-            return new ArrayList<BigDecimal>(DEFAULT_VAR_QUANTILES);
+    private static List<VarCalculation> parseVarCalculations(JSONObject request) {
+        Object raw = request.get(CALCULATIONS);
+        if (!(raw instanceof JSONArray) || ((JSONArray) raw).isEmpty()) {
+            throw new IllegalArgumentException("calculations 必须为非空数组");
         }
-        LinkedHashSet<BigDecimal> values = new LinkedHashSet<BigDecimal>();
-        for (String item : text.split(",", -1)) {
-            String value = trimToNull(item);
-            if (value == null) {
-                throw new IllegalArgumentException("quantiles 包含空项");
+        JSONArray array = (JSONArray) raw;
+        List<VarCalculation> calculations = new ArrayList<VarCalculation>();
+        Set<String> calculationKeys = new LinkedHashSet<String>();
+        for (int i = 0; i < array.size(); i++) {
+            JSONObject item = array.getJSONObject(i);
+            if (item == null) {
+                throw new IllegalArgumentException("calculations[" + i + "] 必须为对象");
             }
-            BigDecimal quantile;
-            try {
-                quantile = new BigDecimal(value);
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException("quantile 格式非法: " + value);
+            validateKeys(item, "ruleId", "scenarioId");
+            String ruleId = readRequiredString(item, "ruleId");
+            String scenarioId = readRequiredString(item, "scenarioId");
+            String calculationKey = ruleId + "\u0000" + scenarioId;
+            if (!calculationKeys.add(calculationKey)) {
+                throw new IllegalArgumentException("calculations 包含重复计算项: ruleId="
+                        + ruleId + ", scenarioId=" + scenarioId);
             }
-            if (quantile.compareTo(BigDecimal.ZERO) <= 0 || quantile.compareTo(BigDecimal.ONE) >= 0) {
-                throw new IllegalArgumentException("quantile 必须在 (0,1) 区间: " + value);
-            }
-            BigDecimal normalized = quantile.stripTrailingZeros();
-            if (!values.add(normalized)) {
-                throw new IllegalArgumentException("quantiles 包含重复值: " + value);
-            }
+            calculations.add(new VarCalculation(ruleId, scenarioId, null));
         }
-        return new ArrayList<BigDecimal>(values);
+        return calculations;
     }
 }

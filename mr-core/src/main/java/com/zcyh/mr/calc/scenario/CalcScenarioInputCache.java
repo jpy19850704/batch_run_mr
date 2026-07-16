@@ -9,25 +9,31 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.Queue;
+import java.util.function.Supplier;
 
 /**
- * 场景数据缓存。
+ * Calc 计量情景输入缓存。
  * 保存已解析的 ScenarioEntry 列表，供后续 Calc 通过 cache_key 获取。
  * 当前实现为进程内 ConcurrentHashMap，未来可替换为 Redis 等分布式缓存。
  */
-public class ScenarioCache {
+public class CalcScenarioInputCache {
 
-    private static final ScenarioFileReader FILE_READER = new ScenarioFileReader();
+    private static final CalcScenarioInputFileReader FILE_READER = new CalcScenarioInputFileReader();
 
     private static final ConcurrentHashMap<String, List<Loader.ScenarioEntry>> CACHE =
+            new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, CompletableFuture<List<Loader.ScenarioEntry>>> LOADING =
             new ConcurrentHashMap<>();
     private static final Queue<String> CACHE_KEY_ORDER = new ConcurrentLinkedQueue<>();
 
     private static final int MAX_SCENARIO_CACHE_ENTRIES = Math.max(
-            1, Integer.getInteger("mr.scenario.cache.max-entries", 512));
+            1, Integer.getInteger("mr.calc.scenario-input.cache.max-entries", 512));
 
     /**
      * 从 CSV 场景文件加载并缓存场景数据。
@@ -40,13 +46,7 @@ public class ScenarioCache {
         Path path = Paths.get(filePath);
         String cacheKey = deriveCacheKey(path);
 
-        if (CACHE.containsKey(cacheKey)) {
-            return cacheKey;
-        }
-
-        JSONArray scenArray = FILE_READER.read(path);
-        List<Loader.ScenarioEntry> entries = FILE_READER.parseScenarioList(scenArray, dataDate);
-        putScenarioEntries(cacheKey, entries);
+        loadOnce(cacheKey, () -> FILE_READER.readScenarioEntries(Collections.singletonList(path), dataDate));
         return cacheKey;
     }
 
@@ -59,27 +59,36 @@ public class ScenarioCache {
      * @return cache_key
      */
     public static String loadFromFiles(String cacheKey, List<String> filePaths, LocalDate dataDate) {
+        return loadFromFiles(cacheKey, filePaths, dataDate, null);
+    }
+
+    /**
+     * 从多个情景文件加载本批次交易涉及的市场曲线并合并缓存。
+     */
+    public static String loadFromFiles(
+            String cacheKey,
+            List<String> filePaths,
+            LocalDate dataDate,
+            Set<String> scenarioMarketKeys) {
         String safeCacheKey = trimToNull(cacheKey);
         if (safeCacheKey == null) {
             throw new IllegalArgumentException("scenario cache_key 不能为空");
         }
-        if (CACHE.containsKey(safeCacheKey)) {
-            return safeCacheKey;
-        }
         if (filePaths == null || filePaths.isEmpty()) {
             throw new IllegalArgumentException("scenario 文件列表不能为空, cache_key=" + safeCacheKey);
         }
-
-        JSONArray merged = new JSONArray();
+        List<Path> paths = new ArrayList<>();
         for (String filePath : filePaths) {
             String safeFilePath = trimToNull(filePath);
             if (safeFilePath == null) {
                 continue;
             }
-            merged.addAll(FILE_READER.read(Paths.get(safeFilePath)));
+            paths.add(Paths.get(safeFilePath));
         }
-        List<Loader.ScenarioEntry> entries = FILE_READER.parseScenarioList(merged, dataDate);
-        putScenarioEntries(safeCacheKey, entries);
+        if (paths.isEmpty()) {
+            throw new IllegalArgumentException("scenario 文件列表不能为空, cache_key=" + safeCacheKey);
+        }
+        loadOnce(safeCacheKey, () -> FILE_READER.readScenarioEntries(paths, dataDate, scenarioMarketKeys));
         return safeCacheKey;
     }
 
@@ -92,11 +101,7 @@ public class ScenarioCache {
      * @param dataDate   基准日期
      */
     public static void loadFromArray(String cacheKey, JSONArray scenData, LocalDate dataDate) {
-        if (CACHE.containsKey(cacheKey)) {
-            return;
-        }
-        List<Loader.ScenarioEntry> entries = FILE_READER.parseScenarioList(scenData, dataDate);
-        putScenarioEntries(cacheKey, entries);
+        loadOnce(cacheKey, () -> FILE_READER.parseScenarioList(scenData, dataDate));
     }
 
     /**
@@ -145,6 +150,7 @@ public class ScenarioCache {
      */
     public static void clear() {
         CACHE.clear();
+        LOADING.clear();
         CACHE_KEY_ORDER.clear();
     }
 
@@ -155,7 +161,7 @@ public class ScenarioCache {
         putScenarioEntries(cacheKey, entries);
     }
 
-    public static int scenarioEntryCacheSize() {
+    public static int scenarioInputCacheSize() {
         return CACHE.size();
     }
 
@@ -168,6 +174,50 @@ public class ScenarioCache {
         if (!existed) {
             CACHE_KEY_ORDER.offer(cacheKey);
             trimCache(CACHE, CACHE_KEY_ORDER, MAX_SCENARIO_CACHE_ENTRIES);
+        }
+    }
+
+    private static void loadOnce(String cacheKey, Supplier<List<Loader.ScenarioEntry>> loader) {
+        if (CACHE.containsKey(cacheKey)) {
+            return;
+        }
+        CompletableFuture<List<Loader.ScenarioEntry>> loading = new CompletableFuture<>();
+        CompletableFuture<List<Loader.ScenarioEntry>> existing = LOADING.putIfAbsent(cacheKey, loading);
+        if (existing != null) {
+            awaitLoading(cacheKey, existing);
+            return;
+        }
+        try {
+            if (!CACHE.containsKey(cacheKey)) {
+                List<Loader.ScenarioEntry> entries = loader.get();
+                putScenarioEntries(cacheKey, entries);
+            }
+            loading.complete(CACHE.get(cacheKey));
+        } catch (Throwable ex) {
+            loading.completeExceptionally(ex);
+            if (ex instanceof RuntimeException) {
+                throw (RuntimeException) ex;
+            }
+            if (ex instanceof Error) {
+                throw (Error) ex;
+            }
+            throw new IllegalStateException("加载 scenario 缓存失败: cache_key=" + cacheKey, ex);
+        } finally {
+            LOADING.remove(cacheKey, loading);
+        }
+    }
+
+    private static void awaitLoading(
+            String cacheKey,
+            CompletableFuture<List<Loader.ScenarioEntry>> loading) {
+        try {
+            loading.join();
+        } catch (CompletionException ex) {
+            Throwable cause = ex.getCause();
+            if (cause instanceof RuntimeException) {
+                throw (RuntimeException) cause;
+            }
+            throw new IllegalStateException("加载 scenario 缓存失败: cache_key=" + cacheKey, cause);
         }
     }
 

@@ -10,6 +10,7 @@ import static com.zcyh.mr.springboot.out.db.CalcResultPersistSupport.trimToNull;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.model.SummaryCleanupMode;
+import com.zcyh.mr.springboot.model.VarCalculation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -53,12 +54,30 @@ public class VarResultPersistService {
         }
     }
 
-    public void deleteByBatchDataDateAndRuleIds(String batchId, String dataDate, List<String> ruleIds) {
-        int deleted = RuleScopedDeleteSupport.deleteByRuleIds(
-                jdbcTemplate, TARGET_TABLE, batchId, dataDate, ruleIds);
+    public void deleteByCalculations(String batchId,
+                                     String dataDate,
+                                     List<VarCalculation> calculations) {
+        if (calculations == null || calculations.isEmpty()) {
+            throw new IllegalArgumentException("calculations 不能为空");
+        }
+        StringBuilder sql = new StringBuilder(
+                "DELETE FROM TB_OUT_VAR_RESULT WHERE BATCH_ID=? AND DATA_DATE=? AND (");
+        List<Object> params = new ArrayList<Object>();
+        params.add(batchId);
+        params.add(dataDate);
+        for (int i = 0; i < calculations.size(); i++) {
+            if (i > 0) {
+                sql.append(" OR ");
+            }
+            sql.append("(RULE_ID=? AND SCENARIO_ID=?)");
+            params.add(calculations.get(i).getRuleId());
+            params.add(calculations.get(i).getScenarioId());
+        }
+        sql.append(')');
+        int deleted = jdbcTemplate.update(sql.toString(), params.toArray());
         if (deleted > 0) {
-            log.info("按规则清理 VaR 汇总历史结果: batchId={}, dataDate={}, ruleIds={}, deleted={}",
-                    batchId, dataDate, ruleIds, deleted);
+            log.info("按规则与情景清理 VaR 汇总历史结果: batchId={}, dataDate={}, calculations={}, deleted={}",
+                    batchId, dataDate, calculations.size(), deleted);
         }
     }
 
@@ -69,7 +88,7 @@ public class VarResultPersistService {
     public void replace(String batchId,
                         String dataDate,
                         SummaryCleanupMode cleanupMode,
-                        List<String> ruleIds,
+                        List<VarCalculation> calculations,
                         JSONObject varResult) {
         String safeBatchId = trimToNull(batchId);
         String safeDataDate = trimToNull(dataDate);
@@ -113,6 +132,9 @@ public class VarResultPersistService {
                     String ruleName = trimToNull(ruleResult.getString("rule_name"));
                     String mode = trimToNull(ruleResult.getString("mode"));
                     String scenarioId = trimToNull(ruleResult.getString("scenario_id"));
+                    if (scenarioId == null) {
+                        throw new IllegalArgumentException("VaR 汇总结果缺少 scenario_id");
+                    }
                     String selectedMethod = trimToNull(ruleResult.getString("selected_method"));
 
                     JSONArray dimensionResults = ruleResult.getJSONArray("dimension_results");
@@ -170,7 +192,7 @@ public class VarResultPersistService {
         if (cleanupMode == SummaryCleanupMode.FULL) {
             deleteByBatchAndDataDate(safeBatchId, safeDataDate);
         } else if (cleanupMode == SummaryCleanupMode.RULE) {
-            deleteByBatchDataDateAndRuleIds(safeBatchId, safeDataDate, ruleIds);
+            deleteByCalculations(safeBatchId, safeDataDate, calculations);
         } else {
             throw new IllegalArgumentException("cleanupMode 不能为空");
         }

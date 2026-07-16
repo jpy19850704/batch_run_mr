@@ -3,7 +3,7 @@ package com.zcyh.mr.springboot.service;
 import com.zcyh.mr.springboot.out.file.BatchScenarioFileTask;
 
 import com.zcyh.mr.springboot.context.RequestContextHolder;
-import com.zcyh.mr.calc.scenario.ScenarioCache;
+import com.zcyh.mr.calc.scenario.CalcScenarioInputCache;
 import com.zcyh.mr.springboot.model.BatchDetailResult;
 import com.zcyh.mr.springboot.model.BatchExecutionResult;
 import com.zcyh.mr.springboot.model.BatchPatchRequest;
@@ -60,6 +60,7 @@ public class BatchRunService {
             BatchMarketDataLoadTask marketDataLoadTask,
             BatchChunkBuildTask chunkBuildTask,
             BatchPayloadBuildTask payloadBuildTask,
+            BatchScenarioInputLoadTask scenarioInputLoadTask,
             BatchLocalMrCalcDetailCleanupTask localDetailCleanupTask,
             BatchCalcSubmitTask calcSubmitTask,
             BatchCalcWaitTask calcWaitTask,
@@ -75,7 +76,8 @@ public class BatchRunService {
                 tradeLoadTask,
                 marketDataLoadTask,
                 chunkBuildTask,
-                payloadBuildTask);
+                payloadBuildTask,
+                scenarioInputLoadTask);
         this.calcTasks = Arrays.<BatchRunTask>asList(
                 localDetailCleanupTask,
                 calcSubmitTask,
@@ -226,7 +228,7 @@ public class BatchRunService {
     private void initializeWorkflow(BatchRunWorkflowContext context) {
         RequestContextHolder.setBatchId(context.getBatchId());
         RequestContextHolder.setEngineCode(ENGINE_CODE);
-        ScenarioCache.evictByBatchId(context.getBatchId());
+        CalcScenarioInputCache.evictByBatchId(context.getBatchId());
         if (context.isLocalRerun()) {
             int firstJobSeqNo = batchJobService.prepareLocalRerun(
                     context.getBatchId(),
@@ -273,7 +275,7 @@ public class BatchRunService {
             batchJobService.markWorkflowFailed(context.getBatchId(), "批次工作流执行失败: " + message);
             alertService.error("BATCH_RUN_FAILED", "批次工作流异步执行失败，batchId=" + context.getBatchId(), ex);
         } finally {
-            ScenarioCache.evictByBatchId(context.getBatchId());
+            CalcScenarioInputCache.evictByBatchId(context.getBatchId());
             releaseBatchRunSlot(context);
             RequestContextHolder.clear();
         }

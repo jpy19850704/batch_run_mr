@@ -207,7 +207,7 @@
         <appender-ref ref="ERROR_FILE"/>
         <appender-ref ref="SCENARIO_FILE"/>
     </logger>
-    <logger name="com.zcyh.mr.springboot.service.ScenarioResultCacheService" level="INFO" additivity="false">
+    <logger name="com.zcyh.mr.springboot.out.cache.ScenarioDetailCacheService" level="INFO" additivity="false">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="APP_FILE"/>
         <appender-ref ref="ERROR_FILE"/>

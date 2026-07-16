@@ -10,8 +10,8 @@ import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class ScenarioResultAssemblerTest {
-    private final ScenarioResultAssembler assembler = new ScenarioResultAssembler();
+class ScenarioPnlResultAssemblerTest {
+    private final ScenarioPnlResultAssembler assembler = new ScenarioPnlResultAssembler();
 
     @Test
     void assembleKeepsScenarioMetadataAndResultKind() {

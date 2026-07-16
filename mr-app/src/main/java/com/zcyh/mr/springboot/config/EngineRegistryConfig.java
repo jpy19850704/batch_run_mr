@@ -14,10 +14,9 @@ import com.zcyh.mr.frtbsa.sba.core.FrtbResultMapper;
 import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.springboot.engine.ScenarioEngineAdapter;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
-import com.zcyh.mr.springboot.out.file.ScenarioSetPathResolver;
 import com.zcyh.mr.springboot.service.ImaRiskFactorConfigService;
-import com.zcyh.mr.springboot.out.db.ScenarioDetailResultService;
-import com.zcyh.mr.springboot.out.cache.ScenarioResultCacheService;
+import com.zcyh.mr.springboot.out.db.ScenarioDetailPersistService;
+import com.zcyh.mr.springboot.out.cache.ScenarioDetailCacheService;
 import com.zcyh.mr.springboot.out.db.SaccrResultPersistService;
 import com.zcyh.mr.springboot.saccr.SaccrInputQueryService;
 import org.springframework.beans.factory.ObjectProvider;
@@ -40,9 +39,8 @@ public class EngineRegistryConfig {
 
     @Bean
     public MrCalcEngineAdapter mrCalcEngineAdapter(
-            ScenarioSetPathResolver scenarioSetPathResolver,
             ImaRiskFactorConfigService imaRiskFactorConfigService) {
-        return new MrCalcEngineAdapter(scenarioSetPathResolver, imaRiskFactorConfigService);
+        return new MrCalcEngineAdapter(imaRiskFactorConfigService);
     }
 
     @Bean(destroyMethod = "shutdown")
@@ -97,13 +95,13 @@ public class EngineRegistryConfig {
     public ScenarioEngineAdapter scenarioEngineAdapter(
             ObjectProvider<ScenarioGenerationEngine> scenarioGenerationEngineProvider,
             ObjectProvider<ScenarioRequestAssembler> scenarioRequestAssemblerProvider,
-            ObjectProvider<ScenarioDetailResultService> scenarioGeneratedPersistServiceProvider,
-            ObjectProvider<ScenarioResultCacheService> scenarioResultCacheServiceProvider) {
+            ObjectProvider<ScenarioDetailPersistService> scenarioDetailPersistServiceProvider,
+            ObjectProvider<ScenarioDetailCacheService> scenarioDetailCacheServiceProvider) {
         return new ScenarioEngineAdapter(
                 scenarioGenerationEngineProvider.getIfAvailable(),
                 scenarioRequestAssemblerProvider.getIfAvailable(),
-                scenarioGeneratedPersistServiceProvider.getIfAvailable(),
-                scenarioResultCacheServiceProvider.getIfAvailable());
+                scenarioDetailPersistServiceProvider.getIfAvailable(),
+                scenarioDetailCacheServiceProvider.getIfAvailable());
     }
 
     @Bean

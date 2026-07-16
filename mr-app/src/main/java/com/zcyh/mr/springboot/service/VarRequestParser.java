@@ -7,6 +7,7 @@ import com.zcyh.mr.var.VarPnlColumns;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -16,12 +17,15 @@ import java.util.Set;
  * VaR 请求字段解析与校验器。
  */
 final class VarRequestParser {
+    private static final List<BigDecimal> DEFAULT_QUANTILES = Arrays.asList(
+            new BigDecimal("0.95"), new BigDecimal("0.99"));
+
     private VarRequestParser() {
     }
 
     static List<BigDecimal> parseQuantiles(Object value) {
         if (value == null) {
-            throw new IllegalArgumentException("quantiles 必填, 例如: 0.95,0.99");
+            return new ArrayList<BigDecimal>(DEFAULT_QUANTILES);
         }
         List<BigDecimal> values = new ArrayList<>();
         if (value instanceof JSONArray) {
@@ -84,7 +88,19 @@ final class VarRequestParser {
     }
 
     static boolean isRiskClassDecomp(String decompType, String riskClass) {
-        return "risk_class".equalsIgnoreCase(trimToNull(decompType)) && trimToNull(riskClass) != null;
+        return "risk_class".equals(parseDecompType(decompType)) && trimToNull(riskClass) != null;
+    }
+
+    static String parseDecompType(String value) {
+        String text = trimToNull(value);
+        if (text == null) {
+            return "normal";
+        }
+        String normalized = text.toLowerCase(Locale.ROOT);
+        if ("normal".equals(normalized) || "risk_class".equals(normalized)) {
+            return normalized;
+        }
+        throw new IllegalArgumentException("decomp_type 仅支持 normal/risk_class，实际: " + value);
     }
 
     static List<String> parseRiskClassesOptional(String value) {
@@ -104,6 +120,17 @@ final class VarRequestParser {
             if (seen.add(normalized)) {
                 result.add(normalized);
             }
+        }
+        return result;
+    }
+
+    static List<String> parseRiskClassesRequired(String value) {
+        if (trimToNull(value) == null) {
+            throw new IllegalArgumentException("risk_class 不能为空");
+        }
+        List<String> result = parseRiskClassesOptional(value);
+        if (result.isEmpty()) {
+            throw new IllegalArgumentException("risk_class 不能为空");
         }
         return result;
     }

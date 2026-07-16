@@ -8,33 +8,21 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.calc.Calc;
 import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
-import com.zcyh.mr.calc.scenario.ScenarioCache;
+import com.zcyh.mr.calc.scenario.CalcScenarioInputCache;
 import com.zcyh.mr.frtbima.common.LiquidityHorizonTable;
-import com.zcyh.mr.springboot.out.file.ScenarioSetPathResolver;
 import com.zcyh.mr.springboot.service.ImaRiskFactorConfigService;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
 
 /**
  * MR 计量引擎适配器。
  */
 public class MrCalcEngineAdapter implements EngineAdapter {
     public static final String CODE = "MR_CALC";
-    private final ScenarioSetPathResolver scenarioSetPathResolver;
     private final ImaRiskFactorConfigService imaRiskFactorConfigService;
 
-    public MrCalcEngineAdapter(
-            ScenarioSetPathResolver scenarioSetPathResolver,
-            ImaRiskFactorConfigService imaRiskFactorConfigService) {
-        this.scenarioSetPathResolver = scenarioSetPathResolver;
+    public MrCalcEngineAdapter(ImaRiskFactorConfigService imaRiskFactorConfigService) {
         this.imaRiskFactorConfigService = imaRiskFactorConfigService;
     }
 
@@ -59,7 +47,7 @@ public class MrCalcEngineAdapter implements EngineAdapter {
             throw new IllegalArgumentException("mr 不再支持 batch_tasks，请改为单任务调用或走调度层拆批");
         }
 
-        JSONObject singlePayload = injectScenarioDataIfNeeded(req);
+        JSONObject singlePayload = validateScenarioInputCacheReferences(req);
         return runSingle(singlePayload);
     }
 
@@ -84,7 +72,7 @@ public class MrCalcEngineAdapter implements EngineAdapter {
                 LocalDate.parse(dataDate, DateTimeFormatter.BASIC_ISO_DATE));
     }
 
-    private JSONObject injectScenarioDataIfNeeded(JSONObject payload) {
+    private JSONObject validateScenarioInputCacheReferences(JSONObject payload) {
         if (payload == null) {
             return null;
         }
@@ -92,24 +80,14 @@ public class MrCalcEngineAdapter implements EngineAdapter {
             return payload;
         }
 
-        String dataDate = requiredPayloadField(payload, "data_date");
-        JSONObject batchMeta = payload.getJSONObject("batch_meta");
-        String batchId = batchMeta == null ? null : trimToNull(batchMeta.getString("batch_id"));
-        if (batchId == null) {
-            throw new IllegalArgumentException("batch_meta.batch_id 必填");
-        }
-        LocalDate date = LocalDate.parse(dataDate, DateTimeFormatter.BASIC_ISO_DATE);
-        injectScenarioRefList(payload, ScenarioProcessConstants.REGULAR_SCENARIO_REF_LIST, batchId, date);
-        injectScenarioRefList(payload, ScenarioProcessConstants.VAR_SCENARIO_REF_LIST, batchId, date);
-        injectScenarioRefList(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST, batchId, date);
-        injectScenarioRefList(payload, ScenarioProcessConstants.IMA_NMRF_SCENARIO_REF_LIST, batchId, date);
+        validateScenarioRefList(payload, ScenarioProcessConstants.REGULAR_SCENARIO_REF_LIST);
+        validateScenarioRefList(payload, ScenarioProcessConstants.VAR_SCENARIO_REF_LIST);
+        validateScenarioRefList(payload, ScenarioProcessConstants.IMA_MODELLABLE_SCENARIO_REF_LIST);
+        validateScenarioRefList(payload, ScenarioProcessConstants.IMA_NMRF_SCENARIO_REF_LIST);
         return payload;
     }
 
-    private void injectScenarioRefList(JSONObject payload,
-                                       String fieldName,
-                                       String batchId,
-                                       LocalDate date) {
+    private void validateScenarioRefList(JSONObject payload, String fieldName) {
         JSONArray items = payload.getJSONArray(fieldName);
         if (items == null || items.isEmpty()) {
             return;
@@ -119,19 +97,13 @@ public class MrCalcEngineAdapter implements EngineAdapter {
             if (item == null) {
                 throw new IllegalArgumentException(fieldName + "[" + i + "] 必须是 JSON 对象");
             }
-            String existingCacheKey = trimToNull(item.getString("cache_key"));
-            if (existingCacheKey != null && ScenarioCache.contains(existingCacheKey)) {
-                continue;
+            String cacheKey = trimToNull(item.getString("cache_key"));
+            if (cacheKey == null) {
+                throw new IllegalArgumentException(fieldName + "[" + i + "].cache_key 必填");
             }
-            String scenarioIdList = trimToNull(item.getString("scenario_set_id"));
-            if (scenarioIdList == null) {
-                throw new IllegalArgumentException(fieldName + "[" + i + "].scenario_set_id 必填");
+            if (!CalcScenarioInputCache.contains(cacheKey)) {
+                throw new IllegalStateException("计量情景输入缓存未找到场景数据: cache_key=" + cacheKey);
             }
-            String cacheKey = existingCacheKey == null
-                    ? buildCacheKey(fieldName, date, batchId, scenarioIdList)
-                    : existingCacheKey;
-            ScenarioCache.loadFromFiles(cacheKey, resolveScenarioPaths(scenarioIdList, date, batchId), date);
-            item.put("cache_key", cacheKey);
         }
     }
 
@@ -160,36 +132,4 @@ public class MrCalcEngineAdapter implements EngineAdapter {
         return val.trim();
     }
 
-    private List<String> resolveScenarioPaths(String scenarioIdList, LocalDate dataDate, String batchId) {
-        List<String> result = new ArrayList<String>();
-        for (String scenarioId : parseScenarioIds(scenarioIdList)) {
-            Path path = scenarioSetPathResolver.resolveScenarioFile(
-                    dataDate.format(DateTimeFormatter.BASIC_ISO_DATE), batchId, scenarioId);
-            if (!Files.exists(path)) {
-                throw new IllegalArgumentException("scenario 文件不存在: " + path);
-            }
-            result.add(path.toString());
-        }
-        return result;
-    }
-
-    private Set<String> parseScenarioIds(String scenarioIdList) {
-        Set<String> result = new LinkedHashSet<String>();
-        String safe = trimToNull(scenarioIdList);
-        if (safe == null) {
-            return result;
-        }
-        for (String part : safe.split(",")) {
-            String scenarioId = trimToNull(part);
-            if (scenarioId != null) {
-                result.add(scenarioId);
-            }
-        }
-        return result;
-    }
-
-    private String buildCacheKey(String type, LocalDate dataDate, String batchId, String scenarioIdList) {
-        return type + ":" + dataDate.format(DateTimeFormatter.BASIC_ISO_DATE)
-                + ":" + batchId + ":" + scenarioIdList;
-    }
 }

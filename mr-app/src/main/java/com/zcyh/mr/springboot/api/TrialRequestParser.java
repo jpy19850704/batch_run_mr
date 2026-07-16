@@ -6,8 +6,8 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.springboot.model.AggregationRule;
 import com.zcyh.mr.springboot.model.FrtbRuleTrialRequest;
+import com.zcyh.mr.springboot.model.VarCalculation;
 import com.zcyh.mr.springboot.model.VarTrialRequest;
-import com.zcyh.mr.var.VarMeasure;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -25,6 +25,7 @@ import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
  */
 final class TrialRequestParser {
     private static final String RULE_DEFINITION_LIST = "rule_definition_list";
+    private static final String CALCULATIONS = "calculations";
 
     private TrialRequestParser() {
     }
@@ -74,23 +75,48 @@ final class TrialRequestParser {
     }
 
     static VarTrialRequest parseVar(JSONObject request) {
-        validateKeys(request, "batch_id", "data_date", RULE_DEFINITION_LIST,
-                "quantiles", "measure", "include_detail", "request_id");
-        List<JSONObject> ruleDefinitions = new ArrayList<JSONObject>();
-        JSONArray array = readDefinitionArray(request);
+        validateKeys(request, "batch_id", "data_date", CALCULATIONS,
+                "include_detail", "request_id");
+        List<VarCalculation> calculations = new ArrayList<VarCalculation>();
+        Object rawCalculations = request.get(CALCULATIONS);
+        if (!(rawCalculations instanceof JSONArray) || ((JSONArray) rawCalculations).isEmpty()) {
+            throw new IllegalArgumentException("calculations 必须为非空数组");
+        }
+        JSONArray array = (JSONArray) rawCalculations;
+        Set<String> calculationKeys = new LinkedHashSet<String>();
         for (int i = 0; i < array.size(); i++) {
-            JSONObject definition = readDefinition(array, i,
-                    "build_order", "filterTree", "calc", "enabled", "output_order");
-            definition.put("rule_id", "TEMP_VAR_" + (i + 1));
+            JSONObject calculation = array.getJSONObject(i);
+            if (calculation == null) {
+                throw new IllegalArgumentException("calculations[" + i + "] 必须为对象");
+            }
+            validateKeys(calculation, "ruleId", "scenarioId", "rule");
+            String ruleId = readRequiredString(calculation, "ruleId");
+            String scenarioId = readRequiredString(calculation, "scenarioId");
+            String calculationKey = ruleId + "\u0000" + scenarioId;
+            if (!calculationKeys.add(calculationKey)) {
+                throw new IllegalArgumentException("calculations 包含重复计算项: ruleId="
+                        + ruleId + ", scenarioId=" + scenarioId);
+            }
+            JSONObject rule = calculation.getJSONObject("rule");
+            if (rule == null) {
+                throw new IllegalArgumentException("calculations[" + i + "].rule 必填");
+            }
+            JSONObject definition = JSON.parseObject(
+                    rule.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
+            validateKeys(definition, "build_order", "filterTree", "calc", "enabled", "output_order",
+                    "quantiles", "measure");
+            if (definition.getJSONArray("build_order") == null
+                    || definition.getJSONArray("build_order").isEmpty()) {
+                throw new IllegalArgumentException("calculations[" + i + "].rule.build_order 不能为空");
+            }
+            definition.put("rule_id", ruleId);
             definition.put("rule_type", "VAR");
-            ruleDefinitions.add(definition);
+            calculations.add(new VarCalculation(ruleId, scenarioId, definition));
         }
         return new VarTrialRequest(
                 readBatchId(request),
                 readDataDate(request),
-                ruleDefinitions,
-                parseQuantiles(request.get("quantiles")),
-                parseMeasures(request.get("measure")),
+                calculations,
                 readBoolean(request, "include_detail", false),
                 readOptionalString(request, "request_id"));
     }
@@ -186,51 +212,4 @@ final class TrialRequestParser {
         return result;
     }
 
-    private static List<BigDecimal> parseQuantiles(Object value) {
-        List<Object> items = toItems(value);
-        if (items.isEmpty()) {
-            throw new IllegalArgumentException("quantiles 必填");
-        }
-        List<BigDecimal> quantiles = new ArrayList<BigDecimal>();
-        for (Object item : items) {
-            String token = trimToNull(item == null ? null : String.valueOf(item));
-            if (token == null) {
-                throw new IllegalArgumentException("quantiles 包含空项");
-            }
-            BigDecimal quantile = new BigDecimal(token);
-            if (quantile.compareTo(BigDecimal.ZERO) <= 0 || quantile.compareTo(BigDecimal.ONE) >= 0) {
-                throw new IllegalArgumentException("quantile 必须在 (0,1) 区间: " + token);
-            }
-            quantiles.add(quantile);
-        }
-        return quantiles;
-    }
-
-    private static List<VarMeasure> parseMeasures(Object value) {
-        List<Object> items = toItems(value);
-        if (items.isEmpty()) {
-            return VarMeasure.defaultMeasures();
-        }
-        List<VarMeasure> measures = new ArrayList<VarMeasure>();
-        for (Object item : items) {
-            VarMeasure measure = VarMeasure.parse(String.valueOf(item));
-            if (!measures.contains(measure)) {
-                measures.add(measure);
-            }
-        }
-        return measures;
-    }
-
-    private static List<Object> toItems(Object value) {
-        List<Object> items = new ArrayList<Object>();
-        if (value instanceof List) {
-            items.addAll((List<?>) value);
-            return items;
-        }
-        String text = trimToNull(value == null ? null : String.valueOf(value));
-        if (text != null) {
-            items.addAll(Arrays.asList(text.split(",", -1)));
-        }
-        return items;
-    }
 }

@@ -11,7 +11,7 @@ import com.zcyh.mr.springboot.service.AlertService;
 import com.zcyh.mr.springboot.service.AsyncJobService;
 import com.zcyh.mr.springboot.service.AuditLogService;
 import com.zcyh.mr.springboot.service.EngineOrchestratorService;
-import com.zcyh.mr.springboot.out.cache.ScenarioResultCacheService;
+import com.zcyh.mr.springboot.out.cache.ScenarioDetailCacheService;
 import com.zcyh.mr.springboot.out.cache.VarDetailCacheService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.slf4j.Logger;
@@ -38,7 +38,7 @@ public class MrEngineController {
     private final AuditLogService auditLogService;
     private final AlertService alertService;
     private final VarDetailCacheService varDetailCacheService;
-    private final ScenarioResultCacheService scenarioResultCacheService;
+    private final ScenarioDetailCacheService scenarioDetailCacheService;
 
     @Value("${spring.application.name:mr-springboot-app}")
     private String appName;
@@ -49,14 +49,14 @@ public class MrEngineController {
             AuditLogService auditLogService,
             AlertService alertService,
             ObjectProvider<VarDetailCacheService> varDetailCacheServiceProvider,
-            ObjectProvider<ScenarioResultCacheService> scenarioResultCacheServiceProvider
+            ObjectProvider<ScenarioDetailCacheService> scenarioDetailCacheServiceProvider
     ) {
         this.orchestratorService = orchestratorService;
         this.asyncJobService = asyncJobService;
         this.auditLogService = auditLogService;
         this.alertService = alertService;
         this.varDetailCacheService = varDetailCacheServiceProvider.getIfAvailable();
-        this.scenarioResultCacheService = scenarioResultCacheServiceProvider.getIfAvailable();
+        this.scenarioDetailCacheService = scenarioDetailCacheServiceProvider.getIfAvailable();
     }
 
     @GetMapping("/healthz")
@@ -141,12 +141,12 @@ public class MrEngineController {
     }
 
     /**
-     * 读取 Scenario 结果缓存的维度列表。
+     * 读取情景变化明细缓存的维度列表。
      */
     @PostMapping("/api/engine/scenario/list")
     public ApiResponse<Object> scenarioList(@RequestBody JSONObject request) {
-        if (scenarioResultCacheService == null) {
-            return ApiResponse.fail("CACHE_DISABLED", "Scenario Redis 缓存服务未启用");
+        if (scenarioDetailCacheService == null) {
+            return ApiResponse.fail("CACHE_DISABLED", "情景变化明细缓存服务未启用");
         }
         String runId = readRequiredField(request, "run_id");
         String scenarioId = readOptionalField(request, "scenario_id");
@@ -154,22 +154,22 @@ public class MrEngineController {
         String curveType = readOptionalField(request, "curve_type");
 
         try {
-            return ApiResponse.ok(scenarioResultCacheService.listDimensions(runId, scenarioId, subScenarioId, curveType));
+            return ApiResponse.ok(scenarioDetailCacheService.listDimensions(runId, scenarioId, subScenarioId, curveType));
         } catch (IllegalArgumentException ex) {
             return ApiResponse.fail("INVALID_ARGUMENT", ex.getMessage());
         } catch (Exception ex) {
-            log.warn("读取 Scenario Redis 维度列表失败: {}", ex.getMessage());
-            return ApiResponse.fail("CACHE_UNAVAILABLE", "Scenario 结果缓存暂不可用，请稍后重试");
+            log.warn("读取情景变化明细缓存维度列表失败: {}", ex.getMessage());
+            return ApiResponse.fail("CACHE_UNAVAILABLE", "情景变化明细缓存暂不可用，请稍后重试");
         }
     }
 
     /**
-     * 按维度读取 Scenario 结果缓存明细。
+     * 按维度读取情景变化明细缓存。
      */
     @PostMapping("/api/engine/scenario/detail")
     public ApiResponse<Object> scenarioDetail(@RequestBody JSONObject request) {
-        if (scenarioResultCacheService == null) {
-            return ApiResponse.fail("CACHE_DISABLED", "Scenario Redis 缓存服务未启用");
+        if (scenarioDetailCacheService == null) {
+            return ApiResponse.fail("CACHE_DISABLED", "情景变化明细缓存服务未启用");
         }
         String runId = readRequiredField(request, "run_id");
         String scenarioId = readRequiredField(request, "scenario_id");
@@ -178,16 +178,16 @@ public class MrEngineController {
         String curveId = readRequiredField(request, "curve_id");
 
         try {
-            JSONObject detail = scenarioResultCacheService.getDetail(runId, scenarioId, subScenarioId, curveType, curveId);
+            JSONObject detail = scenarioDetailCacheService.getDetail(runId, scenarioId, subScenarioId, curveType, curveId);
             if (detail == null) {
-                return ApiResponse.fail("NOT_FOUND", "未找到对应 Scenario 结果缓存，请重新执行情景计算");
+                return ApiResponse.fail("NOT_FOUND", "未找到对应情景变化明细缓存，请重新执行情景计算");
             }
             return ApiResponse.ok(detail);
         } catch (IllegalArgumentException ex) {
             return ApiResponse.fail("INVALID_ARGUMENT", ex.getMessage());
         } catch (Exception ex) {
-            log.warn("读取 Scenario Redis 明细失败: {}", ex.getMessage());
-            return ApiResponse.fail("CACHE_UNAVAILABLE", "Scenario 结果缓存暂不可用，请稍后重试");
+            log.warn("读取情景变化明细缓存失败: {}", ex.getMessage());
+            return ApiResponse.fail("CACHE_UNAVAILABLE", "情景变化明细缓存暂不可用，请稍后重试");
         }
     }
 

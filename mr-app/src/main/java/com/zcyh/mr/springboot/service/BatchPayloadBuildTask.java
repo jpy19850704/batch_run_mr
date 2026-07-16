@@ -7,7 +7,11 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * 批量任务载荷构建任务。
@@ -30,6 +34,9 @@ public class BatchPayloadBuildTask implements BatchRunTask {
         List<MrMarketDataSliceService.CurveSliceSource> curveSources =
                 JobPayloadBuilder.toCurveSliceSources(context.getLoadedMarketData());
         List<BatchJobPayload> jobPayloads = new ArrayList<BatchJobPayload>();
+        List<MrMarketDataSliceService.SliceResult> sliceResults =
+                new ArrayList<MrMarketDataSliceService.SliceResult>();
+        Set<String> scenarioMarketKeys = new LinkedHashSet<String>();
         for (int i = 0; i < context.getTradeChunks().size(); i++) {
             int seqNo = context.getFirstJobSeqNo() + i;
             List<BatchTradeDataLoader.TradeRow> chunkTrades = context.getTradeChunks().get(i);
@@ -40,6 +47,24 @@ public class BatchPayloadBuildTask implements BatchRunTask {
                 MrMarketDataSliceService.SliceResult sliceResult = marketDataSliceService.sliceCurvesWithTradeKeys(
                         JobPayloadBuilder.toTradeSliceSources(chunkTrades),
                         curveSources);
+                sliceResults.add(sliceResult);
+                collectScenarioMarketKeys(scenarioMarketKeys, sliceResult.getTradeMarketDataKeys());
+            } catch (PayloadJsonParseException ex) {
+                sliceResults.add(null);
+                markPayloadFailed(jobPayload, ex);
+            }
+            jobPayloads.add(jobPayload);
+        }
+        context.setScenarioMarketKeys(scenarioMarketKeys);
+
+        for (int i = 0; i < jobPayloads.size(); i++) {
+            BatchJobPayload jobPayload = jobPayloads.get(i);
+            if (jobPayload.isFailed()) {
+                continue;
+            }
+            List<BatchTradeDataLoader.TradeRow> chunkTrades = context.getTradeChunks().get(i);
+            MrMarketDataSliceService.SliceResult sliceResult = sliceResults.get(i);
+            try {
                 JSONObject payload = payloadBuilder.buildPayload(
                         resolveCalcMode(context),
                         dataDate,
@@ -47,7 +72,7 @@ public class BatchPayloadBuildTask implements BatchRunTask {
                         sliceResult.getCurves(),
                         sliceResult.getTradeMarketDataKeys(),
                         context.getBatchId(),
-                        seqNo,
+                        jobPayload.getSeqNo(),
                         context.getRegularScenarioIdList(),
                         context.getVarScenarioIdList(),
                         context.getNormalFullScenarioIdList(),
@@ -65,13 +90,34 @@ public class BatchPayloadBuildTask implements BatchRunTask {
                 payload.getJSONObject("batch_meta").put("localRerun", context.isLocalRerun());
                 jobPayload.setPayload(payload);
             } catch (PayloadJsonParseException ex) {
-                jobPayload.setFailed(true);
-                jobPayload.setErrorCode(BatchJobService.PAYLOAD_JSON_PARSE_ERROR);
-                jobPayload.setErrorMessage(ex.getMessage());
+                markPayloadFailed(jobPayload, ex);
             }
-            jobPayloads.add(jobPayload);
         }
         context.setJobPayloads(jobPayloads);
+    }
+
+    private static void collectScenarioMarketKeys(
+            Set<String> target,
+            Map<String, Set<String>> tradeMarketDataKeys) {
+        if (tradeMarketDataKeys == null || tradeMarketDataKeys.isEmpty()) {
+            return;
+        }
+        for (Set<String> keys : tradeMarketDataKeys.values()) {
+            if (keys == null) {
+                continue;
+            }
+            for (String key : keys) {
+                if (key != null && !key.trim().isEmpty()) {
+                    target.add(key.trim().toUpperCase(Locale.ROOT));
+                }
+            }
+        }
+    }
+
+    private static void markPayloadFailed(BatchJobPayload jobPayload, PayloadJsonParseException ex) {
+        jobPayload.setFailed(true);
+        jobPayload.setErrorCode(BatchJobService.PAYLOAD_JSON_PARSE_ERROR);
+        jobPayload.setErrorMessage(ex.getMessage());
     }
 
     private static String resolveCalcMode(BatchRunWorkflowContext context) {

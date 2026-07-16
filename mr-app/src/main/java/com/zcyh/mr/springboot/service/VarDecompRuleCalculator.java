@@ -39,10 +39,9 @@ final class VarDecompRuleCalculator {
                                            AtomicInteger detailCacheCount) {
         List<Future<VarQuantileRuleResults>> futures = new ArrayList<>();
         for (int qIndex = 0; qIndex < quantiles.size(); qIndex++) {
-            final int quantileIndex = qIndex;
             final BigDecimal quantile = quantiles.get(qIndex);
             futures.add(batchExecutor.submit(() -> new VarQuantileRuleResults(
-                    quantileIndex,
+                    quantile,
                     calculateQuantile(
                             ruleConfig,
                             scenarioDimensionGroups,
@@ -63,7 +62,7 @@ final class VarDecompRuleCalculator {
                 throw new IllegalStateException("VaR 分位点并行计算失败", ex.getCause());
             }
         }
-        results.sort(Comparator.comparingInt(item -> item.quantileIndex));
+        results.sort(Comparator.comparing(item -> item.quantile));
         return results;
     }
 

@@ -24,7 +24,7 @@ public class PricingResultPersistService {
     private final MarketDataResultWriter marketDataResultWriter;
     private final FrtbSensitivityDetailWriter frtbSensitivityDetailWriter;
     private final DrcDetailWriter drcDetailWriter;
-    private final TradeScenarioResultWriter tradeScenarioResultWriter;
+    private final TradeScenarioPnlWriter tradeScenarioPnlWriter;
     private final TradeScenarioVarResultWriter tradeScenarioVarResultWriter;
     private final ImaScenarioPnlWriter imaScenarioPnlWriter;
     private final Object schemaVerifyLock = new Object();
@@ -36,7 +36,7 @@ public class PricingResultPersistService {
                                        MarketDataResultWriter marketDataResultWriter,
                                        FrtbSensitivityDetailWriter frtbSensitivityDetailWriter,
                                        DrcDetailWriter drcDetailWriter,
-                                       TradeScenarioResultWriter tradeScenarioResultWriter,
+                                       TradeScenarioPnlWriter tradeScenarioPnlWriter,
                                        TradeScenarioVarResultWriter tradeScenarioVarResultWriter,
                                        ImaScenarioPnlWriter imaScenarioPnlWriter) {
         this.jdbcTemplate = jdbcTemplate;
@@ -45,7 +45,7 @@ public class PricingResultPersistService {
         this.marketDataResultWriter = marketDataResultWriter;
         this.frtbSensitivityDetailWriter = frtbSensitivityDetailWriter;
         this.drcDetailWriter = drcDetailWriter;
-        this.tradeScenarioResultWriter = tradeScenarioResultWriter;
+        this.tradeScenarioPnlWriter = tradeScenarioPnlWriter;
         this.tradeScenarioVarResultWriter = tradeScenarioVarResultWriter;
         this.imaScenarioPnlWriter = imaScenarioPnlWriter;
     }
@@ -83,7 +83,7 @@ public class PricingResultPersistService {
         }
         drcDetailWriter.write(context);
         frtbSensitivityDetailWriter.write(context);
-        tradeScenarioResultWriter.write(context, context.scenarioResults, context.baseTradeIndex, varTableExists);
+        tradeScenarioPnlWriter.write(context, context.scenarioResults, context.baseTradeIndex, varTableExists);
         imaScenarioPnlWriter.writeModellableRows(context, context.imaModellableScenarioResults);
     }
 
@@ -99,7 +99,7 @@ public class PricingResultPersistService {
                 return;
             }
             verifyTableColumns(tradeResultWriter.tableName(), tradeResultWriter.writeColumns());
-            verifyTableColumns(tradeScenarioResultWriter.tableName(), tradeScenarioResultWriter.writeColumns());
+            verifyTableColumns(tradeScenarioPnlWriter.tableName(), tradeScenarioPnlWriter.writeColumns());
             verifyTableColumns(tradeScenarioVarResultWriter.tableName(), tradeScenarioVarResultWriter.writeColumns());
             verifyTableColumns(frtbSensitivityDetailWriter.tableName(), frtbSensitivityDetailWriter.writeColumns());
             verifyTableColumns(drcDetailWriter.tableName(), drcDetailWriter.writeColumns());

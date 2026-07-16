@@ -47,7 +47,7 @@ public class VarSummaryService {
         if (persistResult) {
             JSONArray ruleSnapshots = loadRuleSnapshots(request.getRuleIds());
             varResultPersistService.replace(
-                    batchId, dataDate, request.getCleanupMode(), request.getRuleIds(), summary);
+                    batchId, dataDate, request.getCleanupMode(), request.getCalculations(), summary);
             persistRuleMeta(batchId, dataDate, request, ruleSnapshots);
         }
 

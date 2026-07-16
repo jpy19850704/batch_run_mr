@@ -92,7 +92,7 @@ public class MrJobController {
         long start = System.currentTimeMillis();
         RequestContextHolder.setJobId(jobId);
         try {
-            JSONObject result = asyncJobService.getScenarioResult(jobId);
+            JSONObject result = asyncJobService.getScenarioPnl(jobId);
             auditLogService.recordSuccess("JOB_SCENARIO_RESULT_QUERY", "JOB", jobId, "MR_CALC", "任务情景结果查询成功", System.currentTimeMillis() - start);
             return ApiResponse.ok(result);
         } catch (RuntimeException ex) {

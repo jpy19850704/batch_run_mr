@@ -49,14 +49,21 @@ public class VarInputQueryService {
      * 按规则维度进行数据库侧第一轮汇总：
      * 场景键 + 维度字段聚合，返回 ALL/IR/FX/EQ/COMM 各口径损益。
      */
-    public List<RuleScenarioPnlRow> queryRuleScenarioPnlRows(String batchId, String dataDate, AggregationRule rule) {
+    public List<RuleScenarioPnlRow> queryRuleScenarioPnlRows(String batchId,
+                                                             String dataDate,
+                                                             String scenarioId,
+                                                             AggregationRule rule) {
         String safeBatchId = trimToNull(batchId);
         String safeDataDate = trimToNull(dataDate);
+        String safeScenarioId = trimToNull(scenarioId);
         if (safeBatchId == null) {
             throw new IllegalArgumentException("batch_id 不能为空");
         }
         if (safeDataDate == null) {
             throw new IllegalArgumentException("data_date 不能为空");
+        }
+        if (safeScenarioId == null) {
+            throw new IllegalArgumentException("scenarioId 不能为空");
         }
         if (rule == null) {
             throw new IllegalArgumentException("rule 不能为空");
@@ -105,11 +112,12 @@ public class VarInputQueryService {
                     .append(" AND p.DATA_DATE = d.DATA_DATE ")
                     .append(" AND p.PORTFOLIO_CODE = r.PORTFOLIO ");
         }
-        sql.append(" WHERE d.BATCH_ID = ? AND d.DATA_DATE = ?");
+        sql.append(" WHERE d.BATCH_ID = ? AND d.DATA_DATE = ? AND d.SCENARIO_ID = ?");
 
         List<Object> params = new ArrayList<Object>();
         params.add(safeBatchId);
         params.add(safeDataDate);
+        params.add(safeScenarioId);
 
         AggregationFilterSqlBuilder.appendWhereClause(sql, params, rule, VarInputQueryService::resolveRuleColumn);
 
@@ -142,7 +150,8 @@ public class VarInputQueryService {
                     });
             if (rows == null || rows.isEmpty()) {
                 throw new IllegalArgumentException("未查到可用于 VaR 规则汇总的情景损益明细: batch_id="
-                        + safeBatchId + ", data_date=" + safeDataDate + ", rule_id=" + rule.getRuleId());
+                        + safeBatchId + ", data_date=" + safeDataDate + ", rule_id=" + rule.getRuleId()
+                        + ", scenario_id=" + safeScenarioId);
             }
             return rows;
         } catch (DataAccessException ex) {

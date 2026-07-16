@@ -1,6 +1,6 @@
 package com.zcyh.mr.springboot.service;
 
-import com.zcyh.mr.springboot.out.cache.JobScenarioResultCacheService;
+import com.zcyh.mr.springboot.out.cache.JobScenarioPnlCacheService;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
@@ -36,7 +36,7 @@ public class AsyncJobService {
     /** MR_ASYNC_JOB.error_message 列长度保护阈值（留少量余量避免方言差异）。 */
     private static final int ERROR_MESSAGE_MAX_LEN = 1000;
 
-    private final JobScenarioResultCacheService jobScenarioResultCacheService;
+    private final JobScenarioPnlCacheService jobScenarioPnlCacheService;
     private final AlertService alertService;
     private final AsyncJobStateRepository jobStateRepository;
     private final AsyncJobExecutionService executionService;
@@ -49,7 +49,7 @@ public class AsyncJobService {
     private final long pollAfterMs;
     private final String jobApiBasePath;
     public AsyncJobService(
-            JobScenarioResultCacheService jobScenarioResultCacheService,
+            JobScenarioPnlCacheService jobScenarioPnlCacheService,
             AlertService alertService,
             AsyncJobStateRepository jobStateRepository,
             AsyncJobExecutionService executionService,
@@ -60,7 +60,7 @@ public class AsyncJobService {
             @Value("${mr.job.client.poll-after-ms:500}") long pollAfterMs,
             @Value("${mr.job.api.base-path:/api/jobs}") String jobApiBasePath
     ) {
-        this.jobScenarioResultCacheService = jobScenarioResultCacheService;
+        this.jobScenarioPnlCacheService = jobScenarioPnlCacheService;
         this.alertService = alertService;
         this.jobStateRepository = jobStateRepository;
         this.executionService = executionService;
@@ -196,7 +196,7 @@ public class AsyncJobService {
         return toDetail(job);
     }
 
-    public JSONObject getScenarioResult(String jobId) {
+    public JSONObject getScenarioPnl(String jobId) {
         AsyncJobEntity job = requireJob(jobId);
         if (PENDING.equals(job.status) || RUNNING.equals(job.status)) {
             throw new IllegalStateException("任务尚未完成");
@@ -204,14 +204,14 @@ public class AsyncJobService {
         if (!SUCCESS.equals(job.status)) {
             throw new IllegalStateException("任务未成功完成: " + jobId);
         }
-        JSONArray scenarioResult = jobScenarioResultCacheService.getScenarioResult(jobId);
+        JSONArray scenarioResult = jobScenarioPnlCacheService.getScenarioPnl(jobId);
         if (scenarioResult == null) {
             throw new IllegalStateException("Job 情景结果缓存不存在或已过期: " + jobId);
         }
         JSONObject result = new JSONObject();
         result.put("job_id", jobId);
         result.put("scenario_result", scenarioResult);
-        result.put("cache_ttl_seconds", jobScenarioResultCacheService.getTtlSeconds());
+        result.put("cache_ttl_seconds", jobScenarioPnlCacheService.getTtlSeconds());
         return result;
     }
 

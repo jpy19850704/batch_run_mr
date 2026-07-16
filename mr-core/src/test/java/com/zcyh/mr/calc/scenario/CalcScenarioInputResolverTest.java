@@ -16,23 +16,23 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class CalcScenarioProcessServiceTest {
+class CalcScenarioInputResolverTest {
     private static final String CACHE_KEY = "test:ima:nmrf";
 
     @AfterEach
     void clearCache() {
-        ScenarioCache.clear();
+        CalcScenarioInputCache.clear();
     }
 
     @Test
     void resolveScenarioData_whenImaConfigProvided_shouldNotDependOnGenerationState() {
         JSONObject payload = imaNmrfPayload();
-        ScenarioCache.put(CACHE_KEY, List.of(nmrfEntry()));
+        CalcScenarioInputCache.put(CACHE_KEY, List.of(nmrfEntry()));
         LiquidityHorizonTable config = LiquidityHorizonTable.fromCurveConfig(
                 Map.of("IR_SPOT|CNY_IR", 10),
                 Map.of("IR_SPOT|CNY_IR", "GIRR"));
 
-        List<Loader.ScenarioEntry> result = CalcScenarioProcessService.resolveScenarioData(
+        List<Loader.ScenarioEntry> result = CalcScenarioInputResolver.resolveScenarioData(
                 payload.toJSONString(), new Loader(payload.toJSONString()), config);
 
         assertEquals(1, result.size());
@@ -44,9 +44,9 @@ class CalcScenarioProcessServiceTest {
     @Test
     void resolveScenarioData_whenImaConfigMissing_shouldFailExplicitly() {
         JSONObject payload = imaNmrfPayload();
-        ScenarioCache.put(CACHE_KEY, List.of(nmrfEntry()));
+        CalcScenarioInputCache.put(CACHE_KEY, List.of(nmrfEntry()));
 
-        assertThrows(IllegalStateException.class, () -> CalcScenarioProcessService.resolveScenarioData(
+        assertThrows(IllegalStateException.class, () -> CalcScenarioInputResolver.resolveScenarioData(
                 payload.toJSONString(), new Loader(payload.toJSONString()), null));
     }
 

@@ -26,12 +26,12 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Scenario 结果 Redis 查询缓存服务。
+ * 情景变化明细 Redis 查询缓存服务。
  */
 @Service
-public class ScenarioResultCacheService {
-    private static final Logger log = LoggerFactory.getLogger(ScenarioResultCacheService.class);
-    private static final String KEY_PREFIX = "SCENARIO:RESULT";
+public class ScenarioDetailCacheService {
+    private static final Logger log = LoggerFactory.getLogger(ScenarioDetailCacheService.class);
+    private static final String KEY_PREFIX = "SCENARIO:DETAIL";
     private static final String NULL_TOKEN = "__NULL__";
     private static final DateTimeFormatter DATE_8_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
     private static final int SUBSCENARIO_GROUP_SIZE = 20;
@@ -39,8 +39,8 @@ public class ScenarioResultCacheService {
     private final StringRedisTemplate redisTemplate;
     private final long ttlSeconds;
 
-    public ScenarioResultCacheService(StringRedisTemplate redisTemplate,
-                                      @Value("${mr.scenario.result.redis.ttl-seconds:${mr.result.redis.ttl-seconds:3600}}") long ttlSeconds) {
+    public ScenarioDetailCacheService(StringRedisTemplate redisTemplate,
+                                      @Value("${mr.scenario.detail.redis.ttl-seconds:${mr.result.redis.ttl-seconds:3600}}") long ttlSeconds) {
         this.redisTemplate = redisTemplate;
         this.ttlSeconds = ttlSeconds <= 0 ? 3600L : ttlSeconds;
     }
@@ -50,12 +50,12 @@ public class ScenarioResultCacheService {
     }
 
     /**
-     * 缓存场景结果并构建前端查询索引。
+     * 缓存情景变化明细并构建前端查询索引。
      */
-    public JSONObject cacheRunResult(String runId,
-                                     String scenarioIdList,
-                                     String dataDate,
-                                     List<ScenarioGeneratedRecord> records) {
+    public JSONObject cacheRunDetails(String runId,
+                                      String scenarioIdList,
+                                      String dataDate,
+                                      List<ScenarioGeneratedRecord> records) {
         String safeRunId = trimToNull(runId);
         if (safeRunId == null) {
             throw new IllegalArgumentException("runId 不能为空");
@@ -128,7 +128,7 @@ public class ScenarioResultCacheService {
             expireKey(curveIdHashKey);
             return summary;
         } catch (Exception ex) {
-            log.warn("写入 Scenario Redis 缓存失败，runId={}, error={}", safeRunId, ex.getMessage());
+            log.warn("写入情景变化明细 Redis 缓存失败，runId={}, error={}", safeRunId, ex.getMessage());
             JSONObject summary = buildSummary(
                     safeRunId,
                     scenarioIdList,

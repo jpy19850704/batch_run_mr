@@ -13,7 +13,7 @@
 - `src/main/java/com/zcyh/mr/calc/Calc.java`
 - `src/main/java/com/zcyh/mr/calc/OperModeControl.java`
 - `src/main/java/com/zcyh/mr/calc/result/CalcResultProcessService.java`（结果处理工具类）
-- `src/main/java/com/zcyh/mr/calc/scenario/CalcScenarioProcessService.java`（场景数据解析与分发）
+- `src/main/java/com/zcyh/mr/calc/scenario/CalcScenarioInputResolver.java`（计量情景输入解析与分发）
 - `src/main/java/com/zcyh/mr/calc/scenario/ScenarioProcessConstants.java`（场景处理口径常量）
 - `src/main/java/com/zcyh/mr/loader/Loader.java`
 - `mr-app/.../com/zcyh/mr/springboot/engine/MrCalcEngineAdapter.java`（输入适配与批量封装）
@@ -33,7 +33,7 @@
 
 - `MrCalcEngineAdapter.calculate(inputJson)`
 - 适配器负责：
-  - 加载四类情景引用列表对应的情景文件，写入 `ScenarioCache` 后再调用 `Calc`
+  - 加载四类情景引用列表对应的情景文件，写入 `CalcScenarioInputCache` 后再调用 `Calc`
   - `batch_tasks` 已不再作为 calc 入口支持
 
 ## 4. 输入契约（当前）
@@ -140,7 +140,7 @@
 - 场景市场数据（解析后 `MarketData`）
 - `impactKeys`（可选）
 
-补充来源：`MrCalcEngineAdapter` 根据四类情景引用列表加载情景文件写入 `ScenarioCache`，`CalcScenarioProcessService.resolveScenarioData()` 在 Calc 构造阶段从 cache 中读取并按列表类型（`REGULAR` / `VAR` / `IMA_MODELLABLE` / `IMA_NMRF`）生成对应的 `ScenarioEntry`。
+补充来源：批次输入加载任务根据四类情景引用列表加载情景文件写入 `CalcScenarioInputCache`，`CalcScenarioInputResolver.resolveScenarioData()` 在 Calc 构造阶段从缓存中读取并按列表类型（`REGULAR` / `VAR` / `IMA_MODELLABLE` / `IMA_NMRF`）生成对应的 `ScenarioEntry`。
 
 每条 `ScenarioEntry` 携带 `ScenarioProcessMetadata`，包含：
 

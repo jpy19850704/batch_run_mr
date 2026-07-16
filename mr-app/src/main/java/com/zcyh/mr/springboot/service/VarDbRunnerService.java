@@ -7,6 +7,7 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.input.db.VarInputQueryService;
 import com.zcyh.mr.springboot.model.AggregationRule;
+import com.zcyh.mr.springboot.model.VarCalculation;
 import com.zcyh.mr.springboot.model.VarSummaryRequest;
 import com.zcyh.mr.var.VarDimensionGroup;
 import com.zcyh.mr.var.VarMeasure;
@@ -19,8 +20,10 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -64,43 +67,35 @@ public class VarDbRunnerService {
         return calculate(
                 request.getBatchId(),
                 request.getDataDate(),
-                ruleResolver.loadRuleConfigs(request.getRuleIds()),
-                request.getQuantiles(),
-                VarRequestParser.parseMeasures(null),
+                ruleResolver.loadConfiguredCalculations(request.getCalculations()),
                 false,
                 null);
     }
 
     public JSONObject calculateTrial(String batchId,
                                      String dataDate,
-                                     List<JSONObject> ruleDefinitions,
-                                     List<BigDecimal> quantiles,
-                                     List<VarMeasure> measures,
+                                     List<VarCalculation> calculations,
                                      boolean includeDetail,
                                      String requestId) {
         return calculate(
                 batchId,
                 dataDate,
-                ruleResolver.parseRuleConfigs(ruleDefinitions),
-                quantiles,
-                measures,
+                ruleResolver.parseExplicitCalculations(calculations),
                 includeDetail,
                 requestId);
     }
 
     private JSONObject calculate(String batchId,
                                  String dataDate,
-                                 List<VarRuleConfig> ruleConfigs,
-                                 List<BigDecimal> quantiles,
-                                 List<VarMeasure> measures,
+                                 List<VarResolvedCalculation> calculations,
                                  boolean includeDetail,
                                  String requestId) {
         boolean includeDetailRequested = includeDetail;
         if (requestId == null) {
             requestId = UUID.randomUUID().toString().replace("-", "");
         }
-        if (ruleConfigs == null || ruleConfigs.isEmpty()) {
-            throw new IllegalArgumentException("ruleConfigs 不能为空");
+        if (calculations == null || calculations.isEmpty()) {
+            throw new IllegalArgumentException("calculations 不能为空");
         }
         if (includeDetail && !detailWriter.isAvailable()) {
             throw new IllegalStateException("include_detail=true 但 Redis 缓存服务未启用");
@@ -108,15 +103,21 @@ public class VarDbRunnerService {
 
         AtomicInteger detailCacheCount = new AtomicInteger(0);
 
+        List<BigDecimal> quantiles = collectQuantiles(calculations);
+        List<VarMeasure> measures = collectMeasures(calculations);
         List<JSONObject> quantileGroups = VarResultAssembler.initQuantileGroups(quantiles);
-        for (VarRuleConfig ruleConfig : ruleConfigs) {
+        Map<String, JSONObject> quantileGroupByValue = indexQuantileGroups(quantileGroups);
+        for (VarResolvedCalculation calculation : calculations) {
+            VarRuleConfig ruleConfig = calculation.ruleConfig;
             if (!ruleConfig.enabled) {
                 continue;
             }
 
             List<VarInputQueryService.RuleScenarioPnlRow> rows =
-                    inputQueryService.queryRuleScenarioPnlRows(batchId, dataDate, ruleConfig.rule);
-            Map<String, List<VarDimensionGroup>> scenarioDimensionGroups = buildScenarioDimensionGroups(ruleConfig.rule, rows);
+                    inputQueryService.queryRuleScenarioPnlRows(
+                            batchId, dataDate, calculation.scenarioId, ruleConfig.rule);
+            Map<String, List<VarDimensionGroup>> scenarioDimensionGroups = buildScenarioDimensionGroups(
+                    ruleConfig.rule, calculation.scenarioId, rows);
             if (scenarioDimensionGroups.isEmpty()) {
                 continue;
             }
@@ -125,21 +126,24 @@ public class VarDbRunnerService {
                     ? decompRuleCalculator.calculate(
                             ruleConfig,
                             scenarioDimensionGroups,
-                            quantiles,
-                            measures,
+                            ruleConfig.quantiles,
+                            ruleConfig.measures,
                             includeDetail,
                             requestId,
                             detailCacheCount)
                     : normalRuleCalculator.calculate(
                             ruleConfig,
                             scenarioDimensionGroups,
-                            quantiles,
-                            measures,
+                            ruleConfig.quantiles,
+                            ruleConfig.measures,
                             includeDetail,
                             requestId,
                             detailCacheCount);
             for (VarQuantileRuleResults quantileResult : ruleResultsByQuantile) {
-                JSONObject quantileGroup = quantileGroups.get(quantileResult.quantileIndex);
+                JSONObject quantileGroup = quantileGroupByValue.get(quantileKey(quantileResult.quantile));
+                if (quantileGroup == null) {
+                    throw new IllegalStateException("VaR 分位点结果不在规则配置中: " + quantileResult.quantile);
+                }
                 JSONArray ruleResults = quantileGroup.getJSONArray("rule_results");
                 for (JSONObject item : quantileResult.ruleResults) {
                     ruleResults.add(item);
@@ -161,13 +165,19 @@ public class VarDbRunnerService {
                 detailCacheTtlSeconds));
     }
 
-    private Map<String, List<VarDimensionGroup>> buildScenarioDimensionGroups(AggregationRule rule,
-                                                                              List<VarInputQueryService.RuleScenarioPnlRow> rows) {
+    private Map<String, List<VarDimensionGroup>> buildScenarioDimensionGroups(
+            AggregationRule rule,
+            String expectedScenarioId,
+            List<VarInputQueryService.RuleScenarioPnlRow> rows) {
         Map<String, Map<String, VarDimensionGroup>> groupedByScenario = new LinkedHashMap<String, Map<String, VarDimensionGroup>>();
         for (VarInputQueryService.RuleScenarioPnlRow row : rows) {
             String scenarioId = trimToNull(row.getScenarioId());
             if (scenarioId == null) {
-                scenarioId = "__NULL_SCENARIO__";
+                throw new IllegalStateException("VaR 情景损益明细缺少 SCENARIO_ID");
+            }
+            if (!scenarioId.equals(expectedScenarioId)) {
+                throw new IllegalStateException("VaR 情景损益明细与请求不一致: expected="
+                        + expectedScenarioId + ", actual=" + scenarioId);
             }
             Map<String, VarDimensionGroup> groups = groupedByScenario.get(scenarioId);
             if (groups == null) {
@@ -209,6 +219,36 @@ public class VarDbRunnerService {
             result.put(entry.getKey(), new ArrayList<VarDimensionGroup>(entry.getValue().values()));
         }
         return result;
+    }
+
+    private static List<BigDecimal> collectQuantiles(List<VarResolvedCalculation> calculations) {
+        Map<String, BigDecimal> values = new LinkedHashMap<String, BigDecimal>();
+        for (VarResolvedCalculation calculation : calculations) {
+            for (BigDecimal quantile : calculation.ruleConfig.quantiles) {
+                values.putIfAbsent(quantileKey(quantile), quantile);
+            }
+        }
+        return new ArrayList<BigDecimal>(values.values());
+    }
+
+    private static List<VarMeasure> collectMeasures(List<VarResolvedCalculation> calculations) {
+        Set<VarMeasure> values = new LinkedHashSet<VarMeasure>();
+        for (VarResolvedCalculation calculation : calculations) {
+            values.addAll(calculation.ruleConfig.measures);
+        }
+        return new ArrayList<VarMeasure>(values);
+    }
+
+    private static Map<String, JSONObject> indexQuantileGroups(List<JSONObject> quantileGroups) {
+        Map<String, JSONObject> indexed = new LinkedHashMap<String, JSONObject>();
+        for (JSONObject quantileGroup : quantileGroups) {
+            indexed.put(quantileGroup.getString("quantile"), quantileGroup);
+        }
+        return indexed;
+    }
+
+    private static String quantileKey(BigDecimal quantile) {
+        return quantile.stripTrailingZeros().toPlainString();
     }
 
     /**

@@ -167,7 +167,7 @@ final class VarNormalRuleCalculator {
                         detailCacheCount));
                 ruleResults.add(ruleResult);
             }
-            quantileResults.add(new VarQuantileRuleResults(qIndex, ruleResults));
+            quantileResults.add(new VarQuantileRuleResults(quantile, ruleResults));
         }
         return quantileResults;
     }

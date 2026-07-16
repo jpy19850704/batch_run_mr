@@ -16,46 +16,63 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.zip.GZIPInputStream;
 
 /**
  * 计量情景文件读取与标准情景条目解析器。
  */
-final class ScenarioFileReader {
+final class CalcScenarioInputFileReader {
 
-    JSONArray read(Path path) {
-        String fileName = path.getFileName().toString().toLowerCase();
-        if (fileName.endsWith(".csv") || fileName.endsWith(".csv.gz")) {
-            return readCsv(path);
-        }
-        throw new IllegalArgumentException("场景文件格式无效，仅支持 .csv 或 .csv.gz: " + path);
+    List<Loader.ScenarioEntry> readScenarioEntries(List<Path> paths, LocalDate dataDate) {
+        return readScenarioEntries(paths, dataDate, null);
     }
 
-    private JSONArray readCsv(Path path) {
-        JSONArray result = new JSONArray();
-        try (BufferedReader reader = openReader(path)) {
-            String headerLine = reader.readLine();
-            if (headerLine == null || headerLine.trim().isEmpty()) {
-                return result;
+    List<Loader.ScenarioEntry> readScenarioEntries(
+            List<Path> paths,
+            LocalDate dataDate,
+            Set<String> scenarioMarketKeys) {
+        LinkedHashMap<String, ScenarioGroup> groups = new LinkedHashMap<>();
+        Set<String> normalizedMarketKeys = normalizeMarketKeys(scenarioMarketKeys);
+        int rowIndex = 0;
+        for (Path path : paths) {
+            String fileName = path.getFileName().toString().toLowerCase();
+            if (!fileName.endsWith(".csv") && !fileName.endsWith(".csv.gz")) {
+                throw new IllegalArgumentException("场景文件格式无效，仅支持 .csv 或 .csv.gz: " + path);
             }
-            String[] headers = parseCsvLine(headerLine);
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.trim().isEmpty()) {
+            try (BufferedReader reader = openReader(path)) {
+                String headerLine = reader.readLine();
+                if (headerLine == null || headerLine.trim().isEmpty()) {
                     continue;
                 }
-                String[] values = parseCsvLine(line);
-                JSONObject row = new JSONObject();
-                for (int i = 0; i < headers.length && i < values.length; i++) {
-                    row.put(headers[i], values[i].isEmpty() ? null : values[i]);
+                String[] headers = parseCsvLine(headerLine);
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.trim().isEmpty()) {
+                        continue;
+                    }
+                    accumulateRow(
+                            groups,
+                            toRow(headers, parseCsvLine(line)),
+                            rowIndex++,
+                            dataDate,
+                            normalizedMarketKeys);
                 }
-                result.add(row);
+            } catch (IOException ex) {
+                throw new IllegalArgumentException("加载 CSV 场景文件失败: " + path + ", " + ex.getMessage(), ex);
             }
-            return result;
-        } catch (IOException ex) {
-            throw new IllegalArgumentException("加载 CSV 场景文件失败: " + path + ", " + ex.getMessage(), ex);
         }
+        return toScenarioEntries(groups);
+    }
+
+    private static JSONObject toRow(String[] headers, String[] values) {
+        JSONObject row = new JSONObject();
+        for (int i = 0; i < headers.length && i < values.length; i++) {
+            row.put(headers[i], values[i].isEmpty() ? null : values[i]);
+        }
+        return row;
     }
 
     private BufferedReader openReader(Path path) throws IOException {
@@ -112,84 +129,136 @@ final class ScenarioFileReader {
      * @return 解析后的 ScenarioEntry 列表
      */
     List<Loader.ScenarioEntry> parseScenarioList(JSONArray scenArray, LocalDate dataDate) {
-        List<Loader.ScenarioEntry> result = new ArrayList<>();
-        if (scenArray == null || scenArray.isEmpty()) {
-            return result;
-        }
+        return parseScenarioList(scenArray, dataDate, null);
+    }
 
-        // 原始文件记录按场景业务标识分组成一个 ScenarioEntry。
-        java.util.LinkedHashMap<String, List<JSONObject>> groups = new java.util.LinkedHashMap<>();
+    List<Loader.ScenarioEntry> parseScenarioList(
+            JSONArray scenArray,
+            LocalDate dataDate,
+            Set<String> scenarioMarketKeys) {
+        LinkedHashMap<String, ScenarioGroup> groups = new LinkedHashMap<>();
+        Set<String> normalizedMarketKeys = normalizeMarketKeys(scenarioMarketKeys);
+        if (scenArray == null || scenArray.isEmpty()) {
+            return new ArrayList<>();
+        }
         for (int i = 0; i < scenArray.size(); i++) {
             Object rawObj = scenArray.get(i);
             if (!(rawObj instanceof JSONObject)) {
                 continue;
             }
-            JSONObject row = (JSONObject) rawObj;
-            String scenarioId = readScenarioId(row);
-            if (scenarioId == null) {
-                throw new IllegalArgumentException("场景记录缺少 SCENARIO_ID，无法解析: index=" + i);
-            }
-            String subScenarioId = readSubScenarioId(row);
-            if (subScenarioId == null) {
-                throw new IllegalArgumentException("场景记录缺少 SUBSCENARIO_ID，无法解析: index=" + i);
-            }
-            String groupKey = scenarioId + "|" + subScenarioId;
-            groups.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(row);
+            accumulateRow(groups, (JSONObject) rawObj, i, dataDate, normalizedMarketKeys);
         }
+        return toScenarioEntries(groups);
+    }
 
-        // 每个分组构建一个 ScenarioEntry
-        for (java.util.Map.Entry<String, List<JSONObject>> entry : groups.entrySet()) {
-            List<JSONObject> rows = entry.getValue();
-            JSONObject first = rows.get(0);
-
-            String scenarioId = readScenarioId(first);
-            if (scenarioId == null) {
-                throw new IllegalArgumentException("场景分组首行缺少 SCENARIO_ID，无法解析");
-            }
-            String subScenarioId = readSubScenarioId(first);
-            if (subScenarioId == null) {
-                throw new IllegalArgumentException("场景分组首行缺少 SUBSCENARIO_ID，无法解析: scenarioId=" + scenarioId);
-            }
-            String scenName = readRequiredField(first, "SCENARIO_NAME");
-            if (scenName == null) {
+    private static void accumulateRow(
+            LinkedHashMap<String, ScenarioGroup> groups,
+            JSONObject row,
+            int rowIndex,
+            LocalDate dataDate,
+            Set<String> scenarioMarketKeys) {
+        String scenarioId = readScenarioId(row);
+        if (scenarioId == null) {
+            throw new IllegalArgumentException("场景记录缺少 SCENARIO_ID，无法解析: index=" + rowIndex);
+        }
+        String subScenarioId = readSubScenarioId(row);
+        if (subScenarioId == null) {
+            throw new IllegalArgumentException("场景记录缺少 SUBSCENARIO_ID，无法解析: index=" + rowIndex);
+        }
+        String groupKey = scenarioId + "|" + subScenarioId;
+        ScenarioGroup group = groups.get(groupKey);
+        if (group == null) {
+            String scenarioName = readRequiredField(row, "SCENARIO_NAME");
+            if (scenarioName == null) {
                 throw new IllegalArgumentException("场景分组首行缺少 SCENARIO_NAME，无法解析: subScenarioId=" + subScenarioId);
             }
-            String scenarioType = readRequiredField(first, "SCENARIO_TYPE");
+            String scenarioType = readRequiredField(row, "SCENARIO_TYPE");
             if (scenarioType == null) {
                 throw new IllegalArgumentException("场景分组首行缺少 SCENARIO_TYPE，无法解析: subScenarioId=" + subScenarioId);
             }
+            group = new ScenarioGroup(scenarioId, subScenarioId, scenarioName, scenarioType);
+            groups.put(groupKey, group);
+        }
 
-            // 收集 impact keys 和构建 MarketData
-            java.util.Set<String> impactKeys = new LinkedHashSet<>();
-            MarketData scenMarket = new MarketData();
+        String curveType = readRequiredField(row, "CURVE_TYPE");
+        String curveCode = readRequiredField(row, "CURVE_CODE");
+        if (curveType == null || curveCode == null) {
+            throw new IllegalArgumentException("场景记录缺少 CURVE_TYPE 或 CURVE_CODE，无法构建情景市场: subScenarioId=" + subScenarioId);
+        }
+        String normalizedCurveType = curveType.trim().toUpperCase(Locale.ROOT);
+        String impactKey = normalizedCurveType + ":" + curveCode.trim().toUpperCase(Locale.ROOT);
+        if (!matchesMarketKey(scenarioMarketKeys, normalizedCurveType, impactKey)) {
+            return;
+        }
+        group.impactKeys.add(impactKey);
 
-            for (JSONObject row : rows) {
-                String curveType = readRequiredField(row, "CURVE_TYPE");
-                String curveCode = readRequiredField(row, "CURVE_CODE");
-                if (curveType == null || curveCode == null) {
-                    throw new IllegalArgumentException("场景记录缺少 CURVE_TYPE 或 CURVE_CODE，无法构建情景市场: subScenarioId=" + subScenarioId);
-                }
-                impactKeys.add(curveType.trim().toUpperCase() + ":" + curveCode.trim().toUpperCase());
+        Object changedRateObj = row.get("CHANGED_RATE");
+        if (changedRateObj == null) {
+            throw new IllegalArgumentException("场景记录缺少 CHANGED_RATE，无法构建情景市场: subScenarioId=" + subScenarioId
+                    + ", curveType=" + curveType + ", curveCode=" + curveCode);
+        }
+        double changedRate;
+        try {
+            changedRate = Double.parseDouble(changedRateObj.toString());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("场景记录的 CHANGED_RATE 不是合法数值，无法构建情景市场: subScenarioId="
+                    + subScenarioId + ", curveType=" + curveType + ", curveCode=" + curveCode
+                    + ", value=" + changedRateObj, e);
+        }
+        buildScenarioMarketData(group.marketData, curveType, curveCode, row, changedRate, dataDate);
+    }
 
-                Object changedRateObj = row.get("CHANGED_RATE");
-                if (changedRateObj == null) {
-                    throw new IllegalArgumentException("场景记录缺少 CHANGED_RATE，无法构建情景市场: subScenarioId=" + subScenarioId
-                            + ", curveType=" + curveType + ", curveCode=" + curveCode);
-                }
-                double changedRate;
-                try {
-                    changedRate = Double.parseDouble(changedRateObj.toString());
-                } catch (NumberFormatException e) {
-                    throw new IllegalArgumentException("场景记录的 CHANGED_RATE 不是合法数值，无法构建情景市场: subScenarioId="
-                            + subScenarioId + ", curveType=" + curveType + ", curveCode=" + curveCode
-                            + ", value=" + changedRateObj, e);
-                }
-                buildScenarioMarketData(scenMarket, curveType, curveCode, row, changedRate, dataDate);
+    private static Set<String> normalizeMarketKeys(Set<String> scenarioMarketKeys) {
+        if (scenarioMarketKeys == null) {
+            return null;
+        }
+        Set<String> normalized = new LinkedHashSet<>();
+        for (String key : scenarioMarketKeys) {
+            if (key != null && !key.trim().isEmpty()) {
+                normalized.add(key.trim().toUpperCase(Locale.ROOT));
             }
+        }
+        return normalized;
+    }
 
-            result.add(new Loader.ScenarioEntry(scenarioId, subScenarioId, scenName, scenarioType, scenMarket, impactKeys));
+    private static boolean matchesMarketKey(
+            Set<String> scenarioMarketKeys,
+            String curveType,
+            String impactKey) {
+        if (scenarioMarketKeys == null) {
+            return true;
+        }
+        return scenarioMarketKeys.contains(curveType) || scenarioMarketKeys.contains(impactKey);
+    }
+
+    private static List<Loader.ScenarioEntry> toScenarioEntries(LinkedHashMap<String, ScenarioGroup> groups) {
+        List<Loader.ScenarioEntry> result = new ArrayList<>(groups.size());
+        for (ScenarioGroup group : groups.values()) {
+            result.add(new Loader.ScenarioEntry(
+                    group.scenarioId,
+                    group.subScenarioId,
+                    group.scenarioName,
+                    group.scenarioType,
+                    group.marketData,
+                    group.impactKeys));
         }
         return result;
+    }
+
+    private static final class ScenarioGroup {
+        private final String scenarioId;
+        private final String subScenarioId;
+        private final String scenarioName;
+        private final String scenarioType;
+        private final MarketData marketData = new MarketData();
+        private final java.util.Set<String> impactKeys = new LinkedHashSet<>();
+
+        private ScenarioGroup(String scenarioId, String subScenarioId, String scenarioName, String scenarioType) {
+            this.scenarioId = scenarioId;
+            this.subScenarioId = subScenarioId;
+            this.scenarioName = scenarioName;
+            this.scenarioType = scenarioType;
+        }
     }
 
     /**

@@ -20,8 +20,8 @@ import java.util.List;
  * 只按批次维度覆盖写入，不和任务分片绑定。
  */
 @Service
-public class ScenarioDetailResultService {
-    private static final Logger log = LoggerFactory.getLogger(ScenarioDetailResultService.class);
+public class ScenarioDetailPersistService {
+    private static final Logger log = LoggerFactory.getLogger(ScenarioDetailPersistService.class);
     private static final String TARGET_TABLE = "TB_OUT_SCENARIO_FILE_DETAIL";
     private static final String STREAM_LOAD_COLUMNS = "BATCH_ID,DATA_DATE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,SCENARIO_TYPE,"
             + "RISKFACTOR_TYPE,RISKFACTOR_ID,RISKFACTOR_VERTEX1,TERM_DAYS,RISKFACTOR_VERTEX2,CHANGE_VALUE,"
@@ -31,7 +31,7 @@ public class ScenarioDetailResultService {
     private final DorisStreamLoadService dorisStreamLoadService;
     private final int batchSize;
 
-    public ScenarioDetailResultService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate,
+    public ScenarioDetailPersistService(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate,
                                            DorisStreamLoadService dorisStreamLoadService,
                                            @Value("${mr.scenario.persist.batch-size:20000}") int batchSize) {
         this.jdbcTemplate = jdbcTemplate;
@@ -40,7 +40,7 @@ public class ScenarioDetailResultService {
     }
 
     /**
-     * 按批次覆盖写入情景结果。
+     * 按批次覆盖写入情景变化明细。
      * persistScenario 为空/false 或 batchId 为空时直接跳过。
      */
     public void persist(String batchId, String dataDate, Boolean persistScenario, List<ScenarioGeneratedRecord> records) {

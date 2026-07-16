@@ -5,9 +5,9 @@ import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.loader.Loader;
 
 /**
- * Calc 情景结果外壳组装器。
+ * Calc 情景 PnL 结果外壳组装器。
  */
-public final class ScenarioResultAssembler {
+public final class ScenarioPnlResultAssembler {
 
     public JSONObject assemble(Loader.ScenarioEntry entry, JSONArray tradeData, String resultKind) {
         JSONObject item = new JSONObject();

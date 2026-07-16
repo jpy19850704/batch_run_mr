@@ -1,11 +1,9 @@
 package com.zcyh.mr.springboot.service;
 
-import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.springboot.input.db.VarInputQueryService;
 import com.zcyh.mr.springboot.model.AggregationRule;
+import com.zcyh.mr.springboot.model.VarCalculation;
 import com.zcyh.mr.var.VarPickMethod;
 import com.zcyh.mr.var.VarPnlColumns;
 
@@ -15,11 +13,9 @@ import java.util.Comparator;
 import java.util.List;
 
 import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.addUniqueIgnoreCase;
-import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.normalizeUpperFieldList;
 import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.normalizeUpperFieldName;
 import static com.zcyh.mr.springboot.prepare.rule.AggregationRuleSupport.toFilterExpression;
 import static com.zcyh.mr.springboot.service.VarRequestParser.nullSafe;
-import static com.zcyh.mr.springboot.service.VarRequestParser.parseRiskClassesOptional;
 import static com.zcyh.mr.springboot.service.VarRequestParser.readInteger;
 import static com.zcyh.mr.springboot.service.VarRequestParser.readString;
 import static com.zcyh.mr.springboot.service.VarRequestParser.readStringList;
@@ -44,30 +40,44 @@ final class VarRuleResolver {
         this.dimensionAggregationService = dimensionAggregationService;
     }
 
-    List<VarRuleConfig> loadRuleConfigs(List<String> ruleIds) {
-        if (ruleIds == null || ruleIds.isEmpty()) {
+    List<VarResolvedCalculation> loadConfiguredCalculations(List<VarCalculation> calculations) {
+        if (calculations == null || calculations.isEmpty()) {
             return Collections.emptyList();
         }
-        List<JSONObject> ruleSnapshots = loadRuleSnapshots(ruleIds);
-        return parseRuleConfigs(ruleSnapshots);
+        List<VarResolvedCalculation> resolved = new ArrayList<VarResolvedCalculation>();
+        for (int i = 0; i < calculations.size(); i++) {
+            VarCalculation calculation = calculations.get(i);
+            JSONObject ruleSnapshot = inputQueryService.loadVarRuleJson(calculation.getRuleId());
+            resolved.add(new VarResolvedCalculation(
+                    parseSingleRule(ruleSnapshot, i), calculation.getScenarioId()));
+        }
+        sortCalculations(resolved);
+        return resolved;
     }
 
-    List<VarRuleConfig> parseRuleConfigs(List<JSONObject> ruleDefinitions) {
-        if (ruleDefinitions == null || ruleDefinitions.isEmpty()) {
+    List<VarResolvedCalculation> parseExplicitCalculations(List<VarCalculation> calculations) {
+        if (calculations == null || calculations.isEmpty()) {
             return Collections.emptyList();
         }
-        List<VarRuleConfig> configs = new ArrayList<>();
-        for (int i = 0; i < ruleDefinitions.size(); i++) {
-            JSONObject ruleDefinition = ruleDefinitions.get(i);
+        List<VarResolvedCalculation> resolved = new ArrayList<VarResolvedCalculation>();
+        for (int i = 0; i < calculations.size(); i++) {
+            VarCalculation calculation = calculations.get(i);
+            JSONObject ruleDefinition = calculation.getRuleDefinition();
             if (ruleDefinition == null) {
-                throw new IllegalArgumentException("ruleDefinitions[" + i + "] 不能为空");
+                throw new IllegalArgumentException("calculations[" + i + "].rule 不能为空");
             }
-            configs.add(parseSingleRule(ruleDefinition, i));
+            resolved.add(new VarResolvedCalculation(
+                    parseSingleRule(ruleDefinition, i), calculation.getScenarioId()));
         }
-        configs.sort(Comparator
-                .comparingInt((VarRuleConfig config) -> config.outputOrder)
-                .thenComparing(config -> nullSafe(config.rule.getRuleId())));
-        return configs;
+        sortCalculations(resolved);
+        return resolved;
+    }
+
+    private static void sortCalculations(List<VarResolvedCalculation> calculations) {
+        calculations.sort(Comparator
+                .comparingInt((VarResolvedCalculation calculation) -> calculation.ruleConfig.outputOrder)
+                .thenComparing(calculation -> nullSafe(calculation.ruleConfig.rule.getRuleId()))
+                .thenComparing(calculation -> nullSafe(calculation.scenarioId)));
     }
 
     List<JSONObject> loadRuleSnapshots(List<String> ruleIds) {
@@ -93,16 +103,10 @@ final class VarRuleResolver {
         dimensionAggregationService.validateRule(rule);
 
         JSONObject calcJson = ruleJson.getJSONObject("calc");
-        String decompType = readString(calcJson, "decomp_type");
+        String decompType = VarRequestParser.parseDecompType(readString(calcJson, "decomp_type"));
         String riskClassRaw = readString(calcJson, "risk_class");
-        boolean decompMode = VarRequestParser.isRiskClassDecomp(decompType, riskClassRaw);
-        List<String> riskClasses = parseRiskClassesOptional(riskClassRaw);
-        if (decompMode && riskClasses.isEmpty()) {
-            decompMode = false;
-        }
-        if (!decompMode) {
-            riskClasses = resolveNonDecompRiskClasses(riskClasses);
-        }
+        boolean decompMode = "risk_class".equals(decompType);
+        List<String> riskClasses = VarRequestParser.parseRiskClassesRequired(riskClassRaw);
 
         boolean enabled = readBoolean(ruleJson, true, "enabled");
         Integer outputOrder = readInteger(ruleJson, "output_order");
@@ -111,6 +115,8 @@ final class VarRuleResolver {
                 decompMode,
                 riskClasses,
                 VarPickMethod.parse(VarRequestParser.parseVarPick(readString(calcJson, "var_pick"))),
+                VarRequestParser.parseQuantiles(ruleJson.get("quantiles")),
+                VarRequestParser.parseMeasures(ruleJson.get("measure")),
                 enabled,
                 outputOrder == null ? index + 1 : outputOrder);
     }
@@ -136,15 +142,6 @@ final class VarRuleResolver {
         List<String> sumFields = new ArrayList<>();
         sumFields.add(DEFAULT_SUM_FIELD);
         rule.setSumFields(sumFields);
-    }
-
-    private static List<String> resolveNonDecompRiskClasses(List<String> riskClasses) {
-        if (riskClasses != null && !riskClasses.isEmpty()) {
-            return riskClasses;
-        }
-        List<String> resolved = new ArrayList<>();
-        resolved.add("ALL");
-        return resolved;
     }
 
 }

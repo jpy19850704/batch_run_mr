@@ -23,7 +23,7 @@ import java.util.Locale;
 import java.util.Map;
 
 @Service
-class TradeScenarioResultWriter {
+class TradeScenarioPnlWriter {
     private static final String TABLE_NAME = "TB_OUT_TRADE_SCENARIO_RESULT_DETAIL";
     private static final List<String> COLUMN_LIST = Collections.unmodifiableList(Arrays.asList(
             "REQUEST_ID",
@@ -53,7 +53,7 @@ class TradeScenarioResultWriter {
     private final TradeScenarioVarResultWriter tradeScenarioVarResultWriter;
     private final ImaScenarioPnlWriter imaScenarioPnlWriter;
 
-    TradeScenarioResultWriter(DorisStreamLoadService dorisStreamLoadService,
+    TradeScenarioPnlWriter(DorisStreamLoadService dorisStreamLoadService,
                               TradeScenarioVarResultWriter tradeScenarioVarResultWriter,
                               ImaScenarioPnlWriter imaScenarioPnlWriter) {
         this.dorisStreamLoadService = dorisStreamLoadService;
