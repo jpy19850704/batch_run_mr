@@ -1,5 +1,6 @@
 package com.zcyh.mr.springboot.config;
 
+import com.zcyh.mr.calc.scenario.CalcScenarioInputCache;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,7 +16,9 @@ public class MrCoreRuntimeConfig {
             @Value("${mr.fx.base-currency:CNY}") String fxBaseCurrency,
             @Value("${mr.fx-spot.base-currency:USD}") String fxSpotBaseCurrency,
             @Value("${mr.frtb.fx-sensitivity-shock-cny:true}") String fxSensitivityShockCny,
-            @Value("${mr.vv.non-negative-floor-enabled:false}") String vvNonNegativeFloorEnabled) {
+            @Value("${mr.vv.non-negative-floor-enabled:false}") String vvNonNegativeFloorEnabled,
+            @Value("${mr.calc.scenario-input.cache.max-entries:512}") int scenarioCacheMaxEntries,
+            @Value("${mr.calc.scenario-input.cache.max-points-per-entry:3000000}") long scenarioCacheMaxPointsPerEntry) {
         EngineConfiguration configure = EngineConfiguration.getInstance();
         configure.setValue(EngineConstants.CFG.FX_BASE_CODE, normalizeCurrency(fxBaseCurrency, "CNY"));
         configure.setValue(EngineConstants.CFG.FX_SPOT_BASE_CODE, normalizeCurrency(fxSpotBaseCurrency, "USD"));
@@ -23,6 +26,7 @@ public class MrCoreRuntimeConfig {
                 normalizeBoolean(fxSensitivityShockCny, "mr.frtb.fx-sensitivity-shock-cny"));
         configure.setValue(EngineConstants.CFG.VV_NON_NEGATIVE_FLOOR_ENABLED,
                 normalizeBoolean(vvNonNegativeFloorEnabled, "mr.vv.non-negative-floor-enabled"));
+        CalcScenarioInputCache.configure(scenarioCacheMaxEntries, scenarioCacheMaxPointsPerEntry);
     }
 
     private String normalizeCurrency(String currency, String defaultCurrency) {

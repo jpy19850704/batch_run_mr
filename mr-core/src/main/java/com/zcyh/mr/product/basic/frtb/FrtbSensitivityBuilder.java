@@ -110,6 +110,10 @@ public class FrtbSensitivityBuilder {
         return EqSensitivityBuilder.buildVegaDependencies(volatilitySurface, riskFactorId, bucket);
     }
 
+    public static boolean warnMissingEqSensitivityInputs(Measure measure, String eqBucket) {
+        return EqSensitivityBuilder.warnMissingSensitivityInputs(measure, eqBucket);
+    }
+
     /**
      * 构建商品 Delta 依赖。
      */

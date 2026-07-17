@@ -1,5 +1,7 @@
 package com.zcyh.mr.product.eq;
 
+import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
@@ -99,7 +101,10 @@ public class EqRangeAccureOpt extends RangeAccureOptBase<EqRangeAccureOpt.EqRang
     }
 
     private List<FrtbSenes> getSensListEQ() {
-        String bucket = resolveOptionalBucket("11", "frtbEqBucket");
+        String bucket = rangeAccureInfo.frtbEqBucket;
+        if (FrtbSensitivityBuilder.warnMissingEqSensitivityInputs(rangeAccureMeasure, bucket)) {
+            return new ArrayList<>();
+        }
         List<FrtbDependency> deltaDependencies = FrtbSensitivityBuilder.buildEqDeltaDependencies(
                 rangeAccureInfo.referenceCurve,
                 bucket);
@@ -129,6 +134,9 @@ public class EqRangeAccureOpt extends RangeAccureOptBase<EqRangeAccureOpt.EqRang
     }
 
     public static class EqRangeAccureInfo extends RangeAccureOptBase.RangeAccureFrtbInfo {
+        @ProductInputField
+        @JSONField(name = "FRTB_EQ_BUCKET")
+        public String frtbEqBucket;
     }
 }
 

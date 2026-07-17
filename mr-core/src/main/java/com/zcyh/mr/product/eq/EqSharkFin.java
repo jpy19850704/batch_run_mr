@@ -32,7 +32,7 @@ public class EqSharkFin extends SharkFinBase<EqSharkFin.EqSharkFinInfo, EqSharkF
                     info.discountCurve,
                 info.referenceCurve,
                     info.volatilitySurface,
-                    resolveOptionalBucket("11", "frtbEqBucket"),
+                    info.frtbEqBucket,
                     this::calc);
         }
         return measure;
@@ -103,5 +103,8 @@ public class EqSharkFin extends SharkFinBase<EqSharkFin.EqSharkFinInfo, EqSharkF
         @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
+        @ProductInputField
+        @JSONField(name = "FRTB_EQ_BUCKET")
+        public String frtbEqBucket;
     }
 }

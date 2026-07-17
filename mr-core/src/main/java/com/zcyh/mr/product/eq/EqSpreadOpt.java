@@ -37,7 +37,7 @@ public class EqSpreadOpt extends SpreadOptBase<EqSpreadOpt.SpreadOptInfo, EqSpre
                     info.discountCurve,
                 info.referenceCurve,
                     info.volatilitySurface,
-                    resolveOptionalBucket("11", "frtbEqBucket"),
+                    info.frtbEqBucket,
                     this::calc);
         }
         return measure;
@@ -96,5 +96,8 @@ public class EqSpreadOpt extends SpreadOptBase<EqSpreadOpt.SpreadOptInfo, EqSpre
         @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
+        @ProductInputField
+        @JSONField(name = "FRTB_EQ_BUCKET")
+        public String frtbEqBucket;
     }
 }

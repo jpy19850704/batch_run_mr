@@ -1,7 +1,10 @@
 package com.zcyh.mr.calc.scenario;
 
 import com.alibaba.fastjson2.JSONArray;
+import com.zcyh.mr.calc.scenario.CalcScenarioInputFileReader.ScenarioLoadResult;
 import com.zcyh.mr.loader.Loader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -24,16 +27,28 @@ import java.util.function.Supplier;
  */
 public class CalcScenarioInputCache {
 
+    private static final Logger log = LoggerFactory.getLogger(CalcScenarioInputCache.class);
     private static final CalcScenarioInputFileReader FILE_READER = new CalcScenarioInputFileReader();
 
-    private static final ConcurrentHashMap<String, List<Loader.ScenarioEntry>> CACHE =
+    private static final ConcurrentHashMap<String, CacheEntry> CACHE =
             new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<String, CompletableFuture<List<Loader.ScenarioEntry>>> LOADING =
+    private static final ConcurrentHashMap<String, CompletableFuture<CacheEntry>> LOADING =
             new ConcurrentHashMap<>();
     private static final Queue<String> CACHE_KEY_ORDER = new ConcurrentLinkedQueue<>();
 
-    private static final int MAX_SCENARIO_CACHE_ENTRIES = Math.max(
-            1, Integer.getInteger("mr.calc.scenario-input.cache.max-entries", 512));
+    private static volatile int maxScenarioCacheEntries = 512;
+    private static volatile long maxRetainedPointsPerEntry = 3_000_000L;
+
+    public static void configure(int maxEntries, long maxRetainedPoints) {
+        if (maxEntries <= 0) {
+            throw new IllegalArgumentException("情景缓存数量上限必须大于0");
+        }
+        if (maxRetainedPoints <= 0L) {
+            throw new IllegalArgumentException("剪裁后情景点数上限必须大于0");
+        }
+        maxScenarioCacheEntries = maxEntries;
+        maxRetainedPointsPerEntry = maxRetainedPoints;
+    }
 
     /**
      * 从 CSV 场景文件加载并缓存场景数据。
@@ -46,7 +61,8 @@ public class CalcScenarioInputCache {
         Path path = Paths.get(filePath);
         String cacheKey = deriveCacheKey(path);
 
-        loadOnce(cacheKey, () -> FILE_READER.readScenarioEntries(Collections.singletonList(path), dataDate));
+        loadOnce(cacheKey, () -> FILE_READER.readScenarioLoadResult(
+                Collections.singletonList(path), dataDate, null, maxRetainedPointsPerEntry));
         return cacheKey;
     }
 
@@ -88,7 +104,8 @@ public class CalcScenarioInputCache {
         if (paths.isEmpty()) {
             throw new IllegalArgumentException("scenario 文件列表不能为空, cache_key=" + safeCacheKey);
         }
-        loadOnce(safeCacheKey, () -> FILE_READER.readScenarioEntries(paths, dataDate, scenarioMarketKeys));
+        loadOnce(safeCacheKey, () -> FILE_READER.readScenarioLoadResult(
+                paths, dataDate, scenarioMarketKeys, maxRetainedPointsPerEntry));
         return safeCacheKey;
     }
 
@@ -101,7 +118,8 @@ public class CalcScenarioInputCache {
      * @param dataDate   基准日期
      */
     public static void loadFromArray(String cacheKey, JSONArray scenData, LocalDate dataDate) {
-        loadOnce(cacheKey, () -> FILE_READER.parseScenarioList(scenData, dataDate));
+        loadOnce(cacheKey, () -> FILE_READER.parseScenarioLoadResult(
+                scenData, dataDate, null, maxRetainedPointsPerEntry));
     }
 
     /**
@@ -114,7 +132,8 @@ public class CalcScenarioInputCache {
         if (cacheKey == null || cacheKey.isEmpty()) {
             return null;
         }
-        return CACHE.get(cacheKey);
+        CacheEntry entry = CACHE.get(cacheKey);
+        return entry == null ? null : entry.entries;
     }
 
     /**
@@ -130,6 +149,11 @@ public class CalcScenarioInputCache {
     public static void evict(String cacheKey) {
         if (cacheKey != null) {
             CACHE.remove(cacheKey);
+            CACHE_KEY_ORDER.remove(cacheKey);
+            CompletableFuture<CacheEntry> loading = LOADING.remove(cacheKey);
+            if (loading != null) {
+                loading.cancel(false);
+            }
         }
     }
 
@@ -142,7 +166,20 @@ public class CalcScenarioInputCache {
             return;
         }
         String batchToken = ":" + safeBatchId + ":";
-        CACHE.keySet().removeIf(key -> key != null && key.contains(batchToken));
+        List<String> keys = new ArrayList<>();
+        for (String key : CACHE.keySet()) {
+            if (key != null && key.contains(batchToken)) {
+                keys.add(key);
+            }
+        }
+        for (String key : LOADING.keySet()) {
+            if (key != null && key.contains(batchToken) && !keys.contains(key)) {
+                keys.add(key);
+            }
+        }
+        for (String key : keys) {
+            evict(key);
+        }
     }
 
     /**
@@ -150,6 +187,9 @@ public class CalcScenarioInputCache {
      */
     public static void clear() {
         CACHE.clear();
+        for (CompletableFuture<CacheEntry> loading : LOADING.values()) {
+            loading.cancel(false);
+        }
         LOADING.clear();
         CACHE_KEY_ORDER.clear();
     }
@@ -158,39 +198,59 @@ public class CalcScenarioInputCache {
      * 直接存入已解析的场景条目列表。
      */
     public static void put(String cacheKey, List<Loader.ScenarioEntry> entries) {
-        putScenarioEntries(cacheKey, entries);
+        List<Loader.ScenarioEntry> safeEntries = entries == null ? Collections.emptyList() : entries;
+        putScenarioEntries(cacheKey, new ScenarioLoadResult(
+                safeEntries, safeEntries.size(), safeEntries.size()));
     }
 
     public static int scenarioInputCacheSize() {
         return CACHE.size();
     }
 
-    private static void putScenarioEntries(String cacheKey, List<Loader.ScenarioEntry> entries) {
+    private static CacheEntry putScenarioEntries(String cacheKey, ScenarioLoadResult loadResult) {
         if (cacheKey == null) {
             throw new IllegalArgumentException("scenario cache_key 不能为空");
         }
+        List<Loader.ScenarioEntry> entries = loadResult == null || loadResult.entries == null
+                ? Collections.emptyList()
+                : loadResult.entries;
+        CacheEntry cacheEntry = new CacheEntry(
+                Collections.unmodifiableList(new ArrayList<>(entries)),
+                loadResult == null ? 0L : loadResult.rawPoints,
+                loadResult == null ? 0L : loadResult.retainedPoints);
         boolean existed = CACHE.containsKey(cacheKey);
-        CACHE.put(cacheKey, Collections.unmodifiableList(new ArrayList<>(entries)));
+        CACHE.put(cacheKey, cacheEntry);
         if (!existed) {
             CACHE_KEY_ORDER.offer(cacheKey);
-            trimCache(CACHE, CACHE_KEY_ORDER, MAX_SCENARIO_CACHE_ENTRIES);
+            trimCache(CACHE, CACHE_KEY_ORDER, maxScenarioCacheEntries);
         }
+        return cacheEntry;
     }
 
-    private static void loadOnce(String cacheKey, Supplier<List<Loader.ScenarioEntry>> loader) {
+    private static void loadOnce(String cacheKey, Supplier<ScenarioLoadResult> loader) {
         if (CACHE.containsKey(cacheKey)) {
             return;
         }
-        CompletableFuture<List<Loader.ScenarioEntry>> loading = new CompletableFuture<>();
-        CompletableFuture<List<Loader.ScenarioEntry>> existing = LOADING.putIfAbsent(cacheKey, loading);
+        CompletableFuture<CacheEntry> loading = new CompletableFuture<>();
+        CompletableFuture<CacheEntry> existing = LOADING.putIfAbsent(cacheKey, loading);
         if (existing != null) {
             awaitLoading(cacheKey, existing);
             return;
         }
+        long startedAt = System.currentTimeMillis();
         try {
             if (!CACHE.containsKey(cacheKey)) {
-                List<Loader.ScenarioEntry> entries = loader.get();
-                putScenarioEntries(cacheKey, entries);
+                ScenarioLoadResult loadResult = loader.get();
+                if (loading.isCancelled()) {
+                    return;
+                }
+                CacheEntry cacheEntry = putScenarioEntries(cacheKey, loadResult);
+                log.info("情景缓存加载完成: cacheKey={}, scenarios={}, rawPoints={}, retainedPoints={}, elapsedMs={}",
+                        cacheKey,
+                        cacheEntry.entries.size(),
+                        cacheEntry.rawPoints,
+                        cacheEntry.retainedPoints,
+                        System.currentTimeMillis() - startedAt);
             }
             loading.complete(CACHE.get(cacheKey));
         } catch (Throwable ex) {
@@ -209,7 +269,7 @@ public class CalcScenarioInputCache {
 
     private static void awaitLoading(
             String cacheKey,
-            CompletableFuture<List<Loader.ScenarioEntry>> loading) {
+            CompletableFuture<CacheEntry> loading) {
         try {
             loading.join();
         } catch (CompletionException ex) {
@@ -238,6 +298,11 @@ public class CalcScenarioInputCache {
         return CACHE.size();
     }
 
+    public static long retainedPointCount(String cacheKey) {
+        CacheEntry entry = cacheKey == null ? null : CACHE.get(cacheKey);
+        return entry == null ? 0L : entry.retainedPoints;
+    }
+
     /**
      * 从文件路径推导缓存键（使用文件名去掉扩展名）。
      */
@@ -253,6 +318,18 @@ public class CalcScenarioInputCache {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static final class CacheEntry {
+        private final List<Loader.ScenarioEntry> entries;
+        private final long rawPoints;
+        private final long retainedPoints;
+
+        private CacheEntry(List<Loader.ScenarioEntry> entries, long rawPoints, long retainedPoints) {
+            this.entries = entries;
+            this.rawPoints = rawPoints;
+            this.retainedPoints = retainedPoints;
+        }
     }
 
 }

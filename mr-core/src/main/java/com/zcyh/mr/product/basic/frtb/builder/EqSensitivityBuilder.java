@@ -3,6 +3,7 @@ package com.zcyh.mr.product.basic.frtb.builder;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.MeasureValuation;
@@ -24,32 +25,38 @@ public class EqSensitivityBuilder extends AbstractSensitivityBuilder {
 
     public static List<FrtbDependency> buildDeltaDependencies(String priceCurve, String bucket) {
         List<FrtbDependency> dependencies = new ArrayList<>();
-        if (!hasText(priceCurve)) {
+        if (!hasText(priceCurve) || !hasText(bucket)) {
             return dependencies;
         }
-        // 正式口径：EQ bucket 为空时按最常用 bucket 11 处理。
-        String resolvedBucket = hasText(bucket) ? bucket : "11";
         dependencies.add(FrtbDependency.of(
                 FrtbDependency.TYPE_EQ_DELTA,
                 priceCurve,
                 priceCurve,
-                resolvedBucket));
+                bucket.trim()));
         return dependencies;
     }
 
     public static List<FrtbDependency> buildVegaDependencies(String volatilitySurface, String riskFactorId, String bucket) {
         List<FrtbDependency> dependencies = new ArrayList<>();
-        if (!hasText(volatilitySurface)) {
+        if (!hasText(volatilitySurface) || !hasText(bucket)) {
             return dependencies;
         }
-        // 正式口径：EQ bucket 为空时按最常用 bucket 11 处理。
-        String resolvedBucket = hasText(bucket) ? bucket : "11";
         dependencies.add(FrtbDependency.of(
                 FrtbDependency.TYPE_EQ_VEGA,
                 volatilitySurface,
                 hasText(riskFactorId) ? riskFactorId : volatilitySurface,
-                resolvedBucket));
+                bucket.trim()));
         return dependencies;
+    }
+
+    public static boolean warnMissingSensitivityInputs(Measure measure, String eqBucket) {
+        if (hasText(eqBucket)) {
+            return false;
+        }
+        if (measure != null) {
+            measure.addWarningLog("FRTB_EQ_BUCKET为空，跳过EQ敏感性计算");
+        }
+        return true;
     }
 
     public static List<FrtbSenes> buildSensitivities(

@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CalcScenarioInputFileReaderTest {
@@ -86,6 +87,42 @@ class CalcScenarioInputFileReaderTest {
                 Set.of("FX_SPOT"));
 
         assertEquals(2, entries.get(0).marketData.fxSpot.curveData.size());
+    }
+
+    @Test
+    void parseScenarioLoadResult_shouldCountRawAndRetainedPointsAfterMarketKeyFilter() {
+        CalcScenarioInputFileReader reader = new CalcScenarioInputFileReader();
+        JSONArray rows = new JSONArray();
+        rows.add(row("IR_SPOT", "CNY_IR", 30, 0.021));
+        rows.add(row("IR_SPOT", "USD_IR", 30, 0.031));
+        rows.add(row("IR_SPOT", "CNY_IR", 365, 0.025));
+
+        CalcScenarioInputFileReader.ScenarioLoadResult result = reader.parseScenarioLoadResult(
+                rows,
+                LocalDate.of(2026, 3, 31),
+                Set.of("IR_SPOT:CNY_IR"),
+                2L);
+
+        assertEquals(3L, result.rawPoints);
+        assertEquals(2L, result.retainedPoints);
+        assertEquals(2, result.entries.get(0).marketData.irSpot.get("CNY_IR").curveData.size());
+    }
+
+    @Test
+    void parseScenarioLoadResult_whenRetainedPointsExceedLimit_shouldFail() {
+        CalcScenarioInputFileReader reader = new CalcScenarioInputFileReader();
+        JSONArray rows = new JSONArray();
+        rows.add(row("IR_SPOT", "CNY_IR", 30, 0.021));
+        rows.add(row("IR_SPOT", "CNY_IR", 365, 0.025));
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> reader.parseScenarioLoadResult(
+                        rows,
+                        LocalDate.of(2026, 3, 31),
+                        Set.of("IR_SPOT:CNY_IR"),
+                        1L));
+
+        assertTrue(error.getMessage().contains("剪裁后情景点数超过缓存上限"));
     }
 
     private static JSONObject row(String curveType, String curveCode, Integer termDays, double changedRate) {

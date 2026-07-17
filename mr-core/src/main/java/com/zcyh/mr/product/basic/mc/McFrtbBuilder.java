@@ -41,7 +41,7 @@ public final class McFrtbBuilder {
             return FxFrtb.build(input, ctx, baseValuation, marketData, dataDate, repriceFunction);
         }
         if ("EQ".equals(type)) {
-            return EqFrtb.build(input, ctx, baseValuation, marketData, dataDate, repriceFunction);
+            return EqFrtb.build(input, ctx, measure, baseValuation, marketData, dataDate, repriceFunction);
         }
         if ("COMM".equals(type)) {
             return CommFrtb.build(input, ctx, measure, baseValuation, marketData, dataDate, repriceFunction);
@@ -102,8 +102,9 @@ public final class McFrtbBuilder {
     }
 
     private static final class EqFrtb {
-        private static List<FrtbSenes> build(GenericMcInfo input, McPricingContext ctx, MeasureValuation baseValuation,
-                MarketData marketData, LocalDate dataDate, RepriceFunction repriceFunction) {
+        private static List<FrtbSenes> build(GenericMcInfo input, McPricingContext ctx, OptionMeasure measure,
+                MeasureValuation baseValuation, MarketData marketData, LocalDate dataDate,
+                RepriceFunction repriceFunction) {
             List<FrtbSenes> list = new ArrayList<>();
             GenericMcInfo c = input;
             list.addAll(FrtbSensitivityBuilder.buildFxSensitivities(
@@ -138,8 +139,10 @@ public final class McFrtbBuilder {
                     null,
                     null));
 
-            // 正式口径：EQ bucket 为空时按最常用 bucket 11 处理。
-            String bucket = defaultText(c.frtbEqBucket, "11");
+            String bucket = c.frtbEqBucket;
+            if (FrtbSensitivityBuilder.warnMissingEqSensitivityInputs(measure, bucket)) {
+                return list;
+            }
             list.addAll(FrtbSensitivityBuilder.buildEqSensitivities(
                     marketData,
                     dataDate,
@@ -277,10 +280,6 @@ public final class McFrtbBuilder {
 
     private static boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
-    }
-
-    private static String defaultText(String value, String defaultValue) {
-        return hasText(value) ? value.trim() : defaultValue;
     }
 
     private static String upper(String value) {

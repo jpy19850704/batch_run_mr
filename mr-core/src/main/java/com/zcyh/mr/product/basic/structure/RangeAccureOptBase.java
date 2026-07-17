@@ -14,7 +14,6 @@ import com.zcyh.mr.product.basic.frtb.MeasureValuation;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.option.RangeAccureUtil;
 
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -285,23 +284,6 @@ public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccur
     }
 
     /**
-     * 从现有 info 字段读取 bucket，若不存在或为空则返回默认值。
-     * 不新增输入字段，仅复用已有字段名。
-     */
-    protected String resolveOptionalBucket(String defaultBucket, String... fieldNames) {
-        if (fieldNames == null || fieldNames.length == 0) {
-            return defaultBucket;
-        }
-        for (String fieldName : fieldNames) {
-            String value = readTextField(rangeAccureInfo, fieldName);
-            if (hasText(value)) {
-                return value.trim();
-            }
-        }
-        return defaultBucket;
-    }
-
-    /**
      * GIRR 曲线与币种映射。默认使用估值折现曲线。
      * 子类覆写后可声明本交易需要参与 GIRR 计量的全部曲线。
      */
@@ -402,26 +384,6 @@ public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccur
                 getGirrVegaSurface(),
                 getGirrVegaBucket(),
                 getGirrVegaSecondaryVertex());
-    }
-
-    private String readTextField(Object target, String fieldName) {
-        if (target == null || !hasText(fieldName)) {
-            return null;
-        }
-        Class<?> clazz = target.getClass();
-        while (clazz != null) {
-            try {
-                Field field = clazz.getDeclaredField(fieldName);
-                field.setAccessible(true);
-                Object value = field.get(target);
-                return value == null ? null : String.valueOf(value);
-            } catch (NoSuchFieldException e) {
-                clazz = clazz.getSuperclass();
-            } catch (IllegalAccessException e) {
-                return null;
-            }
-        }
-        return null;
     }
 
     /**

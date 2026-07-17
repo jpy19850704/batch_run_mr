@@ -31,7 +31,7 @@ public class EqDigOpt extends DigOptBase<EqDigOpt.EqDigOptInfo> {
                 info.discountCurve,
                 info.referenceCurve,
                 info.volatilitySurface,
-                resolveOptionalBucket("11", "frtbEqBucket"),
+                info.frtbEqBucket,
                 this::calc);
         return measure;
     }
@@ -99,5 +99,8 @@ public class EqDigOpt extends DigOptBase<EqDigOpt.EqDigOptInfo> {
         @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
+        @ProductInputField
+        @JSONField(name = "FRTB_EQ_BUCKET")
+        public String frtbEqBucket;
     }
 }

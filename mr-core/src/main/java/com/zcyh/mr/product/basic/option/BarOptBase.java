@@ -13,7 +13,6 @@ import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
 import com.zcyh.mr.product.basic.frtb.MeasureValuation;
 
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -353,6 +352,9 @@ public abstract class BarOptBase<I extends BarOptBase.BarOptBaseInfo> {
                 null);
         list.addAll(girrSensitivities);
 
+        if (FrtbSensitivityBuilder.warnMissingEqSensitivityInputs(measure, eqBucket)) {
+            return list;
+        }
         List<FrtbDependency> eqDeltaDependencies = FrtbSensitivityBuilder.buildEqDeltaDependencies(priceCurve, eqBucket);
         List<FrtbDependency> eqVegaDependencies = FrtbSensitivityBuilder.buildEqVegaDependencies(
                 volatilitySurface,
@@ -536,39 +538,6 @@ public abstract class BarOptBase<I extends BarOptBase.BarOptBaseInfo> {
 
     private boolean isDomesticFxCurrency(String ccy) {
         return "CNY".equalsIgnoreCase(ccy) || "CNH".equalsIgnoreCase(ccy);
-    }
-
-    protected String resolveOptionalBucket(String defaultBucket, String... fieldNames) {
-        if (fieldNames == null || fieldNames.length == 0) {
-            return defaultBucket;
-        }
-        for (String fieldName : fieldNames) {
-            String value = readTextField(info, fieldName);
-            if (hasText(value)) {
-                return value.trim();
-            }
-        }
-        return defaultBucket;
-    }
-
-    private String readTextField(Object target, String fieldName) {
-        if (target == null || !hasText(fieldName)) {
-            return null;
-        }
-        Class<?> clazz = target.getClass();
-        while (clazz != null) {
-            try {
-                Field field = clazz.getDeclaredField(fieldName);
-                field.setAccessible(true);
-                Object value = field.get(target);
-                return value == null ? null : String.valueOf(value);
-            } catch (NoSuchFieldException e) {
-                clazz = clazz.getSuperclass();
-            } catch (IllegalAccessException e) {
-                return null;
-            }
-        }
-        return null;
     }
 
     protected void validateCommon() {

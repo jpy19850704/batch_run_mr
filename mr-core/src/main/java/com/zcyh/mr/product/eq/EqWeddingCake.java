@@ -32,7 +32,7 @@ public class EqWeddingCake
                     info.discountCurve,
                 info.referenceCurve,
                     info.volatilitySurface,
-                    resolveOptionalBucket("11", "frtbEqBucket"),
+                    info.frtbEqBucket,
                     this::calc);
         }
         return measure;
@@ -90,5 +90,8 @@ public class EqWeddingCake
         @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
+        @ProductInputField
+        @JSONField(name = "FRTB_EQ_BUCKET")
+        public String frtbEqBucket;
     }
 }

@@ -356,19 +356,6 @@ public abstract class StepUpOptBase<T, M extends OptionMeasure> {
         return getCurrencyCode();
     }
 
-    protected String resolveOptionalBucket(String defaultBucket, String... fieldNames) {
-        if (fieldNames == null || fieldNames.length == 0) {
-            return defaultBucket;
-        }
-        for (String fieldName : fieldNames) {
-            String value = readTextField(stepUpInfo, fieldName);
-            if (hasText(value)) {
-                return value.trim();
-            }
-        }
-        return defaultBucket;
-    }
-
     private String readTextField(Object target, String fieldName) {
         if (target == null || !hasText(fieldName)) {
             return null;

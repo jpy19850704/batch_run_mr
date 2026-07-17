@@ -172,7 +172,11 @@ public class EqAsian extends AsianBase<EqAsian.EqAsianInfo, EqAsian.EqAsianMeasu
                 null);
         list.addAll(girrSensitivities);
 
-        String eqBucket = resolveEqBucket();
+        String eqBucket = info.frtbEqBucket;
+        if (FrtbSensitivityBuilder.warnMissingEqSensitivityInputs(measure, eqBucket)) {
+            measure.sensitivityList = list;
+            return;
+        }
         List<FrtbDependency> eqDeltaDependencies = FrtbSensitivityBuilder.buildEqDeltaDependencies(
                 info.referenceCurve,
                 eqBucket);
@@ -200,13 +204,6 @@ public class EqAsian extends AsianBase<EqAsian.EqAsianInfo, EqAsian.EqAsianMeasu
         list.addAll(eqSensitivities);
 
         measure.sensitivityList = list;
-    }
-
-    private String resolveEqBucket() {
-        if (hasText(info.frtbEqBucket)) {
-            return info.frtbEqBucket.trim();
-        }
-        return "11";
     }
 
     private List<String> collectFxRiskCurrencies(String... currencies) {
@@ -243,7 +240,7 @@ public class EqAsian extends AsianBase<EqAsian.EqAsianInfo, EqAsian.EqAsianMeasu
         @ProductInputField(required = true)
         @JSONField(name = "VOLATILITY_SURFACE")
         public String volatilitySurface;
-        @ProductInputField(required = true)
+        @ProductInputField
         @JSONField(name = "FRTB_EQ_BUCKET")
         public String frtbEqBucket;
     }

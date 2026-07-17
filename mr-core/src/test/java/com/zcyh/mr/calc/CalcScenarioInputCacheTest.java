@@ -25,6 +25,7 @@ class CalcScenarioInputCacheTest {
     @AfterEach
     void clearCache() {
         CalcScenarioInputCache.clear();
+        CalcScenarioInputCache.configure(512, 3_000_000L);
     }
 
     @Test
@@ -81,5 +82,6 @@ class CalcScenarioInputCacheTest {
         assertEquals(1, CalcScenarioInputCache.size());
         assertNotNull(CalcScenarioInputCache.get(CACHE_KEY));
         assertEquals(1, CalcScenarioInputCache.get(CACHE_KEY).size());
+        assertEquals(1L, CalcScenarioInputCache.retainedPointCount(CACHE_KEY));
     }
 }

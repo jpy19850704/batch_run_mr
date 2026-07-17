@@ -34,8 +34,17 @@ final class CalcScenarioInputFileReader {
             List<Path> paths,
             LocalDate dataDate,
             Set<String> scenarioMarketKeys) {
+        return readScenarioLoadResult(paths, dataDate, scenarioMarketKeys, Long.MAX_VALUE).entries;
+    }
+
+    ScenarioLoadResult readScenarioLoadResult(
+            List<Path> paths,
+            LocalDate dataDate,
+            Set<String> scenarioMarketKeys,
+            long maxRetainedPoints) {
         LinkedHashMap<String, ScenarioGroup> groups = new LinkedHashMap<>();
         Set<String> normalizedMarketKeys = normalizeMarketKeys(scenarioMarketKeys);
+        PointCounter pointCounter = new PointCounter(maxRetainedPoints);
         int rowIndex = 0;
         for (Path path : paths) {
             String fileName = path.getFileName().toString().toLowerCase();
@@ -58,13 +67,14 @@ final class CalcScenarioInputFileReader {
                             toRow(headers, parseCsvLine(line)),
                             rowIndex++,
                             dataDate,
-                            normalizedMarketKeys);
+                            normalizedMarketKeys,
+                            pointCounter);
                 }
             } catch (IOException ex) {
                 throw new IllegalArgumentException("加载 CSV 场景文件失败: " + path + ", " + ex.getMessage(), ex);
             }
         }
-        return toScenarioEntries(groups);
+        return new ScenarioLoadResult(toScenarioEntries(groups), pointCounter.rawPoints, pointCounter.retainedPoints);
     }
 
     private static JSONObject toRow(String[] headers, String[] values) {
@@ -136,19 +146,28 @@ final class CalcScenarioInputFileReader {
             JSONArray scenArray,
             LocalDate dataDate,
             Set<String> scenarioMarketKeys) {
+        return parseScenarioLoadResult(scenArray, dataDate, scenarioMarketKeys, Long.MAX_VALUE).entries;
+    }
+
+    ScenarioLoadResult parseScenarioLoadResult(
+            JSONArray scenArray,
+            LocalDate dataDate,
+            Set<String> scenarioMarketKeys,
+            long maxRetainedPoints) {
         LinkedHashMap<String, ScenarioGroup> groups = new LinkedHashMap<>();
         Set<String> normalizedMarketKeys = normalizeMarketKeys(scenarioMarketKeys);
+        PointCounter pointCounter = new PointCounter(maxRetainedPoints);
         if (scenArray == null || scenArray.isEmpty()) {
-            return new ArrayList<>();
+            return new ScenarioLoadResult(new ArrayList<>(), 0L, 0L);
         }
         for (int i = 0; i < scenArray.size(); i++) {
             Object rawObj = scenArray.get(i);
             if (!(rawObj instanceof JSONObject)) {
                 continue;
             }
-            accumulateRow(groups, (JSONObject) rawObj, i, dataDate, normalizedMarketKeys);
+            accumulateRow(groups, (JSONObject) rawObj, i, dataDate, normalizedMarketKeys, pointCounter);
         }
-        return toScenarioEntries(groups);
+        return new ScenarioLoadResult(toScenarioEntries(groups), pointCounter.rawPoints, pointCounter.retainedPoints);
     }
 
     private static void accumulateRow(
@@ -156,7 +175,9 @@ final class CalcScenarioInputFileReader {
             JSONObject row,
             int rowIndex,
             LocalDate dataDate,
-            Set<String> scenarioMarketKeys) {
+            Set<String> scenarioMarketKeys,
+            PointCounter pointCounter) {
+        pointCounter.recordRawPoint();
         String scenarioId = readScenarioId(row);
         if (scenarioId == null) {
             throw new IllegalArgumentException("场景记录缺少 SCENARIO_ID，无法解析: index=" + rowIndex);
@@ -190,6 +211,7 @@ final class CalcScenarioInputFileReader {
         if (!matchesMarketKey(scenarioMarketKeys, normalizedCurveType, impactKey)) {
             return;
         }
+        pointCounter.recordRetainedPoint();
         group.impactKeys.add(impactKey);
 
         Object changedRateObj = row.get("CHANGED_RATE");
@@ -495,5 +517,42 @@ final class CalcScenarioInputFileReader {
             }
         }
         return null;
+    }
+
+    static final class ScenarioLoadResult {
+        final List<Loader.ScenarioEntry> entries;
+        final long rawPoints;
+        final long retainedPoints;
+
+        ScenarioLoadResult(List<Loader.ScenarioEntry> entries, long rawPoints, long retainedPoints) {
+            this.entries = entries;
+            this.rawPoints = rawPoints;
+            this.retainedPoints = retainedPoints;
+        }
+    }
+
+    private static final class PointCounter {
+        private final long maxRetainedPoints;
+        private long rawPoints;
+        private long retainedPoints;
+
+        private PointCounter(long maxRetainedPoints) {
+            if (maxRetainedPoints <= 0L) {
+                throw new IllegalArgumentException("剪裁后情景点数上限必须大于0");
+            }
+            this.maxRetainedPoints = maxRetainedPoints;
+        }
+
+        private void recordRawPoint() {
+            rawPoints++;
+        }
+
+        private void recordRetainedPoint() {
+            if (retainedPoints >= maxRetainedPoints) {
+                throw new IllegalStateException("剪裁后情景点数超过缓存上限: maxRetainedPoints="
+                        + maxRetainedPoints + ", rawPoints=" + rawPoints);
+            }
+            retainedPoints++;
+        }
     }
 }

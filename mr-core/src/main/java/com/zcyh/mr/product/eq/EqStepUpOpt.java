@@ -69,7 +69,10 @@ public class EqStepUpOpt extends StepUpOptBase<EqStepUpOpt.EqStepUpInfo, OptionM
     protected List<FrtbSenes> getFrtbSensList() {
         List<FrtbSenes> list = new java.util.ArrayList<>();
         list.addAll(getSensListGIRRCommon());
-        String bucket = resolveOptionalBucket("11", "frtbEqBucket");
+        String bucket = stepUpInfo.frtbEqBucket;
+        if (FrtbSensitivityBuilder.warnMissingEqSensitivityInputs(stepUpMeasure, bucket)) {
+            return list;
+        }
         List<FrtbDependency> deltaDependencies = FrtbSensitivityBuilder.buildEqDeltaDependencies(stepUpInfo.referenceCurve, bucket);
         List<FrtbDependency> vegaDependencies = FrtbSensitivityBuilder.buildEqVegaDependencies(
                 getVolatilitySurface(),
@@ -253,6 +256,9 @@ public class EqStepUpOpt extends StepUpOptBase<EqStepUpOpt.EqStepUpInfo, OptionM
         @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
+        @ProductInputField
+        @JSONField(name = "FRTB_EQ_BUCKET")
+        public String frtbEqBucket;
     }
 }
 
