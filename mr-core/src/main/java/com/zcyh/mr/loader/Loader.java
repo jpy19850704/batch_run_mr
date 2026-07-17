@@ -3,10 +3,10 @@ package com.zcyh.mr.loader;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.SystemCalendarCache;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.calendar.SystemCalendarCache;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.marketdata.curvegeneration.CurveGeneration;
 
@@ -165,7 +165,7 @@ public class Loader {
     }
 
     private String resolveDefaultFxSpotBaseCurrency() {
-        String value = Configure.getInstance().getValue(Constants.CFG.FX_SPOT_BASE_CODE);
+        String value = EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_SPOT_BASE_CODE);
         if (value == null || value.trim().isEmpty()) {
             return "USD";
         }

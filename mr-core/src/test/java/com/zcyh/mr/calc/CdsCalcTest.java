@@ -1,9 +1,10 @@
 package com.zcyh.mr.calc;
 
+import com.zcyh.mr.calc.product.CdsCalc;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONWriter;
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.loader.FileUtils;
 import com.zcyh.mr.loader.Loader;
 import com.zcyh.mr.marketdata.MarketData;
@@ -51,7 +52,7 @@ public class CdsCalcTest {
         // 执行计算
         System.out.println("\n[INFO] 开始 CDS 计量...\n");
         CdsCalc cdsCalc = new CdsCalc(
-                Constants.CALC_MODE.PRICING, dataDate, trades,
+                EngineConstants.CALC_MODE.PRICING, dataDate, trades,
                 marketData, calendar, loader.getOtherData());
         String result = cdsCalc.calc();
 

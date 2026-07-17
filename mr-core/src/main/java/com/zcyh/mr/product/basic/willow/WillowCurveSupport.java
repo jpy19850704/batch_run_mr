@@ -1,6 +1,6 @@
 package com.zcyh.mr.product.basic.willow;
 
-import com.zcyh.mr.core.Series;
+import com.zcyh.mr.support.Series;
 
 import java.util.Map;
 

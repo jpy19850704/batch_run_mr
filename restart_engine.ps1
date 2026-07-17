@@ -13,6 +13,8 @@ $pidFile = Join-Path $runtimeDir "engine.pid"
 $outLog = Join-Path $runtimeDir "engine.out.log"
 $errLog = Join-Path $runtimeDir "engine.err.log"
 $jarPath = Join-Path $engineRoot "mr-app\target\mr-app.jar"
+$runtimeConfigPath = Join-Path $engineRoot "config\application-runtime.properties"
+$runtimeConfigUri = ([System.Uri]::new($runtimeConfigPath)).AbsoluteUri
 $enginePort = 8081
 
 function Import-EnvFile([string]$path) {
@@ -49,6 +51,12 @@ function Assert-RequiredEnvironment {
     })
     if ($missing.Count -gt 0) {
         throw "Missing required startup parameters: $($missing -join ', ')"
+    }
+}
+
+function Assert-RuntimeConfig {
+    if (-not (Test-Path -LiteralPath $runtimeConfigPath -PathType Leaf)) {
+        throw "Engine runtime config not found: $runtimeConfigPath"
     }
 }
 
@@ -125,7 +133,11 @@ function Start-And-VerifyEngine {
     [System.IO.File]::WriteAllText($outLog, "", (New-Object System.Text.UTF8Encoding($false)))
     [System.IO.File]::WriteAllText($errLog, "", (New-Object System.Text.UTF8Encoding($false)))
     $process = Start-Process -FilePath "java" `
-        -ArgumentList @("-jar", $jarPath, "--server.port=$enginePort") `
+        -ArgumentList @(
+            "-jar", $jarPath,
+            "--spring.config.additional-location=$runtimeConfigUri",
+            "--server.port=$enginePort"
+        ) `
         -WorkingDirectory $engineRoot `
         -RedirectStandardOutput $outLog `
         -RedirectStandardError $errLog `
@@ -168,6 +180,7 @@ function Start-And-VerifyEngine {
 }
 
 New-Item -ItemType Directory -Path $runtimeDir -Force | Out-Null
+Assert-RuntimeConfig
 Import-EnvFile $envFile
 if (-not [string]::IsNullOrWhiteSpace($env:MR_SERVER_PORT)) {
     $enginePort = [int]$env:MR_SERVER_PORT
@@ -186,5 +199,6 @@ Write-Output "port=$enginePort"
 Write-Output "jar=$($jar.FullName)"
 Write-Output "jarLastWriteTime=$($jar.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))"
 Write-Output "jarLength=$($jar.Length)"
+Write-Output "runtimeConfig=$runtimeConfigPath"
 Write-Output "health=http://127.0.0.1:$enginePort/healthz"
 Write-Output "ready=http://127.0.0.1:$enginePort/readyz"

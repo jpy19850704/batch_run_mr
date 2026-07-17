@@ -1,8 +1,8 @@
 package com.zcyh.mr.marketdata.support;
 
-import com.zcyh.mr.core.CommUtils;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.Series;
+import com.zcyh.mr.support.CommUtils;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.Series;
 import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
 import com.zcyh.mr.marketdata.EqSpot;
 import com.zcyh.mr.marketdata.FrtbMarketData;
@@ -41,7 +41,7 @@ public final class EqShockSupport {
         FrtbMarketData frtbMarketData = new FrtbMarketData(marketNew);
         frtbMarketData.marketData.eqSpot.put(priceCurve, priceCurveInfo);
         frtbMarketData.riskFactorId = priceCurve;
-        frtbMarketData.riskFactorClass = Constants.FRTB.SA.RISK_CLASS.ER;
+        frtbMarketData.riskFactorClass = EngineConstants.FRTB.SA.RISK_CLASS.ER;
         frtbMarketData.riskFactorType = "Spot";
         frtbMarketData.riskFactorVertex1 = "";
         frtbMarketData.riskFactorBucket = eqBucket;
@@ -72,7 +72,7 @@ public final class EqShockSupport {
         priceCurveUp.curveData = curveDataUp;
         up.marketData.eqSpot.put(priceCurve, priceCurveUp);
         up.riskFactorId = priceCurve;
-        up.riskFactorClass = Constants.FRTB.SA.RISK_CLASS.ER;
+        up.riskFactorClass = EngineConstants.FRTB.SA.RISK_CLASS.ER;
         up.riskFactorType = "Spot";
         up.riskFactorBucket = eqBucket;
         up.riskFactorVertex1 = "";
@@ -90,7 +90,7 @@ public final class EqShockSupport {
         priceCurveDown.curveData = curveDataDown;
         down.marketData.eqSpot.put(priceCurve, priceCurveDown);
         down.riskFactorId = priceCurve;
-        down.riskFactorClass = Constants.FRTB.SA.RISK_CLASS.ER;
+        down.riskFactorClass = EngineConstants.FRTB.SA.RISK_CLASS.ER;
         down.riskFactorType = "Spot";
         down.riskFactorBucket = eqBucket;
         down.riskFactorVertex1 = "";

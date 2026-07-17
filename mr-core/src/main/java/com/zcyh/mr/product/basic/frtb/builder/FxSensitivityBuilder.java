@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.basic.frtb.builder;
 
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.frtbsa.sba.common.FrtbConstants;
 import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
 import com.zcyh.mr.marketdata.FrtbMarketData;
@@ -173,7 +173,7 @@ public class FxSensitivityBuilder extends AbstractSensitivityBuilder {
             List<FrtbMarketData> vegaShocks = MarketData.getFrtbMarketDataListVegaTenor(
                     marketData,
                     dataDate,
-                    Constants.FRTB.SA.RISK_CLASS.FXR,
+                    EngineConstants.FRTB.SA.RISK_CLASS.FXR,
                     dependency.curveOrRiskFactor);
             for (FrtbMarketData shock : vegaShocks) {
                 if (shock == null || shock.marketData == null) {
@@ -218,7 +218,7 @@ public class FxSensitivityBuilder extends AbstractSensitivityBuilder {
     }
 
     private static boolean isFxSensitivityShockCny() {
-        String value = Configure.getInstance().getValue(Constants.CFG.FRTB_FX_SENSITIVITY_SHOCK_CNY);
+        String value = EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FRTB_FX_SENSITIVITY_SHOCK_CNY);
         return value == null || value.trim().isEmpty() || Boolean.parseBoolean(value.trim());
     }
 
@@ -237,7 +237,7 @@ public class FxSensitivityBuilder extends AbstractSensitivityBuilder {
     }
 
     private static double resolveBaseFxRate(MarketData marketData, String instrumentCurrency) {
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         return fxSpot.getFxrate(instrumentCurrency);
     }
 

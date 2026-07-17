@@ -1,7 +1,7 @@
 package com.zcyh.mr.product;
 
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.Series;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.Series;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
@@ -97,7 +97,7 @@ public class FxForwardSwapInputValidationTest {
 
     private FxFwd.FxFwdInfo buildFxFwdInfo() {
         FxFwd.FxFwdInfo info = new FxFwd.FxFwdInfo();
-        info.productCode = Constants.PRODUCT_CODE.FXFWD;
+        info.productCode = EngineConstants.PRODUCT_CODE.FXFWD;
         info.instrumentId = "UT_FXFWD_001";
         info.buyOrSell = "B";
         info.underlyingCurrencyCode = "EUR";
@@ -112,7 +112,7 @@ public class FxForwardSwapInputValidationTest {
 
     private FxSwap.FxSwapInfo buildFxSwapInfo() {
         FxSwap.FxSwapInfo info = new FxSwap.FxSwapInfo();
-        info.productCode = Constants.PRODUCT_CODE.FXSWAP;
+        info.productCode = EngineConstants.PRODUCT_CODE.FXSWAP;
         info.instrumentId = "UT_FXSWAP_001";
         info.buyOrSell = "B";
         info.underlyingCurrencyCode = "EUR";

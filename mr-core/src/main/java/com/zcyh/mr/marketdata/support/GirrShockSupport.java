@@ -1,8 +1,8 @@
 package com.zcyh.mr.marketdata.support;
 
-import com.zcyh.mr.core.CommUtils;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.Series;
+import com.zcyh.mr.support.CommUtils;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.Series;
 import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
 import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.IrSpot;
@@ -68,7 +68,7 @@ public final class GirrShockSupport {
                 FrtbMarketData frtbMarketData = new FrtbMarketData(newMarketDate);
                 frtbMarketData.marketData.irSpot.put(key, irSpotInfo);
                 frtbMarketData.riskFactorId = key;
-                frtbMarketData.riskFactorClass = Constants.FRTB.SA.RISK_CLASS.GIRR;
+                frtbMarketData.riskFactorClass = EngineConstants.FRTB.SA.RISK_CLASS.GIRR;
                 frtbMarketData.sensitivityType = "Delta";
                 frtbMarketData.riskFactorType = "Interest Rate";
                 frtbMarketData.riskFactorVertex1 = term;
@@ -109,7 +109,7 @@ public final class GirrShockSupport {
                 frtbMarketDataDown.marketData.irSpot.put(curveName, irSpotInfoDown);
             }
             frtbMarketDataUp.riskFactorId = bucket;
-            frtbMarketDataUp.riskFactorClass = Constants.FRTB.SA.RISK_CLASS.GIRR;
+            frtbMarketDataUp.riskFactorClass = EngineConstants.FRTB.SA.RISK_CLASS.GIRR;
             frtbMarketDataUp.riskFactorType = "Interest Rate";
             frtbMarketDataUp.sensitivityType = "Curvature Up";
             frtbMarketDataUp.riskFactorBucket = bucket;
@@ -117,7 +117,7 @@ public final class GirrShockSupport {
             frtbMarketDataList.add(frtbMarketDataUp);
 
             frtbMarketDataDown.riskFactorId = bucket;
-            frtbMarketDataDown.riskFactorClass = Constants.FRTB.SA.RISK_CLASS.GIRR;
+            frtbMarketDataDown.riskFactorClass = EngineConstants.FRTB.SA.RISK_CLASS.GIRR;
             frtbMarketDataDown.riskFactorType = "Interest Rate";
             frtbMarketDataDown.sensitivityType = "Curvature Down";
             frtbMarketDataDown.riskFactorBucket = bucket;

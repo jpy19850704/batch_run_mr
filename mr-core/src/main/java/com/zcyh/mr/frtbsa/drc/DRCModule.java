@@ -3,7 +3,7 @@ package com.zcyh.mr.frtbsa.drc;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.product.basic.frtb.DrcDetail;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.frtbsa.drc.DrcCalculator.*;
 
 import java.time.LocalDate;
@@ -46,14 +46,14 @@ public class DRCModule {
         validateInput(data);
 
         // 按产品类型过滤
-        List<DrcDetail> nsData = filterByType(data, Constants.FRTB.DRC.JTD_N);
-        List<DrcDetail> nctpData = filterByType(data, Constants.FRTB.DRC.JTD_S_N_CTP);
-        List<DrcDetail> ctpData = filterByType(data, Constants.FRTB.DRC.JTD_S_CTP);
+        List<DrcDetail> nsData = filterByType(data, EngineConstants.FRTB.DRC.JTD_N);
+        List<DrcDetail> nctpData = filterByType(data, EngineConstants.FRTB.DRC.JTD_S_N_CTP);
+        List<DrcDetail> ctpData = filterByType(data, EngineConstants.FRTB.DRC.JTD_S_CTP);
 
         // 分别计算各类DRC
-        TypeResult nsResult = DrcCalculator.calculate(Constants.FRTB.DRC.JTD_N, nsData);
-        TypeResult nctpResult = DrcCalculator.calculate(Constants.FRTB.DRC.JTD_S_N_CTP, nctpData);
-        TypeResult ctpResult = DrcCalculator.calculate(Constants.FRTB.DRC.JTD_S_CTP, ctpData);
+        TypeResult nsResult = DrcCalculator.calculate(EngineConstants.FRTB.DRC.JTD_N, nsData);
+        TypeResult nctpResult = DrcCalculator.calculate(EngineConstants.FRTB.DRC.JTD_S_N_CTP, nctpData);
+        TypeResult ctpResult = DrcCalculator.calculate(EngineConstants.FRTB.DRC.JTD_S_CTP, ctpData);
 
         // 合并法人级分解
         List<LegalEntityContribution> allLegal = new ArrayList<>();
@@ -135,7 +135,7 @@ public class DRCModule {
         if (!isSupportedSecurityType(detail.securityType)) {
             return "unsupported_SECURITY_TYPE:" + detail.securityType;
         }
-        if (Constants.FRTB.DRC.JTD_S_N_CTP.equalsIgnoreCase(detail.securityType)
+        if (EngineConstants.FRTB.DRC.JTD_S_N_CTP.equalsIgnoreCase(detail.securityType)
                 && trimToNull(detail.securityId) == null) {
             return "missing:SECURITY_ID";
         }
@@ -152,9 +152,9 @@ public class DRCModule {
     }
 
     private static boolean isSupportedSecurityType(String securityType) {
-        return Constants.FRTB.DRC.JTD_N.equalsIgnoreCase(securityType)
-                || Constants.FRTB.DRC.JTD_S_N_CTP.equalsIgnoreCase(securityType)
-                || Constants.FRTB.DRC.JTD_S_CTP.equalsIgnoreCase(securityType);
+        return EngineConstants.FRTB.DRC.JTD_N.equalsIgnoreCase(securityType)
+                || EngineConstants.FRTB.DRC.JTD_S_N_CTP.equalsIgnoreCase(securityType)
+                || EngineConstants.FRTB.DRC.JTD_S_CTP.equalsIgnoreCase(securityType);
     }
 
     private static boolean isFinite(Double value) {

@@ -2,7 +2,7 @@ package com.zcyh.mr.refactoring;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.basic.util.EnginePreconditions;
+import com.zcyh.mr.support.Preconditions;
 import com.zcyh.mr.calc.ProductCalculator;
 import com.zcyh.mr.frtbima.common.LiquidityHorizonTable;
 import com.zcyh.mr.frtbima.scenariopnl.SubsetScenarioRunner;
@@ -39,7 +39,7 @@ class StrictContractTest {
     @Test
     void enginePreconditionsThrowsStandardException() {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> EnginePreconditions.require(false, "字段不能为空: %s", "DATA_DATE"));
+                () -> Preconditions.require(false, "字段不能为空: %s", "DATA_DATE"));
 
         assertEquals("字段不能为空: DATA_DATE", ex.getMessage());
     }

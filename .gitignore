@@ -5,6 +5,9 @@ target/
 
 # Build outputs
 **/target/
+*.class
+.tmp_classes/
+libs_runtime/
 build/
 bin/
 bin_mr_javac/

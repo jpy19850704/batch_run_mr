@@ -2,9 +2,9 @@ package com.zcyh.mr.product;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.Series;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.Series;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
@@ -114,7 +114,7 @@ public class BondInputValidationTest {
 
     private Bond.BondInfo buildBondInfo() {
         Bond.BondInfo info = new Bond.BondInfo();
-        info.productCode = Constants.PRODUCT_CODE.BOND;
+        info.productCode = EngineConstants.PRODUCT_CODE.BOND;
         info.instrumentId = "UT_BOND_001";
         info.bondId = "UT_BOND_ID_001";
         info.currencyCode = "USD";
@@ -134,7 +134,7 @@ public class BondInputValidationTest {
         factor.convertFactor = 0.95;
 
         BondFuture.BondFutureInfo info = new BondFuture.BondFutureInfo();
-        info.productCode = Constants.PRODUCT_CODE.BOND_FUTURE;
+        info.productCode = EngineConstants.PRODUCT_CODE.BOND_FUTURE;
         info.instrumentId = "UT_BOND_FUTURE_001";
         info.currencyCode = "USD";
         info.underlyingPosition = 1.0;

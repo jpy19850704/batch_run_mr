@@ -1,7 +1,7 @@
 package com.zcyh.mr.scenario.strategy;
 
-import com.zcyh.mr.core.RandomMatrix;
-import com.zcyh.mr.core.SystemCalendarCache;
+import com.zcyh.mr.math.RandomMatrix;
+import com.zcyh.mr.calendar.SystemCalendarCache;
 import com.zcyh.mr.scenario.ScenarioRangeResolver;
 import com.zcyh.mr.scenario.model.ScenarioDefinition;
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
@@ -37,10 +37,10 @@ public class McScenarioStrategy implements ScenarioStrategy {
     private static final String[] CURVE_TYPES = {
             "IR_SPOT", "CREDIT_SPOT", "FX_SPOT", "COMM_SPOT", "EQ_SPOT", "FX_VOL", "IR_VOL", "COMM_VOL", "EQ_VOL"
     };
-    private final com.zcyh.mr.core.Calendar holidayCalendar;
+    private final com.zcyh.mr.calendar.Calendar holidayCalendar;
     private final ScenarioRangeResolver rangeResolver;
 
-    public McScenarioStrategy(com.zcyh.mr.core.Calendar holidayCalendar) {
+    public McScenarioStrategy(com.zcyh.mr.calendar.Calendar holidayCalendar) {
         this.holidayCalendar = SystemCalendarCache.resolve(holidayCalendar);
         this.rangeResolver = new ScenarioRangeResolver(this.holidayCalendar);
     }

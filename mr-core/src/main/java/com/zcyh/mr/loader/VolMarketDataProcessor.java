@@ -2,7 +2,7 @@ package com.zcyh.mr.loader;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.CommVol;
 import com.zcyh.mr.marketdata.EqVol;
 import com.zcyh.mr.marketdata.FxVol;
@@ -190,12 +190,12 @@ final class VolMarketDataProcessor {
     }
 
     private String resolveVolAxis2Field(String curveType, String axis2Type) {
-        if (Constants.RF_TYPE.IR_VOL.equals(curveType)) {
+        if (EngineConstants.RF_TYPE.IR_VOL.equals(curveType)) {
             return VolUtil.resolveAxis2Field(axis2Type == null ? "UNDERLYING_TERM" : axis2Type);
         }
-        if (Constants.RF_TYPE.FX_VOL.equals(curveType)
-                || Constants.RF_TYPE.EQ_VOL.equals(curveType)
-                || Constants.RF_TYPE.COMM_VOL.equals(curveType)) {
+        if (EngineConstants.RF_TYPE.FX_VOL.equals(curveType)
+                || EngineConstants.RF_TYPE.EQ_VOL.equals(curveType)
+                || EngineConstants.RF_TYPE.COMM_VOL.equals(curveType)) {
             return VolUtil.resolveAxis2Field(axis2Type);
         }
         return null;

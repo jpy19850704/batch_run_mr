@@ -55,9 +55,7 @@ public class VarCalculator {
         values.sort(Comparator.naturalOrder());
 
         int n = values.size();
-        BigDecimal tail = BigDecimal.ONE.subtract(quantile);
-        int idxOut = clampIndex(tail.multiply(BigDecimal.valueOf(n - 1L)).setScale(0, RoundingMode.FLOOR).intValue(), n);
-        int count = idxOut + 1;
+        int count = calculateOutRank(n, quantile);
         BigDecimal sum = BigDecimal.ZERO;
         for (int i = 0; i < count; i++) {
             sum = sum.add(values.get(i));
@@ -90,10 +88,10 @@ public class VarCalculator {
                     true);
         }
 
-        BigDecimal tail = BigDecimal.ONE.subtract(quantile);
-        BigDecimal pos = tail.multiply(BigDecimal.valueOf(n - 1L));
-        int idxOut = clampIndex(pos.setScale(0, RoundingMode.FLOOR).intValue(), n);
-        int idxIn = clampIndex(pos.setScale(0, RoundingMode.CEILING).intValue(), n);
+        int rankOut = calculateOutRank(n, quantile);
+        int rankIn = calculateInRank(n, quantile);
+        int idxOut = rankOut - 1;
+        int idxIn = rankIn - 1;
 
         VarScenarioPnl outRow = rows.get(idxOut);
         VarScenarioPnl inRow = rows.get(idxIn);
@@ -122,8 +120,8 @@ public class VarCalculator {
 
         return new VarQuantileResult(
                 quantile,
-                idxIn + 1,
-                idxOut + 1,
+                rankIn,
+                rankOut,
                 inRow,
                 outRow,
                 pnlIn,
@@ -137,12 +135,23 @@ public class VarCalculator {
                 false);
     }
 
-    private static int clampIndex(int idx, int size) {
-        if (idx < 0) {
-            return 0;
+    static int calculateOutRank(int sampleSize, BigDecimal quantile) {
+        return calculateRank(sampleSize, quantile, RoundingMode.FLOOR);
+    }
+
+    static int calculateInRank(int sampleSize, BigDecimal quantile) {
+        return calculateRank(sampleSize, quantile, RoundingMode.CEILING);
+    }
+
+    private static int calculateRank(int sampleSize, BigDecimal quantile, RoundingMode roundingMode) {
+        if (sampleSize <= 0) {
+            throw new IllegalArgumentException("VaR 样本数必须大于 0");
         }
-        int max = size - 1;
-        return Math.min(idx, max);
+        validateQuantile(quantile);
+        BigDecimal position = BigDecimal.ONE.subtract(quantile)
+                .multiply(BigDecimal.valueOf(sampleSize));
+        int rank = position.setScale(0, roundingMode).intValue();
+        return Math.max(1, Math.min(rank, sampleSize));
     }
 
     private static BigDecimal safePnl(BigDecimal pnl) {

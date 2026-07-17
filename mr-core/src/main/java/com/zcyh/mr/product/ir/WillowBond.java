@@ -1,11 +1,11 @@
 package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.basic.util.ReflectionUtils;
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.CurveFunc;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.ReflectionUtils;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.marketdata.CurveFunc;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
@@ -539,11 +539,11 @@ public class WillowBond {
             Map<LocalDate, String> exerciseByDate,
             CalibratedTree calibratedTree,
             SpreadCalibrationResult spreadResult) {
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         double position = info.positionTrade;
         Bond.BondMeasure measure = new Bond.BondMeasure();
         measure.instrumentId = info.instrumentId;
-        measure.productCode = Constants.PRODUCT_CODE.WILLOW_BOND;
+        measure.productCode = EngineConstants.PRODUCT_CODE.WILLOW_BOND;
         measure.dataDate = dataDate;
         measure.position = position;
         measure.valuationCcy = info.currencyCode;

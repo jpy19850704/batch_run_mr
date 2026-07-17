@@ -1,8 +1,8 @@
 package com.zcyh.mr.product;
 
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.Series;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.Series;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
@@ -130,7 +130,7 @@ public class IrSwapInputValidationTest {
     private StdIrs.StdIrsInfo buildStdIrsInfo() {
         StdIrs.StdIrsInfo info = new StdIrs.StdIrsInfo();
         info.instrumentId = "UT_STD_IRS_001";
-        info.productCode = Constants.PRODUCT_CODE.STD_IRS;
+        info.productCode = EngineConstants.PRODUCT_CODE.STD_IRS;
         info.currencyCode = "USD";
         info.buyOrSell = "B";
         info.tradePrice = 0.03;
@@ -142,7 +142,7 @@ public class IrSwapInputValidationTest {
 
     private IrsCcs.IrsCcsInfo buildIrsCcsInfo() {
         IrsCcs.IrsCcsInfo info = new IrsCcs.IrsCcsInfo();
-        info.productCode = Constants.PRODUCT_CODE.IRSCCS;
+        info.productCode = EngineConstants.PRODUCT_CODE.IRSCCS;
         info.instrumentId = "UT_IRSCCS_001";
         info.swapType = "IRS";
         info.startDate = DATA_DATE.plusDays(2);

@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.basic.frtb.builder;
 
-import com.zcyh.mr.core.CommUtils;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.CommUtils;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
 import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.IrSpot;
@@ -137,7 +137,7 @@ public class GirrSensitivityBuilder extends AbstractSensitivityBuilder {
             sensitivity.riskFactorId = dependency.riskFactorId;
             sensitivity.riskFactorVertex1 = "";
             sensitivity.riskFactorVertex2 = "";
-            sensitivity.riskFactorClass = Constants.FRTB.SA.RISK_CLASS.GIRR;
+            sensitivity.riskFactorClass = EngineConstants.FRTB.SA.RISK_CLASS.GIRR;
             sensitivity.riskFactorBucket = normalizeGirrBucket(dependency.bucket);
             sensitivity.riskFactorType = "Basis";
             sensitivity.sensitivityType = "Delta";
@@ -259,7 +259,7 @@ public class GirrSensitivityBuilder extends AbstractSensitivityBuilder {
             List<FrtbMarketData> vegaShocks = MarketData.getFrtbMarketDataListVegaTenor(
                     marketData,
                     dataDate,
-                    Constants.FRTB.SA.RISK_CLASS.GIRR,
+                    EngineConstants.FRTB.SA.RISK_CLASS.GIRR,
                     dependency.curveOrRiskFactor);
             for (FrtbMarketData vegaShock : vegaShocks) {
                 if (vegaShock == null || vegaShock.marketData == null) {

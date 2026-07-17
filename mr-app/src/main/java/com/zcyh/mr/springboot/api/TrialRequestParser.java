@@ -4,10 +4,10 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
-import com.zcyh.mr.springboot.model.AggregationRule;
-import com.zcyh.mr.springboot.model.FrtbRuleTrialRequest;
-import com.zcyh.mr.springboot.model.VarCalculation;
-import com.zcyh.mr.springboot.model.VarTrialRequest;
+import com.zcyh.mr.springboot.measurement.aggregation.AggregationRule;
+import com.zcyh.mr.springboot.measurement.frtb.FrtbRuleTrialRequest;
+import com.zcyh.mr.springboot.measurement.var.VarCalculation;
+import com.zcyh.mr.springboot.measurement.var.VarTrialRequest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

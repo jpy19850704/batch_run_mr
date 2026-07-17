@@ -1,6 +1,6 @@
 package com.zcyh.mr.product.basic.scf;
 
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConstants;
 
 import java.time.LocalDate;
 import java.time.Period;
@@ -29,7 +29,7 @@ public class Cashflows {
             cfDataListOri.add(startDate);
             cfDataListOri.add(endDate);
         } else {
-            if (Constants.DateGeneration.FOWARD.equals(dateGenerationRule)) {
+            if (EngineConstants.DateGeneration.FOWARD.equals(dateGenerationRule)) {
                 cfDataListOri.add(startDate);
                 addForwardDates(cfDataListOri, startDate, endDate, period);
                 cfDataListOri.add(endDate);

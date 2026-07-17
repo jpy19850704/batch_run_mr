@@ -2,10 +2,10 @@ package com.zcyh.mr.product.basic.structure;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.Convert;
-import com.zcyh.mr.core.Interpolation;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.Convert;
+import com.zcyh.mr.math.Interpolation;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.Fixing;
@@ -191,7 +191,7 @@ public abstract class StepUpOptBase<T, M extends OptionMeasure> {
     }
 
     protected double getCnyFxRate(MarketData md, String currencyCode) {
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         return fxSpot.getFxrate(currencyCode);
     }
 
@@ -748,11 +748,8 @@ public abstract class StepUpOptBase<T, M extends OptionMeasure> {
      * VV 开启时统一读取非负兜底开关。
      */
     protected boolean isNonNegativeFloorEnabled() {
-        String value = Configure.getInstance().getValue(Constants.CFG.NON_NEGATIVE_FLOOR_ENABLED);
-        if (value == null || value.trim().isEmpty()) {
-            return true;
-        }
-        return Boolean.parseBoolean(value.trim());
+        return EngineConfiguration.getInstance()
+                .getRequiredBoolean(EngineConstants.CFG.VV_NON_NEGATIVE_FLOOR_ENABLED);
     }
 
     /**

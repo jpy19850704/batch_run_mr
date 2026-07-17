@@ -2,8 +2,8 @@ package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
@@ -93,7 +93,7 @@ public class CommVanillaOpt {
         if (hasText(pricingCcy) && hasText(outputCcy) && !pricingCcy.equalsIgnoreCase(outputCcy)) {
             FxSpot fxSpot = null;
             if (this.marketData != null && this.marketData.fxSpot != null) {
-                fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE),
+                fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE),
                         this.marketData.fxSpot);
             }
             detail.put("PRICING_CCY", pricingCcy);
@@ -120,7 +120,7 @@ public class CommVanillaOpt {
         CommOptMeasure measure = new CommOptMeasure();
         String pricingCurrency = resolvePricingCurrency();
         String valuationCurrency = resolveValuationCurrency();
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         double valuationFxRate = getRequiredFxRate(fxSpot, valuationCurrency);
         this.fxRate = valuationFxRate;
         IrSpot irSpot = new IrSpot(getDiscountCurveInfo(marketData));
@@ -500,7 +500,7 @@ public class CommVanillaOpt {
         if (md == null || md.fxSpot == null) {
             throw new IllegalArgumentException("市场数据缺少汇率曲线");
         }
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         return getFxConversionRate(fxSpot, pricingCurrency, valuationCurrency);
     }
 
@@ -605,7 +605,7 @@ public class CommVanillaOpt {
             errors.add("市场数据缺少汇率曲线");
         }
         if (errors.isEmpty()) {
-            FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+            FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
             checkFxRate(errors, fxSpot, resolveValuationCurrency(), "VALUATION_CCY");
             checkFxRate(errors, fxSpot, resolvePricingCurrency(), "PRICING_CCY");
         }
@@ -695,7 +695,7 @@ public class CommVanillaOpt {
     }
 
     private double getFxRate(String currency) {
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         return getRequiredFxRate(fxSpot, currency);
     }
 }

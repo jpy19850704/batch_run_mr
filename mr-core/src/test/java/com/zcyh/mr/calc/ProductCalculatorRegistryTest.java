@@ -1,6 +1,6 @@
 package com.zcyh.mr.calc;
 
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConstants;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
@@ -16,9 +16,9 @@ class ProductCalculatorRegistryTest {
         Set<String> productCodes = ProductCalculatorRegistry.productCodes();
 
         assertEquals(47, productCodes.size());
-        assertTrue(productCodes.contains(Constants.PRODUCT_CODE.COMMFWD));
-        assertTrue(productCodes.contains(Constants.PRODUCT_CODE.COMPOSITE));
-        assertTrue(productCodes.contains(Constants.PRODUCT_CODE.STD_IRS));
+        assertTrue(productCodes.contains(EngineConstants.PRODUCT_CODE.COMMFWD));
+        assertTrue(productCodes.contains(EngineConstants.PRODUCT_CODE.COMPOSITE));
+        assertTrue(productCodes.contains(EngineConstants.PRODUCT_CODE.STD_IRS));
     }
 
     @Test

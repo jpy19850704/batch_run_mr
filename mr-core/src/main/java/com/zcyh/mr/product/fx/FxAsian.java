@@ -2,8 +2,8 @@ package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
@@ -38,7 +38,7 @@ public class FxAsian extends AsianBase<FxAsian.FxAsianInfo, FxAsian.FxAsianMeasu
         if (hasText(info.productCode)) {
             return info.productCode.trim();
         }
-        return Constants.PRODUCT_CODE.FX_ASIAN;
+        return EngineConstants.PRODUCT_CODE.FX_ASIAN;
     }
 
     @Override
@@ -48,7 +48,7 @@ public class FxAsian extends AsianBase<FxAsian.FxAsianInfo, FxAsian.FxAsianMeasu
 
     @Override
     protected double resolveValuationToCnyFx(MarketData md, String valuationCurrency) {
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         return fxSpot.getFxrate(valuationCurrency);
     }
 
@@ -74,7 +74,7 @@ public class FxAsian extends AsianBase<FxAsian.FxAsianInfo, FxAsian.FxAsianMeasu
             rf = underIr.spotRate(info.settleDate);
         }
 
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         double spot = fxSpot.getFxrate(info.baseCurrencyCode, info.underlyingCurrencyCode);
         FxVol fxVol = new FxVol(md.fxVol.get(info.volatilitySurface));
 

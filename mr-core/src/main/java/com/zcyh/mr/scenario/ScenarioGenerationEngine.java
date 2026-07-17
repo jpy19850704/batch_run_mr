@@ -1,6 +1,6 @@
 package com.zcyh.mr.scenario;
 
-import com.zcyh.mr.core.Calendar;
+import com.zcyh.mr.calendar.Calendar;
 import com.zcyh.mr.scenario.model.ScenarioGenerationRequest;
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
 import com.zcyh.mr.scenario.model.ScenarioTaskRequest;

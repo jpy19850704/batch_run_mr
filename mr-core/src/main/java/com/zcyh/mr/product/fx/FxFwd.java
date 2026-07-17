@@ -1,9 +1,9 @@
 package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.basic.util.EnginePreconditions;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.Preconditions;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
@@ -41,7 +41,7 @@ public class FxFwd {
      * 外汇远期计量。
      */
     public FxFwdMeasure calc() {
-        EnginePreconditions.require(dataDate != null, "dataDate must be set");
+        Preconditions.require(dataDate != null, "dataDate must be set");
 
         FxFwdMeasure result = calc(marketData);
         LocalDate settleDate = fxFwdInfo.settleDate;
@@ -85,13 +85,13 @@ public class FxFwd {
     }
 
     public FxFwdMeasure calc(MarketData newMarketData) {
-        EnginePreconditions.require(dataDate != null, "dataDate must be set");
+        Preconditions.require(dataDate != null, "dataDate must be set");
         validateInputs(newMarketData);
         LocalDate settleDate = fxFwdInfo.settleDate;
 
         IrSpot uIrSpot = new IrSpot(newMarketData.irSpot.get(fxFwdInfo.underlyingDiscountCurve));
         IrSpot bIrSpot = new IrSpot(newMarketData.irSpot.get(fxFwdInfo.baseDiscountCurve));
-        FxSpot fxSpotNew = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), newMarketData.fxSpot);
+        FxSpot fxSpotNew = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), newMarketData.fxSpot);
         String uCurrency = fxFwdInfo.underlyingCurrencyCode;
         String bCurrency = fxFwdInfo.baseCurrencyCode;
         double fxRate = fxSpotNew.getFxrate(bCurrency, uCurrency);

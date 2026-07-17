@@ -2,8 +2,8 @@ package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.FxVol;
 import com.zcyh.mr.marketdata.IrSpot;
@@ -51,7 +51,7 @@ public class FxWeddingCake extends WeddingCakeBase<FxWeddingCake.FxWeddingCakeIn
         String underlyingCcy = resolveUnderlyingCurrency();
         String baseCcy = resolveBaseCurrency();
 
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         IrSpot underlyingIr = new IrSpot(md.irSpot.get(resolveUnderlyingDiscountCurve()));
         IrSpot baseIr = new IrSpot(md.irSpot.get(resolveBaseDiscountCurve()));
         IrSpot settleIr = new IrSpot(md.irSpot.get(info.discountCurve));

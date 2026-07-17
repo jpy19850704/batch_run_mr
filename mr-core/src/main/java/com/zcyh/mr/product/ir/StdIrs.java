@@ -1,11 +1,11 @@
 package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.CommUtils;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.CurveFunc;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.support.CommUtils;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.marketdata.CurveFunc;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
@@ -115,7 +115,7 @@ public class StdIrs {
         // 估值 = (远期利率 - 成交价) × 名义本金 × DCF × 方向
         double unitValue = (forwardRate - tradeInfo.tradePrice) * dcf;
         double value = unitValue * position;
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
 
         measure.position = position;
         measure.valuation = value;

@@ -2,12 +2,12 @@ package com.zcyh.mr.springboot.api;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.springboot.model.FrtbDrcSummaryRequest;
-import com.zcyh.mr.springboot.model.FrtbSbaSummaryRequest;
-import com.zcyh.mr.springboot.model.RuleSummaryRequest;
-import com.zcyh.mr.springboot.model.SummaryCleanupMode;
-import com.zcyh.mr.springboot.model.VarCalculation;
-import com.zcyh.mr.springboot.model.VarSummaryRequest;
+import com.zcyh.mr.springboot.measurement.frtb.FrtbDrcSummaryRequest;
+import com.zcyh.mr.springboot.measurement.frtb.FrtbSbaSummaryRequest;
+import com.zcyh.mr.springboot.measurement.RuleSummaryRequest;
+import com.zcyh.mr.springboot.measurement.SummaryCleanupMode;
+import com.zcyh.mr.springboot.measurement.var.VarCalculation;
+import com.zcyh.mr.springboot.measurement.var.VarSummaryRequest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

@@ -2,8 +2,8 @@ package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.CommSpot;
 import com.zcyh.mr.marketdata.CommVol;
 import com.zcyh.mr.marketdata.FxSpot;
@@ -60,7 +60,7 @@ public class CommSpreadOpt extends SpreadOptBase<CommSpreadOpt.SpreadOptInfo, Co
         MarketContext ctx = new MarketContext();
         IrSpot irSpot = new IrSpot(md.irSpot.get(info.discountCurve));
         CommSpot commSpot = new CommSpot(md.commSpot.get(info.referenceCurve));
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         ctx.s = commSpot.fwdPrice(dataDate);
         ctx.f = commSpot.fwdPrice(info.maturityDate);
         ctx.rd = irSpot.spotRate(info.maturityDate);

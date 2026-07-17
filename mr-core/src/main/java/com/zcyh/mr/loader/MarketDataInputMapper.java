@@ -2,7 +2,7 @@ package com.zcyh.mr.loader;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.core.Interpolation;
+import com.zcyh.mr.math.Interpolation;
 
 import java.util.ArrayList;
 import java.util.List;

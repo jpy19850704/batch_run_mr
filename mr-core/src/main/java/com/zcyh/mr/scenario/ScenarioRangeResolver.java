@@ -1,6 +1,6 @@
 package com.zcyh.mr.scenario;
 
-import com.zcyh.mr.core.SystemCalendarCache;
+import com.zcyh.mr.calendar.SystemCalendarCache;
 import com.zcyh.mr.scenario.model.ScenarioDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,13 +21,13 @@ public class ScenarioRangeResolver {
 
     private static final Logger log = LoggerFactory.getLogger(ScenarioRangeResolver.class);
 
-    private final com.zcyh.mr.core.Calendar holidayCalendar;
+    private final com.zcyh.mr.calendar.Calendar holidayCalendar;
 
     public ScenarioRangeResolver() {
         this(null);
     }
 
-    public ScenarioRangeResolver(com.zcyh.mr.core.Calendar holidayCalendar) {
+    public ScenarioRangeResolver(com.zcyh.mr.calendar.Calendar holidayCalendar) {
         this.holidayCalendar = SystemCalendarCache.resolve(holidayCalendar);
     }
 

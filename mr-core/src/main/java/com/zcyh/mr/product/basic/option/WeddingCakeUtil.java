@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.basic.option;
 
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.VolUtil;
 
@@ -211,11 +211,8 @@ public class WeddingCakeUtil {
      * VV 开启时统一读取非负兜底开关。
      */
     private static boolean isNonNegativeFloorEnabled() {
-        String value = Configure.getInstance().getValue(Constants.CFG.NON_NEGATIVE_FLOOR_ENABLED);
-        if (value == null || value.trim().isEmpty()) {
-            return true;
-        }
-        return Boolean.parseBoolean(value.trim());
+        return EngineConfiguration.getInstance()
+                .getRequiredBoolean(EngineConstants.CFG.VV_NON_NEGATIVE_FLOOR_ENABLED);
     }
 
     /**
@@ -294,12 +291,12 @@ public class WeddingCakeUtil {
             throw new IllegalArgumentException("WeddingCake 波动率曲线不能为空");
         }
         Double[] deltas = volCurve.stream()
-                .map(e -> com.zcyh.mr.core.Convert.toDouble(e.get("DELTA")))
+                .map(e -> com.zcyh.mr.support.Convert.toDouble(e.get("DELTA")))
                 .toArray(Double[]::new);
         Double[] vols = volCurve.stream()
-                .map(e -> com.zcyh.mr.core.Convert.toDouble(e.get("VOLATILITY_RATE")))
+                .map(e -> com.zcyh.mr.support.Convert.toDouble(e.get("VOLATILITY_RATE")))
                 .toArray(Double[]::new);
-        double sigma = com.zcyh.mr.core.Interpolation.interpolate(deltas, vols, 0.5,
+        double sigma = com.zcyh.mr.math.Interpolation.interpolate(deltas, vols, 0.5,
                 VolUtil.requireAxis2InterpolateType(volCurve));
         if (!Double.isFinite(sigma) || sigma <= 0.0) {
             throw new IllegalArgumentException("WeddingCake ATM 波动率插值结果非法: " + sigma);

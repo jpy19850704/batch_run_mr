@@ -11,11 +11,11 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.basic.util.ReflectionUtils;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.ReflectionUtils;
 import com.zcyh.mr.calc.FrtbCalcControl;
-import com.zcyh.mr.core.*;
-import com.zcyh.mr.core.Calendar;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.marketdata.CurveFunc;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
@@ -24,6 +24,9 @@ import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.scf.StructuredCashflow;
 import com.zcyh.mr.product.ir.Bond;
+import com.zcyh.mr.support.CommUtils;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.TradeJsonUtil;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.LocalDate;
@@ -44,7 +47,7 @@ public class Cds implements FrtbDrcInterface {
         this.dataDate = dataDate;
         this.cdsInfo = cdsInfo;
         this.cal = calendar;
-        this.udData = TradeJsonUtil.mergeTrade(udData, Constants.PRODUCT_CODE.CDS, "UNDERLYING_DATA");
+        this.udData = TradeJsonUtil.mergeTrade(udData, EngineConstants.PRODUCT_CODE.CDS, "UNDERLYING_DATA");
         this.marketData = marketData;
     }
 
@@ -370,8 +373,8 @@ public class Cds implements FrtbDrcInterface {
                         "CDS估值结果非法(非有限数): INSTRUMENT_ID=" + cdsInfo.instrumentId);
             }
             // 使用传入 MarketData 的汇率，确保场景 FX 冲击生效
-            FxSpot fxSpot = new FxSpot(Configure.getInstance()
-                    .getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+            FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance()
+                    .getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
             cdsMeasure.valuationCny = cdsMeasure.valuation * fxSpot.getFxrate(cdsInfo.currencyCode);
             if (!Double.isFinite(cdsMeasure.valuationCny)) {
                 return failOutcome(outcome,
@@ -386,8 +389,8 @@ public class Cds implements FrtbDrcInterface {
     }
 
     private CdsMeasure initMeasure() {
-        FxSpot fxSpot = new FxSpot(Configure.getInstance()
-                .getValue(Constants.CFG.FX_BASE_CODE), this.marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance()
+                .getValue(EngineConstants.CFG.FX_BASE_CODE), this.marketData.fxSpot);
         Cds.CdsMeasure cdsMeasure = new Cds.CdsMeasure();
         cdsMeasure.instrumentId = cdsInfo.instrumentId;
         cdsMeasure.productCode = cdsInfo.productCode;
@@ -559,8 +562,8 @@ public class Cds implements FrtbDrcInterface {
         FrtbDrcInterface.Param param = ReflectionUtils.bean2Bean(bondInfo, FrtbDrcInterface.Param.class);
         double jtd = calculateJtd(bondInfo, valuation);
         DrcDetail drcDetail = ((FrtbDrcInterface) () -> jtd).getDrc(param, dataDate, valuation);
-        double fxRate = new FxSpot(Configure.getInstance()
-                .getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot).getFxrate(bondInfo.currencyCode);
+        double fxRate = new FxSpot(EngineConfiguration.getInstance()
+                .getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot).getFxrate(bondInfo.currencyCode);
         drcDetail.jtdCny *= fxRate;
         drcDetail.instrumentValue *= fxRate;
         return drcDetail;

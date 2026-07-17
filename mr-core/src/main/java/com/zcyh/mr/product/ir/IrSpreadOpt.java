@@ -2,8 +2,8 @@ package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.structure.SpreadOptBase;
@@ -56,7 +56,7 @@ public class IrSpreadOpt extends SpreadOptBase<IrSpreadOpt.SpreadOptInfo, IrSpre
         MarketContext ctx = new MarketContext();
         IrSpot discountCurve = new IrSpot(md.irSpot.get(info.discountCurve));
         IrVol irVol = new IrVol(md.irVol.get(info.volatilitySurface));
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
 
         double fiData = calFi(dataDate, md);
         double fiMaturity = calFi(info.maturityDate, md);

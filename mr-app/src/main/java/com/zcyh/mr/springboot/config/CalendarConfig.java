@@ -1,7 +1,7 @@
 package com.zcyh.mr.springboot.config;
 
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.SystemCalendarCache;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.calendar.SystemCalendarCache;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

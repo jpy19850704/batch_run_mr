@@ -2,8 +2,8 @@ package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
@@ -47,7 +47,7 @@ public class IrWeddingCake
     @Override
     protected MarketContext buildMarketContext(MarketData md, int days, double t) {
         MarketContext ctx = new MarketContext();
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         IrSpot discount = new IrSpot(md.irSpot.get(info.discountCurve));
         IrVol irVol = new IrVol(md.irVol.get(info.volatilitySurface));
         Fixing fixing = new Fixing(md.fixingRate.get(info.fixingId));

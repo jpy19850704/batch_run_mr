@@ -2,8 +2,8 @@ package com.zcyh.mr.marketdata;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.marketdata.support.CmtyShockSupport;
-import com.zcyh.mr.core.Series;
-import com.zcyh.mr.core.Interpolation;
+import com.zcyh.mr.support.Series;
+import com.zcyh.mr.math.Interpolation;
 
 import java.io.Serializable;
 import java.time.LocalDate;

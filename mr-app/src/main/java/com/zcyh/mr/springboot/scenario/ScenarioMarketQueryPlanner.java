@@ -29,7 +29,7 @@ public class ScenarioMarketQueryPlanner {
         this(null);
     }
 
-    public ScenarioMarketQueryPlanner(com.zcyh.mr.core.Calendar holidayCalendar) {
+    public ScenarioMarketQueryPlanner(com.zcyh.mr.calendar.Calendar holidayCalendar) {
         this.rangeResolver = new ScenarioRangeResolver(holidayCalendar);
     }
 

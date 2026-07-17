@@ -82,8 +82,8 @@ public class CommDigOpt extends DigOptBase<CommDigOpt.CommDigOptInfo> {
 
     @Override
     protected double getFxRate(MarketData md) {
-        com.zcyh.mr.basic.util.Configure cfg = com.zcyh.mr.basic.util.Configure.getInstance();
-        FxSpot fxSpot = new FxSpot(cfg.getValue(com.zcyh.mr.core.Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        com.zcyh.mr.support.EngineConfiguration cfg = com.zcyh.mr.support.EngineConfiguration.getInstance();
+        FxSpot fxSpot = new FxSpot(cfg.getValue(com.zcyh.mr.support.EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         return fxSpot.getFxrate(info.currencyCode);
     }
 

@@ -5,9 +5,8 @@ import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.*;
-import com.zcyh.mr.core.Calendar;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.calendar.Calendar;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
@@ -15,6 +14,9 @@ import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
 import com.zcyh.mr.product.basic.option.EurOptUtil;
 import com.zcyh.mr.product.basic.scf.StructuredCashflow;
+import com.zcyh.mr.support.CommUtils;
+import com.zcyh.mr.support.Convert;
+import com.zcyh.mr.support.EngineConstants;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.LocalDate;
@@ -165,7 +167,7 @@ public class Swaption {
         double valuation = rate * annuityAtSwapStart * dfToSwapStart;
         SwaptionMeasure measure = new SwaptionMeasure();
         measure.valuation = Double.isFinite(valuation) ? valuation : 0.0;
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         measure.valuationCny = measure.valuation * fxSpot.getFxrate(swaptionInfo.currencyCode);
         measure.instrumentId = swaptionInfo.instrumentId;
         measure.productCode = swaptionInfo.productCode;

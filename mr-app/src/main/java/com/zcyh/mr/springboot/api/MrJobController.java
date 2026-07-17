@@ -1,20 +1,19 @@
 package com.zcyh.mr.springboot.api;
 
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.springboot.context.RequestContextHolder;
-import com.zcyh.mr.springboot.model.ApiResponse;
-import com.zcyh.mr.springboot.model.BatchDetailResult;
-import com.zcyh.mr.springboot.model.BatchExecutionResult;
-import com.zcyh.mr.springboot.model.BatchPatchRequest;
-import com.zcyh.mr.springboot.model.BatchRunRequest;
-import com.zcyh.mr.springboot.model.BatchRunResult;
-import com.zcyh.mr.springboot.model.JobDetailResult;
-import com.zcyh.mr.springboot.service.AlertService;
-import com.zcyh.mr.springboot.service.AsyncJobService;
-import com.zcyh.mr.springboot.service.AuditLogService;
-import com.zcyh.mr.springboot.service.BatchRunService;
-import com.zcyh.mr.springboot.service.BatchJobService;
-import com.zcyh.mr.springboot.out.cache.TradeInfoCacheService;
+import com.zcyh.mr.springboot.runtime.ExecutionContextHolder;
+import com.zcyh.mr.springboot.api.ApiResponse;
+import com.zcyh.mr.springboot.batch.model.BatchDetailResult;
+import com.zcyh.mr.springboot.batch.model.BatchExecutionResult;
+import com.zcyh.mr.springboot.batch.model.BatchPatchRequest;
+import com.zcyh.mr.springboot.batch.model.BatchRunRequest;
+import com.zcyh.mr.springboot.batch.model.BatchRunResult;
+import com.zcyh.mr.springboot.batch.model.JobDetailResult;
+import com.zcyh.mr.springboot.batch.AsyncJobService;
+import com.zcyh.mr.springboot.runtime.AuditLogService;
+import com.zcyh.mr.springboot.batch.BatchRunService;
+import com.zcyh.mr.springboot.batch.BatchJobService;
+import com.zcyh.mr.springboot.output.cache.TradeInfoCacheService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,7 +35,6 @@ public class MrJobController {
     private final BatchJobService batchJobService;
     private final BatchRunService batchRunService;
     private final AuditLogService auditLogService;
-    private final AlertService alertService;
     private final TradeInfoCacheService tradeInfoCacheService;
 
     public MrJobController(
@@ -44,24 +42,22 @@ public class MrJobController {
             BatchJobService batchJobService,
             BatchRunService batchRunService,
             AuditLogService auditLogService,
-            AlertService alertService,
             TradeInfoCacheService tradeInfoCacheService
     ) {
         this.asyncJobService = asyncJobService;
         this.batchJobService = batchJobService;
         this.batchRunService = batchRunService;
         this.auditLogService = auditLogService;
-        this.alertService = alertService;
         this.tradeInfoCacheService = tradeInfoCacheService;
     }
 
     @GetMapping("/{jobId}")
     public ApiResponse<JobDetailResult> detail(@PathVariable("jobId") String jobId) {
         long start = System.currentTimeMillis();
-        RequestContextHolder.setJobId(jobId);
+        ExecutionContextHolder.setJobId(jobId);
         try {
             JobDetailResult result = asyncJobService.getDetail(jobId);
-            RequestContextHolder.setEngineCode(result.getEngineCode());
+            ExecutionContextHolder.setEngineCode(result.getEngineCode());
             auditLogService.recordSuccess("JOB_DETAIL_QUERY", "JOB", jobId, result.getEngineCode(), "任务详情查询成功", System.currentTimeMillis() - start);
             return ApiResponse.ok(result);
         } catch (RuntimeException ex) {
@@ -73,15 +69,14 @@ public class MrJobController {
     @PostMapping("/{jobId}/cancel")
     public ApiResponse<JobDetailResult> cancel(@PathVariable("jobId") String jobId) {
         long start = System.currentTimeMillis();
-        RequestContextHolder.setJobId(jobId);
+        ExecutionContextHolder.setJobId(jobId);
         try {
             JobDetailResult result = asyncJobService.cancel(jobId);
-            RequestContextHolder.setEngineCode(result.getEngineCode());
+            ExecutionContextHolder.setEngineCode(result.getEngineCode());
             log.info("任务取消请求完成，jobId={}, status={}", jobId, result.getStatus());
             auditLogService.recordSuccess("JOB_CANCEL", "JOB", jobId, result.getEngineCode(), "任务取消完成", System.currentTimeMillis() - start);
             return ApiResponse.ok(result);
         } catch (RuntimeException ex) {
-            alertService.error("JOB_CANCEL_FAILED", "任务取消失败，jobId=" + jobId, ex);
             auditLogService.recordFailure("JOB_CANCEL", "JOB", jobId, null, "JOB_CANCEL_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
             throw ex;
         }
@@ -90,7 +85,7 @@ public class MrJobController {
     @GetMapping("/{jobId}/scenario-result")
     public ApiResponse<JSONObject> scenarioResult(@PathVariable("jobId") String jobId) {
         long start = System.currentTimeMillis();
-        RequestContextHolder.setJobId(jobId);
+        ExecutionContextHolder.setJobId(jobId);
         try {
             JSONObject result = asyncJobService.getScenarioPnl(jobId);
             auditLogService.recordSuccess("JOB_SCENARIO_RESULT_QUERY", "JOB", jobId, "MR_CALC", "任务情景结果查询成功", System.currentTimeMillis() - start);
@@ -104,15 +99,14 @@ public class MrJobController {
     @PostMapping("/batch/run")
     public ApiResponse<BatchRunResult> runBatch(@RequestBody BatchRunRequest request) {
         long start = System.currentTimeMillis();
-        RequestContextHolder.setBatchId(request == null ? null : request.getBatchId());
-        RequestContextHolder.setEngineCode("MR_CALC");
+        ExecutionContextHolder.setBatchId(request == null ? null : request.getBatchId());
+        ExecutionContextHolder.setEngineCode("MR_CALC");
         try {
             BatchRunResult result = batchRunService.run(request);
-            RequestContextHolder.setBatchId(result.getBatchId());
+            ExecutionContextHolder.setBatchId(result.getBatchId());
             auditLogService.recordSuccess("BATCH_RUN", "BATCH", result.getBatchId(), "MR_CALC", "批次总编排已异步启动", System.currentTimeMillis() - start);
             return ApiResponse.ok(result);
         } catch (RuntimeException ex) {
-            alertService.error("BATCH_RUN_FAILED", "批次总编排执行失败", ex);
             auditLogService.recordFailure("BATCH_RUN", "BATCH", request == null ? null : request.getBatchId(), "MR_CALC", "BATCH_RUN_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
             throw ex;
         }
@@ -121,15 +115,14 @@ public class MrJobController {
     @PostMapping("/batch/patch")
     public ApiResponse<BatchExecutionResult> patchBatch(@RequestBody BatchPatchRequest request) {
         long start = System.currentTimeMillis();
-        RequestContextHolder.setBatchId(request == null ? null : request.getBatchId());
-        RequestContextHolder.setEngineCode("MR_CALC");
+        ExecutionContextHolder.setBatchId(request == null ? null : request.getBatchId());
+        ExecutionContextHolder.setEngineCode("MR_CALC");
         try {
             BatchExecutionResult result = batchRunService.patch(request);
-            RequestContextHolder.setBatchId(result.getBatchId());
+            ExecutionContextHolder.setBatchId(result.getBatchId());
             auditLogService.recordSuccess("BATCH_PATCH", "BATCH", result.getBatchId(), result.getEngineCode(), "批量补丁提交成功", System.currentTimeMillis() - start);
             return ApiResponse.ok(result);
         } catch (RuntimeException ex) {
-            alertService.error("BATCH_PATCH_FAILED", "批量补丁提交失败", ex);
             auditLogService.recordFailure("BATCH_PATCH", "BATCH", request == null ? null : request.getBatchId(), "MR_CALC", "BATCH_PATCH_FAILED", ex.getMessage(), System.currentTimeMillis() - start);
             throw ex;
         }
@@ -138,7 +131,7 @@ public class MrJobController {
     @GetMapping("/batch/{batchId}")
     public ApiResponse<BatchDetailResult> batchDetail(@PathVariable("batchId") String batchId) {
         long start = System.currentTimeMillis();
-        RequestContextHolder.setBatchId(batchId);
+        ExecutionContextHolder.setBatchId(batchId);
         try {
             BatchDetailResult result = batchJobService.getDetail(batchId);
             auditLogService.recordSuccess("BATCH_DETAIL_QUERY", "BATCH", batchId, result.getEngineCode(), "批量详情查询成功", System.currentTimeMillis() - start);
@@ -152,7 +145,7 @@ public class MrJobController {
     @GetMapping("/batch/{batchId}/trade-info")
     public ApiResponse<JSONObject> batchTradeInfo(@PathVariable("batchId") String batchId) {
         long start = System.currentTimeMillis();
-        RequestContextHolder.setBatchId(batchId);
+        ExecutionContextHolder.setBatchId(batchId);
         try {
             JSONObject result = tradeInfoCacheService.getBatchTradeInfo(batchId);
             auditLogService.recordSuccess("BATCH_TRADE_INFO_QUERY", "BATCH", batchId, "MR_CALC", "批次交易维度快照查询成功", System.currentTimeMillis() - start);

@@ -3,16 +3,16 @@ package com.zcyh.mr.springboot.api;
 import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
 
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.springboot.context.RequestContextHolder;
-import com.zcyh.mr.springboot.model.ApiResponse;
-import com.zcyh.mr.springboot.model.EngineRunRequest;
-import com.zcyh.mr.springboot.model.EngineRunResult;
-import com.zcyh.mr.springboot.service.AlertService;
-import com.zcyh.mr.springboot.service.AsyncJobService;
-import com.zcyh.mr.springboot.service.AuditLogService;
-import com.zcyh.mr.springboot.service.EngineOrchestratorService;
-import com.zcyh.mr.springboot.out.cache.ScenarioDetailCacheService;
-import com.zcyh.mr.springboot.out.cache.VarDetailCacheService;
+import com.zcyh.mr.springboot.runtime.ExecutionContextHolder;
+import com.zcyh.mr.springboot.api.ApiResponse;
+import com.zcyh.mr.springboot.execution.MeasurementExecutionRequest;
+import com.zcyh.mr.springboot.execution.MeasurementExecutionResult;
+import com.zcyh.mr.springboot.runtime.AlertService;
+import com.zcyh.mr.springboot.batch.AsyncJobService;
+import com.zcyh.mr.springboot.runtime.AuditLogService;
+import com.zcyh.mr.springboot.execution.MeasurementExecutionService;
+import com.zcyh.mr.springboot.output.cache.ScenarioDetailCacheService;
+import com.zcyh.mr.springboot.output.cache.VarDetailCacheService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +33,7 @@ import java.util.Map;
 public class MrEngineController {
     private static final Logger log = LoggerFactory.getLogger(MrEngineController.class);
 
-    private final EngineOrchestratorService orchestratorService;
+    private final MeasurementExecutionService executionService;
     private final AsyncJobService asyncJobService;
     private final AuditLogService auditLogService;
     private final AlertService alertService;
@@ -44,14 +44,14 @@ public class MrEngineController {
     private String appName;
 
     public MrEngineController(
-            EngineOrchestratorService orchestratorService,
+            MeasurementExecutionService executionService,
             AsyncJobService asyncJobService,
             AuditLogService auditLogService,
             AlertService alertService,
             ObjectProvider<VarDetailCacheService> varDetailCacheServiceProvider,
             ObjectProvider<ScenarioDetailCacheService> scenarioDetailCacheServiceProvider
     ) {
-        this.orchestratorService = orchestratorService;
+        this.executionService = executionService;
         this.asyncJobService = asyncJobService;
         this.auditLogService = auditLogService;
         this.alertService = alertService;
@@ -72,22 +72,22 @@ public class MrEngineController {
     public ApiResponse<Map<String, Object>> readyz() {
         Map<String, Object> data = asyncJobService.readinessSnapshot();
         data.put("app", appName);
-        data.put("engines", orchestratorService.listEngines().size());
+        data.put("engines", executionService.listExecutions().size());
         return ApiResponse.ok(data);
     }
 
     @GetMapping("/api/engines")
     public ApiResponse<Object> engines() {
-        return ApiResponse.ok(orchestratorService.listEngines());
+        return ApiResponse.ok(executionService.listExecutions());
     }
 
     @PostMapping("/api/engine/run")
-    public ApiResponse<EngineRunResult> run(@RequestBody EngineRunRequest request) {
+    public ApiResponse<MeasurementExecutionResult> run(@RequestBody MeasurementExecutionRequest request) {
         long start = System.currentTimeMillis();
         String engineCode = request == null ? null : request.getEngineCode();
-        RequestContextHolder.setEngineCode(engineCode);
+        ExecutionContextHolder.setEngineCode(engineCode);
         try {
-            EngineRunResult result = orchestratorService.run(request);
+            MeasurementExecutionResult result = executionService.run(request);
             long elapsed = System.currentTimeMillis() - start;
             log.info("同步估值完成，engineCode={}, success={}, elapsedMs={}",
                     result.getEngineCode(), result.isSuccess(), elapsed);
@@ -100,7 +100,6 @@ public class MrEngineController {
             return ApiResponse.ok(result);
         } catch (RuntimeException ex) {
             long elapsed = System.currentTimeMillis() - start;
-            alertService.error("ENGINE_RUN_FAILED", "同步估值失败，engineCode=" + engineCode, ex);
             auditLogService.recordFailure("ENGINE_RUN", "ENGINE", engineCode, engineCode, "ENGINE_RUN_FAILED", ex.getMessage(), elapsed);
             throw ex;
         }
@@ -112,7 +111,7 @@ public class MrEngineController {
     @PostMapping("/api/engine/var/detail")
     public ApiResponse<Object> varDetail(@RequestBody JSONObject request) {
         if (varDetailCacheService == null) {
-            return ApiResponse.fail("CACHE_DISABLED", "VaR 维度缓存服务未启用");
+            throw ApiException.serviceUnavailable("CACHE_DISABLED", "VaR 维度缓存服务未启用");
         }
         String requestId = readRequiredField(request, "request_id");
         String quantile = readRequiredField(request, "quantile");
@@ -131,11 +130,12 @@ public class MrEngineController {
                     groupType,
                     groupValue);
         } catch (Exception ex) {
-            log.warn("读取 VaR 维度缓存失败: {}", ex.getMessage());
-            return ApiResponse.fail("CACHE_UNAVAILABLE", "VaR 维度缓存暂不可用，请稍后重试");
+            throw ApiException.serviceUnavailable(
+                    "CACHE_UNAVAILABLE", "VaR 维度缓存暂不可用，请稍后重试", ex);
         }
         if (detail == null) {
-            return ApiResponse.fail("NOT_FOUND", "未找到对应维度明细缓存，可能已过期，请重新执行 VaR 计算");
+            throw ApiException.notFound(
+                    "NOT_FOUND", "未找到对应维度明细缓存，可能已过期，请重新执行 VaR 计算");
         }
         return ApiResponse.ok(detail);
     }
@@ -146,7 +146,7 @@ public class MrEngineController {
     @PostMapping("/api/engine/scenario/list")
     public ApiResponse<Object> scenarioList(@RequestBody JSONObject request) {
         if (scenarioDetailCacheService == null) {
-            return ApiResponse.fail("CACHE_DISABLED", "情景变化明细缓存服务未启用");
+            throw ApiException.serviceUnavailable("CACHE_DISABLED", "情景变化明细缓存服务未启用");
         }
         String runId = readRequiredField(request, "run_id");
         String scenarioId = readOptionalField(request, "scenario_id");
@@ -156,10 +156,10 @@ public class MrEngineController {
         try {
             return ApiResponse.ok(scenarioDetailCacheService.listDimensions(runId, scenarioId, subScenarioId, curveType));
         } catch (IllegalArgumentException ex) {
-            return ApiResponse.fail("INVALID_ARGUMENT", ex.getMessage());
+            throw ApiException.badRequest("INVALID_ARGUMENT", ex.getMessage(), ex);
         } catch (Exception ex) {
-            log.warn("读取情景变化明细缓存维度列表失败: {}", ex.getMessage());
-            return ApiResponse.fail("CACHE_UNAVAILABLE", "情景变化明细缓存暂不可用，请稍后重试");
+            throw ApiException.serviceUnavailable(
+                    "CACHE_UNAVAILABLE", "情景变化明细缓存暂不可用，请稍后重试", ex);
         }
     }
 
@@ -169,7 +169,7 @@ public class MrEngineController {
     @PostMapping("/api/engine/scenario/detail")
     public ApiResponse<Object> scenarioDetail(@RequestBody JSONObject request) {
         if (scenarioDetailCacheService == null) {
-            return ApiResponse.fail("CACHE_DISABLED", "情景变化明细缓存服务未启用");
+            throw ApiException.serviceUnavailable("CACHE_DISABLED", "情景变化明细缓存服务未启用");
         }
         String runId = readRequiredField(request, "run_id");
         String scenarioId = readRequiredField(request, "scenario_id");
@@ -180,14 +180,17 @@ public class MrEngineController {
         try {
             JSONObject detail = scenarioDetailCacheService.getDetail(runId, scenarioId, subScenarioId, curveType, curveId);
             if (detail == null) {
-                return ApiResponse.fail("NOT_FOUND", "未找到对应情景变化明细缓存，请重新执行情景计算");
+                throw ApiException.notFound(
+                        "NOT_FOUND", "未找到对应情景变化明细缓存，请重新执行情景计算");
             }
             return ApiResponse.ok(detail);
         } catch (IllegalArgumentException ex) {
-            return ApiResponse.fail("INVALID_ARGUMENT", ex.getMessage());
+            throw ApiException.badRequest("INVALID_ARGUMENT", ex.getMessage(), ex);
+        } catch (ApiException ex) {
+            throw ex;
         } catch (Exception ex) {
-            log.warn("读取情景变化明细缓存失败: {}", ex.getMessage());
-            return ApiResponse.fail("CACHE_UNAVAILABLE", "情景变化明细缓存暂不可用，请稍后重试");
+            throw ApiException.serviceUnavailable(
+                    "CACHE_UNAVAILABLE", "情景变化明细缓存暂不可用，请稍后重试", ex);
         }
     }
 

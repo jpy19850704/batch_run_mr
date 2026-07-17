@@ -1,6 +1,6 @@
 package com.zcyh.mr.product.basic.frtb.builder;
 
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
@@ -180,9 +180,9 @@ public class CsrSensitivityBuilder extends AbstractSensitivityBuilder {
 
     private static String resolveRiskClass(String dependencyType) {
         if (FrtbDependency.TYPE_CSR_SECNCTP_DELTA.equalsIgnoreCase(dependencyType)) {
-            return Constants.FRTB.SA.RISK_CLASS.CSR_S_N_CTP;
+            return EngineConstants.FRTB.SA.RISK_CLASS.CSR_S_N_CTP;
         }
-        return Constants.FRTB.SA.RISK_CLASS.CSR_N;
+        return EngineConstants.FRTB.SA.RISK_CLASS.CSR_N;
     }
 
     private static HashMap<String, List<String>> toBucketCurveMap(List<FrtbDependency> dependencies) {

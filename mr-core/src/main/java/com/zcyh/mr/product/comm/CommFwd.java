@@ -2,9 +2,9 @@ package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.basic.util.EnginePreconditions;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.Preconditions;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
@@ -46,7 +46,7 @@ public class CommFwd {
      * @date 2024/7/10 14:52
      */
     public Measure calc() {
-        EnginePreconditions.require(dataDate != null, "dataDate must be set");
+        Preconditions.require(dataDate != null, "dataDate must be set");
         validateInputs(marketData);
         LocalDate settleDate = commFwdInfo.settleDate;
         String valuationCurrency = resolveValuationCurrency();
@@ -55,7 +55,7 @@ public class CommFwd {
         // 获取市场数据
         IrSpot irSpot = new IrSpot(marketData.irSpot.get(commFwdInfo.discountCurve));
         CommSpot commSpot = new CommSpot(marketData.commSpot.get(commFwdInfo.referenceCurve));
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         double fxRate = fxSpot.getFxrate(valuationCurrency);
 
         // 估值计量
@@ -85,7 +85,7 @@ public class CommFwd {
     }
 
     public Measure calc(MarketData marketData) {
-        EnginePreconditions.require(dataDate != null, "dataDate must be set");
+        Preconditions.require(dataDate != null, "dataDate must be set");
         validateInputs(marketData);
         LocalDate settleDate = commFwdInfo.settleDate;
         String valuationCurrency = resolveValuationCurrency();
@@ -94,7 +94,7 @@ public class CommFwd {
         // 获取市场数据
         IrSpot irSpot = new IrSpot(marketData.irSpot.get(commFwdInfo.discountCurve));
         CommSpot commSpot = new CommSpot(marketData.commSpot.get(commFwdInfo.referenceCurve));
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         double fxRate = fxSpot.getFxrate(valuationCurrency);
 
         // 估值计量
@@ -207,7 +207,7 @@ public class CommFwd {
         if (hasText(commFwdInfo.strikeCurrencyCode)) {
             return commFwdInfo.strikeCurrencyCode;
         }
-        EnginePreconditions.require(false, "currencyCode and strikeCurrencyCode cannot both be empty");
+        Preconditions.require(false, "currencyCode and strikeCurrencyCode cannot both be empty");
         return null;
     }
 
@@ -300,7 +300,7 @@ public class CommFwd {
             throw new IllegalArgumentException("市场数据缺少汇率曲线: " + currency);
         }
         try {
-            FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+            FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
             double rate = fxSpot.getFxrate(currency);
             if (!Double.isFinite(rate) || rate <= 0) {
                 throw new IllegalArgumentException("汇率无效: " + currency + "=" + rate);

@@ -1,7 +1,7 @@
 package com.zcyh.mr.product;
 
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.Series;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.Series;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.fx.FxAsian;
 import org.junit.jupiter.api.Assertions;
@@ -70,7 +70,7 @@ public class FxAsianTest {
 
     private FxAsian.FxAsianInfo buildBaseInfo(LocalDate dataDate) {
         FxAsian.FxAsianInfo info = new FxAsian.FxAsianInfo();
-        info.productCode = Constants.PRODUCT_CODE.FX_ASIAN;
+        info.productCode = EngineConstants.PRODUCT_CODE.FX_ASIAN;
         info.instrumentId = "UT_FX_ASIAN_001";
         info.callOrPut = "CALL";
         info.buyOrSell = "B";

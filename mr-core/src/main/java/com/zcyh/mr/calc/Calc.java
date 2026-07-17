@@ -10,9 +10,9 @@ import com.zcyh.mr.calc.result.ScenarioPnlService;
 import com.zcyh.mr.calc.result.ScenarioPnlResultAssembler;
 import com.zcyh.mr.calc.scenario.CalcScenarioInputResolver;
 import com.zcyh.mr.frtbima.common.LiquidityHorizonTable;
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.SystemCalendarCache;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.calendar.SystemCalendarCache;
 import com.zcyh.mr.loader.Loader;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.marketdata.curvegeneration.CurveGeneration;
@@ -62,7 +62,7 @@ public class Calc {
                 this.marketData = loader.getMarketData();
                 this.dataDate = loader.getDataDate();
                 this.rawCalcMode = loader.getCalcMode();
-                this.calcMode = Constants.CALC_MODE.PRICING;
+                this.calcMode = EngineConstants.CALC_MODE.PRICING;
                 this.frtbDisabled = readFrtbDisabled(jsonData);
                 this.calendar = loader.getCalendar();
                 this.otherData = loader.getOtherData();
@@ -81,10 +81,13 @@ public class Calc {
          * @return 包含基准估值和场景估值的 JSON 字符串
          */
         public String run() {
+                long totalStart = System.nanoTime();
                 OperModeControl.init(this.rawCalcMode);
                 FrtbCalcControl.init(this.frtbDisabled);
                 try {
+                        long phaseStart = System.nanoTime();
                         applyCurveGeneration();
+                        double curveGenerationMs = elapsedMs(phaseStart);
                         if (OperModeControl.isCurveGenerationOnly()) {
                                 return RESULT_MERGE_SERVICE.buildCurveGenerationOnlyResult(
                                                 generatedMarketData, curveGenerationErrors);
@@ -93,7 +96,9 @@ public class Calc {
                         // 先执行基准估值，并收集计算器实例与可场景复用的产品类型
                         List<ProductCalculator> cachedCalcs = new ArrayList<>();
                         Set<String> scenarioProductCodes = new LinkedHashSet<>();
+                        phaseStart = System.nanoTime();
                         String baseResult = runWithMarketData(this.marketData, cachedCalcs, scenarioProductCodes);
+                        double baseCalcMs = elapsedMs(phaseStart);
                         JSONObject baseJson = JSON.parseObject(baseResult);
                         JSONObject dataObj = baseJson.getJSONObject("data");
                         if (dataObj != null) {
@@ -105,7 +110,12 @@ public class Calc {
                                         ? Collections.emptyList()
                                         : scenarioDataList;
                         if (scenarioEntries.isEmpty()) {
-                                return baseJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
+                                phaseStart = System.nanoTime();
+                                String output = baseJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
+                                logPerformance(scenarioProductCodes, 0, curveGenerationMs, baseCalcMs,
+                                                0.0d, 0.0d, 0.0d, 0.0d, 0.0d,
+                                                elapsedMs(phaseStart), elapsedMs(totalStart));
+                                return output;
                         }
 
                         // 筛选支持场景复用的计算器
@@ -116,6 +126,7 @@ public class Calc {
                                 return baseResult;
                         }
 
+                        long scenarioPrepareStart = System.nanoTime();
                         JSONArray baseTrades = SCENARIO_PNL_SERVICE.buildEffectiveBaseTrades(
                                         dataObj.getJSONArray("trade_data"),
                                         dataObj.getJSONArray("log_data"),
@@ -129,13 +140,19 @@ public class Calc {
                         Map<String, Set<String>> perTradeImpactKeys = RiskFactorMatcher.buildPerTradeKeys(this.trades, rfIndex);
                         Map<String, Set<String>> factorToTradeIds = RiskFactorMatcher.buildFactorToTradeIndex(
                                         perTradeImpactKeys);
+                        double scenarioPrepareMs = elapsedMs(scenarioPrepareStart);
 
                         JSONArray scenarioResults = new JSONArray();
+                        long impactNanos = 0L;
+                        long marketUpdateNanos = 0L;
+                        long scenarioCalcNanos = 0L;
+                        long pnlNanos = 0L;
+                        long assembleNanos = 0L;
                         for (Loader.ScenarioEntry entry : scenarioEntries) {
+                                long stepStart = System.nanoTime();
                                 RiskFactorMatcher.ScenarioImpactResolution impactResolution =
                                                 RiskFactorMatcher.resolveScenarioKeys(
                                                         entry == null ? null : entry.impactKeys, rfIndex);
-
                                 // 逐笔交易判断是否受场景影响
                                 Set<String> affectedIds = RiskFactorMatcher.resolveAffectedTradeIdsFast(
                                                 factorToTradeIds, impactResolution);
@@ -143,39 +160,90 @@ public class Calc {
                                         affectedIds = RiskFactorMatcher.resolveAffectedTradeIds(
                                                         perTradeImpactKeys, impactResolution);
                                 }
+                                impactNanos += System.nanoTime() - stepStart;
 
                                 // 无任何交易受影响 → 整个场景 PnL=0
                                 if (affectedIds != null && affectedIds.isEmpty()) {
+                                        stepStart = System.nanoTime();
                                         scenarioResults.add(SCENARIO_PNL_RESULT_ASSEMBLER.assemble(
                                                         entry,
                                                         SCENARIO_PNL_SERVICE.buildZeroPnlResults(
                                                                         baseTrades, unsupportedScenarioProducts),
                                                         RESULT_KIND_SCENARIO));
+                                        assembleNanos += System.nanoTime() - stepStart;
                                         continue;
                                 }
 
+                                stepStart = System.nanoTime();
                                 MarketData scenMarket = MarketData.updateMarketData(this.marketData, entry.marketData);
+                                marketUpdateNanos += System.nanoTime() - stepStart;
                                 // 汇总当前场景下的交易结果（仅重估受影响的交易）
+                                stepStart = System.nanoTime();
                                 JSONArray scenTradeResults = new JSONArray();
                                 for (ProductCalculator sc : scenarioCalcs) {
                                         scenTradeResults.addAll(sc.calcScenario(scenMarket, affectedIds));
                                 }
+                                scenarioCalcNanos += System.nanoTime() - stepStart;
 
                                 // 按 INSTRUMENT_ID 对齐基准与场景结果并计算 PnL
+                                stepStart = System.nanoTime();
                                 JSONArray pnlResults = SCENARIO_PNL_SERVICE.buildPnlResults(
                                                 baseTradeIndex, scenTradeResults, unsupportedScenarioProducts,
                                                 affectedIds);
+                                pnlNanos += System.nanoTime() - stepStart;
 
+                                stepStart = System.nanoTime();
                                 scenarioResults.add(SCENARIO_PNL_RESULT_ASSEMBLER.assemble(
                                                 entry, pnlResults, RESULT_KIND_SCENARIO));
+                                assembleNanos += System.nanoTime() - stepStart;
                         }
 
                         dataObj.put("scenario_result", scenarioResults);
-                        return baseJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
+                        phaseStart = System.nanoTime();
+                        String output = baseJson.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
+                        logPerformance(scenarioProductCodes, scenarioEntries.size(), curveGenerationMs, baseCalcMs,
+                                        scenarioPrepareMs, nanosToMs(impactNanos), nanosToMs(marketUpdateNanos),
+                                        nanosToMs(scenarioCalcNanos), nanosToMs(pnlNanos + assembleNanos),
+                                        elapsedMs(phaseStart), elapsedMs(totalStart));
+                        return output;
                 } finally {
                         OperModeControl.clear();
                         FrtbCalcControl.clear();
                 }
+        }
+
+        private void logPerformance(Set<String> productCodes,
+                                    int scenarioCount,
+                                    double curveGenerationMs,
+                                    double baseCalcMs,
+                                    double scenarioPrepareMs,
+                                    double impactResolveMs,
+                                    double marketUpdateMs,
+                                    double scenarioCalcMs,
+                                    double pnlAssembleMs,
+                                    double serializationMs,
+                                    double totalMs) {
+                log.info("Calc性能统计: batchId={}, seqNo={}, products={}, tradeCount={}, scenarioCount={}, "
+                                + "curveGenerationMs={}, baseCalcMs={}, scenarioPrepareMs={}, impactResolveMs={}, "
+                                + "marketUpdateMs={}, scenarioCalcMs={}, pnlAssembleMs={}, serializationMs={}, totalMs={}",
+                                batchMetaValue("batch_id"), batchMetaValue("seq_no"), productCodes,
+                                trades == null ? 0 : trades.size(), scenarioCount, curveGenerationMs, baseCalcMs,
+                                scenarioPrepareMs, impactResolveMs, marketUpdateMs, scenarioCalcMs,
+                                pnlAssembleMs, serializationMs, totalMs);
+        }
+
+        private Object batchMetaValue(String fieldName) {
+                JSONObject payload = JSON.parseObject(rawJsonData);
+                JSONObject batchMeta = payload == null ? null : payload.getJSONObject("batch_meta");
+                return batchMeta == null ? null : batchMeta.get(fieldName);
+        }
+
+        private static double elapsedMs(long startNanos) {
+                return nanosToMs(System.nanoTime() - startNanos);
+        }
+
+        private static double nanosToMs(long nanos) {
+                return nanos / 1_000_000.0d;
         }
 
         private static boolean readFrtbDisabled(String jsonData) {

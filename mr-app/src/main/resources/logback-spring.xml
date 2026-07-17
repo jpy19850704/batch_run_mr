@@ -201,7 +201,7 @@
         <appender-ref ref="ERROR_FILE"/>
         <appender-ref ref="SCENARIO_FILE"/>
     </logger>
-    <logger name="com.zcyh.mr.springboot.engine.ScenarioEngineAdapter" level="INFO" additivity="false">
+    <logger name="com.zcyh.mr.springboot.scenario.ScenarioExecutionAdapter" level="INFO" additivity="false">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="APP_FILE"/>
         <appender-ref ref="ERROR_FILE"/>
@@ -287,7 +287,7 @@
     </logger>
 
     <!-- FRTB SA 分类：适配器 + 查询/计算/落库 -->
-    <logger name="com.zcyh.mr.springboot.engine.FrtbSaEngineAdapter" level="INFO" additivity="false">
+    <logger name="com.zcyh.mr.springboot.measurement.frtb.FrtbSaExecutionAdapter" level="INFO" additivity="false">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="APP_FILE"/>
         <appender-ref ref="ERROR_FILE"/>
@@ -314,7 +314,7 @@
     </logger>
 
     <!-- FRTB DRC 分类：适配器 + 查询/计算/汇总/落库 -->
-    <logger name="com.zcyh.mr.springboot.engine.FrtbDrcEngineAdapter" level="INFO" additivity="false">
+    <logger name="com.zcyh.mr.springboot.measurement.frtb.FrtbDrcExecutionAdapter" level="INFO" additivity="false">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="APP_FILE"/>
         <appender-ref ref="ERROR_FILE"/>
@@ -347,7 +347,7 @@
     </logger>
 
     <!-- VaR 分类：适配器 + 查询/计算/缓存/落库 -->
-    <logger name="com.zcyh.mr.springboot.engine.VarEngineAdapter" level="INFO" additivity="false">
+    <logger name="com.zcyh.mr.springboot.measurement.var.VarExecutionAdapter" level="INFO" additivity="false">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="APP_FILE"/>
         <appender-ref ref="ERROR_FILE"/>

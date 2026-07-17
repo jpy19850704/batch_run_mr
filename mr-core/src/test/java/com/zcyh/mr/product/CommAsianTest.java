@@ -1,7 +1,7 @@
 package com.zcyh.mr.product;
 
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.Series;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.Series;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.comm.CommAsian;
 import org.junit.jupiter.api.Assertions;
@@ -46,7 +46,7 @@ public class CommAsianTest {
 
     private CommAsian.CommAsianInfo buildBaseInfo(LocalDate dataDate) {
         CommAsian.CommAsianInfo info = new CommAsian.CommAsianInfo();
-        info.productCode = Constants.PRODUCT_CODE.COMM_ASIAN;
+        info.productCode = EngineConstants.PRODUCT_CODE.COMM_ASIAN;
         info.instrumentId = "UT_COMM_ASIAN_001";
         info.callOrPut = "CALL";
         info.buyOrSell = "B";

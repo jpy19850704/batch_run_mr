@@ -1,7 +1,7 @@
 package com.zcyh.mr.springboot.config;
 
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,12 +14,15 @@ public class MrCoreRuntimeConfig {
     public MrCoreRuntimeConfig(
             @Value("${mr.fx.base-currency:CNY}") String fxBaseCurrency,
             @Value("${mr.fx-spot.base-currency:USD}") String fxSpotBaseCurrency,
-            @Value("${mr.frtb.fx-sensitivity-shock-cny:true}") String fxSensitivityShockCny) {
-        Configure configure = Configure.getInstance();
-        configure.setValue(Constants.CFG.FX_BASE_CODE, normalizeCurrency(fxBaseCurrency, "CNY"));
-        configure.setValue(Constants.CFG.FX_SPOT_BASE_CODE, normalizeCurrency(fxSpotBaseCurrency, "USD"));
-        configure.setValue(Constants.CFG.FRTB_FX_SENSITIVITY_SHOCK_CNY,
-                normalizeBoolean(fxSensitivityShockCny, true));
+            @Value("${mr.frtb.fx-sensitivity-shock-cny:true}") String fxSensitivityShockCny,
+            @Value("${mr.vv.non-negative-floor-enabled:false}") String vvNonNegativeFloorEnabled) {
+        EngineConfiguration configure = EngineConfiguration.getInstance();
+        configure.setValue(EngineConstants.CFG.FX_BASE_CODE, normalizeCurrency(fxBaseCurrency, "CNY"));
+        configure.setValue(EngineConstants.CFG.FX_SPOT_BASE_CODE, normalizeCurrency(fxSpotBaseCurrency, "USD"));
+        configure.setValue(EngineConstants.CFG.FRTB_FX_SENSITIVITY_SHOCK_CNY,
+                normalizeBoolean(fxSensitivityShockCny, "mr.frtb.fx-sensitivity-shock-cny"));
+        configure.setValue(EngineConstants.CFG.VV_NON_NEGATIVE_FLOOR_ENABLED,
+                normalizeBoolean(vvNonNegativeFloorEnabled, "mr.vv.non-negative-floor-enabled"));
     }
 
     private String normalizeCurrency(String currency, String defaultCurrency) {
@@ -29,14 +32,11 @@ public class MrCoreRuntimeConfig {
         return currency.trim().toUpperCase();
     }
 
-    private String normalizeBoolean(String value, boolean defaultValue) {
-        if (value == null || value.trim().isEmpty()) {
-            return Boolean.toString(defaultValue);
-        }
-        String normalized = value.trim().toLowerCase();
+    private String normalizeBoolean(String value, String propertyName) {
+        String normalized = value == null ? "" : value.trim().toLowerCase();
         if ("true".equals(normalized) || "false".equals(normalized)) {
             return normalized;
         }
-        return Boolean.toString(defaultValue);
+        throw new IllegalArgumentException("布尔配置缺失或非法: " + propertyName);
     }
 }

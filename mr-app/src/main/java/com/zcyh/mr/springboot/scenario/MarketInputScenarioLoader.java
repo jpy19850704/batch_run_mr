@@ -1,11 +1,11 @@
 package com.zcyh.mr.springboot.scenario;
 
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.scenario.model.ScenarioDefinition;
 import com.zcyh.mr.scenario.model.ScenarioMarketSeries;
 import com.zcyh.mr.springboot.scenario.mapper.ScenarioMapper;
-import com.zcyh.mr.springboot.service.AlertService;
+import com.zcyh.mr.springboot.runtime.AlertService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,20 +34,20 @@ public class MarketInputScenarioLoader {
 
     public MarketInputScenarioLoader(
             ScenarioMapper scenarioMapper,
-            com.zcyh.mr.core.Calendar holidayCalendar) {
+            com.zcyh.mr.calendar.Calendar holidayCalendar) {
         this(scenarioMapper, holidayCalendar, null, resolveDefaultFxSpotBaseCurrency());
     }
 
     public MarketInputScenarioLoader(
             ScenarioMapper scenarioMapper,
-            com.zcyh.mr.core.Calendar holidayCalendar,
+            com.zcyh.mr.calendar.Calendar holidayCalendar,
             AlertService alertService) {
         this(scenarioMapper, holidayCalendar, alertService, resolveDefaultFxSpotBaseCurrency());
     }
 
     public MarketInputScenarioLoader(
             ScenarioMapper scenarioMapper,
-            com.zcyh.mr.core.Calendar holidayCalendar,
+            com.zcyh.mr.calendar.Calendar holidayCalendar,
             AlertService alertService,
             String fxSpotBaseCurrency) {
         if (scenarioMapper == null) {
@@ -208,7 +208,7 @@ public class MarketInputScenarioLoader {
     }
 
     private static String resolveDefaultFxSpotBaseCurrency() {
-        String value = Configure.getInstance().getValue(Constants.CFG.FX_SPOT_BASE_CODE);
+        String value = EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_SPOT_BASE_CODE);
         if (value == null || value.trim().isEmpty()) {
             return "USD";
         }

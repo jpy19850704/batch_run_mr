@@ -10,11 +10,11 @@ import com.zcyh.mr.product.basic.frtb.MeasureValuation;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.basic.util.ReflectionUtils;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.ReflectionUtils;
 import com.zcyh.mr.calc.FrtbCalcControl;
-import com.zcyh.mr.core.*;
-import com.zcyh.mr.core.Calendar;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.marketdata.CurveFunc;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
@@ -23,6 +23,9 @@ import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.scf.StructuredCashflow;
 import com.zcyh.mr.product.ir.Bond;
+import com.zcyh.mr.support.CommUtils;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.TradeJsonUtil;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.LocalDate;
@@ -47,7 +50,7 @@ public class Trs implements FrtbDrcInterface {
         this.dataDate = dataDate;
         this.trsInfo = trsInfo;
         this.cal = calendar;
-        this.udData = TradeJsonUtil.mergeTrade(udData, Constants.PRODUCT_CODE.TRS, "UNDERLYING_DATA");
+        this.udData = TradeJsonUtil.mergeTrade(udData, EngineConstants.PRODUCT_CODE.TRS, "UNDERLYING_DATA");
         this.marketData = marketData;
     }
 
@@ -166,7 +169,7 @@ public class Trs implements FrtbDrcInterface {
             LinkedList<StructuredCashflow.Cashflow> fundingCashflows = fundingScf.getCashflowList();
 
             // FX汇率：标的币种 → 融资币种（CURRENCY_CODE）
-            FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE),
+            FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE),
                     marketData.fxSpot);
             double fxRateUnderlyingToBase = fxSpot.getFxrate(trsInfo.underlyingCurrencyCode);
             double fxRateFundingToBase = fxSpot.getFxrate(trsInfo.currencyCode);
@@ -448,7 +451,7 @@ public class Trs implements FrtbDrcInterface {
         if (!bondInfo.isDrcEnabled()) {
             return null;
         }
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         double fxRateUnderlying = fxSpot.getFxrate(trsInfo.underlyingCurrencyCode);
         double fxRateFunding = fxSpot.getFxrate(trsInfo.currencyCode);
         // JTD基于标的币种名义本金，需将融资币种估值还原到标的币种

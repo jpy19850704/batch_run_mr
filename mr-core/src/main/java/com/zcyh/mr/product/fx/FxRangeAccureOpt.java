@@ -2,8 +2,8 @@ package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.structure.RangeAccureOptBase;
@@ -65,7 +65,7 @@ public class FxRangeAccureOpt extends RangeAccureOptBase<FxRangeAccureOpt.FxRang
 
     @Override
     protected double getSpotPrice(MarketData md) {
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         return fxSpot.getFxrate(resolveBaseCurrency(), resolveUnderlyingCurrency());
     }
 

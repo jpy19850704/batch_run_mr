@@ -1,6 +1,6 @@
 package com.zcyh.mr.product.basic.mc;
 
-import com.zcyh.mr.core.Convert;
+import com.zcyh.mr.support.Convert;
 import com.zcyh.mr.marketdata.FxVol;
 import com.zcyh.mr.marketdata.VolUtil;
 import org.junit.jupiter.api.Test;

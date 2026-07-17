@@ -1,7 +1,7 @@
 package com.zcyh.mr.marketdata.support;
 
-import com.zcyh.mr.core.CommUtils;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.CommUtils;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
 import com.zcyh.mr.marketdata.*;
 
@@ -70,19 +70,19 @@ public final class VegaShockSupport {
             MarketData marketData,
             String riskFactorClass,
             String volatilitySurface) {
-        if (Constants.FRTB.SA.RISK_CLASS.GIRR.equalsIgnoreCase(riskFactorClass)) {
+        if (EngineConstants.FRTB.SA.RISK_CLASS.GIRR.equalsIgnoreCase(riskFactorClass)) {
             IrVol.IrVolInfo info = marketData.irVol.get(volatilitySurface);
             return info == null ? null : info.curveData;
         }
-        if (Constants.FRTB.SA.RISK_CLASS.FXR.equalsIgnoreCase(riskFactorClass)) {
+        if (EngineConstants.FRTB.SA.RISK_CLASS.FXR.equalsIgnoreCase(riskFactorClass)) {
             FxVol.FxVolInfo info = marketData.fxVol.get(volatilitySurface);
             return info == null ? null : info.curveData;
         }
-        if (Constants.FRTB.SA.RISK_CLASS.ER.equalsIgnoreCase(riskFactorClass)) {
+        if (EngineConstants.FRTB.SA.RISK_CLASS.ER.equalsIgnoreCase(riskFactorClass)) {
             EqVol.EqVolInfo info = marketData.eqVol.get(volatilitySurface);
             return info == null ? null : info.curveData;
         }
-        if (Constants.FRTB.SA.RISK_CLASS.CR.equalsIgnoreCase(riskFactorClass)) {
+        if (EngineConstants.FRTB.SA.RISK_CLASS.CR.equalsIgnoreCase(riskFactorClass)) {
             CommVol.CommVolInfo info = marketData.commVol.get(volatilitySurface);
             return info == null ? null : info.curveData;
         }
@@ -94,7 +94,7 @@ public final class VegaShockSupport {
             String riskFactorClass,
             String volatilitySurface,
             List<Map<String, Object>> shockCurveData) {
-        if (Constants.FRTB.SA.RISK_CLASS.GIRR.equalsIgnoreCase(riskFactorClass)) {
+        if (EngineConstants.FRTB.SA.RISK_CLASS.GIRR.equalsIgnoreCase(riskFactorClass)) {
             IrVol.IrVolInfo info = marketData.irVol.get(volatilitySurface);
             if (info == null) {
                 return false;
@@ -102,7 +102,7 @@ public final class VegaShockSupport {
             info.shockCurveData = shockCurveData;
             return true;
         }
-        if (Constants.FRTB.SA.RISK_CLASS.FXR.equalsIgnoreCase(riskFactorClass)) {
+        if (EngineConstants.FRTB.SA.RISK_CLASS.FXR.equalsIgnoreCase(riskFactorClass)) {
             FxVol.FxVolInfo info = marketData.fxVol.get(volatilitySurface);
             if (info == null) {
                 return false;
@@ -110,7 +110,7 @@ public final class VegaShockSupport {
             info.shockCurveData = shockCurveData;
             return true;
         }
-        if (Constants.FRTB.SA.RISK_CLASS.ER.equalsIgnoreCase(riskFactorClass)) {
+        if (EngineConstants.FRTB.SA.RISK_CLASS.ER.equalsIgnoreCase(riskFactorClass)) {
             EqVol.EqVolInfo info = marketData.eqVol.get(volatilitySurface);
             if (info == null) {
                 return false;
@@ -118,7 +118,7 @@ public final class VegaShockSupport {
             info.shockCurveData = shockCurveData;
             return true;
         }
-        if (Constants.FRTB.SA.RISK_CLASS.CR.equalsIgnoreCase(riskFactorClass)) {
+        if (EngineConstants.FRTB.SA.RISK_CLASS.CR.equalsIgnoreCase(riskFactorClass)) {
             CommVol.CommVolInfo info = marketData.commVol.get(volatilitySurface);
             if (info == null) {
                 return false;
@@ -134,7 +134,7 @@ public final class VegaShockSupport {
             String riskFactorClass) {
         Map<String, String> rules = new HashMap<>();
         rules.put("OPTION_TERM", "VERTEX1");
-        if (Constants.FRTB.SA.RISK_CLASS.GIRR.equalsIgnoreCase(riskFactorClass)) {
+        if (EngineConstants.FRTB.SA.RISK_CLASS.GIRR.equalsIgnoreCase(riskFactorClass)) {
             rules.put("UNDERLYING_TERM", "VERTEX2");
         } else {
             rules.put("DELTA", "VERTEX2");
@@ -151,7 +151,7 @@ public final class VegaShockSupport {
             String riskFactorClass) {
         Map<String, String> rules = new HashMap<>();
         rules.put("VERTEX1", "OPTION_TERM");
-        if (Constants.FRTB.SA.RISK_CLASS.GIRR.equalsIgnoreCase(riskFactorClass)) {
+        if (EngineConstants.FRTB.SA.RISK_CLASS.GIRR.equalsIgnoreCase(riskFactorClass)) {
             rules.put("VERTEX2", "UNDERLYING_TERM");
         } else {
             rules.put("VERTEX2", "DELTA");
@@ -164,7 +164,7 @@ public final class VegaShockSupport {
     }
 
     private static String resolveVegaRiskFactorType(String riskFactorClass) {
-        if (Constants.FRTB.SA.RISK_CLASS.ER.equalsIgnoreCase(riskFactorClass)) {
+        if (EngineConstants.FRTB.SA.RISK_CLASS.ER.equalsIgnoreCase(riskFactorClass)) {
             return "Spot";
         }
         return "";

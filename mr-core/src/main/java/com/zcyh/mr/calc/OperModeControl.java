@@ -1,6 +1,6 @@
 package com.zcyh.mr.calc;
 
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConstants;
 
 /**
  * 统一 calc_mode 模式控制：
@@ -31,7 +31,7 @@ public final class OperModeControl {
     }
 
     public static String executionMode() {
-        return Constants.CALC_MODE.PRICING;
+        return EngineConstants.CALC_MODE.PRICING;
     }
 
     private static Mode resolve(String calcMode) {
@@ -39,10 +39,10 @@ public final class OperModeControl {
             return Mode.PRICING;
         }
         String mode = calcMode.trim();
-        if (Constants.CALC_MODE.CURVE_GENERATION.equalsIgnoreCase(mode)) {
+        if (EngineConstants.CALC_MODE.CURVE_GENERATION.equalsIgnoreCase(mode)) {
             return Mode.CURVE_GENERATION;
         }
-        if (mode.isEmpty() || Constants.CALC_MODE.PRICING.equalsIgnoreCase(mode)) {
+        if (mode.isEmpty() || EngineConstants.CALC_MODE.PRICING.equalsIgnoreCase(mode)) {
             return Mode.PRICING;
         }
         throw new IllegalArgumentException("calc_mode 仅支持 PRICING 或 CURVE_GENERATION: " + calcMode);

@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.basic.frtb;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
 
 import java.time.LocalDate;
@@ -22,13 +22,13 @@ public interface FrtbDrcInterface {
         String drcType, drcBucket;
         double rw = 0;
         if (param.absFlag) {
-            drcType = Constants.FRTB.DRC.JTD_S_N_CTP;
+            drcType = EngineConstants.FRTB.DRC.JTD_S_N_CTP;
             drcBucket = param.frtbSecnctpDrcType;
             rw = Objects.isNull(param.frtbSecnctpDrcRw)
                     ? FrtbParamsCache.getDrcSecnctpDefaultRiskWeight()
                     : param.frtbSecnctpDrcRw;
         } else {
-            drcType = Constants.FRTB.DRC.JTD_N;
+            drcType = EngineConstants.FRTB.DRC.JTD_N;
             drcBucket = param.frtbNsecDrcBucket;
             rw = FrtbParamsCache.getDrcNonSecRiskWeight(param.issuerRating);
         }

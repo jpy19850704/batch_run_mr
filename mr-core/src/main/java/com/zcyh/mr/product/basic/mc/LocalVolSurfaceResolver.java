@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.basic.mc;
 
-import com.zcyh.mr.core.Convert;
-import com.zcyh.mr.core.Interpolation;
+import com.zcyh.mr.support.Convert;
+import com.zcyh.mr.math.Interpolation;
 import com.zcyh.mr.marketdata.CommVol;
 import com.zcyh.mr.marketdata.EqVol;
 import com.zcyh.mr.marketdata.FxVol;

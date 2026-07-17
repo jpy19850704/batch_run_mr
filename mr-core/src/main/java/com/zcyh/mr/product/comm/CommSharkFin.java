@@ -2,8 +2,8 @@ package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.CommSpot;
 import com.zcyh.mr.marketdata.CommVol;
 import com.zcyh.mr.marketdata.FxSpot;
@@ -55,7 +55,7 @@ public class CommSharkFin extends SharkFinBase<CommSharkFin.CommSharkFinInfo, Co
     protected MarketContext buildMarketContext(MarketData marketData, int days, double t) {
         MarketContext ctx = new MarketContext();
 
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         IrSpot irSpot = new IrSpot(marketData.irSpot.get(info.discountCurve));
         CommSpot commSpot = new CommSpot(marketData.commSpot.get(info.referenceCurve));
         CommVol commVol = new CommVol(marketData.commVol.get(info.volatilitySurface));

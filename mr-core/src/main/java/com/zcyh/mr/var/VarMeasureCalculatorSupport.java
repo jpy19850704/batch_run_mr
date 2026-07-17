@@ -215,9 +215,7 @@ abstract class VarMeasureCalculatorSupport {
         if (n == 0) {
             throw new IllegalArgumentException("VaR 样本为空，无法计算 ES");
         }
-        BigDecimal tail = BigDecimal.ONE.subtract(quantile);
-        int idxOut = clampIndex(tail.multiply(BigDecimal.valueOf(n - 1L)).setScale(0, RoundingMode.FLOOR).intValue(), n);
-        int count = idxOut + 1;
+        int count = VarCalculator.calculateOutRank(n, quantile);
         List<VarScenarioKey> tailScenarioKeys = new ArrayList<VarScenarioKey>();
         for (int i = 0; i < count; i++) {
             tailScenarioKeys.add(sorted.get(i).getKey());
@@ -303,14 +301,6 @@ abstract class VarMeasureCalculatorSupport {
             return BigDecimal.ZERO;
         }
         return aggregate.readByColumn(pnlColumn);
-    }
-
-    private static int clampIndex(int idx, int size) {
-        if (idx < 0) {
-            return 0;
-        }
-        int max = size - 1;
-        return Math.min(idx, max);
     }
 
     private static boolean sameSubScenario(String left, String right) {

@@ -1,7 +1,7 @@
 package com.zcyh.mr.springboot.scenario;
 
 import com.zcyh.mr.scenario.model.ScenarioMarketSeries;
-import com.zcyh.mr.springboot.service.AlertService;
+import com.zcyh.mr.springboot.runtime.AlertService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

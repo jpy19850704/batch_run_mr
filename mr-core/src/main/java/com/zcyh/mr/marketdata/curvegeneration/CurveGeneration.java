@@ -2,8 +2,8 @@ package com.zcyh.mr.marketdata.curvegeneration;
 
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.Series;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.support.Series;
 import com.zcyh.mr.marketdata.FxVol;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;

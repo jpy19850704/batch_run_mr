@@ -1,6 +1,6 @@
 package com.zcyh.mr.product.basic.frtb.builder;
 
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.common.Measure;
@@ -166,7 +166,7 @@ public class CmtySensitivityBuilder extends AbstractSensitivityBuilder {
         List<FrtbMarketData> vegaShocks = MarketData.getFrtbMarketDataListVegaTenor(
                 marketData,
                 dataDate,
-                Constants.FRTB.SA.RISK_CLASS.CR,
+                EngineConstants.FRTB.SA.RISK_CLASS.CR,
                 vegaDependency.curveOrRiskFactor);
         for (FrtbMarketData vegaShock : vegaShocks) {
             if (vegaShock == null || vegaShock.marketData == null) {

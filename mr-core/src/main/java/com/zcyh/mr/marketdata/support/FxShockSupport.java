@@ -1,7 +1,7 @@
 package com.zcyh.mr.marketdata.support;
 
-import com.zcyh.mr.core.CommUtils;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.CommUtils;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
 import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.FxSpot;
@@ -47,7 +47,7 @@ public final class FxShockSupport {
             frtbMarketData.marketData.fxSpot = fxSpotNew;
             frtbMarketData.riskFactorId = riskCurrency + "/CNY";
             frtbMarketData.riskFactorVertex1 = "";
-            frtbMarketData.riskFactorClass = Constants.FRTB.SA.RISK_CLASS.FXR;
+            frtbMarketData.riskFactorClass = EngineConstants.FRTB.SA.RISK_CLASS.FXR;
             frtbMarketData.riskFactorBucket = riskCurrency;
             frtbMarketData.riskFactorType = "";
             frtbMarketData.sensitivityType = "Delta";
@@ -94,7 +94,7 @@ public final class FxShockSupport {
 
             frtbMarketDataUp.riskFactorId = riskCurrency + "/CNY";
             frtbMarketDataUp.riskFactorVertex1 = "";
-            frtbMarketDataUp.riskFactorClass = Constants.FRTB.SA.RISK_CLASS.FXR;
+            frtbMarketDataUp.riskFactorClass = EngineConstants.FRTB.SA.RISK_CLASS.FXR;
             frtbMarketDataUp.riskFactorBucket = riskCurrency;
             frtbMarketDataUp.riskFactorType = "";
             frtbMarketDataUp.sensitivityType = "Curvature Up";
@@ -104,7 +104,7 @@ public final class FxShockSupport {
 
             frtbMarketDataDown.riskFactorId = riskCurrency + "/CNY";
             frtbMarketDataDown.riskFactorVertex1 = "";
-            frtbMarketDataDown.riskFactorClass = Constants.FRTB.SA.RISK_CLASS.FXR;
+            frtbMarketDataDown.riskFactorClass = EngineConstants.FRTB.SA.RISK_CLASS.FXR;
             frtbMarketDataDown.riskFactorBucket = riskCurrency;
             frtbMarketDataDown.sensitivityType = "Curvature Down";
             frtbMarketDataDown.riskFactorType = "";

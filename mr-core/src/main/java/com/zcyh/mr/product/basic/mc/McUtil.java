@@ -1,6 +1,6 @@
 package com.zcyh.mr.product.basic.mc;
 
-import com.zcyh.mr.core.SobolRandomEngine;
+import com.zcyh.mr.math.SobolRandomEngine;
 
 public class McUtil {
 

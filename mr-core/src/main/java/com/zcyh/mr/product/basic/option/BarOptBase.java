@@ -2,8 +2,8 @@ package com.zcyh.mr.product.basic.option;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.marketdata.VolUtil;
@@ -148,11 +148,8 @@ public abstract class BarOptBase<I extends BarOptBase.BarOptBaseInfo> {
      * VV 开启时统一读取非负兜底开关。
      */
     private boolean isNonNegativeFloorEnabled() {
-        String value = Configure.getInstance().getValue(Constants.CFG.NON_NEGATIVE_FLOOR_ENABLED);
-        if (value == null || value.trim().isEmpty()) {
-            return true;
-        }
-        return Boolean.parseBoolean(value.trim());
+        return EngineConfiguration.getInstance()
+                .getRequiredBoolean(EngineConstants.CFG.VV_NON_NEGATIVE_FLOOR_ENABLED);
     }
 
     /**
@@ -206,12 +203,12 @@ public abstract class BarOptBase<I extends BarOptBase.BarOptBaseInfo> {
             return 0.2;
         }
         Double[] deltas = volCur.stream()
-                .map(e -> com.zcyh.mr.core.Convert.toDouble(e.get("DELTA")))
+                .map(e -> com.zcyh.mr.support.Convert.toDouble(e.get("DELTA")))
                 .toArray(Double[]::new);
         Double[] vols = volCur.stream()
-                .map(e -> com.zcyh.mr.core.Convert.toDouble(e.get("VOLATILITY_RATE")))
+                .map(e -> com.zcyh.mr.support.Convert.toDouble(e.get("VOLATILITY_RATE")))
                 .toArray(Double[]::new);
-        double sigma = com.zcyh.mr.core.Interpolation.interpolate(deltas, vols, 0.5,
+        double sigma = com.zcyh.mr.math.Interpolation.interpolate(deltas, vols, 0.5,
                 VolUtil.requireAxis2InterpolateType(volCur));
         return Double.isFinite(sigma) && sigma > 0.0 ? sigma : 0.2;
     }

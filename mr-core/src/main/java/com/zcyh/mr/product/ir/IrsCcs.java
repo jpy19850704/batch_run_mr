@@ -1,10 +1,10 @@
 package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.CommUtils;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.support.CommUtils;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
@@ -206,7 +206,7 @@ public class IrsCcs {
         snapshot.recValue = valueRec;
         int units = -1; // pay端-1，rec端1省略
         snapshot.payValue = valuePay * units;
-        FxSpot spot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot spot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         snapshot.spotPay = spot.getFxrate(irsCcsInfo.payCurrencyCode);
         snapshot.spotRec = spot.getFxrate(irsCcsInfo.recCurrencyCode);
         measure.instrumentId = irsCcsInfo.instrumentId;

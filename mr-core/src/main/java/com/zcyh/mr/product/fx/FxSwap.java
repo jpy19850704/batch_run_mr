@@ -1,9 +1,9 @@
 package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.basic.util.EnginePreconditions;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.Preconditions;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
@@ -41,7 +41,7 @@ public class FxSwap {
      * 外汇掉期计量。
      */
     public FxSwapMeasure calc() {
-        EnginePreconditions.require(dataDate != null, "dataDate must be set");
+        Preconditions.require(dataDate != null, "dataDate must be set");
 
         FxSwapMeasure result = calc(marketData);
         String uCurrency = fxSwapInfo.underlyingCurrencyCode;
@@ -93,7 +93,7 @@ public class FxSwap {
      * 外汇掉期计量。
      */
     public FxSwapMeasure calc(MarketData newMarketData) {
-        EnginePreconditions.require(dataDate != null, "dataDate must be set");
+        Preconditions.require(dataDate != null, "dataDate must be set");
         validateInputs(newMarketData);
 
         LocalDate spotSettleDate = fxSwapInfo.spotSettleDate;
@@ -101,7 +101,7 @@ public class FxSwap {
 
         IrSpot uIrSpot = new IrSpot(newMarketData.irSpot.get(fxSwapInfo.underlyingDiscountCurve));
         IrSpot bIrSpot = new IrSpot(newMarketData.irSpot.get(fxSwapInfo.baseDiscountCurve));
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), newMarketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), newMarketData.fxSpot);
 
         String uCurrency = fxSwapInfo.underlyingCurrencyCode;
         String bCurrency = fxSwapInfo.baseCurrencyCode;

@@ -2,8 +2,8 @@ package com.zcyh.mr.loader;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
 
@@ -77,7 +77,7 @@ public class MarketDataLoader {
             }
 
             JSONArray curveData = marketJson.getJSONArray("CURVE_DATA");
-            if (Constants.RF_TYPE.FX_SPOT.equals(curveType)) {
+            if (EngineConstants.RF_TYPE.FX_SPOT.equals(curveType)) {
                 firstFxContainer = spotProcessor.processFxSpot(
                         target, firstFxContainer, marketJson, curveData, curveType);
                 continue;
@@ -99,22 +99,22 @@ public class MarketDataLoader {
             return;
         }
 
-        if (Constants.RF_TYPE.IR_SPOT.equals(curveType)
-                || Constants.RF_TYPE.CREDIT_SPOT.equals(curveType)) {
+        if (EngineConstants.RF_TYPE.IR_SPOT.equals(curveType)
+                || EngineConstants.RF_TYPE.CREDIT_SPOT.equals(curveType)) {
             spotProcessor.processIrSpot(target, marketJson, curveData, curveType);
-        } else if (Constants.RF_TYPE.FIXING.equals(curveType)) {
+        } else if (EngineConstants.RF_TYPE.FIXING.equals(curveType)) {
             fixingProcessor.process(target, marketJson, curveData, curveType);
-        } else if (Constants.RF_TYPE.COMM_SPOT.equals(curveType)) {
+        } else if (EngineConstants.RF_TYPE.COMM_SPOT.equals(curveType)) {
             spotProcessor.processCommSpot(target, marketJson, curveData, curveType);
-        } else if (Constants.RF_TYPE.EQ_SPOT.equals(curveType)) {
+        } else if (EngineConstants.RF_TYPE.EQ_SPOT.equals(curveType)) {
             spotProcessor.processEqSpot(target, marketJson, curveData, curveType);
-        } else if (Constants.RF_TYPE.COMM_VOL.equals(curveType)) {
+        } else if (EngineConstants.RF_TYPE.COMM_VOL.equals(curveType)) {
             volProcessor.processCommVol(target, marketJson, curveData, curveType);
-        } else if (Constants.RF_TYPE.FX_VOL.equals(curveType)) {
+        } else if (EngineConstants.RF_TYPE.FX_VOL.equals(curveType)) {
             volProcessor.processFxVol(target, marketJson, curveData, curveType);
-        } else if (Constants.RF_TYPE.IR_VOL.equals(curveType)) {
+        } else if (EngineConstants.RF_TYPE.IR_VOL.equals(curveType)) {
             volProcessor.processIrVol(target, marketJson, curveData, curveType);
-        } else if (Constants.RF_TYPE.EQ_VOL.equals(curveType)) {
+        } else if (EngineConstants.RF_TYPE.EQ_VOL.equals(curveType)) {
             volProcessor.processEqVol(target, marketJson, curveData, curveType);
         } else {
             validationCollector.error(curveType, curveId == null ? "" : curveId, "不支持的 CURVE_TYPE");
@@ -122,10 +122,10 @@ public class MarketDataLoader {
     }
 
     private boolean isVolType(String curveType) {
-        return Constants.RF_TYPE.FX_VOL.equals(curveType)
-                || Constants.RF_TYPE.IR_VOL.equals(curveType)
-                || Constants.RF_TYPE.EQ_VOL.equals(curveType)
-                || Constants.RF_TYPE.COMM_VOL.equals(curveType);
+        return EngineConstants.RF_TYPE.FX_VOL.equals(curveType)
+                || EngineConstants.RF_TYPE.IR_VOL.equals(curveType)
+                || EngineConstants.RF_TYPE.EQ_VOL.equals(curveType)
+                || EngineConstants.RF_TYPE.COMM_VOL.equals(curveType);
     }
 
     /**
@@ -151,7 +151,7 @@ public class MarketDataLoader {
     }
 
     private static String resolveDefaultFxSpotBaseCurrency() {
-        String value = Configure.getInstance().getValue(Constants.CFG.FX_SPOT_BASE_CODE);
+        String value = EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_SPOT_BASE_CODE);
         if (value == null || value.trim().isEmpty()) {
             return "USD";
         }

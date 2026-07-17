@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.basic.mc;
 
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.CommSpot;
 import com.zcyh.mr.marketdata.CommVol;
 import com.zcyh.mr.marketdata.EqSpot;
@@ -124,7 +124,7 @@ public final class McPricingContext {
 
     private static void initFxFactors(McPricingContext ctx, GenericMcInfo input,
             MarketData marketData, LocalDate dataDate) {
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         IrSpot baseIrSpot = new IrSpot(marketData.irSpot.get(input.baseDiscountCurve));
         IrSpot underlyingIrSpot = new IrSpot(marketData.irSpot.get(input.underlyingDiscountCurve));
         FxVol fxVol = new FxVol(marketData.fxVol.get(input.volatilitySurface));
@@ -141,7 +141,7 @@ public final class McPricingContext {
 
     private static void initEqFactors(McPricingContext ctx, GenericMcInfo input,
             MarketData marketData, LocalDate dataDate) {
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         EqSpot eqSpot = new EqSpot(marketData.eqSpot.get(input.referenceCurve));
         EqVol eqVol = new EqVol(marketData.eqVol.get(input.volatilitySurface));
         ctx.spot = eqSpot.fwdPrice(dataDate);
@@ -157,7 +157,7 @@ public final class McPricingContext {
 
     private static void initCommFactors(McPricingContext ctx, GenericMcInfo input,
             MarketData marketData, LocalDate dataDate) {
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         CommSpot commSpot = new CommSpot(marketData.commSpot.get(input.referenceCurve));
         CommVol commVol = new CommVol(marketData.commVol.get(input.volatilitySurface));
         ctx.spot = commSpot.fwdPrice(dataDate);

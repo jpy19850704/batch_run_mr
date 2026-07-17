@@ -1,7 +1,7 @@
 package com.zcyh.mr.product;
 
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.ir.CapFloor;
 import com.zcyh.mr.product.ir.Swaption;
@@ -97,7 +97,7 @@ public class IrOptionInputValidationTest {
         CapFloor.CapFloorInfo info = new CapFloor.CapFloorInfo();
         info.instrumentId = "UT_CAPFLOOR_001";
         info.capOrFloor = "CAP";
-        info.productCode = Constants.PRODUCT_CODE.CAPFLOOR;
+        info.productCode = EngineConstants.PRODUCT_CODE.CAPFLOOR;
         info.buyOrSell = "B";
         info.currencyCode = "USD";
         info.notional = 1_000_000.0;
@@ -114,7 +114,7 @@ public class IrOptionInputValidationTest {
 
     private Swaption.SwaptionInfo buildMaturedSwaptionInfo() {
         Swaption.SwaptionInfo info = new Swaption.SwaptionInfo();
-        info.productCode = Constants.PRODUCT_CODE.SWAPTION;
+        info.productCode = EngineConstants.PRODUCT_CODE.SWAPTION;
         info.instrumentId = "UT_SWAPTION_001";
         info.callOrPut = "CALL";
         info.buyOrSell = "B";

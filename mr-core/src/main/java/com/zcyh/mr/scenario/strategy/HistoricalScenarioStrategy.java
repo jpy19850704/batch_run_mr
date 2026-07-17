@@ -1,6 +1,6 @@
 package com.zcyh.mr.scenario.strategy;
 
-import com.zcyh.mr.core.SystemCalendarCache;
+import com.zcyh.mr.calendar.SystemCalendarCache;
 import com.zcyh.mr.scenario.ScenarioRangeResolver;
 import com.zcyh.mr.scenario.model.ScenarioDefinition;
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
@@ -42,10 +42,10 @@ public class HistoricalScenarioStrategy implements ScenarioStrategy {
     private static final int BATCH_SIZE = 40;
 
     private final HistoryDataCompleter dataCompleter;
-    private final com.zcyh.mr.core.Calendar holidayCalendar;
+    private final com.zcyh.mr.calendar.Calendar holidayCalendar;
     private final ScenarioRangeResolver rangeResolver;
 
-    public HistoricalScenarioStrategy(com.zcyh.mr.core.Calendar holidayCalendar) {
+    public HistoricalScenarioStrategy(com.zcyh.mr.calendar.Calendar holidayCalendar) {
         this.dataCompleter = new HistoryDataCompleter();
         this.holidayCalendar = SystemCalendarCache.resolve(holidayCalendar);
         this.rangeResolver = new ScenarioRangeResolver(this.holidayCalendar);

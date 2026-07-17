@@ -1,6 +1,6 @@
 package com.zcyh.mr.calc;
 
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.MarketData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,13 +56,13 @@ public final class RiskFactorMatcher {
             return index;
         }
         registerIrSpotKeys(index, md);
-        registerTypedKeys(index, Constants.RF_TYPE.IR_VOL, md.irVol == null ? null : md.irVol.keySet());
-        registerTypedKeys(index, Constants.RF_TYPE.EQ_SPOT, md.eqSpot == null ? null : md.eqSpot.keySet());
-        registerTypedKeys(index, Constants.RF_TYPE.EQ_VOL, md.eqVol == null ? null : md.eqVol.keySet());
-        registerTypedKeys(index, Constants.RF_TYPE.FX_VOL, md.fxVol == null ? null : md.fxVol.keySet());
-        registerTypedKeys(index, Constants.RF_TYPE.COMM_SPOT, md.commSpot == null ? null : md.commSpot.keySet());
-        registerTypedKeys(index, Constants.RF_TYPE.COMM_VOL, md.commVol == null ? null : md.commVol.keySet());
-        registerTypedKeys(index, Constants.RF_TYPE.FIXING, md.fixingRate == null ? null : md.fixingRate.keySet());
+        registerTypedKeys(index, EngineConstants.RF_TYPE.IR_VOL, md.irVol == null ? null : md.irVol.keySet());
+        registerTypedKeys(index, EngineConstants.RF_TYPE.EQ_SPOT, md.eqSpot == null ? null : md.eqSpot.keySet());
+        registerTypedKeys(index, EngineConstants.RF_TYPE.EQ_VOL, md.eqVol == null ? null : md.eqVol.keySet());
+        registerTypedKeys(index, EngineConstants.RF_TYPE.FX_VOL, md.fxVol == null ? null : md.fxVol.keySet());
+        registerTypedKeys(index, EngineConstants.RF_TYPE.COMM_SPOT, md.commSpot == null ? null : md.commSpot.keySet());
+        registerTypedKeys(index, EngineConstants.RF_TYPE.COMM_VOL, md.commVol == null ? null : md.commVol.keySet());
+        registerTypedKeys(index, EngineConstants.RF_TYPE.FIXING, md.fixingRate == null ? null : md.fixingRate.keySet());
         registerFxSpotKeys(index, md);
         return index;
     }
@@ -234,8 +234,8 @@ public final class RiskFactorMatcher {
             if (info == null || info.curveType == null) {
                 continue;
             }
-            if (Constants.RF_TYPE.IR_SPOT.equals(info.curveType)
-                    || Constants.RF_TYPE.CREDIT_SPOT.equals(info.curveType)) {
+            if (EngineConstants.RF_TYPE.IR_SPOT.equals(info.curveType)
+                    || EngineConstants.RF_TYPE.CREDIT_SPOT.equals(info.curveType)) {
                 registerTypedKeys(index, info.curveType, Collections.singleton(entry.getKey()));
             }
         }
@@ -250,18 +250,18 @@ public final class RiskFactorMatcher {
         if (md == null || md.fxSpot == null || md.fxSpot.curveData == null || md.fxSpot.curveData.isEmpty()) {
             return;
         }
-        registerAlias(index, Constants.RF_TYPE.FX_SPOT, Constants.RF_TYPE.FX_SPOT);
+        registerAlias(index, EngineConstants.RF_TYPE.FX_SPOT, EngineConstants.RF_TYPE.FX_SPOT);
         for (String ccyPair : md.fxSpot.curveData.keySet()) {
             String pair = normalize(ccyPair);
             if (pair.isEmpty()) {
                 continue;
             }
-            registerAlias(index, pair, Constants.RF_TYPE.FX_SPOT);
-            registerAlias(index, canonicalKey(Constants.RF_TYPE.FX_SPOT, pair), Constants.RF_TYPE.FX_SPOT);
+            registerAlias(index, pair, EngineConstants.RF_TYPE.FX_SPOT);
+            registerAlias(index, canonicalKey(EngineConstants.RF_TYPE.FX_SPOT, pair), EngineConstants.RF_TYPE.FX_SPOT);
             String[] parts = pair.split("/");
             for (String part : parts) {
                 if (!part.isEmpty() && !"CNY".equals(part)) {
-                    registerAlias(index, part, Constants.RF_TYPE.FX_SPOT);
+                    registerAlias(index, part, EngineConstants.RF_TYPE.FX_SPOT);
                 }
             }
         }

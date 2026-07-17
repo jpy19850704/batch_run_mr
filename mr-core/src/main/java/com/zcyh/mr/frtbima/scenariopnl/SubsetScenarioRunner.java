@@ -1,7 +1,7 @@
 package com.zcyh.mr.frtbima.scenariopnl;
 
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.core.Series;
+import com.zcyh.mr.support.Series;
 import com.zcyh.mr.frtbima.common.ImaConstants;
 import com.zcyh.mr.frtbima.common.LiquidityHorizonTable;
 import com.zcyh.mr.loader.Loader;

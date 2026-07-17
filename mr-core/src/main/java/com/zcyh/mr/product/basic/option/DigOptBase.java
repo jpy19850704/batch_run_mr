@@ -2,8 +2,8 @@ package com.zcyh.mr.product.basic.option;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
@@ -102,11 +102,8 @@ public abstract class DigOptBase<I extends DigOptBase.DigOptBaseInfo> {
      * VV 开启时统一读取非负兜底开关。
      */
     private boolean isNonNegativeFloorEnabled() {
-        String value = Configure.getInstance().getValue(Constants.CFG.NON_NEGATIVE_FLOOR_ENABLED);
-        if (value == null || value.trim().isEmpty()) {
-            return true;
-        }
-        return Boolean.parseBoolean(value.trim());
+        return EngineConfiguration.getInstance()
+                .getRequiredBoolean(EngineConstants.CFG.VV_NON_NEGATIVE_FLOOR_ENABLED);
     }
 
     /**

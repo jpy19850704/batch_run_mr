@@ -2,8 +2,8 @@ package com.zcyh.mr.marketdata.curvegeneration;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.JsonNumberUtils;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.JsonNumberUtils;
 
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -45,7 +45,7 @@ public final class CurveGenerationExport {
             }
             CurveGeneration.IrCurve first = points.get(0);
             JSONObject curve = new JSONObject();
-            curve.put("CURVE_TYPE", Constants.RF_TYPE.IR_SPOT);
+            curve.put("CURVE_TYPE", EngineConstants.RF_TYPE.IR_SPOT);
             curve.put("CURVE_ID", first.curveId);
             if (first.dataDate != null) {
                 curve.put("DATA_DATE", first.dataDate.format(BASIC_DATE));
@@ -81,7 +81,7 @@ public final class CurveGenerationExport {
             }
             CurveGeneration.DeltaTermVol first = points.get(0);
             JSONObject curve = new JSONObject();
-            curve.put("CURVE_TYPE", Constants.RF_TYPE.FX_VOL);
+            curve.put("CURVE_TYPE", EngineConstants.RF_TYPE.FX_VOL);
             curve.put("CURVE_ID", first.curveId);
             if (first.dataDate != null) {
                 curve.put("DATA_DATE", first.dataDate.format(BASIC_DATE));

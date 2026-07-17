@@ -4,9 +4,9 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.JsonNumberUtils;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.JsonNumberUtils;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.common.Measure;
 
@@ -70,7 +70,7 @@ public abstract class AbstractCalc implements ProductCalculator {
      * 遍历交易列表执行基准估值，统一处理异常
      */
     private void calculateTrades() {
-        if (Constants.CALC_MODE.PRICING.equalsIgnoreCase(operCode)) {
+        if (EngineConstants.CALC_MODE.PRICING.equalsIgnoreCase(operCode)) {
             for (HashMap<String, Object> t : trades) {
                 try {
                     calcTrade(t);

@@ -5,10 +5,9 @@ import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.basic.util.ReflectionUtils;
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.*;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.ReflectionUtils;
+import com.zcyh.mr.calendar.Calendar;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
@@ -16,6 +15,8 @@ import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
 import com.zcyh.mr.product.basic.option.EurOptUtil;
 import com.zcyh.mr.product.basic.scf.StructuredCashflow;
+import com.zcyh.mr.support.CommUtils;
+import com.zcyh.mr.support.EngineConstants;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.LocalDate;
@@ -126,7 +127,7 @@ public class CapFloor {
         measure.instrumentId = capFloorInfo.instrumentId;
         measure.cashFlow = cashFlowCapFloors;
         measure.cashFlowList = buildBaseCashFlowList(cashFlowCapFloors, marketData);
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         measure.valuationCny = capValue * fxSpot.getFxrate(capFloorInfo.currencyCode);/*结果按汇率转换*/
         this.cashflowList = cashflows;
         return measure;

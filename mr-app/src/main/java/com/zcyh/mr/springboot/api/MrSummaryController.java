@@ -1,19 +1,18 @@
 package com.zcyh.mr.springboot.api;
 
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.springboot.context.RequestContextHolder;
-import com.zcyh.mr.springboot.model.ApiResponse;
-import com.zcyh.mr.springboot.model.FrtbDrcSummaryRequest;
-import com.zcyh.mr.springboot.model.FrtbSbaSummaryRequest;
-import com.zcyh.mr.springboot.model.RuleSummaryRequest;
-import com.zcyh.mr.springboot.model.VarSummaryRequest;
-import com.zcyh.mr.springboot.service.AlertService;
-import com.zcyh.mr.springboot.service.AuditLogService;
-import com.zcyh.mr.springboot.service.FrtbDrcSummaryService;
-import com.zcyh.mr.springboot.service.FrtbRraoResultService;
-import com.zcyh.mr.springboot.service.FrtbSbaSummaryService;
-import com.zcyh.mr.springboot.service.ImaCapitalSummaryService;
-import com.zcyh.mr.springboot.service.VarSummaryService;
+import com.zcyh.mr.springboot.runtime.ExecutionContextHolder;
+import com.zcyh.mr.springboot.api.ApiResponse;
+import com.zcyh.mr.springboot.measurement.frtb.FrtbDrcSummaryRequest;
+import com.zcyh.mr.springboot.measurement.frtb.FrtbSbaSummaryRequest;
+import com.zcyh.mr.springboot.measurement.RuleSummaryRequest;
+import com.zcyh.mr.springboot.measurement.var.VarSummaryRequest;
+import com.zcyh.mr.springboot.runtime.AuditLogService;
+import com.zcyh.mr.springboot.measurement.frtb.FrtbDrcSummaryService;
+import com.zcyh.mr.springboot.measurement.frtb.FrtbRraoResultService;
+import com.zcyh.mr.springboot.measurement.frtb.FrtbSbaSummaryService;
+import com.zcyh.mr.springboot.measurement.ima.ImaCapitalSummaryService;
+import com.zcyh.mr.springboot.measurement.var.VarSummaryService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,22 +33,19 @@ public class MrSummaryController {
     private final VarSummaryService varSummaryService;
     private final ImaCapitalSummaryService imaCapitalSummaryService;
     private final AuditLogService auditLogService;
-    private final AlertService alertService;
 
     public MrSummaryController(FrtbSbaSummaryService frtbSbaSummaryService,
                                FrtbDrcSummaryService frtbDrcSummaryService,
                                FrtbRraoResultService frtbRraoResultService,
                                VarSummaryService varSummaryService,
                                ImaCapitalSummaryService imaCapitalSummaryService,
-                               AuditLogService auditLogService,
-                               AlertService alertService) {
+                               AuditLogService auditLogService) {
         this.frtbSbaSummaryService = frtbSbaSummaryService;
         this.frtbDrcSummaryService = frtbDrcSummaryService;
         this.frtbRraoResultService = frtbRraoResultService;
         this.varSummaryService = varSummaryService;
         this.imaCapitalSummaryService = imaCapitalSummaryService;
         this.auditLogService = auditLogService;
-        this.alertService = alertService;
     }
 
     @PostMapping("/frtb/sba")
@@ -90,8 +86,8 @@ public class MrSummaryController {
     private ApiResponse<Object> executeSummary(String batchId, String engineCode,
             String operationCode, String displayName, Supplier<JSONObject> summaryAction) {
         long start = System.currentTimeMillis();
-        RequestContextHolder.setBatchId(batchId);
-        RequestContextHolder.setEngineCode(engineCode);
+        ExecutionContextHolder.setBatchId(batchId);
+        ExecutionContextHolder.setEngineCode(engineCode);
         try {
             JSONObject result = summaryAction.get();
             auditLogService.recordSuccess(
@@ -104,7 +100,6 @@ public class MrSummaryController {
             return ApiResponse.ok(result);
         } catch (RuntimeException ex) {
             String errorCode = operationCode + "_FAILED";
-            alertService.error(errorCode, displayName + " 汇总失败，batchId=" + batchId, ex);
             auditLogService.recordFailure(
                     operationCode,
                     "SUMMARY",

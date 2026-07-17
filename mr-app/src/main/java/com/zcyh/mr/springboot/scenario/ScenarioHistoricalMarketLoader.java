@@ -18,7 +18,7 @@ public class ScenarioHistoricalMarketLoader {
 
     public ScenarioHistoricalMarketLoader(
             ScenarioMapper scenarioMapper,
-            com.zcyh.mr.core.Calendar holidayCalendar) {
+            com.zcyh.mr.calendar.Calendar holidayCalendar) {
         if (scenarioMapper == null) {
             throw new IllegalArgumentException("scenarioMapper 不能为空");
         }

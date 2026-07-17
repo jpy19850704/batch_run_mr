@@ -1,8 +1,8 @@
 package com.zcyh.mr.marketdata;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +29,7 @@ public class FxSpot implements Serializable {
     private String fxSpotBaseCurrency;
 
     public FxSpot(String baseCurrency, FxSpotInfo fxSpotInfos) {
-        this(baseCurrency, fxSpotInfos, Configure.getInstance().getValue(Constants.CFG.FX_SPOT_BASE_CODE));
+        this(baseCurrency, fxSpotInfos, EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_SPOT_BASE_CODE));
     }
 
     public FxSpot(String baseCurrency, FxSpotInfo fxSpotInfos, String fxSpotBaseCurrency) {

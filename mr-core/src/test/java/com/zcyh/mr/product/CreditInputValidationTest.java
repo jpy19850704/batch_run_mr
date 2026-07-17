@@ -2,8 +2,8 @@ package com.zcyh.mr.product;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.structure.RangeAccureOptBase;
@@ -87,7 +87,7 @@ public class CreditInputValidationTest {
     private Trs.TrsInfo buildTrsInfo() {
         Trs.TrsInfo info = new Trs.TrsInfo();
         info.instrumentId = "UT_TRS_001";
-        info.productCode = Constants.PRODUCT_CODE.TRS;
+        info.productCode = EngineConstants.PRODUCT_CODE.TRS;
         info.buyOrSell = "B";
         info.startDate = DATA_DATE.plusDays(1);
         info.maturityDate = DATA_DATE.plusYears(1);

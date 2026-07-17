@@ -7,22 +7,26 @@ import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.basic.util.ReflectionUtils;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.ReflectionUtils;
 import com.zcyh.mr.calc.FrtbCalcControl;
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.*;
+import com.zcyh.mr.calendar.Calendar;
 import com.zcyh.mr.marketdata.FrtbMarketData;
+import com.zcyh.mr.marketdata.CurveFunc;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.math.Newton;
 import com.zcyh.mr.math.Ops;
+import com.zcyh.mr.math.Interpolation;
 import com.zcyh.mr.product.basic.common.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
 import com.zcyh.mr.product.basic.scf.StructuredCashflow;
+import com.zcyh.mr.support.CommUtils;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.Series;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.LocalDate;
@@ -126,8 +130,8 @@ public class Bond implements FrtbDrcInterface {
         double value = calculatePresentValue(scenarioMd, cashflows);
 
         // 构建 Measure
-        FxSpot fxSpot = new FxSpot(Configure.getInstance()
-                .getValue(Constants.CFG.FX_BASE_CODE), scenarioMd.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance()
+                .getValue(EngineConstants.CFG.FX_BASE_CODE), scenarioMd.fxSpot);
         BondMeasure measure = new BondMeasure();
         double positionTrade = bondInfo.positionTrade;
         measure.instrumentId = bondInfo.instrumentId;
@@ -149,8 +153,8 @@ public class Bond implements FrtbDrcInterface {
 
         Double value = calculatePresentValue(md, cashflows);
 
-        FxSpot fxSpot = new FxSpot(Configure.getInstance()
-                .getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance()
+                .getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
 
         BondMeasure bondMeasure = new BondMeasure();
         double positionTrade = bondInfo.positionTrade;
@@ -339,8 +343,8 @@ public class Bond implements FrtbDrcInterface {
         }
         FrtbDrcInterface.Param param = ReflectionUtils.bean2Bean(bondInfo, FrtbDrcInterface.Param.class);
         DrcDetail drcDetail = this.getDrc(param, dataDate, bondMeasure.valuation);
-        double fxRate = new FxSpot(Configure.getInstance()
-                .getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot).getFxrate(bondInfo.currencyCode);
+        double fxRate = new FxSpot(EngineConfiguration.getInstance()
+                .getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot).getFxrate(bondInfo.currencyCode);
         drcDetail.jtdCny *= fxRate;
         drcDetail.instrumentValue *= fxRate;
         return drcDetail;

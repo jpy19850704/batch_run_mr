@@ -2,9 +2,9 @@ package com.zcyh.mr.product.basic.structure;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.Convert;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.Convert;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
@@ -167,7 +167,7 @@ public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccur
             throw new IllegalArgumentException("NOTIONAL 必须为非负有限数: " + rangeAccureInfo.notional);
         }
         String valuationCurrency = getValuationCurrency();
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         try {
             double fx = fxSpot.getFxrate(valuationCurrency);
             if (!Double.isFinite(fx) || fx <= 0) {
@@ -257,7 +257,7 @@ public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccur
      * 估值币种金额转人民币金额。
      */
     protected double toCnyByValuationCurrency(double value) {
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         return value * fxSpot.getFxrate(getValuationCurrency());
     }
 
@@ -768,7 +768,7 @@ public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccur
         }
         middle.newSigma = false;
         measure.valuation = measure.valuationUnit * pos;
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         measure.spotPrice = s;
         measure.fwdPrice = (fwd != null) ? fwd : s;
         measure.valuationCcy = getValuationCurrency();

@@ -1,11 +1,14 @@
 package com.zcyh.mr.product.basic.scf;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.core.*;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.calendar.CashflowUtils;
+import com.zcyh.mr.marketdata.CurveFunc;
 import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.support.CommUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;

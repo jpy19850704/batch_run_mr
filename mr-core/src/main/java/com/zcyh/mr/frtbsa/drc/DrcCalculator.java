@@ -1,7 +1,7 @@
 package com.zcyh.mr.frtbsa.drc;
 
 import com.zcyh.mr.product.basic.frtb.DrcDetail;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -238,7 +238,7 @@ public class DrcCalculator {
         if (validDetails.isEmpty()) {
             return new TypeResult(new ArrayList<>(), new ArrayList<>());
         }
-        if (Constants.FRTB.DRC.JTD_S_CTP.equalsIgnoreCase(securityType)) {
+        if (EngineConstants.FRTB.DRC.JTD_S_CTP.equalsIgnoreCase(securityType)) {
             return doCalculateCtp(validDetails);
         }
         return doCalculateStandard(validDetails);
@@ -343,7 +343,7 @@ public class DrcCalculator {
     // ==================== 计算步骤 ====================
 
     private static String normalizeSecurityId(String securityType, String securityId) {
-        return Constants.FRTB.DRC.JTD_S_N_CTP.equalsIgnoreCase(securityType) ? securityId : null;
+        return EngineConstants.FRTB.DRC.JTD_S_N_CTP.equalsIgnoreCase(securityType) ? securityId : null;
     }
 
     private static List<StandardGroupMetrics> calcStandardGroupMetrics(Map<RiskFactorKey, Double> netJtdMap) {

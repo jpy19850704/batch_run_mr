@@ -2,7 +2,7 @@ package com.zcyh.mr.calc;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.core.Calendar;
+import com.zcyh.mr.calendar.Calendar;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.common.Measure;
 

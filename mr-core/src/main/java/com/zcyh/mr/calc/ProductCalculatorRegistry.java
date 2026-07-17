@@ -1,8 +1,9 @@
 package com.zcyh.mr.calc;
 
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.calc.product.*;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.MarketData;
 
 import java.time.LocalDate;
@@ -52,99 +53,99 @@ public final class ProductCalculatorRegistry {
 
     private static Map<String, CalcFactory> buildRegistry() {
         Map<String, CalcFactory> registry = new LinkedHashMap<>();
-        registry.put(Constants.PRODUCT_CODE.COMMFWD,
+        registry.put(EngineConstants.PRODUCT_CODE.COMMFWD,
                 (op, dt, tr, md, cal, oth) -> new CommFwdCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.COMMSWAP,
+        registry.put(EngineConstants.PRODUCT_CODE.COMMSWAP,
                 (op, dt, tr, md, cal, oth) -> new CommSwapCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.BOND,
+        registry.put(EngineConstants.PRODUCT_CODE.BOND,
                 (op, dt, tr, md, cal, oth) -> new BondCalc(op, dt, tr, md, cal));
-        registry.put(Constants.PRODUCT_CODE.WILLOW_BOND,
+        registry.put(EngineConstants.PRODUCT_CODE.WILLOW_BOND,
                 (op, dt, tr, md, cal, oth) -> new WillowBondCalc(op, dt, tr, md, cal));
-        registry.put(Constants.PRODUCT_CODE.FXFWD,
+        registry.put(EngineConstants.PRODUCT_CODE.FXFWD,
                 (op, dt, tr, md, cal, oth) -> new FxFwdCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.FXSWAP,
+        registry.put(EngineConstants.PRODUCT_CODE.FXSWAP,
                 (op, dt, tr, md, cal, oth) -> new FxSwapCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.COMMOPT,
+        registry.put(EngineConstants.PRODUCT_CODE.COMMOPT,
                 (op, dt, tr, md, cal, oth) -> new CommOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.IRSCCS,
+        registry.put(EngineConstants.PRODUCT_CODE.IRSCCS,
                 (op, dt, tr, md, cal, oth) -> new IrsCcsCalc(op, dt, tr, md, cal));
-        registry.put(Constants.PRODUCT_CODE.CAPFLOOR,
+        registry.put(EngineConstants.PRODUCT_CODE.CAPFLOOR,
                 (op, dt, tr, md, cal, oth) -> new CapFloorCalc(op, dt, tr, md, cal));
-        registry.put(Constants.PRODUCT_CODE.FXOPT,
+        registry.put(EngineConstants.PRODUCT_CODE.FXOPT,
                 (op, dt, tr, md, cal, oth) -> new FxVanillaOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.FX_ASIAN,
+        registry.put(EngineConstants.PRODUCT_CODE.FX_ASIAN,
                 (op, dt, tr, md, cal, oth) -> new FxAsianCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.EQ_ASIAN,
+        registry.put(EngineConstants.PRODUCT_CODE.EQ_ASIAN,
                 (op, dt, tr, md, cal, oth) -> new EqAsianCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.COMM_ASIAN,
+        registry.put(EngineConstants.PRODUCT_CODE.COMM_ASIAN,
                 (op, dt, tr, md, cal, oth) -> new CommAsianCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.AUTO_CALL,
+        registry.put(EngineConstants.PRODUCT_CODE.AUTO_CALL,
                 (op, dt, tr, md, cal, oth) -> new GenericMcCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.COMPOSITE,
+        registry.put(EngineConstants.PRODUCT_CODE.COMPOSITE,
                 (op, dt, tr, md, cal, oth) -> new CompositeCalc(op, dt, tr, md, cal, oth));
-        registry.put(Constants.PRODUCT_CODE.FX_SPREADOPT,
+        registry.put(EngineConstants.PRODUCT_CODE.FX_SPREADOPT,
                 (op, dt, tr, md, cal, oth) -> new FxSpreadOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.EQ_SPREADOPT,
+        registry.put(EngineConstants.PRODUCT_CODE.EQ_SPREADOPT,
                 (op, dt, tr, md, cal, oth) -> new EqSpreadOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.COMM_SPREADOPT,
+        registry.put(EngineConstants.PRODUCT_CODE.COMM_SPREADOPT,
                 (op, dt, tr, md, cal, oth) -> new CommSpreadOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.IR_SPREADOPT,
+        registry.put(EngineConstants.PRODUCT_CODE.IR_SPREADOPT,
                 (op, dt, tr, md, cal, oth) -> new IrSpreadOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.IR_BARRIER,
+        registry.put(EngineConstants.PRODUCT_CODE.IR_BARRIER,
                 (op, dt, tr, md, cal, oth) -> new IrBarOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.EQ_BARRIER,
+        registry.put(EngineConstants.PRODUCT_CODE.EQ_BARRIER,
                 (op, dt, tr, md, cal, oth) -> new EqBarOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.FX_BARRIER,
+        registry.put(EngineConstants.PRODUCT_CODE.FX_BARRIER,
                 (op, dt, tr, md, cal, oth) -> new FxBarOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.COMM_BARRIER,
+        registry.put(EngineConstants.PRODUCT_CODE.COMM_BARRIER,
                 (op, dt, tr, md, cal, oth) -> new CommBarOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.IR_DIGITAL,
+        registry.put(EngineConstants.PRODUCT_CODE.IR_DIGITAL,
                 (op, dt, tr, md, cal, oth) -> new IrDigOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.EQ_DIGITAL,
+        registry.put(EngineConstants.PRODUCT_CODE.EQ_DIGITAL,
                 (op, dt, tr, md, cal, oth) -> new EqDigOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.FX_DIGITAL,
+        registry.put(EngineConstants.PRODUCT_CODE.FX_DIGITAL,
                 (op, dt, tr, md, cal, oth) -> new FxDigOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.COMM_DIGITAL,
+        registry.put(EngineConstants.PRODUCT_CODE.COMM_DIGITAL,
                 (op, dt, tr, md, cal, oth) -> new CommDigOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.FX_WEDDING_CAKE,
+        registry.put(EngineConstants.PRODUCT_CODE.FX_WEDDING_CAKE,
                 (op, dt, tr, md, cal, oth) -> new FxWeddingCakeCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.EQ_WEDDING_CAKE,
+        registry.put(EngineConstants.PRODUCT_CODE.EQ_WEDDING_CAKE,
                 (op, dt, tr, md, cal, oth) -> new EqWeddingCakeCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.COMM_WEDDING_CAKE,
+        registry.put(EngineConstants.PRODUCT_CODE.COMM_WEDDING_CAKE,
                 (op, dt, tr, md, cal, oth) -> new CommWeddingCakeCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.IR_WEDDING_CAKE,
+        registry.put(EngineConstants.PRODUCT_CODE.IR_WEDDING_CAKE,
                 (op, dt, tr, md, cal, oth) -> new IrWeddingCakeCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.EQ_SHARKFIN,
+        registry.put(EngineConstants.PRODUCT_CODE.EQ_SHARKFIN,
                 (op, dt, tr, md, cal, oth) -> new EqSharkFinCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.COMM_SHARKFIN,
+        registry.put(EngineConstants.PRODUCT_CODE.COMM_SHARKFIN,
                 (op, dt, tr, md, cal, oth) -> new CommSharkFinCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.IR_SHARKFIN,
+        registry.put(EngineConstants.PRODUCT_CODE.IR_SHARKFIN,
                 (op, dt, tr, md, cal, oth) -> new IrSharkFinCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.SWAPTION,
+        registry.put(EngineConstants.PRODUCT_CODE.SWAPTION,
                 (op, dt, tr, md, cal, oth) -> new SwaptionCalc(op, dt, tr, md, cal));
-        registry.put(Constants.PRODUCT_CODE.BOND_FUTURE,
+        registry.put(EngineConstants.PRODUCT_CODE.BOND_FUTURE,
                 (op, dt, tr, md, cal, oth) -> new BondFutureCalc(op, dt, tr, md, cal, oth));
-        registry.put(Constants.PRODUCT_CODE.CDS,
+        registry.put(EngineConstants.PRODUCT_CODE.CDS,
                 (op, dt, tr, md, cal, oth) -> new CdsCalc(op, dt, tr, md, cal, oth));
-        registry.put(Constants.PRODUCT_CODE.TRS,
+        registry.put(EngineConstants.PRODUCT_CODE.TRS,
                 (op, dt, tr, md, cal, oth) -> new TrsCalc(op, dt, tr, md, cal, oth));
-        registry.put(Constants.PRODUCT_CODE.IR_RA,
+        registry.put(EngineConstants.PRODUCT_CODE.IR_RA,
                 (op, dt, tr, md, cal, oth) -> new IrRangeAccureOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.IR_STEP_UP,
+        registry.put(EngineConstants.PRODUCT_CODE.IR_STEP_UP,
                 (op, dt, tr, md, cal, oth) -> new IrStepUpOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.EQ_RA,
+        registry.put(EngineConstants.PRODUCT_CODE.EQ_RA,
                 (op, dt, tr, md, cal, oth) -> new EqRangeAccureOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.EQ_STEP_UP,
+        registry.put(EngineConstants.PRODUCT_CODE.EQ_STEP_UP,
                 (op, dt, tr, md, cal, oth) -> new EqStepUpOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.COMM_RA,
+        registry.put(EngineConstants.PRODUCT_CODE.COMM_RA,
                 (op, dt, tr, md, cal, oth) -> new CommRangeAccureOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.COMM_STEP_UP,
+        registry.put(EngineConstants.PRODUCT_CODE.COMM_STEP_UP,
                 (op, dt, tr, md, cal, oth) -> new CommStepUpOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.FX_RA,
+        registry.put(EngineConstants.PRODUCT_CODE.FX_RA,
                 (op, dt, tr, md, cal, oth) -> new FxRangeAccureOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.FX_STEP_UP,
+        registry.put(EngineConstants.PRODUCT_CODE.FX_STEP_UP,
                 (op, dt, tr, md, cal, oth) -> new FxStepUpOptCalc(op, dt, tr, md));
-        registry.put(Constants.PRODUCT_CODE.STD_IRS,
+        registry.put(EngineConstants.PRODUCT_CODE.STD_IRS,
                 (op, dt, tr, md, cal, oth) -> new StdIrsCalc(op, dt, tr, md, cal));
         return Collections.unmodifiableMap(registry);
     }

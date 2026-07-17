@@ -1,9 +1,9 @@
 package com.zcyh.mr.marketdata.curvegeneration.converter;
 
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.CurveFunc;
-import com.zcyh.mr.core.Interpolation;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.marketdata.CurveFunc;
+import com.zcyh.mr.math.Interpolation;
 import com.zcyh.mr.marketdata.curvegeneration.CurveGeneration.CurveInput;
 import com.zcyh.mr.marketdata.curvegeneration.CurveGeneration.IrCurve;
 

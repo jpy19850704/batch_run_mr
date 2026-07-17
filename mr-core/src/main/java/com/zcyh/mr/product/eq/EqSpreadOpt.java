@@ -2,8 +2,8 @@ package com.zcyh.mr.product.eq;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.EqSpot;
 import com.zcyh.mr.marketdata.EqVol;
 import com.zcyh.mr.marketdata.FxSpot;
@@ -58,7 +58,7 @@ public class EqSpreadOpt extends SpreadOptBase<EqSpreadOpt.SpreadOptInfo, EqSpre
         MarketContext ctx = new MarketContext();
         IrSpot irSpot = new IrSpot(md.irSpot.get(info.discountCurve));
         EqSpot eqSpot = new EqSpot(md.eqSpot.get(info.referenceCurve));
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         ctx.s = eqSpot.fwdPrice(dataDate);
         ctx.rd = irSpot.spotRate(info.maturityDate);
         // 不考虑 dividend，rf = 0

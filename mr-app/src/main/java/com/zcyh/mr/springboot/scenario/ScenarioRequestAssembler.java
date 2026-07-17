@@ -4,9 +4,9 @@ import com.zcyh.mr.frtbima.rfet.model.RfetResult;
 import com.zcyh.mr.scenario.model.ScenarioDefinition;
 import com.zcyh.mr.scenario.model.ScenarioGenerationRequest;
 import com.zcyh.mr.scenario.model.ScenarioTaskRequest;
-import com.zcyh.mr.springboot.ima.ImaRfetDataRepository;
+import com.zcyh.mr.springboot.measurement.ima.ImaRfetDataRepository;
 import com.zcyh.mr.springboot.scenario.mapper.ScenarioMapper;
-import com.zcyh.mr.springboot.service.AlertService;
+import com.zcyh.mr.springboot.runtime.AlertService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -27,14 +27,14 @@ public class ScenarioRequestAssembler {
 
     public ScenarioRequestAssembler(
             ScenarioMapper scenarioMapper,
-            com.zcyh.mr.core.Calendar holidayCalendar,
+            com.zcyh.mr.calendar.Calendar holidayCalendar,
             String defaultHolidayCalendarCode) {
         this(scenarioMapper, holidayCalendar, null, null, defaultHolidayCalendarCode, "USD");
     }
 
     public ScenarioRequestAssembler(
             ScenarioMapper scenarioMapper,
-            com.zcyh.mr.core.Calendar holidayCalendar,
+            com.zcyh.mr.calendar.Calendar holidayCalendar,
             AlertService alertService,
             String defaultHolidayCalendarCode) {
         this(scenarioMapper, holidayCalendar, alertService, null, defaultHolidayCalendarCode, "USD");
@@ -42,7 +42,7 @@ public class ScenarioRequestAssembler {
 
     public ScenarioRequestAssembler(
             ScenarioMapper scenarioMapper,
-            com.zcyh.mr.core.Calendar holidayCalendar,
+            com.zcyh.mr.calendar.Calendar holidayCalendar,
             AlertService alertService,
             ImaRfetDataRepository imaRfetDataRepository,
             String defaultHolidayCalendarCode,

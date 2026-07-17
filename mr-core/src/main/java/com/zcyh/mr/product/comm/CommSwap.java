@@ -2,11 +2,11 @@ package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.basic.util.EnginePreconditions;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.Preconditions;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
-import com.zcyh.mr.core.CommUtils;
+import com.zcyh.mr.support.CommUtils;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
 import com.zcyh.mr.marketdata.*;
@@ -31,23 +31,23 @@ public class CommSwap {
 
     private double fxRate;//币种汇率
     private int[] termDays;//根据估值日期
-    private final static double[] num = Constants.PRODUCT_CODE.TERM_YEAR;
+    private final static double[] num = EngineConstants.PRODUCT_CODE.TERM_YEAR;
 
     public CommSwap(LocalDate dataDate,CommSwapInfo tradeInfo,MarketData marketData){
         this.dataDate = dataDate;
         this.commSwapInfo = tradeInfo;
         this.marketData = marketData;
-        this.termDays = CommUtils.tranfToDays(dataDate, Constants.PRODUCT_CODE.TERM_CODE);
+        this.termDays = CommUtils.tranfToDays(dataDate, EngineConstants.PRODUCT_CODE.TERM_CODE);
     }
 
     public CommSwapMeasure calc() {
-        EnginePreconditions.require(dataDate != null, "dataDate must be set");
+        Preconditions.require(dataDate != null, "dataDate must be set");
         validateInputs(marketData);
         String valuationCurrency = resolveValuationCurrency();
         String strikeCurrency = resolveStrikeCurrency(valuationCurrency);
         IrSpot irSpot = new IrSpot(marketData.irSpot.get(commSwapInfo.discountCurve));
         CommSpot commSpot = new CommSpot(marketData.commSpot.get(commSwapInfo.referenceCurve));
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         fxRate = fxSpot.getFxrate(valuationCurrency);
         double spotStrike = convertStrikePriceToValuationCurrency(
                 commSwapInfo.spotStrike, valuationCurrency, strikeCurrency, fxSpot);
@@ -90,11 +90,11 @@ public class CommSwap {
     }
 
     public CommSwapMeasure calc(MarketData marketData) {
-        EnginePreconditions.require(dataDate != null, "dataDate must be set");
+        Preconditions.require(dataDate != null, "dataDate must be set");
         validateInputs(marketData);
         String valuationCurrency = resolveValuationCurrency();
         String strikeCurrency = resolveStrikeCurrency(valuationCurrency);
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), marketData.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         IrSpot irSpot = new IrSpot(marketData.irSpot.get(commSwapInfo.discountCurve));
         CommSpot commSpot = new CommSpot(marketData.commSpot.get(commSwapInfo.referenceCurve));
         double localFxRate = fxSpot.getFxrate(valuationCurrency);
@@ -237,7 +237,7 @@ public class CommSwap {
         if (hasText(commSwapInfo.strikeCurrencyCode)) {
             return commSwapInfo.strikeCurrencyCode;
         }
-        EnginePreconditions.require(false, "currencyCode and strikeCurrencyCode cannot both be empty");
+        Preconditions.require(false, "currencyCode and strikeCurrencyCode cannot both be empty");
         return null;
     }
 
@@ -336,7 +336,7 @@ public class CommSwap {
             throw new IllegalArgumentException("市场数据缺少汇率曲线: " + currency);
         }
         try {
-            FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+            FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
             double rate = fxSpot.getFxrate(currency);
             if (!Double.isFinite(rate) || rate <= 0) {
                 throw new IllegalArgumentException("汇率无效: " + currency + "=" + rate);

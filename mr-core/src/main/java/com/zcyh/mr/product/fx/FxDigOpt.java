@@ -2,9 +2,9 @@ package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.Convert;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.Convert;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.marketdata.FrtbMarketData;
@@ -37,7 +37,7 @@ public class FxDigOpt extends DigOptBase<FxDigOpt.FxDigOptInfo> {
 
     @Override
     protected double getSpotPrice(MarketData md) {
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         return fxSpot.getFxrate(info.baseCurrencyCode, info.underlyingCurrencyCode);
     }
 
@@ -77,7 +77,7 @@ public class FxDigOpt extends DigOptBase<FxDigOpt.FxDigOptInfo> {
 
     @Override
     protected double getFxRate(MarketData md) {
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         return fxSpot.getFxrate(info.currencyCode);
     }
 
@@ -125,7 +125,7 @@ public class FxDigOpt extends DigOptBase<FxDigOpt.FxDigOptInfo> {
         double rf = uIrSpot.spotRate(info.maturityDate);
         double rebase = dIrSpot.spotRate(info.maturityDate);
         int days = (int) ChronoUnit.DAYS.between(dataDate, info.maturityDate);
-        FxSpot fxSpotData = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpotData = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         double s = fxSpotData.getFxrate(info.baseCurrencyCode, info.underlyingCurrencyCode);
         double k = info.strikePrice;
         double t = days / 365.0;
@@ -171,11 +171,8 @@ public class FxDigOpt extends DigOptBase<FxDigOpt.FxDigOptInfo> {
      * VV 调整开启时，允许通过配置控制是否对期权腿价格进行非负兜底。
      */
     private boolean isVvNonNegativeFloorEnabled() {
-        String value = Configure.getInstance().getValue(Constants.CFG.NON_NEGATIVE_FLOOR_ENABLED);
-        if (value == null || value.trim().isEmpty()) {
-            return true;
-        }
-        return Boolean.parseBoolean(value.trim());
+        return EngineConfiguration.getInstance()
+                .getRequiredBoolean(EngineConstants.CFG.VV_NON_NEGATIVE_FLOOR_ENABLED);
     }
 
     /**

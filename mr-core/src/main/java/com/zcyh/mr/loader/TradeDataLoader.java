@@ -2,8 +2,8 @@ package com.zcyh.mr.loader;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.TradeJsonUtil;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.TradeJsonUtil;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -131,7 +131,7 @@ public class TradeDataLoader {
             }
             String productCode = Objects.toString(trade.get("PRODUCT_CODE"), "");
             JSONArray underlyingArray = new JSONArray();
-            if (Constants.PRODUCT_CODE.CDS.equals(productCode)) {
+            if (EngineConstants.PRODUCT_CODE.CDS.equals(productCode)) {
                 String bondId = Objects.toString(trade.get("UNDERLYING_BOND_ID"), "");
                 if (!bondId.isEmpty()) {
                     JSONObject bondData = underlyingData.getJSONObject(bondId);
@@ -139,7 +139,7 @@ public class TradeDataLoader {
                         underlyingArray.add(bondData);
                     }
                 }
-            } else if (Constants.PRODUCT_CODE.BOND_FUTURE.equals(productCode)) {
+            } else if (EngineConstants.PRODUCT_CODE.BOND_FUTURE.equals(productCode)) {
                 Object factors = trade.get("CONVERT_FACTORS");
                 if (factors instanceof JSONArray) {
                     for (Object factorObj : (JSONArray) factors) {

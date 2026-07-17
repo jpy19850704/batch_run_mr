@@ -2,8 +2,8 @@ package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.common.ProductInputField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.FxVol;
 import com.zcyh.mr.marketdata.IrSpot;
@@ -57,7 +57,7 @@ public class FxSpreadOpt extends SpreadOptBase<FxSpreadOpt.SpreadOptInfo, FxSpre
         MarketContext ctx = new MarketContext();
         IrSpot uIrSpot = new IrSpot(md.irSpot.get(info.underlyingDiscountCurve));
         IrSpot bIrSpot = new IrSpot(md.irSpot.get(info.baseDiscountCurve));
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         ctx.s = fxSpot.getFxrate(info.baseCurrencyCode, info.underlyingCurrencyCode);
         if ("Cash".equalsIgnoreCase(info.settleType)) {
             ctx.rd = bIrSpot.spotRate(info.maturityDate);

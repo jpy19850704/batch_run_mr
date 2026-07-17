@@ -10,11 +10,11 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.basic.util.ReflectionUtils;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.ReflectionUtils;
 import com.zcyh.mr.calc.FrtbCalcControl;
-import com.zcyh.mr.core.Calendar;
-import com.zcyh.mr.core.*;
+import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.marketdata.CurveFunc;
 import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
@@ -24,6 +24,9 @@ import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.scf.StructuredCashflow;
 import com.zcyh.mr.product.ir.Bond;
+import com.zcyh.mr.support.CommUtils;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.TradeJsonUtil;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -57,7 +60,7 @@ public class BondFuture implements FrtbDrcInterface {
         udData.forEach((k, v) -> {
             if (cfMap.containsKey(k)) {
                 JSONObject und = (JSONObject) v;
-                array.add(TradeJsonUtil.mergeTrade(und, Constants.PRODUCT_CODE.BOND_FUTURE, "UNDERLYING_DATA"));
+                array.add(TradeJsonUtil.mergeTrade(und, EngineConstants.PRODUCT_CODE.BOND_FUTURE, "UNDERLYING_DATA"));
             }
         });
         bondFutureInfo.bondInfos = JSON.parseArray(array.toString(), Bond.BondInfo.class);
@@ -394,7 +397,7 @@ public class BondFuture implements FrtbDrcInterface {
     }
 
     private double getFxRate(MarketData md) {
-        FxSpot fxSpot = new FxSpot(Configure.getInstance().getValue(Constants.CFG.FX_BASE_CODE), md.fxSpot);
+        FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         return fxSpot.getFxrate(bondFutureInfo.currencyCode);
     }
 

@@ -1,12 +1,12 @@
 package com.zcyh.mr.springboot.api;
 
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.springboot.model.ApiResponse;
-import com.zcyh.mr.springboot.model.FrtbRuleTrialRequest;
-import com.zcyh.mr.springboot.model.VarTrialRequest;
-import com.zcyh.mr.springboot.service.FrtbDrcDbRunnerService;
-import com.zcyh.mr.springboot.service.FrtbSbaDbRunnerService;
-import com.zcyh.mr.springboot.service.VarDbRunnerService;
+import com.zcyh.mr.springboot.api.ApiResponse;
+import com.zcyh.mr.springboot.measurement.frtb.FrtbRuleTrialRequest;
+import com.zcyh.mr.springboot.measurement.var.VarTrialRequest;
+import com.zcyh.mr.springboot.measurement.frtb.FrtbDrcDbRunnerService;
+import com.zcyh.mr.springboot.measurement.frtb.FrtbSbaDbRunnerService;
+import com.zcyh.mr.springboot.measurement.var.VarDbRunnerService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;

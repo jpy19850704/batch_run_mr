@@ -1,6 +1,6 @@
 package com.zcyh.mr.product.basic.mc;
 
-import com.zcyh.mr.core.SobolRandomEngine;
+import com.zcyh.mr.math.SobolRandomEngine;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

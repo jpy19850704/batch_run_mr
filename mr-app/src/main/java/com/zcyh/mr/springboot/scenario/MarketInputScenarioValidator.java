@@ -1,8 +1,8 @@
 package com.zcyh.mr.springboot.scenario;
 
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.basic.util.Configure;
-import com.zcyh.mr.core.Constants;
+import com.zcyh.mr.support.EngineConfiguration;
+import com.zcyh.mr.support.EngineConstants;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -136,7 +136,7 @@ public class MarketInputScenarioValidator {
     }
 
     private static String resolveDefaultFxSpotBaseCurrency() {
-        String value = Configure.getInstance().getValue(Constants.CFG.FX_SPOT_BASE_CODE);
+        String value = EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_SPOT_BASE_CODE);
         if (value == null || value.trim().isEmpty()) {
             return "USD";
         }

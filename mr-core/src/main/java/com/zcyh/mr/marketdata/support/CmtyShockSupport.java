@@ -1,9 +1,9 @@
 package com.zcyh.mr.marketdata.support;
 
-import com.zcyh.mr.core.CommUtils;
-import com.zcyh.mr.core.Constants;
-import com.zcyh.mr.core.Interpolation;
-import com.zcyh.mr.core.Series;
+import com.zcyh.mr.support.CommUtils;
+import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.math.Interpolation;
+import com.zcyh.mr.support.Series;
 import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
 import com.zcyh.mr.marketdata.CommSpot;
 import com.zcyh.mr.marketdata.FrtbMarketData;
@@ -80,7 +80,7 @@ public final class CmtyShockSupport {
                 FrtbMarketData frtbMarketData = new FrtbMarketData(newMarketDate);
                 frtbMarketData.marketData.commSpot.put(key, commSpotInfo);
                 frtbMarketData.riskFactorId = key;
-                frtbMarketData.riskFactorClass = Constants.FRTB.SA.RISK_CLASS.CR;
+                frtbMarketData.riskFactorClass = EngineConstants.FRTB.SA.RISK_CLASS.CR;
                 frtbMarketData.riskFactorType = "Delta";
                 frtbMarketData.riskFactorVertex1 = tenorVertices[i];
                 frtbMarketDataList.add(frtbMarketData);
@@ -120,7 +120,7 @@ public final class CmtyShockSupport {
             up.marketData.commSpot.put(key, commSpotInfoUp);
             up.riskWeight = -rw;
             up.sensitivityType = "Curvature Up";
-            up.riskFactorClass = Constants.FRTB.SA.RISK_CLASS.CR;
+            up.riskFactorClass = EngineConstants.FRTB.SA.RISK_CLASS.CR;
             frtbMarketDataList.add(up);
 
             CommSpot.CommSpotInfo commSpotInfoDown = CommUtils.deepCopy(marketDataUp.commSpot.get(key));
@@ -128,7 +128,7 @@ public final class CmtyShockSupport {
             down.marketData.commSpot.put(key, commSpotInfoDown);
             down.riskWeight = rw;
             down.sensitivityType = "Curvature Down";
-            down.riskFactorClass = Constants.FRTB.SA.RISK_CLASS.CR;
+            down.riskFactorClass = EngineConstants.FRTB.SA.RISK_CLASS.CR;
             frtbMarketDataList.add(down);
         }
         return frtbMarketDataList;
