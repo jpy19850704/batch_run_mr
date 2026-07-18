@@ -113,7 +113,7 @@ public class FrtbSbaResultPersistService {
      */
     public void deleteByBatchAndDataDate(String batchId, String dataDate) {
         int deleted = jdbcTemplate.update(
-                "DELETE FROM TB_OUT_FRTB_SBA_CLASS_RESULT WHERE BATCH_ID = ? AND DATA_DATE = ?",
+                "DELETE FROM TB_OUT_FRTB_SBA_CLASS_RESULT WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
                 batchId, dataDate);
         if (deleted > 0) {
             log.info("清理 FRTB SBA 历史结果: batchId={}, dataDate={}, deleted={}", batchId, dataDate, deleted);

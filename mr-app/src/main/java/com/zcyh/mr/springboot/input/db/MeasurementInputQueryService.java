@@ -102,12 +102,11 @@ public class MeasurementInputQueryService {
         if (text == null || text.isEmpty()) {
             throw new IllegalArgumentException("缺少必选参数: data_date");
         }
-        if (text.matches("\\d{8}")) {
+        try {
+            java.time.LocalDate.parse(text, java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
             return text;
+        } catch (java.time.format.DateTimeParseException ex) {
+            throw new IllegalArgumentException("data_date 格式必须为 yyyyMMdd: " + text, ex);
         }
-        if (text.matches("\\d{4}-\\d{2}-\\d{2}")) {
-            return text.replace("-", "");
-        }
-        throw new IllegalArgumentException("data_date 格式必须为 yyyyMMdd 或 yyyy-MM-dd: " + text);
     }
 }

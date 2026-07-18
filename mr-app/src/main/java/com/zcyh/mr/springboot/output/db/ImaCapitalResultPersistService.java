@@ -53,7 +53,7 @@ public class ImaCapitalResultPersistService {
         if (dataDate == null || dataDate.trim().isEmpty()) {
             throw new IllegalArgumentException("IMA 资本结果清理缺少 DATA_DATE");
         }
-        int deleted = jdbcTemplate.update("DELETE FROM " + TARGET_TABLE + " WHERE BATCH_ID=? AND DATA_DATE=?",
+        int deleted = jdbcTemplate.update("DELETE FROM " + TARGET_TABLE + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
                 batchId, dataDate);
         log.info("清理 IMA 资本历史结果: batchId={}, dataDate={}, deleted={}", batchId, dataDate, deleted);
     }

@@ -69,7 +69,7 @@ public class MrCalcDetailCleanupService {
         for (String tableName : FULL_BATCH_TABLES) {
             executeDelete(
                     tableName,
-                    "DELETE FROM " + tableName + " WHERE BATCH_ID=? AND DATA_DATE=?",
+                    "DELETE FROM " + tableName + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
                     new Object[]{safeBatchId, resultDataDate});
         }
     }
@@ -95,7 +95,7 @@ public class MrCalcDetailCleanupService {
                 executeDelete(
                         tableName,
                         "DELETE FROM " + tableName
-                                + " WHERE BATCH_ID=? AND DATA_DATE=? AND INSTRUMENT_ID IN (" + placeholders + ")",
+                                + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND INSTRUMENT_ID IN (" + placeholders + ")",
                         args.toArray());
             }
         }

@@ -175,7 +175,7 @@ public class ImaValidationService {
     }
 
     private static String normalizeDate(String text, String fieldName) {
-        String value = requireText(text, fieldName).replace("-", "");
+        String value = requireText(text, fieldName);
         parseDate(value, fieldName);
         return value;
     }
@@ -184,7 +184,7 @@ public class ImaValidationService {
         try {
             return LocalDate.parse(text, BASIC_DATE);
         } catch (Exception ex) {
-            throw new IllegalArgumentException(fieldName + " 必须为 yyyyMMdd 或 yyyy-MM-dd: " + text);
+            throw new IllegalArgumentException(fieldName + " 必须为 yyyyMMdd: " + text);
         }
     }
 

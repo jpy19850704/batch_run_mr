@@ -72,7 +72,7 @@ public class FrtbRraoInputRepository {
             sql.append("LEFT JOIN ").append(RuleColumnSqlResolver.PORTFOLIO_FLAT_VIEW)
                     .append(" p ON p.BATCH_ID = r.BATCH_ID AND p.DATA_DATE = r.DATA_DATE AND p.PORTFOLIO_CODE = r.PORTFOLIO ");
         }
-        sql.append("WHERE r.BATCH_ID = ? AND r.DATA_DATE = ? ")
+        sql.append("WHERE r.BATCH_ID = ? AND r.DATA_DATE=STR_TO_DATE(?, '%Y%m%d') ")
                 .append("AND r.RRAO_TYPE IS NOT NULL AND r.RRAO_NOTIONAL IS NOT NULL");
         params.add(batchId);
         params.add(dataDate);

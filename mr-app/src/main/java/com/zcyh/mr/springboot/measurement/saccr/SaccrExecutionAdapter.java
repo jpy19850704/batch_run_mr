@@ -79,18 +79,11 @@ public class SaccrExecutionAdapter implements ExecutionAdapter {
     private static String normalizeDataDate(String dataDate) {
         String value = requireText(dataDate, "data_date");
         try {
-            if (value.length() == 8) {
-                return LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE)
-                        .format(DateTimeFormatter.BASIC_ISO_DATE);
-            }
-            if (value.length() == 10) {
-                return LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE)
-                        .format(DateTimeFormatter.BASIC_ISO_DATE);
-            }
+            return LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE)
+                    .format(DateTimeFormatter.BASIC_ISO_DATE);
         } catch (DateTimeParseException ex) {
-            throw new IllegalArgumentException("data_date 日期格式必须为 yyyyMMdd 或 yyyy-MM-dd: " + dataDate, ex);
+            throw new IllegalArgumentException("data_date 日期格式必须为 yyyyMMdd: " + dataDate, ex);
         }
-        throw new IllegalArgumentException("data_date 日期格式必须为 yyyyMMdd 或 yyyy-MM-dd: " + dataDate);
     }
 
     private static String requireText(String value, String field) {

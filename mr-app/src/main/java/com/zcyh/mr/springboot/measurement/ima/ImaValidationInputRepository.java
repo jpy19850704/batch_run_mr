@@ -1,5 +1,6 @@
 package com.zcyh.mr.springboot.measurement.ima;
 
+import com.zcyh.mr.springboot.support.ResultDbDateSupport;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -33,7 +34,7 @@ public class ImaValidationInputRepository {
     public List<String> queryObservationDates(String dataDate, String ruleId) {
         String sql = "SELECT DATA_DATE FROM ("
                 + "SELECT DISTINCT DATA_DATE FROM TB_EXTERNAL_IMA_GROUP_PNL "
-                + "WHERE RULE_ID=? AND DATA_DATE<=? "
+                + "WHERE RULE_ID=? AND DATA_DATE<=STR_TO_DATE(?, '%Y%m%d') "
                 + "ORDER BY DATA_DATE DESC LIMIT " + REQUIRED_OBSERVATION_COUNT
                 + ") t ORDER BY DATA_DATE";
         return jdbcTemplate.query(
@@ -42,7 +43,7 @@ public class ImaValidationInputRepository {
                     ps.setString(1, ruleId);
                     ps.setString(2, dataDate);
                 },
-                (rs, rowNum) -> normalizeDate(rs.getString("DATA_DATE"), "DATA_DATE"));
+                (rs, rowNum) -> protocolDate(rs.getDate("DATA_DATE"), "DATA_DATE"));
     }
 
     public Map<GroupKey, List<ExternalPnlRow>> queryExternalPnl(
@@ -52,7 +53,8 @@ public class ImaValidationInputRepository {
         String sql = "SELECT DATA_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE, ACTUAL_PNL, "
                 + "HYPOTHETICAL_PNL, RISK_THEORETICAL_PNL, VALUATION_CCY "
                 + "FROM TB_EXTERNAL_IMA_GROUP_PNL "
-                + "WHERE RULE_ID=? AND DATA_DATE BETWEEN ? AND ? "
+                + "WHERE RULE_ID=? AND DATA_DATE BETWEEN STR_TO_DATE(?, '%Y%m%d') "
+                + "AND STR_TO_DATE(?, '%Y%m%d') "
                 + "ORDER BY GROUP_TYPE, GROUP_VALUE, DATA_DATE";
         List<ExternalPnlRow> rows = jdbcTemplate.query(
                 sql,
@@ -63,7 +65,7 @@ public class ImaValidationInputRepository {
                 },
                 (rs, rowNum) -> {
                     ExternalPnlRow row = new ExternalPnlRow();
-                    row.dataDateText = normalizeDate(rs.getString("DATA_DATE"), "DATA_DATE");
+                    row.dataDateText = protocolDate(rs.getDate("DATA_DATE"), "DATA_DATE");
                     row.dataDate = parseDate(row.dataDateText, "DATA_DATE");
                     row.ruleId = requireText(rs.getString("RULE_ID"), "RULE_ID");
                     row.groupType = requireText(rs.getString("GROUP_TYPE"), "GROUP_TYPE");
@@ -108,7 +110,9 @@ public class ImaValidationInputRepository {
         params.add(quantile);
         params.add(varScenarioId);
         params.add(RISK_CLASS_ALL);
-        params.addAll(varDates);
+        for (String varDate : varDates) {
+            params.add(ResultDbDateSupport.sqlDate(varDate));
+        }
         List<VarRow> rows = jdbcTemplate.query(
                 sql,
                 ps -> {
@@ -118,7 +122,7 @@ public class ImaValidationInputRepository {
                 },
                 (rs, rowNum) -> {
                     VarRow row = new VarRow();
-                    row.dataDateText = normalizeDate(rs.getString("DATA_DATE"), "DATA_DATE");
+                    row.dataDateText = protocolDate(rs.getDate("DATA_DATE"), "DATA_DATE");
                     row.dataDate = parseDate(row.dataDateText, "DATA_DATE");
                     row.groupType = requireText(rs.getString("GROUP_TYPE"), "GROUP_TYPE");
                     row.groupValue = requireText(rs.getString("GROUP_VALUE"), "GROUP_VALUE");
@@ -171,7 +175,7 @@ public class ImaValidationInputRepository {
         String sql = "SELECT DATA_DATE FROM ("
                 + "SELECT DISTINCT DATA_DATE FROM TB_OUT_VAR_RESULT "
                 + "WHERE BATCH_ID=? AND RULE_ID=? AND QUANTILE=? AND SCENARIO_ID=? "
-                + "AND RISK_CLASS=? AND DATA_DATE < ? "
+                + "AND RISK_CLASS=? AND DATA_DATE<STR_TO_DATE(?, '%Y%m%d') "
                 + "ORDER BY DATA_DATE DESC LIMIT " + REQUIRED_OBSERVATION_COUNT
                 + ") t ORDER BY DATA_DATE";
         return jdbcTemplate.query(
@@ -184,7 +188,7 @@ public class ImaValidationInputRepository {
                     ps.setString(5, RISK_CLASS_ALL);
                     ps.setString(6, endDate);
                 },
-                (rs, rowNum) -> normalizeDate(rs.getString("DATA_DATE"), "DATA_DATE"));
+                (rs, rowNum) -> protocolDate(rs.getDate("DATA_DATE"), "DATA_DATE"));
     }
 
     private static String placeholders(int count) {
@@ -205,17 +209,18 @@ public class ImaValidationInputRepository {
         return value;
     }
 
-    private static String normalizeDate(String text, String fieldName) {
-        String value = requireText(text, fieldName).replace("-", "");
-        parseDate(value, fieldName);
-        return value;
+    private static String protocolDate(java.sql.Date value, String fieldName) {
+        if (value == null) {
+            throw new IllegalArgumentException(fieldName + " 不能为空");
+        }
+        return ResultDbDateSupport.protocolDate(value.toLocalDate());
     }
 
     private static LocalDate parseDate(String text, String fieldName) {
         try {
             return LocalDate.parse(text, BASIC_DATE);
         } catch (Exception ex) {
-            throw new IllegalArgumentException(fieldName + " 必须为 yyyyMMdd 或 yyyy-MM-dd: " + text);
+            throw new IllegalArgumentException(fieldName + " 必须为 yyyyMMdd: " + text);
         }
     }
 

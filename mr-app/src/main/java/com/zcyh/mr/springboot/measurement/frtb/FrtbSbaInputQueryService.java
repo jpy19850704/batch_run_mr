@@ -110,7 +110,7 @@ public class FrtbSbaInputQueryService {
                 .append(usePortfolioFlatView
                         ? "LEFT JOIN " + RuleColumnSqlResolver.PORTFOLIO_FLAT_VIEW + " p ON p.BATCH_ID = d.BATCH_ID AND p.DATA_DATE = d.DATA_DATE AND p.PORTFOLIO_CODE = r.PORTFOLIO "
                         : "")
-                .append("WHERE d.BATCH_ID = ? AND d.DATA_DATE = ?");
+                .append("WHERE d.BATCH_ID = ? AND d.DATA_DATE=STR_TO_DATE(?, '%Y%m%d')");
         params.add(safeBatchId);
         params.add(safeDataDate);
 
@@ -160,7 +160,7 @@ public class FrtbSbaInputQueryService {
         }
 
         sql.append(" FROM TB_FRTB_VIRTUAL_SENSITIVITY_INPUT v ");
-        sql.append("WHERE v.DATA_DATE = ?");
+        sql.append("WHERE v.DATA_DATE=STR_TO_DATE(?, '%Y%m%d')");
         params.add(dataDate);
         if (VIRTUAL_SELECTION_MODE_SELECTED.equals(virtualSelectionMode)) {
             sql.append(" AND v.VIRTUAL_TRADE_ID IN (");

@@ -2,6 +2,7 @@ package com.zcyh.mr.springboot.measurement.ima;
 
 import com.zcyh.mr.frtbima.model.NmrfPnlRecord;
 import com.zcyh.mr.frtbima.model.SubsetPnlRecord;
+import com.zcyh.mr.springboot.support.ResultDbDateSupport;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -21,7 +22,7 @@ public class ImaCapitalPnlRepository {
             + "EQ_VALUATION, EQ_PNL, COMM_VALUATION, COMM_PNL, "
             + "ALL_VALUATION, ALL_PNL, CREATED_AT "
             + "FROM TB_OUT_IMA_MODELLABLE_SCENARIO_PNL "
-            + "WHERE BATCH_ID = ? AND DATA_DATE = ?";
+            + "WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')";
 
     private static final String QUERY_NMRF =
             "SELECT REQUEST_ID, JOB_ID, BATCH_ID, SEQ_NO, DATA_DATE, "
@@ -29,7 +30,7 @@ public class ImaCapitalPnlRepository {
             + "INSTRUMENT_ID, PRODUCT_CODE, RISK_FACTOR_ID, NMRF_TYPE, "
             + "BASE_VALUATION_CNY, STRESS_VALUATION_CNY, PNL, CREATED_AT "
             + "FROM TB_OUT_IMA_NMRF_SCENARIO_PNL "
-            + "WHERE BATCH_ID = ? AND DATA_DATE = ?";
+            + "WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')";
 
     private final JdbcTemplate resultDbJdbcTemplate;
 
@@ -45,7 +46,7 @@ public class ImaCapitalPnlRepository {
             record.setJobId(rs.getString("JOB_ID"));
             record.setBatchId(rs.getString("BATCH_ID"));
             record.setSeqNo(rs.getLong("SEQ_NO"));
-            record.setDataDate(rs.getString("DATA_DATE"));
+            record.setDataDate(ResultDbDateSupport.protocolDate(rs.getDate("DATA_DATE").toLocalDate()));
             record.setScenarioId(rs.getString("SCENARIO_ID"));
             record.setSubscenarioId(rs.getString("SUBSCENARIO_ID"));
             record.setScenarioName(rs.getString("SCENARIO_NAME"));
@@ -77,7 +78,7 @@ public class ImaCapitalPnlRepository {
             record.setJobId(rs.getString("JOB_ID"));
             record.setBatchId(rs.getString("BATCH_ID"));
             record.setSeqNo(rs.getLong("SEQ_NO"));
-            record.setDataDate(rs.getString("DATA_DATE"));
+            record.setDataDate(ResultDbDateSupport.protocolDate(rs.getDate("DATA_DATE").toLocalDate()));
             record.setScenarioId(rs.getString("SCENARIO_ID"));
             record.setSubscenarioId(rs.getString("SUBSCENARIO_ID"));
             record.setScenarioName(rs.getString("SCENARIO_NAME"));

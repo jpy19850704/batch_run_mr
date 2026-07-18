@@ -92,7 +92,7 @@ public class ImaValidationResultPersistService {
         if (deleteKs) {
             if (cleanupMode == SummaryCleanupMode.FULL) {
                 jdbcTemplate.update("DELETE FROM " + KS_TABLE
-                                + " WHERE BATCH_ID=? AND DATA_DATE=?",
+                                + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
                         batchId, dataDate);
             } else {
                 RuleScopedDeleteSupport.deleteByRuleIds(
@@ -109,14 +109,14 @@ public class ImaValidationResultPersistService {
                                         String varScenarioId) {
         if (cleanupMode == SummaryCleanupMode.FULL) {
             jdbcTemplate.update("DELETE FROM " + BACKTEST_DETAIL_TABLE
-                            + " WHERE BATCH_ID=? AND DATA_DATE=?",
+                            + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
                     batchId, dataDate);
             jdbcTemplate.update("DELETE FROM " + BACKTEST_TABLE
-                            + " WHERE BATCH_ID=? AND DATA_DATE=?",
+                            + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
                     batchId, dataDate);
             return;
         }
-        String predicate = " WHERE BATCH_ID=? AND DATA_DATE=? AND RULE_ID=?"
+        String predicate = " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND RULE_ID=?"
                 + " AND QUANTILE=? AND VAR_SCENARIO_ID=?";
         jdbcTemplate.update("DELETE FROM " + BACKTEST_DETAIL_TABLE + predicate,
                 batchId, dataDate, ruleId, quantile, varScenarioId);

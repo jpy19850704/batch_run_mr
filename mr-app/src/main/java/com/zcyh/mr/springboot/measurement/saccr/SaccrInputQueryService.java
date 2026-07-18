@@ -143,7 +143,7 @@ public class SaccrInputQueryService {
 
     private List<TradeScopeRow> queryTradeScope(String dataDate) {
         String sql = "SELECT DATA_DATE, INSTRUMENT_ID, COUNTERPARTY_ID, NETTING_SET_ID "
-                + "FROM SACCR_TRADE_CP WHERE DATA_DATE = ? ORDER BY INSTRUMENT_ID";
+                + "FROM SACCR_TRADE_CP WHERE DATA_DATE=STR_TO_DATE(?, '%Y%m%d') ORDER BY INSTRUMENT_ID";
         try {
             List<Map<String, Object>> rows = engineDbJdbcTemplate.queryForList(sql, dataDate);
             if (rows.isEmpty()) {
@@ -174,7 +174,7 @@ public class SaccrInputQueryService {
         }
         String sql = "SELECT INSTRUMENT_ID, PRODUCT_CODE, VALUATION_CNY, STATUS, TRADE_INPUT_JSON "
                 + "FROM TB_OUT_TRADE_RESULT_DETAIL "
-                + "WHERE BATCH_ID = ? AND DATA_DATE = ? AND INSTRUMENT_ID IN (" + placeholders(instrumentIds.size()) + ")";
+                + "WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND INSTRUMENT_ID IN (" + placeholders(instrumentIds.size()) + ")";
         List<Object> params = new ArrayList<>();
         params.add(batchId);
         params.add(dataDate);
@@ -222,7 +222,7 @@ public class SaccrInputQueryService {
 
         String sql = "SELECT DATA_DATE, NETTING_SET_ID, COUNTERPARTY_ID, MARGIN_TYPE, MARGIN_CCY, "
                 + "MARGIN_FX_RATE_TO_CNY, THRESHOLD, MTA, NICA, MPOR_DAYS "
-                + "FROM SACCR_NETTING_SET WHERE DATA_DATE = ? AND NETTING_SET_ID IN ("
+                + "FROM SACCR_NETTING_SET WHERE DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND NETTING_SET_ID IN ("
                 + placeholders(nettingSetIds.size()) + ")";
         List<Object> params = new ArrayList<>();
         params.add(dataDate);
@@ -295,7 +295,7 @@ public class SaccrInputQueryService {
         StringBuilder sql = new StringBuilder()
                 .append("SELECT DATA_DATE, COLLATERAL_ID, COLLATERAL_SCOPE, NETTING_SET_ID, INSTRUMENT_ID, ")
                 .append("COLLATERAL_TYPE, DIRECTION, COLLATERAL_CCY, MARKET_VALUE, FX_RATE_TO_CNY, ")
-                .append("HAIRCUT_RATE, ELIGIBLE_FLAG FROM SACCR_COLLATERAL_DETAIL WHERE DATA_DATE = ? AND (");
+                .append("HAIRCUT_RATE, ELIGIBLE_FLAG FROM SACCR_COLLATERAL_DETAIL WHERE DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND (");
         params.add(dataDate);
         boolean appended = false;
         if (!nettingSetIds.isEmpty()) {
@@ -418,18 +418,11 @@ public class SaccrInputQueryService {
     private static String normalizeDataDate(String dataDate) {
         String value = requireText(dataDate, "data_date");
         try {
-            if (value.length() == 8) {
-                return LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE)
-                        .format(DateTimeFormatter.BASIC_ISO_DATE);
-            }
-            if (value.length() == 10) {
-                return LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE)
-                        .format(DateTimeFormatter.BASIC_ISO_DATE);
-            }
+            return LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE)
+                    .format(DateTimeFormatter.BASIC_ISO_DATE);
         } catch (DateTimeParseException ex) {
-            throw new IllegalArgumentException("data_date 日期格式必须为 yyyyMMdd 或 yyyy-MM-dd: " + dataDate, ex);
+            throw new IllegalArgumentException("data_date 日期格式必须为 yyyyMMdd: " + dataDate, ex);
         }
-        throw new IllegalArgumentException("data_date 日期格式必须为 yyyyMMdd 或 yyyy-MM-dd: " + dataDate);
     }
 
     private static BigDecimal requireDecimal(Object value, String field, String ownerId) {

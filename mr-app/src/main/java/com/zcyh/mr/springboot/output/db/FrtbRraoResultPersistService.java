@@ -60,7 +60,7 @@ public class FrtbRraoResultPersistService {
         int deleted;
         if (cleanupMode == SummaryCleanupMode.FULL) {
             deleted = resultDbJdbcTemplate.update(
-                    "DELETE FROM " + TARGET_TABLE + " WHERE BATCH_ID=? AND DATA_DATE=?",
+                    "DELETE FROM " + TARGET_TABLE + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
                     batchId, dataDate);
             calcRuleMetaPersistService.deleteByBatchAndCalcType(
                     batchId, dataDate, CALC_TYPE_RRAO);

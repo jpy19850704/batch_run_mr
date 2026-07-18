@@ -18,7 +18,6 @@ final class CalcResultPersistSupport {
     static final String STATUS_SUCCESS = "SUCCESS";
     static final String STATUS_ERROR = "ERROR";
     private static final DateTimeFormatter DATE_8_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
-    private static final DateTimeFormatter DATE_10_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 
     private CalcResultPersistSupport() {
     }
@@ -29,16 +28,10 @@ final class CalcResultPersistSupport {
             return null;
         }
         try {
-            if (text.length() == 8) {
-                return LocalDate.parse(text, DATE_8_FORMATTER).format(DATE_8_FORMATTER);
-            }
-            if (text.length() == 10) {
-                return LocalDate.parse(text, DATE_10_FORMATTER).format(DATE_8_FORMATTER);
-            }
+            return LocalDate.parse(text, DATE_8_FORMATTER).format(DATE_8_FORMATTER);
         } catch (DateTimeParseException ex) {
-            return text;
+            throw new IllegalArgumentException("DATA_DATE格式必须为yyyyMMdd: " + text, ex);
         }
-        return text;
     }
 
     static BigDecimal toBigDecimal(Object value) {

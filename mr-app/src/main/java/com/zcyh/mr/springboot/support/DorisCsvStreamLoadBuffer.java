@@ -2,12 +2,22 @@ package com.zcyh.mr.springboot.support;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.sql.Date;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.Locale;
+import java.util.Set;
 
 /**
  * Doris CSV Stream Load 批次缓冲器。
  * 用于在内存中按固定行数聚合 CSV 内容，再统一推送到 Doris。
  */
 public class DorisCsvStreamLoadBuffer {
+    private static final DateTimeFormatter PROTOCOL_DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final Set<String> DATE_COLUMNS = Set.of(
+            "DATA_DATE", "START_DATE", "END_DATE", "EXCEPTION_DATE", "OPTION_EXPIRY");
+
     private final DorisStreamLoadService dorisStreamLoadService;
     private final String tableName;
     private final String columnsHeader;
@@ -17,6 +27,7 @@ public class DorisCsvStreamLoadBuffer {
     private final char columnSeparatorChar;
     private final char encloseChar;
     private final char escapeChar;
+    private final String[] columns;
     private int currentBatchCount;
     private int chunkNo;
 
@@ -34,13 +45,18 @@ public class DorisCsvStreamLoadBuffer {
         this.columnSeparatorChar = dorisStreamLoadService.getColumnSeparatorChar();
         this.encloseChar = dorisStreamLoadService.getEncloseChar();
         this.escapeChar = dorisStreamLoadService.getEscapeChar();
+        this.columns = parseColumns(columnsHeader);
     }
 
     /**
      * 追加一行 CSV 数据。
      */
     public void appendRow(Object... values) {
-        appendCsvRow(csvBuilder, columnSeparatorChar, encloseChar, escapeChar, values);
+        if (values != null && values.length != columns.length) {
+            throw new IllegalArgumentException("Doris列数与数据值数量不一致: table=" + tableName
+                    + ", columns=" + columns.length + ", values=" + values.length);
+        }
+        appendCsvRow(csvBuilder, columnSeparatorChar, encloseChar, escapeChar, columns, values);
         currentBatchCount++;
         if (currentBatchCount >= batchSize) {
             flush();
@@ -72,6 +88,7 @@ public class DorisCsvStreamLoadBuffer {
                                      char columnSeparatorChar,
                                      char encloseChar,
                                      char escapeChar,
+                                     String[] columns,
                                      Object... values) {
         if (values == null) {
             csvBuilder.append('\n');
@@ -81,9 +98,37 @@ public class DorisCsvStreamLoadBuffer {
             if (i > 0) {
                 csvBuilder.append(columnSeparatorChar);
             }
-            appendCsvCell(csvBuilder, columnSeparatorChar, encloseChar, escapeChar, values[i]);
+            appendCsvCell(csvBuilder, columnSeparatorChar, encloseChar, escapeChar,
+                    normalizeColumnValue(columns[i], values[i]));
         }
         csvBuilder.append('\n');
+    }
+
+    private static String[] parseColumns(String columnsHeader) {
+        String[] rawColumns = columnsHeader.split(",");
+        String[] result = new String[rawColumns.length];
+        for (int i = 0; i < rawColumns.length; i++) {
+            result[i] = rawColumns[i].trim().toUpperCase(Locale.ROOT);
+        }
+        return result;
+    }
+
+    private static Object normalizeColumnValue(String column, Object value) {
+        if (value == null || !DATE_COLUMNS.contains(column)) {
+            return value;
+        }
+        if (value instanceof LocalDate) {
+            return value.toString();
+        }
+        if (value instanceof Date) {
+            return ((Date) value).toLocalDate().toString();
+        }
+        String text = String.valueOf(value).trim();
+        try {
+            return LocalDate.parse(text, PROTOCOL_DATE_FORMATTER).toString();
+        } catch (DateTimeParseException ex) {
+            throw new IllegalArgumentException(column + "格式必须为yyyyMMdd: " + text, ex);
+        }
     }
 
     private static void appendCsvCell(StringBuilder csvBuilder,

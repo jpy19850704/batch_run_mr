@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_SCENARIO_FILE_DETAIL (
     JOB_ID              VARCHAR(64),
     BATCH_ID            VARCHAR(64),
     SEQ_NO              BIGINT,
-    DATA_DATE           VARCHAR(16),
+    DATA_DATE           DATE NOT NULL,
     SCENARIO_ID         VARCHAR(128),
     SUBSCENARIO_ID      VARCHAR(128),
     SCENARIO_NAME       VARCHAR(256),
@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_SCENARIO_FILE_DETAIL (
     RFET_MODELLABLE     TINYINT,
     RFET_REDUCED_SET    TINYINT,
     MODIFIER            VARCHAR(128),
-    CREATED_AT          VARCHAR(32),
-    UPDATED_AT          VARCHAR(32)
+    CREATED_AT          DATETIME(3),
+    UPDATED_AT          DATETIME(3)
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_RESULT_DETAIL (
     JOB_ID          VARCHAR(64),
     BATCH_ID        VARCHAR(64),
     SEQ_NO          BIGINT,
-    DATA_DATE       VARCHAR(16),
+    DATA_DATE       DATE NOT NULL,
     INSTRUMENT_ID   VARCHAR(128),
     PRODUCT_CODE    VARCHAR(64),
     PORTFOLIO       VARCHAR(128),
@@ -72,8 +72,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_RESULT_DETAIL (
     CASHFLOW_JSON   TEXT,
     TRADE_INPUT_JSON        TEXT            COMMENT '原始交易输入 JSON',
     MARKET_DATA_KEYS_JSON   TEXT            COMMENT '交易引用的市场数据标识 JSON 数组',
-    CREATED_AT              VARCHAR(32),
-    UPDATED_AT              VARCHAR(32)
+    CREATED_AT              DATETIME(3),
+    UPDATED_AT              DATETIME(3)
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_RESULT_DETAIL (
     JOB_ID                  VARCHAR(64),
     BATCH_ID                VARCHAR(64),
     SEQ_NO                  BIGINT,
-    DATA_DATE               VARCHAR(16),
+    DATA_DATE               DATE NOT NULL,
     SCENARIO_ID             VARCHAR(128),
     SUBSCENARIO_ID          VARCHAR(128),
     SCENARIO_NAME           VARCHAR(256),
@@ -101,8 +101,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_RESULT_DETAIL (
     PNL                     DECIMAL(38, 10),
     STATUS                  VARCHAR(16),
     LOGS_JSON               TEXT,
-    CREATED_AT              VARCHAR(32),
-    UPDATED_AT              VARCHAR(32)
+    CREATED_AT              DATETIME(3),
+    UPDATED_AT              DATETIME(3)
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL (
     JOB_ID              VARCHAR(64),
     BATCH_ID            VARCHAR(64),
     SEQ_NO              BIGINT,
-    DATA_DATE           VARCHAR(16),
+    DATA_DATE           DATE NOT NULL,
     SCENARIO_ID         VARCHAR(128),
     SUBSCENARIO_ID      VARCHAR(128),
     SCENARIO_NAME       VARCHAR(256),
@@ -137,8 +137,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL (
     ALL_PNL             DECIMAL(38, 10),
     STATUS              VARCHAR(16),
     LOGS_JSON           TEXT,
-    CREATED_AT          VARCHAR(32),
-    UPDATED_AT          VARCHAR(32)
+    CREATED_AT          DATETIME(3),
+    UPDATED_AT          DATETIME(3)
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL (
     JOB_ID                          VARCHAR(64),
     BATCH_ID                        VARCHAR(64),
     SEQ_NO                          BIGINT,
-    DATA_DATE                       VARCHAR(16),
+    DATA_DATE                       DATE NOT NULL,
     INSTRUMENT_ID                   VARCHAR(128),
     PRODUCT_CODE                    VARCHAR(64),
     RISK_FACTOR_ID                  VARCHAR(256),
@@ -168,8 +168,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_FRTB_SENSITIVITY_DETAIL (
     INSTRUMENT_CURRENCY             VARCHAR(8),
     SENSITIVITY_VAL_INST_CURR_CNY   DECIMAL(38, 10),
     DETAIL_JSON                     TEXT,
-    CREATED_AT                      VARCHAR(32),
-    UPDATED_AT                      VARCHAR(32)
+    CREATED_AT                      DATETIME(3),
+    UPDATED_AT                      DATETIME(3)
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -180,7 +180,7 @@ PROPERTIES (
 
 -- FRTB 虚拟交易敏感性补录输入表
 CREATE TABLE IF NOT EXISTS TB_FRTB_VIRTUAL_SENSITIVITY_INPUT (
-    DATA_DATE                       VARCHAR(16),
+    DATA_DATE                       DATE NOT NULL,
     VIRTUAL_TRADE_ID                VARCHAR(128),
     RISK_FACTOR_ID                  VARCHAR(256),
     RISK_FACTOR_VERTEX_1            VARCHAR(128),
@@ -205,8 +205,8 @@ CREATE TABLE IF NOT EXISTS TB_FRTB_VIRTUAL_SENSITIVITY_INPUT (
     INSTRUMENT_CURRENCY             VARCHAR(32),
     SENSITIVITY_VAL_INST_CURR_CNY   DECIMAL(38, 10),
     ENABLED                         SMALLINT,
-    CREATED_AT                      VARCHAR(32),
-    UPDATED_AT                      VARCHAR(32)
+    CREATED_AT                      DATETIME(3),
+    UPDATED_AT                      DATETIME(3)
 )
 UNIQUE KEY(DATA_DATE, VIRTUAL_TRADE_ID, RISK_FACTOR_ID, RISK_FACTOR_VERTEX_1,
            RISK_FACTOR_VERTEX_2, RISK_FACTOR_CLASS, RISK_FACTOR_BUCKET,
@@ -220,7 +220,7 @@ PROPERTIES (
 -- FRTB SBA Class 汇总结果表
 CREATE TABLE IF NOT EXISTS TB_OUT_FRTB_SBA_CLASS_RESULT (
     BATCH_ID                        VARCHAR(64),
-    DATA_DATE                       VARCHAR(16),
+    DATA_DATE                       DATE NOT NULL,
     RULE_ID                         VARCHAR(128),
     GROUP_TYPE                      VARCHAR(64),
     GROUP_VALUE                     VARCHAR(512),
@@ -237,8 +237,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_FRTB_SBA_CLASS_RESULT (
     NORMAL_CURVATURE                DECIMAL(38, 10),
     HIGH_CURVATURE                  DECIMAL(38, 10),
     LOW_CURVATURE                   DECIMAL(38, 10),
-    CREATED_AT                      VARCHAR(32),
-    UPDATED_AT                      VARCHAR(32)
+    CREATED_AT                      DATETIME(3),
+    UPDATED_AT                      DATETIME(3)
 )
 UNIQUE KEY(BATCH_ID, DATA_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE, RISK_FACTOR_CLASS, CAPITAL_TYPE)
 DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
@@ -250,7 +250,7 @@ PROPERTIES (
 -- FRTB SBA 风险因子单位贡献度明细表
 CREATE TABLE IF NOT EXISTS TB_OUT_FRTB_SBA_DECOMP_DETAIL (
     BATCH_ID                        VARCHAR(64),
-    DATA_DATE                       VARCHAR(16),
+    DATA_DATE                       DATE NOT NULL,
     RULE_ID                         VARCHAR(128),
     GROUP_TYPE                      VARCHAR(64),
     GROUP_VALUE                     VARCHAR(512),
@@ -262,8 +262,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_FRTB_SBA_DECOMP_DETAIL (
     RISK_FACTOR_TYPE                VARCHAR(64),
     SENSITIVITY_TYPE                VARCHAR(64),
     UNIT_CONTRIBUTION               DECIMAL(38, 10),
-    CREATED_AT                      VARCHAR(32),
-    UPDATED_AT                      VARCHAR(32)
+    CREATED_AT                      DATETIME(3),
+    UPDATED_AT                      DATETIME(3)
 )
 UNIQUE KEY(BATCH_ID, DATA_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE,
            RISK_FACTOR_CLASS, RISK_FACTOR_BUCKET, RISK_FACTOR_ID,
@@ -281,7 +281,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_DRC_DETAIL (
     JOB_ID              VARCHAR(64),
     BATCH_ID            VARCHAR(64),
     SEQ_NO              BIGINT,
-    DATA_DATE           VARCHAR(16),
+    DATA_DATE           DATE NOT NULL,
     INSTRUMENT_ID       VARCHAR(128),
     PRODUCT_CODE        VARCHAR(64),
     PORTFOLIO_CODE      VARCHAR(128),
@@ -300,8 +300,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_DRC_DETAIL (
     FRTB_LGD            DECIMAL(38, 10),
     NOTIONAL            DECIMAL(38, 10),
     DETAIL_JSON         TEXT,
-    CREATED_AT          VARCHAR(32),
-    UPDATED_AT          VARCHAR(32)
+    CREATED_AT          DATETIME(3),
+    UPDATED_AT          DATETIME(3)
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -313,7 +313,7 @@ PROPERTIES (
 -- DRC 汇总结果表（单表）
 CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_DRC_RESULT (
     BATCH_ID            VARCHAR(64),
-    DATA_DATE           VARCHAR(16),
+    DATA_DATE           DATE NOT NULL,
     RULE_ID             VARCHAR(128),
     GROUP_TYPE          VARCHAR(64),
     GROUP_VALUE         VARCHAR(512),
@@ -325,7 +325,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_DRC_RESULT (
     REQUEST_ID          VARCHAR(128),
     JOB_ID              VARCHAR(64),
     DRC_VALUE           DECIMAL(38, 10),
-    CREATED_AT          VARCHAR(32)
+    CREATED_AT          DATETIME(3)
 )
 UNIQUE KEY(BATCH_ID, DATA_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE, CAPITAL_TYPE, AGG_LEVEL, DRC_TYPE, DRC_BUCKET, LEGAL_ENTITY)
 DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
@@ -337,7 +337,7 @@ PROPERTIES (
 -- FRTB RRAO 汇总结果表
 CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_RRAO_RESULT (
     BATCH_ID            VARCHAR(64),
-    DATA_DATE           VARCHAR(16),
+    DATA_DATE           DATE NOT NULL,
     RULE_ID             VARCHAR(128),
     GROUP_TYPE          VARCHAR(64),
     GROUP_VALUE         VARCHAR(512),
@@ -345,7 +345,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_RRAO_RESULT (
     TRADE_COUNT         BIGINT,
     RRAO_NOTIONAL       DECIMAL(38, 10),
     RRAO_CAPITAL        DECIMAL(38, 10),
-    CREATED_AT          VARCHAR(32)
+    CREATED_AT          DATETIME(3)
 )
 UNIQUE KEY(BATCH_ID, DATA_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE, RRAO_TYPE)
 DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
@@ -357,7 +357,7 @@ PROPERTIES (
 -- VaR 汇总结果表（批次总编排输出）
 CREATE TABLE IF NOT EXISTS TB_OUT_VAR_RESULT (
     BATCH_ID            VARCHAR(64),
-    DATA_DATE           VARCHAR(16),
+    DATA_DATE           DATE NOT NULL,
     QUANTILE            VARCHAR(32),
     RULE_ID             VARCHAR(128),
     MODE                VARCHAR(64),
@@ -372,7 +372,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_VAR_RESULT (
     MARGINAL_VAR        DECIMAL(38, 10) DEFAULT "0",
     INCREMENTAL_VAR     DECIMAL(38, 10) DEFAULT "0",
     SELECTED_METHOD     VARCHAR(32),
-    CREATED_AT          VARCHAR(32)
+    CREATED_AT          DATETIME(3)
 )
 UNIQUE KEY(BATCH_ID, DATA_DATE, QUANTILE, RULE_ID, MODE, SCENARIO_ID, GROUP_TYPE, GROUP_VALUE, RISK_CLASS)
 DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
@@ -385,12 +385,12 @@ PROPERTIES (
 CREATE TABLE IF NOT EXISTS TB_OUT_MARKET_DATA_DETAIL (
     ID              BIGINT          NOT NULL AUTO_INCREMENT,
     BATCH_ID        VARCHAR(64),
-    DATA_DATE       VARCHAR(16),
+    DATA_DATE       DATE NOT NULL,
     CURVE_TYPE      VARCHAR(64)     COMMENT '曲线类型: IR_SPOT/FX_SPOT/EQ_SPOT/COMM_SPOT/IR_VOL/FX_VOL/EQ_VOL/COMM_VOL/FIXING',
     CURVE_ID        VARCHAR(256)    COMMENT '曲线ID / FIXING_ID',
     CURVE_DATA_JSON TEXT            COMMENT '完整曲线 JSON（含 CURVE_DATA 等全部结构，前端解析）',
-    CREATED_AT      VARCHAR(32),
-    UPDATED_AT      VARCHAR(32)
+    CREATED_AT      DATETIME(3),
+    UPDATED_AT      DATETIME(3)
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -416,7 +416,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_MODELLABLE_SCENARIO_PNL (
     JOB_ID                  VARCHAR(64)                              COMMENT '任务ID',
     BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
     SEQ_NO                  BIGINT                                   COMMENT '序号',
-    DATA_DATE               VARCHAR(16)                              COMMENT '计算基准日期',
+    DATA_DATE               DATE NOT NULL                              COMMENT '计算基准日期',
     SCENARIO_ID             VARCHAR(128)                             COMMENT '情景集ID',
     SUBSCENARIO_ID          VARCHAR(128)                             COMMENT '子情景ID（单条历史情景序号）',
     SCENARIO_NAME           VARCHAR(256)                             COMMENT '情景名称',
@@ -439,8 +439,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_MODELLABLE_SCENARIO_PNL (
     ALL_PNL                 DECIMAL(38, 10)                          COMMENT '全风险类别损益',
     STATUS                  VARCHAR(16)                              COMMENT '情景PnL状态：SUCCESS / ERROR',
     LOGS_JSON               TEXT                                     COMMENT '情景PnL日志JSON',
-    CREATED_AT              VARCHAR(32)                                   COMMENT '创建时间',
-    UPDATED_AT              VARCHAR(32)                                   COMMENT '更新时间'
+    CREATED_AT              DATETIME(3)                                   COMMENT '创建时间',
+    UPDATED_AT              DATETIME(3)                                   COMMENT '更新时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -459,7 +459,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_NMRF_SCENARIO_PNL (
     JOB_ID                  VARCHAR(64)                              COMMENT '任务ID',
     BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
     SEQ_NO                  BIGINT                                   COMMENT '序号',
-    DATA_DATE               VARCHAR(16)                              COMMENT '计算基准日期',
+    DATA_DATE               DATE NOT NULL                              COMMENT '计算基准日期',
     SCENARIO_ID             VARCHAR(128)                             COMMENT '情景集ID（NMRF压力情景集）',
     SUBSCENARIO_ID          VARCHAR(128)                             COMMENT '子情景ID（单条压力情景）',
     SCENARIO_NAME           VARCHAR(256)                             COMMENT '情景名称',
@@ -472,8 +472,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_NMRF_SCENARIO_PNL (
     PNL                     DECIMAL(38, 10)                          COMMENT '压力情景损益 = STRESS_VALUATION - BASE_VALUATION',
     STATUS                  VARCHAR(16)                              COMMENT '情景PnL状态：SUCCESS / ERROR',
     LOGS_JSON               TEXT                                     COMMENT '情景PnL日志JSON',
-    CREATED_AT              VARCHAR(32)                                   COMMENT '创建时间',
-    UPDATED_AT              VARCHAR(32)                                   COMMENT '更新时间'
+    CREATED_AT              DATETIME(3)                                   COMMENT '创建时间',
+    UPDATED_AT              DATETIME(3)                                   COMMENT '更新时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -487,7 +487,7 @@ PROPERTIES (
 CREATE TABLE IF NOT EXISTS TB_OUT_IMA_ES_RESULT (
     ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
     BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
-    DATA_DATE               VARCHAR(16)                              COMMENT '计算基准日期',
+    DATA_DATE               DATE NOT NULL                              COMMENT '计算基准日期',
     RULE_ID                 VARCHAR(128)                             COMMENT 'IMA汇总规则ID',
     GROUP_TYPE              VARCHAR(64)                              COMMENT '汇总维度类型',
     GROUP_VALUE             VARCHAR(512)                             COMMENT '汇总维度路径值',
@@ -501,8 +501,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_ES_RESULT (
     FX_ES                   DECIMAL(38, 10)                          COMMENT '外汇风险ES',
     EQ_ES                   DECIMAL(38, 10)                          COMMENT '权益风险ES',
     COMM_ES                 DECIMAL(38, 10)                          COMMENT '大宗商品风险ES',
-    CREATED_AT              VARCHAR(32)                              COMMENT '创建时间',
-    UPDATED_AT              VARCHAR(32)                              COMMENT '更新时间'
+    CREATED_AT              DATETIME(3)                              COMMENT '创建时间',
+    UPDATED_AT              DATETIME(3)                              COMMENT '更新时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -516,7 +516,7 @@ PROPERTIES (
 CREATE TABLE IF NOT EXISTS TB_OUT_IMA_NMRF_RESULT (
     ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
     BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
-    DATA_DATE               VARCHAR(16)                              COMMENT '计算基准日期',
+    DATA_DATE               DATE NOT NULL                              COMMENT '计算基准日期',
     RULE_ID                 VARCHAR(128)                             COMMENT 'IMA汇总规则ID',
     GROUP_TYPE              VARCHAR(64)                              COMMENT '汇总维度类型',
     GROUP_VALUE             VARCHAR(512)                             COMMENT '汇总维度路径值',
@@ -527,7 +527,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_NMRF_RESULT (
     OTHER_CORR_TERM         DECIMAL(38, 10)                          COMMENT '其他NMRF相关项',
     OTHER_IDIO_TERM         DECIMAL(38, 10)                          COMMENT '其他NMRF特异项',
     NMRF_COUNT              INT                                      COMMENT '纳入该维度汇总的NMRF bucket数量',
-    CREATED_AT              VARCHAR(32)                              COMMENT '创建时间'
+    CREATED_AT              DATETIME(3)                              COMMENT '创建时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -541,7 +541,7 @@ PROPERTIES (
 CREATE TABLE IF NOT EXISTS TB_OUT_IMA_CAPITAL_RESULT (
     ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
     BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
-    DATA_DATE               VARCHAR(16)                              COMMENT '计算基准日期',
+    DATA_DATE               DATE NOT NULL                              COMMENT '计算基准日期',
     RULE_ID                 VARCHAR(128)                             COMMENT 'IMA汇总规则ID',
     GROUP_TYPE              VARCHAR(64)                              COMMENT '汇总维度类型',
     GROUP_VALUE             VARCHAR(512)                             COMMENT '汇总维度路径值',
@@ -557,8 +557,8 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_CAPITAL_RESULT (
     IMCC_EQ                 DECIMAL(38, 10)                          COMMENT '权益风险类别IMCC输入项',
     IMCC_COMM               DECIMAL(38, 10)                          COMMENT '商品风险类别IMCC输入项',
     DETAIL_JSON             TEXT                                     COMMENT '资本计算明细JSON',
-    CREATED_AT              VARCHAR(32)                              COMMENT '创建时间',
-    UPDATED_AT              VARCHAR(32)                              COMMENT '更新时间'
+    CREATED_AT              DATETIME(3)                              COMMENT '创建时间',
+    UPDATED_AT              DATETIME(3)                              COMMENT '更新时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -571,7 +571,7 @@ PROPERTIES (
 CREATE TABLE IF NOT EXISTS TB_OUT_SACCR_RESULT (
     ID                  BIGINT          NOT NULL AUTO_INCREMENT,
     BATCH_ID            VARCHAR(64)     COMMENT '批次ID',
-    DATA_DATE           VARCHAR(16)     COMMENT '计算基准日期',
+    DATA_DATE           DATE NOT NULL     COMMENT '计算基准日期',
     NETTING_MODE        VARCHAR(32)     COMMENT '净额模式：NETTING_SET/TRADE',
     NETTING_SET_ID      VARCHAR(128)    COMMENT '净额结算集合ID',
     COUNTERPARTY_ID     VARCHAR(128)    COMMENT '交易对手ID',
@@ -592,7 +592,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_SACCR_RESULT (
     MULTIPLIER          DECIMAL(38,10)  COMMENT '乘数multiplier（[0.05,1.0]）',
     PFE                 DECIMAL(38,10)  COMMENT '潜在未来风险暴露PFE',
     EAD                 DECIMAL(38,10)  COMMENT '风险敞口EAD=1.4×(RC+PFE)',
-    CREATE_TIME         VARCHAR(32)     COMMENT '落库时间'
+    CREATE_TIME         DATETIME(3)     COMMENT '落库时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 4
@@ -605,7 +605,7 @@ PROPERTIES (
 CREATE TABLE IF NOT EXISTS TB_OUT_SACCR_TRADE_DETAIL (
     ID                      BIGINT          NOT NULL AUTO_INCREMENT,
     BATCH_ID                VARCHAR(64)     COMMENT '批次ID',
-    DATA_DATE               VARCHAR(16)     COMMENT '计算基准日期',
+    DATA_DATE               DATE NOT NULL     COMMENT '计算基准日期',
     INSTRUMENT_ID           VARCHAR(128)    COMMENT '交易唯一标识',
     COUNTERPARTY_ID         VARCHAR(128)    COMMENT '交易对手ID',
     NETTING_MODE            VARCHAR(32)     COMMENT '净额模式：NETTING_SET/TRADE',
@@ -631,7 +631,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_SACCR_TRADE_DETAIL (
     UNDERLYING_PRICE        DECIMAL(38,10)  COMMENT '标的价格',
     QUANTITY                DECIMAL(38,10)  COMMENT '数量',
     MEASURE_FACTOR_JSON     TEXT            COMMENT '交易级中间计量要素JSON',
-    CREATE_TIME             VARCHAR(32)     COMMENT '落库时间'
+    CREATE_TIME             DATETIME(3)     COMMENT '落库时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -644,7 +644,7 @@ PROPERTIES (
 CREATE TABLE IF NOT EXISTS TB_OUT_SACCR_COLLATERAL_DETAIL (
     ID                      BIGINT          NOT NULL AUTO_INCREMENT,
     BATCH_ID                VARCHAR(64)     COMMENT '批次ID',
-    DATA_DATE               VARCHAR(16)     COMMENT '计算基准日期',
+    DATA_DATE               DATE NOT NULL     COMMENT '计算基准日期',
     COLLATERAL_ID           VARCHAR(128)    COMMENT '押品唯一标识',
     COLLATERAL_SCOPE        VARCHAR(32)     COMMENT 'NETTING_SET/TRADE',
     NETTING_SET_ID          VARCHAR(128)    COMMENT '净额集合ID',
@@ -656,7 +656,7 @@ CREATE TABLE IF NOT EXISTS TB_OUT_SACCR_COLLATERAL_DETAIL (
     FX_RATE_TO_CNY          DECIMAL(38,10)  COMMENT '押品币种兑人民币汇率',
     HAIRCUT_RATE            DECIMAL(18,10)  COMMENT '折扣率',
     ADJUSTED_VALUE_CNY      DECIMAL(38,10)  COMMENT '计入COLLATERAL_C的折后人民币金额',
-    CREATE_TIME             VARCHAR(32)     COMMENT '落库时间'
+    CREATE_TIME             DATETIME(3)     COMMENT '落库时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -668,13 +668,13 @@ PROPERTIES (
 -- 投组层级快照结果表
 CREATE TABLE IF NOT EXISTS TB_OUT_PORTFOLIO_HIERARCHY (
     BATCH_ID                VARCHAR(64),
-    DATA_DATE               VARCHAR(16),
+    DATA_DATE               DATE NOT NULL,
     PORTFOLIO_CODE          VARCHAR(128),
     PORTFOLIO_NAME          VARCHAR(256),
     UPPER_LEVEL_PORTFOLIO   VARCHAR(128),
     LEVEL_CODE              VARCHAR(16),
-    CREATED_AT              VARCHAR(32),
-    UPDATED_AT              VARCHAR(32)
+    CREATED_AT              DATETIME(3),
+    UPDATED_AT              DATETIME(3)
 )
 UNIQUE KEY(BATCH_ID, DATA_DATE, PORTFOLIO_CODE, PORTFOLIO_NAME, UPPER_LEVEL_PORTFOLIO, LEVEL_CODE)
 DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
@@ -861,11 +861,11 @@ LEFT JOIN TB_OUT_PORTFOLIO_HIERARCHY h6
 -- 计算规则元数据表（计算时规则快照，用于从结果反查 filterTree 等配置）
 CREATE TABLE IF NOT EXISTS TB_OUT_CALC_RULE_META (
     BATCH_ID    VARCHAR(64)     COMMENT '批次ID',
-    DATA_DATE   VARCHAR(16)     COMMENT '数据日期',
+    DATA_DATE   DATE NOT NULL     COMMENT '数据日期',
     CALC_TYPE   VARCHAR(32)     COMMENT '计算类型：VAR / FRTB_SBA / IMA',
     RULE_ID     VARCHAR(128)    COMMENT '规则ID',
     RULE_JSON   TEXT            COMMENT '完整规则原始 JSON（含 filterTree、build_order 等）',
-    CREATED_AT  VARCHAR(32)     COMMENT '创建时间'
+    CREATED_AT  DATETIME(3)     COMMENT '创建时间'
 )
 UNIQUE KEY(BATCH_ID, DATA_DATE, CALC_TYPE, RULE_ID)
 DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 4
@@ -877,7 +877,7 @@ PROPERTIES (
 -- IMA 外部接入分组 PnL 表
 -- 外部表只保存按规则分组确认后的日度 PnL，不保存 VaR 等 Engine 计算结果。
 CREATE TABLE IF NOT EXISTS TB_EXTERNAL_IMA_GROUP_PNL (
-    DATA_DATE               VARCHAR(16)      COMMENT '数据日期',
+    DATA_DATE               DATE NOT NULL      COMMENT '数据日期',
     RULE_ID                 VARCHAR(128)     COMMENT '规则ID',
     GROUP_TYPE              VARCHAR(64)      COMMENT '汇总维度类型',
     GROUP_VALUE             VARCHAR(512)     COMMENT '汇总维度值',
@@ -885,7 +885,7 @@ CREATE TABLE IF NOT EXISTS TB_EXTERNAL_IMA_GROUP_PNL (
     HYPOTHETICAL_PNL        DECIMAL(38, 10)  COMMENT '假设损益',
     RISK_THEORETICAL_PNL    DECIMAL(38, 10)  COMMENT '风险理论损益',
     VALUATION_CCY           VARCHAR(32)      COMMENT '估值币种',
-    CREATED_AT              VARCHAR(32)      COMMENT '创建时间'
+    CREATED_AT              DATETIME(3)      COMMENT '创建时间'
 )
 UNIQUE KEY(DATA_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE)
 DISTRIBUTED BY HASH(RULE_ID) BUCKETS 8
@@ -897,21 +897,21 @@ PROPERTIES (
 -- IMA 返回检验汇总结果表
 CREATE TABLE IF NOT EXISTS TB_OUT_IMA_BACKTEST_RESULT (
     BATCH_ID                VARCHAR(64)      COMMENT '批次ID',
-    DATA_DATE               VARCHAR(16)      COMMENT '检验基准日',
+    DATA_DATE               DATE NOT NULL      COMMENT '检验基准日',
     RULE_ID                 VARCHAR(128)     COMMENT '规则ID',
     GROUP_TYPE              VARCHAR(64)      COMMENT '汇总维度类型',
     GROUP_VALUE             VARCHAR(512)     COMMENT '汇总维度值',
     QUANTILE                VARCHAR(32)      COMMENT 'VaR置信水平',
     VAR_SCENARIO_ID         VARCHAR(128)     COMMENT 'VaR情景ID',
-    START_DATE              VARCHAR(16)      COMMENT '检验窗口开始日期',
-    END_DATE                VARCHAR(16)      COMMENT '检验窗口结束日期',
+    START_DATE              DATE      COMMENT '检验窗口开始日期',
+    END_DATE                DATE      COMMENT '检验窗口结束日期',
     SAMPLE_SIZE             INT              COMMENT '样本天数',
     ACTUAL_EXCEPTION_COUNT  INT              COMMENT '实际损益突破次数',
     HYPO_EXCEPTION_COUNT    INT              COMMENT '假设损益突破次数',
     OVERALL_EXCEPTION_COUNT INT              COMMENT '整体突破次数',
     TRAFFIC_LIGHT_ZONE      VARCHAR(16)      COMMENT '返回检验交通灯区间',
     MULTIPLIER_ADD_ON       DECIMAL(38, 10)  COMMENT '乘数附加值',
-    CREATED_AT              VARCHAR(32)      COMMENT '创建时间'
+    CREATED_AT              DATETIME(3)      COMMENT '创建时间'
 )
 UNIQUE KEY(BATCH_ID, DATA_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE, QUANTILE, VAR_SCENARIO_ID)
 DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
@@ -923,20 +923,20 @@ PROPERTIES (
 -- IMA 返回检验突破明细表
 CREATE TABLE IF NOT EXISTS TB_OUT_IMA_BACKTEST_EXCEPTION_DETAIL (
     BATCH_ID                VARCHAR(64)      COMMENT '批次ID',
-    DATA_DATE               VARCHAR(16)      COMMENT '检验基准日',
-    EXCEPTION_DATE          VARCHAR(16)      COMMENT '突破日期',
+    DATA_DATE               DATE NOT NULL      COMMENT '检验基准日',
+    EXCEPTION_DATE          DATE      COMMENT '突破日期',
     RULE_ID                 VARCHAR(128)     COMMENT '规则ID',
     GROUP_TYPE              VARCHAR(64)      COMMENT '汇总维度类型',
     GROUP_VALUE             VARCHAR(512)     COMMENT '汇总维度值',
     QUANTILE                VARCHAR(32)      COMMENT 'VaR置信水平',
     VAR_SCENARIO_ID         VARCHAR(128)     COMMENT 'VaR情景ID',
     PNL_TYPE                VARCHAR(32)      COMMENT '突破PnL类型：ACTUAL / HYPOTHETICAL',
-    START_DATE              VARCHAR(16)      COMMENT '检验窗口开始日期',
-    END_DATE                VARCHAR(16)      COMMENT '检验窗口结束日期',
+    START_DATE              DATE      COMMENT '检验窗口开始日期',
+    END_DATE                DATE      COMMENT '检验窗口结束日期',
     PNL                     DECIMAL(38, 10)  COMMENT '突破PnL',
     VAR_VALUE               DECIMAL(38, 10)  COMMENT '匹配的前一可用日VaR值',
     THRESHOLD               DECIMAL(38, 10)  COMMENT '突破阈值',
-    CREATED_AT              VARCHAR(32)      COMMENT '创建时间'
+    CREATED_AT              DATETIME(3)      COMMENT '创建时间'
 )
 UNIQUE KEY(BATCH_ID, DATA_DATE, EXCEPTION_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE, QUANTILE, VAR_SCENARIO_ID, PNL_TYPE)
 DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8
@@ -948,17 +948,17 @@ PROPERTIES (
 -- IMA KS 检验结果表
 CREATE TABLE IF NOT EXISTS TB_OUT_IMA_KS_RESULT (
     BATCH_ID                VARCHAR(64)      COMMENT '批次ID',
-    DATA_DATE               VARCHAR(16)      COMMENT '检验基准日',
+    DATA_DATE               DATE NOT NULL      COMMENT '检验基准日',
     RULE_ID                 VARCHAR(128)     COMMENT '规则ID',
     GROUP_TYPE              VARCHAR(64)      COMMENT '汇总维度类型',
     GROUP_VALUE             VARCHAR(512)     COMMENT '汇总维度值',
-    START_DATE              VARCHAR(16)      COMMENT '检验窗口开始日期',
-    END_DATE                VARCHAR(16)      COMMENT '检验窗口结束日期',
+    START_DATE              DATE      COMMENT '检验窗口开始日期',
+    END_DATE                DATE      COMMENT '检验窗口结束日期',
     SAMPLE_SIZE             INT              COMMENT 'KS样本天数',
     KS_STATISTIC            DECIMAL(38, 10)  COMMENT 'KS统计量',
     KS_ZONE                 VARCHAR(16)      COMMENT 'KS区间：GREEN / AMBER / RED',
     PASSED                  VARCHAR(8)       COMMENT '是否通过：Y / N',
-    CREATED_AT              VARCHAR(32)      COMMENT '创建时间'
+    CREATED_AT              DATETIME(3)      COMMENT '创建时间'
 )
 UNIQUE KEY(BATCH_ID, DATA_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE)
 DISTRIBUTED BY HASH(BATCH_ID) BUCKETS 8

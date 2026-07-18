@@ -14,7 +14,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -61,9 +60,9 @@ public class SaccrResultPersistService {
                         List<SaccrResult> results,
                         List<SaccrTradeRow> tradeRows,
                         List<SaccrCollateralOutputRow> collateralRows) {
-        engineResultJdbc.update("DELETE FROM TB_OUT_SACCR_RESULT WHERE BATCH_ID = ? AND DATA_DATE = ?", batchId, dataDate);
-        engineResultJdbc.update("DELETE FROM TB_OUT_SACCR_TRADE_DETAIL WHERE BATCH_ID = ? AND DATA_DATE = ?", batchId, dataDate);
-        engineResultJdbc.update("DELETE FROM TB_OUT_SACCR_COLLATERAL_DETAIL WHERE BATCH_ID = ? AND DATA_DATE = ?", batchId, dataDate);
+        engineResultJdbc.update("DELETE FROM TB_OUT_SACCR_RESULT WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')", batchId, dataDate);
+        engineResultJdbc.update("DELETE FROM TB_OUT_SACCR_TRADE_DETAIL WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')", batchId, dataDate);
+        engineResultJdbc.update("DELETE FROM TB_OUT_SACCR_COLLATERAL_DETAIL WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')", batchId, dataDate);
 
         String now = ResultPersistTime.nowText();
         writeResults(batchId, dataDate, results, now);
@@ -142,8 +141,8 @@ public class SaccrResultPersistService {
                     decimal(row.mtmCny),
                     decimal(row.notional),
                     row.currency,
-                    dateText(row.startDate),
-                    dateText(row.endDate),
+                    row.startDate,
+                    row.endDate,
                     row.referenceEntity,
                     row.creditRating,
                     row.isIndex ? 1 : 0,
@@ -152,7 +151,7 @@ public class SaccrResultPersistService {
                     row.commodityType,
                     row.isOption ? 1 : 0,
                     row.optionType,
-                    dateText(row.optionExpiry),
+                    row.optionExpiry,
                     decimal(row.strikePrice),
                     decimal(row.underlyingPrice),
                     decimal(row.quantity),
@@ -201,7 +200,4 @@ public class SaccrResultPersistService {
         return DorisCsvStreamLoadBuffer.decimalText(BigDecimal.valueOf(value));
     }
 
-    private static String dateText(LocalDate date) {
-        return date == null ? null : date.toString();
-    }
 }

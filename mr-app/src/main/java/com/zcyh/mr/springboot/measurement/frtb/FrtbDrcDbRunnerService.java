@@ -209,13 +209,10 @@ public class FrtbDrcDbRunnerService {
         if (value == null) {
             throw new IllegalArgumentException("data_date 必填");
         }
-        if (value.length() == 8 && value.chars().allMatch(Character::isDigit)) {
-            return LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE);
-        }
         try {
-            return LocalDate.parse(value);
+            return LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE);
         } catch (Exception ex) {
-            throw new IllegalArgumentException("data_date 格式必须为 yyyyMMdd 或 yyyy-MM-dd");
+            throw new IllegalArgumentException("data_date 格式必须为 yyyyMMdd", ex);
         }
     }
 

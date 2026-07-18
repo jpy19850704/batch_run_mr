@@ -62,7 +62,7 @@ public class ScenarioDetailPersistService {
         }
 
         String now = ResultPersistTime.nowText();
-        int deleted = jdbcTemplate.update("DELETE FROM TB_OUT_SCENARIO_FILE_DETAIL WHERE BATCH_ID=? AND DATA_DATE=?",
+        int deleted = jdbcTemplate.update("DELETE FROM TB_OUT_SCENARIO_FILE_DETAIL WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
                 safeBatchId, normalizedDataDate);
         log.info("清理情景生成历史结果: batchId={}, dataDate={}, deleted={}", safeBatchId, normalizedDataDate, deleted);
 

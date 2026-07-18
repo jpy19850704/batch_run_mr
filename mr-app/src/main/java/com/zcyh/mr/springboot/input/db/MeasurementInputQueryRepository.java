@@ -37,7 +37,7 @@ public class MeasurementInputQueryRepository {
         validateWhitelist(normalizedTableName, normalizedColumnName);
         String sql = "SELECT DISTINCT " + normalizedColumnName
                 + " FROM " + normalizedTableName
-                + " WHERE BATCH_ID = ? AND DATA_DATE = ? AND " + normalizedColumnName + " IS NOT NULL"
+                + " WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND " + normalizedColumnName + " IS NOT NULL"
                 + " ORDER BY " + normalizedColumnName;
         return jdbcTemplate.queryForList(sql, String.class, batchId, dataDate);
     }
@@ -45,7 +45,7 @@ public class MeasurementInputQueryRepository {
     public List<Map<String, Object>> listScenarios(String batchId, String dataDate) {
         String sql = "SELECT SCENARIO_ID, SCENARIO_NAME, COUNT(*) AS ROW_COUNT "
                 + "FROM TB_OUT_TRADE_SCENARIO_RESULT_DETAIL "
-                + "WHERE BATCH_ID = ? AND DATA_DATE = ? "
+                + "WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') "
                 + "GROUP BY SCENARIO_ID, SCENARIO_NAME ORDER BY SCENARIO_ID";
         return jdbcTemplate.queryForList(sql, batchId, dataDate);
     }
@@ -53,7 +53,7 @@ public class MeasurementInputQueryRepository {
     public List<Map<String, Object>> listInstrumentIds(String batchId, String dataDate) {
         String sql = "SELECT DISTINCT INSTRUMENT_ID, PRODUCT_CODE "
                 + "FROM TB_OUT_TRADE_RESULT_DETAIL "
-                + "WHERE BATCH_ID = ? AND DATA_DATE = ? ORDER BY INSTRUMENT_ID";
+                + "WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') ORDER BY INSTRUMENT_ID";
         return jdbcTemplate.queryForList(sql, batchId, dataDate);
     }
 

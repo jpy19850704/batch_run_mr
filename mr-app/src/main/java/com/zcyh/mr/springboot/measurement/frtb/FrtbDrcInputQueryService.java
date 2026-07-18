@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -83,7 +82,7 @@ public class FrtbDrcInputQueryService {
                 + "TERM_TO_MATURITY, MODIFIED_REMAIN_TERM, RISK_WEIGHT, JTD, JTD_CNY, "
                 + "INSTRUMENT_VALUE, FRTB_LGD, NOTIONAL "
                 + "FROM TB_OUT_TRADE_DRC_DETAIL "
-                + "WHERE BATCH_ID=? AND DATA_DATE=? "
+                + "WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') "
                 + "ORDER BY SEQ_NO, ID";
 
         List<DrcDetail> rows = engineResultDbJdbcTemplate.query(
@@ -190,7 +189,7 @@ public class FrtbDrcInputQueryService {
                 .append(usePortfolioFlatView
                         ? "LEFT JOIN " + RuleColumnSqlResolver.PORTFOLIO_FLAT_VIEW + " p ON p.BATCH_ID = d.BATCH_ID AND p.DATA_DATE = d.DATA_DATE AND p.PORTFOLIO_CODE = COALESCE(r.PORTFOLIO, d.PORTFOLIO_CODE) "
                         : "")
-                .append("WHERE d.BATCH_ID = ? AND d.DATA_DATE = ?");
+                .append("WHERE d.BATCH_ID = ? AND d.DATA_DATE=STR_TO_DATE(?, '%Y%m%d')");
         params.add(safeBatchId);
         params.add(safeDataDate);
 
@@ -220,7 +219,7 @@ public class FrtbDrcInputQueryService {
 
     private static DrcDetail toDrcDetail(Map<String, Object> row) {
         DrcDetail detail = new DrcDetail();
-        detail.dataDate = parseDate(stringValue(row.get("DATA_DATE")));
+        detail.dataDate = toLocalDate(row.get("DATA_DATE"));
         detail.portfolioCode = trimToNull(stringValue(row.get("PORTFOLIO_CODE")));
         detail.productCode = trimToNull(stringValue(row.get("PRODUCT_CODE")));
         detail.instrumentId = trimToNull(stringValue(row.get("INSTRUMENT_ID")));
@@ -278,15 +277,17 @@ public class FrtbDrcInputQueryService {
         return RuleColumnSqlResolver.resolveFrtbDrcColumn(field);
     }
 
-    private static LocalDate parseDate(String value) {
-        String safe = trimToNull(value);
-        if (safe == null) {
+    private static LocalDate toLocalDate(Object value) {
+        if (value == null) {
             return null;
         }
-        if (safe.length() == 8 && safe.chars().allMatch(Character::isDigit)) {
-            return LocalDate.parse(safe, DateTimeFormatter.BASIC_ISO_DATE);
+        if (value instanceof java.sql.Date) {
+            return ((java.sql.Date) value).toLocalDate();
         }
-        return LocalDate.parse(safe);
+        if (value instanceof LocalDate) {
+            return (LocalDate) value;
+        }
+        throw new IllegalArgumentException("DATA_DATE 必须为数据库 DATE 类型: " + value.getClass().getName());
     }
 
     private static Integer toInteger(Object value) {

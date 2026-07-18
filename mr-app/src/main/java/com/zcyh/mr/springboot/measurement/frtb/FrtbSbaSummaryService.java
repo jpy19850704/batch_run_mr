@@ -198,7 +198,7 @@ public class FrtbSbaSummaryService {
 
     private void deleteDecompDetailByBatchAndDataDate(String batchId, String dataDate) {
         int deleted = engineResultDbJdbcTemplate.update(
-                "DELETE FROM TB_OUT_FRTB_SBA_DECOMP_DETAIL WHERE BATCH_ID = ? AND DATA_DATE = ?",
+                "DELETE FROM TB_OUT_FRTB_SBA_DECOMP_DETAIL WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
                 batchId, dataDate);
         if (deleted > 0) {
             log.info("清理 FRTB SBA Decomp 历史结果: batchId={}, dataDate={}, deleted={}", batchId, dataDate, deleted);

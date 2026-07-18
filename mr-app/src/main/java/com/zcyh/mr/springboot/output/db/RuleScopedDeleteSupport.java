@@ -20,7 +20,7 @@ public final class RuleScopedDeleteSupport {
                                       List<String> ruleIds) {
         List<String> safeRuleIds = requireRuleIds(ruleIds);
         String sql = "DELETE FROM " + requireIdentifier(tableName)
-                + " WHERE BATCH_ID=? AND DATA_DATE=? AND RULE_ID IN ("
+                + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND RULE_ID IN ("
                 + placeholders(safeRuleIds.size()) + ")";
         List<Object> args = new ArrayList<Object>(2 + safeRuleIds.size());
         args.add(batchId);
@@ -37,7 +37,7 @@ public final class RuleScopedDeleteSupport {
                                           List<String> ruleIds) {
         List<String> safeRuleIds = requireRuleIds(ruleIds);
         String sql = "DELETE FROM " + requireIdentifier(tableName)
-                + " WHERE BATCH_ID=? AND DATA_DATE=? AND CALC_TYPE=? AND RULE_ID IN ("
+                + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND CALC_TYPE=? AND RULE_ID IN ("
                 + placeholders(safeRuleIds.size()) + ")";
         List<Object> args = new ArrayList<Object>(3 + safeRuleIds.size());
         args.add(batchId);
