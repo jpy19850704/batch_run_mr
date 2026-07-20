@@ -7,6 +7,7 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.calendar.Calendar;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.ir.BondFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,8 +30,10 @@ public class BondFutureCalc extends AbstractCalc {
 
     @Override
     protected void calcTrade(HashMap<String, Object> tradeData) {
-        BondFuture.BondFutureInfo info = JSONObject.parseObject(JSON.toJSONString(tradeData),
-                BondFuture.BondFutureInfo.class);
+        BondFuture.BondFutureTradeInfo info = JSONObject.parseObject(JSON.toJSONString(tradeData),
+                BondFuture.BondFutureTradeInfo.class);
+        info.validateInput(new JSONObject(tradeData), String.valueOf(tradeData.get("PRODUCT_CODE")))
+                .throwIfInvalid();
         JSONObject underlyingData = indexUnderlyingDataByBondId(tradeData.get("UNDERLYING_DATA"));
         BondFuture future = new BondFuture(dataDate, info, marketData, calendar, underlyingData);
         bondFutureCache.put(info.instrumentId, future);
@@ -44,7 +47,9 @@ public class BondFutureCalc extends AbstractCalc {
                 continue;
             }
             try {
-                scenarioRst.add(entry.getValue().calc(scenarioMd));
+                Measure measure = entry.getValue().calc(scenarioMd);
+                ensureScenarioInstrumentId(measure, entry.getKey());
+                scenarioRst.add(measure);
             } catch (Exception e) {
                 scenarioRst.add(AbstractCalc.buildErrorMeasure(dataDate, entry.getKey(), null, e));
             }

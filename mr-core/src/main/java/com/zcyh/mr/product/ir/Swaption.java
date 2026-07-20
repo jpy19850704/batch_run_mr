@@ -1,5 +1,7 @@
 package com.zcyh.mr.product.ir;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
@@ -8,7 +10,7 @@ import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.calendar.Calendar;
 import com.zcyh.mr.marketdata.*;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
@@ -42,10 +44,10 @@ public class Swaption {
     private MarketData marketData;
     private Calendar calendar;
     private StructuredCashflow bond;                                                                   /*bond类*/
-    private Swaption.SwaptionInfo swaptionInfo;                                          /*入参交易实体类*/
+    private Swaption.SwaptionTradeInfo swaptionInfo;                                          /*入参交易实体类*/
     private Swaption.SwaptionMeasure swaptionMeasure = new Swaption.SwaptionMeasure();   /*返回结果类*/
 
-    public Swaption(LocalDate dataDate, Swaption.SwaptionInfo tradeInfo, MarketData marketData, Calendar calendar) {
+    public Swaption(LocalDate dataDate, Swaption.SwaptionTradeInfo tradeInfo, MarketData marketData, Calendar calendar) {
         this.dataDate = dataDate;
         this.swaptionInfo = tradeInfo;
         this.marketData = marketData;
@@ -525,7 +527,7 @@ public class Swaption {
     public static class SwaptionMeasure extends OptionMeasure {
     }
     
-    public static class SwaptionInfo{
+    public static class SwaptionTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;

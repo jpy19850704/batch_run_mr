@@ -10,6 +10,9 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
 import com.zcyh.mr.frtbima.common.ImaConstants;
+import com.zcyh.mr.support.EngineConstants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -26,6 +29,7 @@ import java.util.Set;
  */
 @Component
 public class JobPayloadBuilder {
+    private static final Logger log = LoggerFactory.getLogger(JobPayloadBuilder.class);
     /**
      * 构建单个 Job 的引擎 payload。
      *
@@ -93,14 +97,8 @@ public class JobPayloadBuilder {
         // 组装 trade_data
         JSONArray tradeData = new JSONArray();
         for (TradeInputRow trade : chunkTrades) {
-            Object parsed = parseTradeJson(trade);
-            if (parsed instanceof JSONArray) {
-                JSONArray arr = (JSONArray) parsed;
-                for (int i = 0; i < arr.size(); i++) {
-                    injectMarketDataKeys(arr.get(i), trade.instrumentId, tradeMarketDataKeys);
-                    tradeData.add(arr.get(i));
-                }
-            } else if (parsed != null) {
+            JSONObject parsed = parseTradeForPayload(trade, batchId, dataDate);
+            if (parsed != null) {
                 injectMarketDataKeys(parsed, trade.instrumentId, tradeMarketDataKeys);
                 tradeData.add(parsed);
             }
@@ -247,7 +245,9 @@ public class JobPayloadBuilder {
             List<TradeInputRow> chunkTrades) {
         List<MrMarketDataSliceService.TradeSliceSource> trades = new ArrayList<>();
         for (TradeInputRow trade : chunkTrades) {
-            trades.add(new MrMarketDataSliceService.TradeSliceSource(trade.instrumentId, trade.tradeContentText));
+            if (isTradeSliceable(trade)) {
+                trades.add(new MrMarketDataSliceService.TradeSliceSource(trade.instrumentId, trade.tradeContentText));
+            }
         }
         return trades;
     }
@@ -291,6 +291,67 @@ public class JobPayloadBuilder {
         String instrumentId = trade == null ? null : trade.instrumentId;
         String contentText = trade == null ? null : trade.tradeContentText;
         return parseJsonStrict(contentText, "交易JSON格式异常，instrumentId=" + safeText(instrumentId));
+    }
+
+    private static JSONObject parseTradeForPayload(
+            TradeInputRow trade,
+            String batchId,
+            LocalDate dataDate) {
+        String instrumentId = trimToNull(trade == null ? null : trade.instrumentId);
+        String productCode = trimToNull(trade == null ? null : trade.productCode);
+        if (instrumentId == null) {
+            log.error("交易输入缺少INSTRUMENT_ID: batchId={}, dataDate={}, productCode={}",
+                    batchId, dataDate, productCode);
+            return null;
+        }
+        Object parsed;
+        try {
+            parsed = parseTradeJson(trade);
+        } catch (PayloadJsonParseException ex) {
+            return buildInputErrorTrade(instrumentId, productCode, ex.getMessage());
+        }
+        if (!(parsed instanceof JSONObject)) {
+            return buildInputErrorTrade(instrumentId, productCode, "交易内容必须为JSON对象");
+        }
+        JSONObject tradeJson = (JSONObject) parsed;
+        String contentInstrumentId = trimToNull(tradeJson.getString("INSTRUMENT_ID"));
+        String contentProductCode = trimToNull(tradeJson.getString("PRODUCT_CODE"));
+        if (!instrumentId.equals(contentInstrumentId)) {
+            return buildInputErrorTrade(instrumentId, productCode,
+                    "交易内容INSTRUMENT_ID与输入表不一致");
+        }
+        if (productCode == null || !productCode.equals(contentProductCode)) {
+            return buildInputErrorTrade(instrumentId, productCode,
+                    "交易内容PRODUCT_CODE与输入表不一致");
+        }
+        return tradeJson;
+    }
+
+    private static JSONObject buildInputErrorTrade(String instrumentId, String productCode, String message) {
+        JSONObject trade = new JSONObject();
+        trade.put("INSTRUMENT_ID", instrumentId);
+        trade.put("PRODUCT_CODE", productCode);
+        trade.put(EngineConstants.CONTROL_FIELD.INPUT_ERROR, message);
+        return trade;
+    }
+
+    private static boolean isTradeSliceable(TradeInputRow trade) {
+        String instrumentId = trimToNull(trade == null ? null : trade.instrumentId);
+        String productCode = trimToNull(trade == null ? null : trade.productCode);
+        if (instrumentId == null || productCode == null) {
+            return false;
+        }
+        try {
+            Object parsed = parseTradeJson(trade);
+            if (!(parsed instanceof JSONObject)) {
+                return false;
+            }
+            JSONObject tradeJson = (JSONObject) parsed;
+            return instrumentId.equals(trimToNull(tradeJson.getString("INSTRUMENT_ID")))
+                    && productCode.equals(trimToNull(tradeJson.getString("PRODUCT_CODE")));
+        } catch (PayloadJsonParseException ex) {
+            return false;
+        }
     }
 
     static Object parseCurveJson(MrMarketDataSliceService.CurveSliceSource curve) {

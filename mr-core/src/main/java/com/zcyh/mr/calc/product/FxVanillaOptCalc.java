@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * FxVanillaOpt 估值计算器
  */
-public class FxVanillaOptCalc extends AbstractProductCacheCalc<FxVanillaOpt, FxVanillaOpt.VanillaOptInfo> {
+public class FxVanillaOptCalc extends AbstractProductCacheCalc<FxVanillaOpt, FxVanillaOpt.VanillaOptTradeInfo> {
 
     public FxVanillaOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class FxVanillaOptCalc extends AbstractProductCacheCalc<FxVanillaOpt, FxV
     }
 
     @Override
-    protected FxVanillaOpt.VanillaOptInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxVanillaOpt.VanillaOptInfo.class);
+    protected FxVanillaOpt.VanillaOptTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxVanillaOpt.VanillaOptTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(FxVanillaOpt.VanillaOptInfo info) {
+    protected String getInstrumentId(FxVanillaOpt.VanillaOptTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected FxVanillaOpt createProduct(FxVanillaOpt.VanillaOptInfo info, MarketData md) {
+    protected FxVanillaOpt createProduct(FxVanillaOpt.VanillaOptTradeInfo info, MarketData md) {
         return new FxVanillaOpt(dataDate, info, md);
     }
 

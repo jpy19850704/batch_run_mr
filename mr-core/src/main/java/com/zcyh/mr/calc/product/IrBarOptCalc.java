@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * IrBarOpt 估值计算器
  */
-public class IrBarOptCalc extends AbstractProductCacheCalc<IrBarOpt, IrBarOpt.IrBarOptInfo> {
+public class IrBarOptCalc extends AbstractProductCacheCalc<IrBarOpt, IrBarOpt.IrBarOptTradeInfo> {
 
     public IrBarOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class IrBarOptCalc extends AbstractProductCacheCalc<IrBarOpt, IrBarOpt.Ir
     }
 
     @Override
-    protected IrBarOpt.IrBarOptInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrBarOpt.IrBarOptInfo.class);
+    protected IrBarOpt.IrBarOptTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrBarOpt.IrBarOptTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(IrBarOpt.IrBarOptInfo info) {
+    protected String getInstrumentId(IrBarOpt.IrBarOptTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected IrBarOpt createProduct(IrBarOpt.IrBarOptInfo info, MarketData md) {
+    protected IrBarOpt createProduct(IrBarOpt.IrBarOptTradeInfo info, MarketData md) {
         return new IrBarOpt(dataDate, info, md);
     }
 

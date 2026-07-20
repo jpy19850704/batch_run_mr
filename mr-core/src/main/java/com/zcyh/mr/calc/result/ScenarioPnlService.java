@@ -74,14 +74,14 @@ public final class ScenarioPnlService {
     public JSONObject buildBaseErrorPnlRow(JSONObject baseTrade) {
         JSONObject pnlResult = buildAbsoluteZeroPnlRow(baseTrade);
         pnlResult.put("STATUS", "ERROR");
-        pnlResult.put("LOGS", buildSingleErrorLog("基准估值错误"));
+        pnlResult.put("LOGS_JSON", buildSingleErrorLog("基准估值错误"));
         return pnlResult;
     }
 
     public JSONObject buildScenarioErrorPnlRow(JSONObject baseTrade, JSONObject errorSource) {
         JSONObject pnlResult = buildZeroPnlRow(baseTrade);
         pnlResult.put("STATUS", "ERROR");
-        pnlResult.put("LOGS", resolveErrorLogs(errorSource, "情景估值错误"));
+        pnlResult.put("LOGS_JSON", resolveErrorLogs(errorSource, "情景估值错误"));
         return pnlResult;
     }
 
@@ -104,11 +104,8 @@ public final class ScenarioPnlService {
     }
 
     public JSONArray buildEffectiveBaseTrades(
-            JSONArray baseTrades,
-            JSONArray logData,
-            List<HashMap<String, Object>> inputTrades) {
+            JSONArray baseTrades) {
         JSONArray result = new JSONArray();
-        Set<String> existingInstrumentIds = new LinkedHashSet<String>();
         if (baseTrades != null) {
             for (int index = 0; index < baseTrades.size(); index++) {
                 JSONObject trade = baseTrades.getJSONObject(index);
@@ -116,36 +113,8 @@ public final class ScenarioPnlService {
                     continue;
                 }
                 result.add(trade);
-                String instrumentId = trade.getString("INSTRUMENT_ID");
-                if (hasText(instrumentId)) {
-                    existingInstrumentIds.add(instrumentId.trim());
-                }
             }
         }
-        if (logData == null || logData.isEmpty()) {
-            return result;
-        }
-
-        Map<String, HashMap<String, Object>> inputTradeIndex = buildInputTradeIndex(inputTrades);
-        LinkedHashMap<String, JSONObject> missingErrors = new LinkedHashMap<String, JSONObject>();
-        for (int index = 0; index < logData.size(); index++) {
-            JSONObject logItem = logData.getJSONObject(index);
-            if (logItem == null) {
-                continue;
-            }
-            String instrumentId = trimToNull(logItem.getString("INSTRUMENT_ID"));
-            if (instrumentId == null || existingInstrumentIds.contains(instrumentId)) {
-                continue;
-            }
-            JSONObject errorTrade = missingErrors.get(instrumentId);
-            if (errorTrade == null) {
-                errorTrade = buildBaseErrorTrade(
-                        instrumentId, logItem, inputTradeIndex.get(instrumentId));
-                missingErrors.put(instrumentId, errorTrade);
-            }
-            appendErrorLog(errorTrade, resolveLogMessage(logItem));
-        }
-        result.addAll(missingErrors.values());
         return result;
     }
 
@@ -211,14 +180,14 @@ public final class ScenarioPnlService {
     private JSONObject buildUnsupportedScenarioPnlRow(JSONObject baseTrade, String productCode) {
         JSONObject pnlResult = buildZeroPnlRow(baseTrade);
         pnlResult.put("STATUS", "ERROR");
-        pnlResult.put("LOGS", buildSingleErrorLog("产品类型不支持情景: " + productCode));
+        pnlResult.put("LOGS_JSON", buildSingleErrorLog("产品类型不支持情景: " + productCode));
         return pnlResult;
     }
 
     private JSONObject buildMissingScenarioResultPnlRow(JSONObject baseTrade) {
         JSONObject pnlResult = buildZeroPnlRow(baseTrade);
         pnlResult.put("STATUS", "ERROR");
-        pnlResult.put("LOGS", buildSingleErrorLog("情景结果缺失"));
+        pnlResult.put("LOGS_JSON", buildSingleErrorLog("情景结果缺失"));
         return pnlResult;
     }
 
@@ -236,79 +205,9 @@ public final class ScenarioPnlService {
         return trade != null && "ERROR".equalsIgnoreCase(Objects.toString(trade.get("STATUS"), ""));
     }
 
-    private Map<String, HashMap<String, Object>> buildInputTradeIndex(
-            List<HashMap<String, Object>> inputTrades) {
-        Map<String, HashMap<String, Object>> index = new LinkedHashMap<String, HashMap<String, Object>>();
-        if (inputTrades == null) {
-            return index;
-        }
-        for (HashMap<String, Object> trade : inputTrades) {
-            if (trade == null) {
-                continue;
-            }
-            String instrumentId = trimToNull(Objects.toString(trade.get("INSTRUMENT_ID"), null));
-            if (instrumentId != null) {
-                index.put(instrumentId, trade);
-            }
-        }
-        return index;
-    }
-
-    private JSONObject buildBaseErrorTrade(
-            String instrumentId,
-            JSONObject logItem,
-            HashMap<String, Object> inputTrade) {
-        JSONObject trade = new JSONObject();
-        trade.put("INSTRUMENT_ID", instrumentId);
-        String productCode = trimToNull(logItem == null ? null : logItem.getString("PRODUCT_CODE"));
-        if (productCode == null && inputTrade != null) {
-            productCode = trimToNull(Objects.toString(inputTrade.get("PRODUCT_CODE"), null));
-        }
-        trade.put("PRODUCT_CODE", productCode);
-        trade.put("STATUS", "ERROR");
-        trade.put("VALUATION_CNY", 0.0);
-        trade.put("VALUATION", 0.0);
-        trade.put("LOGS", new JSONArray());
-        return trade;
-    }
-
-    private void appendErrorLog(JSONObject trade, String message) {
-        String safeMessage = trimToNull(message);
-        if (trade == null || safeMessage == null) {
-            return;
-        }
-        JSONArray logs = trade.getJSONArray("LOGS");
-        if (logs == null) {
-            logs = new JSONArray();
-            trade.put("LOGS", logs);
-        }
-        JSONObject logItem = new JSONObject();
-        logItem.put("level", "ERROR");
-        logItem.put("message", safeMessage);
-        logs.add(logItem);
-        if (trade.get("DETAIL") == null) {
-            trade.put("DETAIL", safeMessage);
-        }
-    }
-
-    private String resolveLogMessage(JSONObject logItem) {
-        if (logItem == null) {
-            return null;
-        }
-        String message = trimToNull(logItem.getString("info"));
-        if (message != null) {
-            return message;
-        }
-        message = trimToNull(logItem.getString("ERROR"));
-        if (message != null) {
-            return message;
-        }
-        return trimToNull(logItem.getString("message"));
-    }
-
     private JSONArray resolveErrorLogs(JSONObject errorSource, String defaultMessage) {
         if (errorSource != null) {
-            JSONArray logs = errorSource.getJSONArray("LOGS");
+            JSONArray logs = errorSource.getJSONArray("LOGS_JSON");
             if (logs != null && !logs.isEmpty()) {
                 return logs;
             }

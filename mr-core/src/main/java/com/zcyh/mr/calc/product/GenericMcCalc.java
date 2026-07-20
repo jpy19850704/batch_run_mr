@@ -29,7 +29,6 @@ public class GenericMcCalc implements ProductCalculator {
 
     private final JSONObject result = new JSONObject();
     private final JSONArray trade = new JSONArray();
-    private final JSONArray log = new JSONArray();
 
     public GenericMcCalc(String operCode, LocalDate dataDate, List<HashMap<String, Object>> trades,
             MarketData marketData) {
@@ -44,7 +43,6 @@ public class GenericMcCalc implements ProductCalculator {
         calculateTrades();
         result.put("data", new JSONObject());
         result.getJSONObject("data").put("trade_data", trade);
-        result.getJSONObject("data").put("log_data", log);
         JsonNumberUtils.normalizeNumbersInPlace(result);
         return JSON.toJSONString(result, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
@@ -53,7 +51,6 @@ public class GenericMcCalc implements ProductCalculator {
         for (HashMap<String, Object> tradeData : trades) {
             OptionMeasure measure = calcOne(tradeData, marketData);
             trade.add(measure);
-            addLogIfError(measure);
         }
     }
 
@@ -80,27 +77,4 @@ public class GenericMcCalc implements ProductCalculator {
         return genericMc.price(tradeData, md);
     }
 
-    private void addLogIfError(OptionMeasure measure) {
-        if (measure == null || "SUCCESS".equalsIgnoreCase(measure.status)) {
-            return;
-        }
-        JSONObject logInfo = new JSONObject();
-        logInfo.put("INSTRUMENT_ID", measure.instrumentId);
-        logInfo.put("PRODUCT_CODE", measure.productCode);
-        logInfo.put("info", measure.logs == null ? "通用 MC 估值失败" : joinLogMessages(measure.logs));
-        log.add(logInfo);
-    }
-
-    private static String joinLogMessages(List<com.zcyh.mr.product.basic.common.Measure.MeasureLog> logs) {
-        if (logs == null || logs.isEmpty()) {
-            return "通用 MC 估值失败";
-        }
-        List<String> messages = new ArrayList<>();
-        for (com.zcyh.mr.product.basic.common.Measure.MeasureLog item : logs) {
-            if (item != null && item.message != null) {
-                messages.add(item.message);
-            }
-        }
-        return messages.isEmpty() ? "通用 MC 估值失败" : String.join("; ", messages);
-    }
 }

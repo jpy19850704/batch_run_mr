@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.option.BarOptBase;
@@ -14,9 +14,9 @@ import java.util.Map;
  * 利率标的障碍期权。
  * 使用定盘利率作为即期价格，通过曲线平移推导远期利率。
  */
-public class IrBarOpt extends BarOptBase<IrBarOpt.IrBarOptInfo> {
+public class IrBarOpt extends BarOptBase<IrBarOpt.IrBarOptTradeInfo> {
 
-    public IrBarOpt(LocalDate dataDate, IrBarOptInfo info, MarketData marketData) {
+    public IrBarOpt(LocalDate dataDate, IrBarOptTradeInfo info, MarketData marketData) {
         super(dataDate, info, marketData);
     }
 
@@ -131,7 +131,7 @@ public class IrBarOpt extends BarOptBase<IrBarOpt.IrBarOptInfo> {
         }
     }
 
-    public static class IrBarOptInfo extends BarOptBase.BarOptBaseInfo {
+    public static class IrBarOptTradeInfo extends BarOptBase.BarOptBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;

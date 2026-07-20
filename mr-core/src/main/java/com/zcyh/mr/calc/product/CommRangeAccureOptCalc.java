@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * CommRangeAccureOpt 估值计算器
  */
-public class CommRangeAccureOptCalc extends AbstractProductCacheCalc<CommRangeAccureOpt, CommRangeAccureOpt.CommRangeAccureInfo> {
+public class CommRangeAccureOptCalc extends AbstractProductCacheCalc<CommRangeAccureOpt, CommRangeAccureOpt.CommRangeAccureTradeInfo> {
 
     public CommRangeAccureOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class CommRangeAccureOptCalc extends AbstractProductCacheCalc<CommRangeAc
     }
 
     @Override
-    protected CommRangeAccureOpt.CommRangeAccureInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommRangeAccureOpt.CommRangeAccureInfo.class);
+    protected CommRangeAccureOpt.CommRangeAccureTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommRangeAccureOpt.CommRangeAccureTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(CommRangeAccureOpt.CommRangeAccureInfo info) {
+    protected String getInstrumentId(CommRangeAccureOpt.CommRangeAccureTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected CommRangeAccureOpt createProduct(CommRangeAccureOpt.CommRangeAccureInfo info, MarketData md) {
+    protected CommRangeAccureOpt createProduct(CommRangeAccureOpt.CommRangeAccureTradeInfo info, MarketData md) {
         return new CommRangeAccureOpt(dataDate, info, md);
     }
 

@@ -15,7 +15,7 @@ import java.util.List;
 /**
  * IrsCcs 估值计算器
  */
-public class IrsCcsCalc extends AbstractProductCacheCalc<IrsCcs, IrsCcs.IrsCcsInfo> {
+public class IrsCcsCalc extends AbstractProductCacheCalc<IrsCcs, IrsCcs.IrsCcsTradeInfo> {
 
     public IrsCcsCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData, Calendar calendar) {
@@ -23,17 +23,17 @@ public class IrsCcsCalc extends AbstractProductCacheCalc<IrsCcs, IrsCcs.IrsCcsIn
     }
 
     @Override
-    protected IrsCcs.IrsCcsInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrsCcs.IrsCcsInfo.class);
+    protected IrsCcs.IrsCcsTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrsCcs.IrsCcsTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(IrsCcs.IrsCcsInfo info) {
+    protected String getInstrumentId(IrsCcs.IrsCcsTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected IrsCcs createProduct(IrsCcs.IrsCcsInfo info, MarketData md) {
+    protected IrsCcs createProduct(IrsCcs.IrsCcsTradeInfo info, MarketData md) {
         return new IrsCcs(dataDate, info, md, calendar);
     }
 

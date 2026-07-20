@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * IrWeddingCake 估值计算器
  */
-public class IrWeddingCakeCalc extends AbstractProductCacheCalc<IrWeddingCake, IrWeddingCake.IrWeddingCakeInfo> {
+public class IrWeddingCakeCalc extends AbstractProductCacheCalc<IrWeddingCake, IrWeddingCake.IrWeddingCakeTradeInfo> {
 
     public IrWeddingCakeCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class IrWeddingCakeCalc extends AbstractProductCacheCalc<IrWeddingCake, I
     }
 
     @Override
-    protected IrWeddingCake.IrWeddingCakeInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrWeddingCake.IrWeddingCakeInfo.class);
+    protected IrWeddingCake.IrWeddingCakeTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrWeddingCake.IrWeddingCakeTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(IrWeddingCake.IrWeddingCakeInfo info) {
+    protected String getInstrumentId(IrWeddingCake.IrWeddingCakeTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected IrWeddingCake createProduct(IrWeddingCake.IrWeddingCakeInfo info, MarketData md) {
+    protected IrWeddingCake createProduct(IrWeddingCake.IrWeddingCakeTradeInfo info, MarketData md) {
         return new IrWeddingCake(dataDate, info, md);
     }
 

@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * CommBarOpt 估值计算器
  */
-public class CommBarOptCalc extends AbstractProductCacheCalc<CommBarOpt, CommBarOpt.CommBarOptInfo> {
+public class CommBarOptCalc extends AbstractProductCacheCalc<CommBarOpt, CommBarOpt.CommBarOptTradeInfo> {
 
     public CommBarOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class CommBarOptCalc extends AbstractProductCacheCalc<CommBarOpt, CommBar
     }
 
     @Override
-    protected CommBarOpt.CommBarOptInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommBarOpt.CommBarOptInfo.class);
+    protected CommBarOpt.CommBarOptTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommBarOpt.CommBarOptTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(CommBarOpt.CommBarOptInfo info) {
+    protected String getInstrumentId(CommBarOpt.CommBarOptTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected CommBarOpt createProduct(CommBarOpt.CommBarOptInfo info, MarketData md) {
+    protected CommBarOpt createProduct(CommBarOpt.CommBarOptTradeInfo info, MarketData md) {
         return new CommBarOpt(dataDate, info, md);
     }
 

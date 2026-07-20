@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * FxRangeAccureOpt 估值计算器
  */
-public class FxRangeAccureOptCalc extends AbstractProductCacheCalc<FxRangeAccureOpt, FxRangeAccureOpt.FxRangeAccureInfo> {
+public class FxRangeAccureOptCalc extends AbstractProductCacheCalc<FxRangeAccureOpt, FxRangeAccureOpt.FxRangeAccureTradeInfo> {
 
     public FxRangeAccureOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class FxRangeAccureOptCalc extends AbstractProductCacheCalc<FxRangeAccure
     }
 
     @Override
-    protected FxRangeAccureOpt.FxRangeAccureInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxRangeAccureOpt.FxRangeAccureInfo.class);
+    protected FxRangeAccureOpt.FxRangeAccureTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxRangeAccureOpt.FxRangeAccureTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(FxRangeAccureOpt.FxRangeAccureInfo info) {
+    protected String getInstrumentId(FxRangeAccureOpt.FxRangeAccureTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected FxRangeAccureOpt createProduct(FxRangeAccureOpt.FxRangeAccureInfo info, MarketData md) {
+    protected FxRangeAccureOpt createProduct(FxRangeAccureOpt.FxRangeAccureTradeInfo info, MarketData md) {
         return new FxRangeAccureOpt(dataDate, info, md);
     }
 

@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.Convert;
 import com.zcyh.mr.support.EngineConstants;
@@ -23,13 +23,13 @@ import java.util.stream.Collectors;
  * 保留场景估值与敏感性框架。
  * FRTB 敏感性统一通过基类公共模板输出。
  */
-public class FxBarOpt extends BarOptBase<FxBarOpt.FxBarOptInfo> {
+public class FxBarOpt extends BarOptBase<FxBarOpt.FxBarOptTradeInfo> {
 
     private OptionMeasure fxBarOptMeasure;
     private BarOptUtil barUtil;
     private final Middle middle = new Middle();
 
-    public FxBarOpt(LocalDate dataDate, FxBarOptInfo info, MarketData marketData) {
+    public FxBarOpt(LocalDate dataDate, FxBarOptTradeInfo info, MarketData marketData) {
         super(dataDate, info, marketData);
     }
 
@@ -232,7 +232,7 @@ public class FxBarOpt extends BarOptBase<FxBarOpt.FxBarOptInfo> {
             throw new IllegalArgumentException("MATURITY_DATE 必须晚于 DATA_DATE");
     }
 
-    public static class FxBarOptInfo extends BarOptBase.BarOptBaseInfo {
+    public static class FxBarOptTradeInfo extends BarOptBase.BarOptBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_CURRENCY_CODE")
         public String underlyingCurrencyCode;

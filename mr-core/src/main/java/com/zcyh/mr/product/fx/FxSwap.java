@@ -1,4 +1,7 @@
+
 package com.zcyh.mr.product.fx;
+
+import com.zcyh.mr.product.basic.validation.TradeInfo;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.support.EngineConfiguration;
@@ -7,7 +10,7 @@ import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
@@ -27,11 +30,11 @@ import java.util.Map;
  */
 public class FxSwap {
     private LocalDate dataDate;
-    private FxSwapInfo fxSwapInfo;
+    private FxSwapTradeInfo fxSwapInfo;
     private MarketData marketData;
     private FxSwapMeasure fxSwapMeasure = new FxSwapMeasure();
 
-    public FxSwap(LocalDate dataDate, FxSwapInfo tradeInfo, MarketData marketData) {
+    public FxSwap(LocalDate dataDate, FxSwapTradeInfo tradeInfo, MarketData marketData) {
         this.dataDate = dataDate;
         this.fxSwapInfo = tradeInfo;
         this.marketData = marketData;
@@ -356,7 +359,7 @@ public class FxSwap {
         public double bPv01;
     }
 
-    static public class FxSwapInfo {
+    static public class FxSwapTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
@@ -399,7 +402,7 @@ public class FxSwap {
 
         @Override
         public String toString() {
-            return "FxSwapInfo{" + "productCode='" + productCode + '\'' +
+            return "FxSwapTradeInfo{" + "productCode='" + productCode + '\'' +
                     ", instrumentId='" + instrumentId + '\'' +
                     ", buyOrSell='" + buyOrSell + '\'' +
                     ", underlyingCurrencyCode='" + underlyingCurrencyCode + '\'' +

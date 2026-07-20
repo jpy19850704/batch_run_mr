@@ -15,7 +15,7 @@ public class EqAsianTest {
     @Test
     public void testEqAsianCalcAndDetailFields() {
         LocalDate dataDate = LocalDate.of(2026, 1, 10);
-        EqAsian.EqAsianInfo info = buildBaseInfo(dataDate);
+        EqAsian.EqAsianTradeInfo info = buildBaseInfo(dataDate);
         info.obsStartDate = LocalDate.of(2026, 1, 5);
         info.obsEndDate = LocalDate.of(2026, 1, 20);
         info.fixingId = "EQ_ASIAN_FIX";
@@ -44,8 +44,8 @@ public class EqAsianTest {
         }
     }
 
-    private EqAsian.EqAsianInfo buildBaseInfo(LocalDate dataDate) {
-        EqAsian.EqAsianInfo info = new EqAsian.EqAsianInfo();
+    private EqAsian.EqAsianTradeInfo buildBaseInfo(LocalDate dataDate) {
+        EqAsian.EqAsianTradeInfo info = new EqAsian.EqAsianTradeInfo();
         info.productCode = EngineConstants.PRODUCT_CODE.EQ_ASIAN;
         info.instrumentId = "UT_EQ_ASIAN_001";
         info.callOrPut = "CALL";

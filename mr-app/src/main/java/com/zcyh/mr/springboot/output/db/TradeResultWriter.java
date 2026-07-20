@@ -123,7 +123,7 @@ public class TradeResultWriter {
                 DorisCsvStreamLoadBuffer.decimalText(CalcResultPersistSupport.toBigDecimal(trade.get("RHO"))),
                 CalcResultPersistSupport.trimToNull(trade.getString("STATUS")),
                 CalcResultPersistSupport.toTextValue(trade.get("DETAIL")),
-                CalcResultPersistSupport.toJsonString(trade.get("LOGS")),
+                CalcResultPersistSupport.toJsonString(trade.get("LOGS_JSON")),
                 CalcResultPersistSupport.toJsonString(trade.get("CASH_FLOW")),
                 CalcResultPersistSupport.toJsonString(inputTrade),
                 inputTrade == null ? null : CalcResultPersistSupport.toJsonString(inputTrade.get("_MARKET_DATA_KEYS")),

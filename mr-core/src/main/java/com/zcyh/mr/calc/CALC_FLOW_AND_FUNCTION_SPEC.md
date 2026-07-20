@@ -114,7 +114,7 @@
    - 缓存实例（供场景复算）
    - 调用 `calc()`（当前通过反射）
    - 合并结果到 `mergedData`
-3. 将 `Loader` 产生的 `validationErrors` 合并进 `log_data`。
+3. 将 Loader 层无法归属交易的异常写入系统日志；可归属交易的计算异常写入该交易结果的 `LOGS_JSON`。
 4. 返回 `{ "data": mergedData }`。
 
 ## 6.4 合并规则（`mergeData`）
@@ -204,9 +204,9 @@
 
 ## 8.1 Loader 校验层
 
-- 交易与市场数据校验错误汇总到 `validationErrors`
-- 非法交易可在进入产品计算前即被跳过
-- 最终并入输出 `log_data`
+- Loader 层解析错误汇总到 `validationErrors`
+- 缺少 `INSTRUMENT_ID` 的输入仅写入系统日志
+- 可识别交易的异常由计算层形成错误明细并写入 `LOGS_JSON`
 
 ## 8.2 调度层
 
@@ -259,7 +259,7 @@
 - 引入 `AbstractProductCalc` 承载共性逻辑：
   - 遍历交易
   - 异常捕获
-  - `trade_data/log_data` 封装
+  - `trade_data/LOGS_JSON` 封装
 - 各产品仅保留差异钩子
 
 ### 阶段 C：场景能力统一

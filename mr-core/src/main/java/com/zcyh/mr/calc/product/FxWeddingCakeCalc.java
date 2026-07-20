@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * FxWeddingCake 估值计算器
  */
-public class FxWeddingCakeCalc extends AbstractProductCacheCalc<FxWeddingCake, FxWeddingCake.FxWeddingCakeInfo> {
+public class FxWeddingCakeCalc extends AbstractProductCacheCalc<FxWeddingCake, FxWeddingCake.FxWeddingCakeTradeInfo> {
 
     public FxWeddingCakeCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class FxWeddingCakeCalc extends AbstractProductCacheCalc<FxWeddingCake, F
     }
 
     @Override
-    protected FxWeddingCake.FxWeddingCakeInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxWeddingCake.FxWeddingCakeInfo.class);
+    protected FxWeddingCake.FxWeddingCakeTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxWeddingCake.FxWeddingCakeTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(FxWeddingCake.FxWeddingCakeInfo info) {
+    protected String getInstrumentId(FxWeddingCake.FxWeddingCakeTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected FxWeddingCake createProduct(FxWeddingCake.FxWeddingCakeInfo info, MarketData md) {
+    protected FxWeddingCake createProduct(FxWeddingCake.FxWeddingCakeTradeInfo info, MarketData md) {
         return new FxWeddingCake(dataDate, info, md);
     }
 

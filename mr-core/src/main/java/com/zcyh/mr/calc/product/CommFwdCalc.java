@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * CommFwd 估值计算器
  */
-public class CommFwdCalc extends AbstractProductCacheCalc<CommFwd, CommFwd.CommFwdInfo> {
+public class CommFwdCalc extends AbstractProductCacheCalc<CommFwd, CommFwd.CommFwdTradeInfo> {
 
     public CommFwdCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class CommFwdCalc extends AbstractProductCacheCalc<CommFwd, CommFwd.CommF
     }
 
     @Override
-    protected CommFwd.CommFwdInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommFwd.CommFwdInfo.class);
+    protected CommFwd.CommFwdTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommFwd.CommFwdTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(CommFwd.CommFwdInfo info) {
+    protected String getInstrumentId(CommFwd.CommFwdTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected CommFwd createProduct(CommFwd.CommFwdInfo info, MarketData md) {
+    protected CommFwd createProduct(CommFwd.CommFwdTradeInfo info, MarketData md) {
         return new CommFwd(dataDate, info, md);
     }
 

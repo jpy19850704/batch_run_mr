@@ -15,7 +15,7 @@ import java.util.List;
 /**
  * 标准利率互换估值计算器。
  */
-public class StdIrsCalc extends AbstractProductCacheCalc<StdIrs, StdIrs.StdIrsInfo> {
+public class StdIrsCalc extends AbstractProductCacheCalc<StdIrs, StdIrs.StdIrsTradeInfo> {
 
     public StdIrsCalc(String operCode, LocalDate dataDate, List<HashMap<String, Object>> trades,
             MarketData marketData, Calendar calendar) {
@@ -23,17 +23,17 @@ public class StdIrsCalc extends AbstractProductCacheCalc<StdIrs, StdIrs.StdIrsIn
     }
 
     @Override
-    protected StdIrs.StdIrsInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), StdIrs.StdIrsInfo.class);
+    protected StdIrs.StdIrsTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), StdIrs.StdIrsTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(StdIrs.StdIrsInfo info) {
+    protected String getInstrumentId(StdIrs.StdIrsTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected StdIrs createProduct(StdIrs.StdIrsInfo info, MarketData md) {
+    protected StdIrs createProduct(StdIrs.StdIrsTradeInfo info, MarketData md) {
         return new StdIrs(dataDate, info, md, calendar);
     }
 

@@ -14,7 +14,7 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 
-public class BondCalc extends AbstractProductCacheCalc<Bond, Bond.BondInfo> {
+public class BondCalc extends AbstractProductCacheCalc<Bond, Bond.BondTradeInfo> {
     private static final Logger log = LoggerFactory.getLogger(BondCalc.class);
 
     public BondCalc(String operCode, LocalDate dataDate, List<HashMap<String, Object>> trades,
@@ -23,17 +23,17 @@ public class BondCalc extends AbstractProductCacheCalc<Bond, Bond.BondInfo> {
     }
 
     @Override
-    protected Bond.BondInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSON.toJSONString(tradeData), Bond.BondInfo.class);
+    protected Bond.BondTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSON.toJSONString(tradeData), Bond.BondTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(Bond.BondInfo info) {
+    protected String getInstrumentId(Bond.BondTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected Bond createProduct(Bond.BondInfo info, MarketData md) {
+    protected Bond createProduct(Bond.BondTradeInfo info, MarketData md) {
         return new Bond(dataDate, info, md, calendar);
     }
 

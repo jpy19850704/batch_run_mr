@@ -16,7 +16,7 @@ public class IrOptionInputValidationTest {
 
     @Test
     public void testCapFloorAllowsZeroNotional() {
-        CapFloor.CapFloorInfo info = buildCapFloorInfo();
+        CapFloor.CapFloorTradeInfo info = buildCapFloorInfo();
         info.notional = 0.0;
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -27,7 +27,7 @@ public class IrOptionInputValidationTest {
 
     @Test
     public void testSwaptionAllowsZeroNotional() {
-        Swaption.SwaptionInfo info = buildMaturedSwaptionInfo();
+        Swaption.SwaptionTradeInfo info = buildMaturedSwaptionInfo();
         info.notional = 0.0;
 
         Swaption.SwaptionMeasure result = new Swaption(
@@ -40,7 +40,7 @@ public class IrOptionInputValidationTest {
 
     @Test
     public void testCapFloorRejectsNegativeNotional() {
-        CapFloor.CapFloorInfo info = buildCapFloorInfo();
+        CapFloor.CapFloorTradeInfo info = buildCapFloorInfo();
         info.notional = -1.0;
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -51,7 +51,7 @@ public class IrOptionInputValidationTest {
 
     @Test
     public void testSwaptionRejectsNegativeNotional() {
-        Swaption.SwaptionInfo info = buildMaturedSwaptionInfo();
+        Swaption.SwaptionTradeInfo info = buildMaturedSwaptionInfo();
         info.notional = -1.0;
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -62,7 +62,7 @@ public class IrOptionInputValidationTest {
 
     @Test
     public void testCapFloorRejectsInvalidOptionType() {
-        CapFloor.CapFloorInfo info = buildCapFloorInfo();
+        CapFloor.CapFloorTradeInfo info = buildCapFloorInfo();
         info.capOrFloor = "OTHER";
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -73,7 +73,7 @@ public class IrOptionInputValidationTest {
 
     @Test
     public void testSwaptionRejectsInvalidOptionType() {
-        Swaption.SwaptionInfo info = buildMaturedSwaptionInfo();
+        Swaption.SwaptionTradeInfo info = buildMaturedSwaptionInfo();
         info.callOrPut = "OTHER";
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -84,7 +84,7 @@ public class IrOptionInputValidationTest {
 
     @Test
     public void testSwaptionRejectsInvalidDirection() {
-        Swaption.SwaptionInfo info = buildMaturedSwaptionInfo();
+        Swaption.SwaptionTradeInfo info = buildMaturedSwaptionInfo();
         info.buyOrSell = "OTHER";
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -93,8 +93,8 @@ public class IrOptionInputValidationTest {
         Assertions.assertTrue(exception.getMessage().contains("BUY_OR_SELL"));
     }
 
-    private CapFloor.CapFloorInfo buildCapFloorInfo() {
-        CapFloor.CapFloorInfo info = new CapFloor.CapFloorInfo();
+    private CapFloor.CapFloorTradeInfo buildCapFloorInfo() {
+        CapFloor.CapFloorTradeInfo info = new CapFloor.CapFloorTradeInfo();
         info.instrumentId = "UT_CAPFLOOR_001";
         info.capOrFloor = "CAP";
         info.productCode = EngineConstants.PRODUCT_CODE.CAPFLOOR;
@@ -112,8 +112,8 @@ public class IrOptionInputValidationTest {
         return info;
     }
 
-    private Swaption.SwaptionInfo buildMaturedSwaptionInfo() {
-        Swaption.SwaptionInfo info = new Swaption.SwaptionInfo();
+    private Swaption.SwaptionTradeInfo buildMaturedSwaptionInfo() {
+        Swaption.SwaptionTradeInfo info = new Swaption.SwaptionTradeInfo();
         info.productCode = EngineConstants.PRODUCT_CODE.SWAPTION;
         info.instrumentId = "UT_SWAPTION_001";
         info.callOrPut = "CALL";

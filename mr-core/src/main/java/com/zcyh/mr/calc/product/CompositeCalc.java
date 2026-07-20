@@ -49,7 +49,6 @@ public class CompositeCalc implements ProductCalculator {
 
     private final JSONObject result = new JSONObject();
     private final JSONArray tradeResult = new JSONArray();
-    private final JSONArray logData = new JSONArray();
     private final Map<String, CompositeRuntime> compositeCache = new LinkedHashMap<>();
 
     public CompositeCalc(String operCode, LocalDate dataDate, List<HashMap<String, Object>> trades,
@@ -66,7 +65,6 @@ public class CompositeCalc implements ProductCalculator {
         calculateTrades();
         this.result.put("data", new JSONObject());
         ((JSONObject) this.result.get("data")).put("trade_data", tradeResult);
-        ((JSONObject) this.result.get("data")).put("log_data", logData);
         JsonNumberUtils.normalizeNumbersInPlace(this.result);
         return JSON.toJSONString(this.result, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
@@ -79,7 +77,7 @@ public class CompositeCalc implements ProductCalculator {
             try {
                 calcTrade(trade);
             } catch (Exception e) {
-                AbstractCalc.appendErrorResult(tradeResult, logData, dataDate, trade, unwrap(e));
+                AbstractCalc.appendErrorResult(tradeResult, dataDate, trade, unwrap(e));
             }
         }
     }
@@ -90,9 +88,6 @@ public class CompositeCalc implements ProductCalculator {
         ComponentRun run = runComponents(specs, marketData, true);
         JSONObject measure = aggregateComposite(compositeTrade, specs, run.componentMeasures, run.componentLogs);
         tradeResult.add(measure);
-        if (!"SUCCESS".equals(measure.getString("STATUS"))) {
-            appendCompositeLog(compositeId, "组合产品存在失败组成项");
-        }
         compositeCache.put(compositeId, new CompositeRuntime(compositeId, specs, run.scenarioCalcs,
                 run.unsupportedScenarioProducts));
     }
@@ -249,7 +244,7 @@ public class CompositeCalc implements ProductCalculator {
                 success = false;
                 appendLog(logs, "ERROR", "组成项计量失败: " + spec.componentId);
             }
-            JSONArray componentMeasureLogs = componentMeasure.getJSONArray("LOGS");
+            JSONArray componentMeasureLogs = componentMeasure.getJSONArray("LOGS_JSON");
             if (componentMeasureLogs != null) {
                 logs.addAll(componentMeasureLogs);
             }
@@ -274,7 +269,7 @@ public class CompositeCalc implements ProductCalculator {
         if (componentLogs != null && !componentLogs.isEmpty()) {
             logs.addAll(componentLogs);
         }
-        measure.put("LOGS", logs);
+        measure.put("LOGS_JSON", logs);
         measure.put("FRTB_SENSITIVITY", aggregateSensitivity(compositeId, specs, componentMeasures));
 
         JSONObject detail = new JSONObject();
@@ -330,10 +325,6 @@ public class CompositeCalc implements ProductCalculator {
             return;
         }
         collectMeasures(data.getJSONArray("trade_data"), run.componentMeasures);
-        JSONArray logs = data.getJSONArray("log_data");
-        if (logs != null && !logs.isEmpty()) {
-            run.componentLogs.addAll(logs);
-        }
     }
 
     private void collectMeasures(JSONArray measures, Map<String, JSONObject> target) {
@@ -382,16 +373,8 @@ public class CompositeCalc implements ProductCalculator {
         measure.put("STATUS", "ERROR");
         JSONArray logs = new JSONArray();
         appendLog(logs, "ERROR", "计算异常: " + resolveErrorMessage(e));
-        measure.put("LOGS", logs);
+        measure.put("LOGS_JSON", logs);
         return measure;
-    }
-
-    private void appendCompositeLog(String instrumentId, String info) {
-        JSONObject log = new JSONObject();
-        log.put("INSTRUMENT_ID", instrumentId);
-        log.put("PRODUCT_CODE", EngineConstants.PRODUCT_CODE.COMPOSITE);
-        log.put("info", info);
-        logData.add(log);
     }
 
     private static JSONObject copyJson(JSONObject src) {

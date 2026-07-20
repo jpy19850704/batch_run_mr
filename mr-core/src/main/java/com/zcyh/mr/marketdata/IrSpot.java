@@ -9,6 +9,8 @@ import com.zcyh.mr.math.Interpolation;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 利率即期曲线
@@ -27,6 +29,35 @@ public class IrSpot implements Serializable {
 
     public IrSpotInfo getIrSpotInfo() {
         return irSpotInfo;
+    }
+
+    public static void validateInput(String curveId, IrSpotInfo info, List<String> errors) {
+        if (curveId == null || curveId.trim().isEmpty()) {
+            errors.add("CURVE_ID 不能为空");
+            return;
+        }
+        if (info == null) {
+            errors.add(curveId + ": 曲线信息为空");
+            return;
+        }
+        if (info.pDataDate == null) {
+            errors.add(curveId + ": P_DATA_DATE 不能为空");
+        }
+        if (info.freq == null || info.freq.trim().isEmpty()) {
+            errors.add(curveId + ": FREQ 不能为空");
+        }
+        if (info.dayCount == null || info.dayCount.trim().isEmpty()) {
+            errors.add(curveId + ": DAYCOUNT 不能为空");
+        }
+        if (info.curveData == null || info.curveData.isEmpty()) {
+            errors.add(curveId + ": CURVE_DATA 不能为空");
+            return;
+        }
+        for (Map.Entry<Integer, Double> point : info.curveData.entrySet()) {
+            if (point.getKey() == null || point.getValue() == null || !Double.isFinite(point.getValue())) {
+                errors.add(curveId + ": TERM和RATE必须为有效数值");
+            }
+        }
     }
 
     /**

@@ -1,7 +1,9 @@
 package com.zcyh.mr.product.basic.structure;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
@@ -30,7 +32,7 @@ import static com.zcyh.mr.product.basic.frtb.OptionBaseFrtbSupport.*;
  * sigma 校准、组合定价和 Greeks 计算均在 Base 层完成，与 SharkFinBase 模式对齐。
  * 支持 Vanna-Volga overhedge 调整（按腿独立叠加）。
  */
-public abstract class SpreadOptBase<T extends SpreadOptBase.SpreadOptBaseInfo, M extends OptionMeasure> {
+public abstract class SpreadOptBase<T extends SpreadOptBase.SpreadOptBaseTradeInfo, M extends OptionMeasure> {
 
     protected final LocalDate dataDate;
     protected final T info;
@@ -696,7 +698,7 @@ public abstract class SpreadOptBase<T extends SpreadOptBase.SpreadOptBaseInfo, M
     }
 
     /** 公共字段基类 */
-    public static class SpreadOptBaseInfo {
+    public static class SpreadOptBaseTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;

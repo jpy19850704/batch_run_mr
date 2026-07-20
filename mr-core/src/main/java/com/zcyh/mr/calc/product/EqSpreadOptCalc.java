@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * EqSpreadOpt 估值计算器
  */
-public class EqSpreadOptCalc extends AbstractProductCacheCalc<EqSpreadOpt, EqSpreadOpt.SpreadOptInfo> {
+public class EqSpreadOptCalc extends AbstractProductCacheCalc<EqSpreadOpt, EqSpreadOpt.SpreadOptTradeInfo> {
 
     public EqSpreadOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class EqSpreadOptCalc extends AbstractProductCacheCalc<EqSpreadOpt, EqSpr
     }
 
     @Override
-    protected EqSpreadOpt.SpreadOptInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), EqSpreadOpt.SpreadOptInfo.class);
+    protected EqSpreadOpt.SpreadOptTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), EqSpreadOpt.SpreadOptTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(EqSpreadOpt.SpreadOptInfo info) {
+    protected String getInstrumentId(EqSpreadOpt.SpreadOptTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected EqSpreadOpt createProduct(EqSpreadOpt.SpreadOptInfo info, MarketData md) {
+    protected EqSpreadOpt createProduct(EqSpreadOpt.SpreadOptTradeInfo info, MarketData md) {
         return new EqSpreadOpt(dataDate, info, md);
     }
 

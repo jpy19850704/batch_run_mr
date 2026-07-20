@@ -114,10 +114,7 @@ PROPERTIES (
 -- 情景 PnL VAR 结果表
 CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL (
     ID                  BIGINT          NOT NULL AUTO_INCREMENT,
-    REQUEST_ID          VARCHAR(128),
-    JOB_ID              VARCHAR(64),
     BATCH_ID            VARCHAR(64),
-    SEQ_NO              BIGINT,
     DATA_DATE           DATE NOT NULL,
     SCENARIO_ID         VARCHAR(128),
     SUBSCENARIO_ID      VARCHAR(128),
@@ -125,20 +122,14 @@ CREATE TABLE IF NOT EXISTS TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL (
     INSTRUMENT_ID       VARCHAR(128),
     PRODUCT_CODE        VARCHAR(64),
     BASE_VALUATION_CNY  DECIMAL(38, 10),
-    IR_VALUATION        DECIMAL(38, 10),
     IR_PNL              DECIMAL(38, 10),
-    FX_VALUATION        DECIMAL(38, 10),
     FX_PNL              DECIMAL(38, 10),
-    EQ_VALUATION        DECIMAL(38, 10),
     EQ_PNL              DECIMAL(38, 10),
-    COMM_VALUATION      DECIMAL(38, 10),
     COMM_PNL            DECIMAL(38, 10),
-    ALL_VALUATION       DECIMAL(38, 10),
     ALL_PNL             DECIMAL(38, 10),
     STATUS              VARCHAR(16),
     LOGS_JSON           TEXT,
-    CREATED_AT          DATETIME(3),
-    UPDATED_AT          DATETIME(3)
+    CREATED_AT          DATETIME(3)
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -412,10 +403,7 @@ PROPERTIES (
 -- 风险类别损益按列拆分（对齐 TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL），ALL_PNL 为全风险类别合计。
 CREATE TABLE IF NOT EXISTS TB_OUT_IMA_MODELLABLE_SCENARIO_PNL (
     ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
-    REQUEST_ID              VARCHAR(128)                             COMMENT '请求ID',
-    JOB_ID                  VARCHAR(64)                              COMMENT '任务ID',
     BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
-    SEQ_NO                  BIGINT                                   COMMENT '序号',
     DATA_DATE               DATE NOT NULL                              COMMENT '计算基准日期',
     SCENARIO_ID             VARCHAR(128)                             COMMENT '情景集ID',
     SUBSCENARIO_ID          VARCHAR(128)                             COMMENT '子情景ID（单条历史情景序号）',
@@ -425,22 +413,15 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_MODELLABLE_SCENARIO_PNL (
     PRODUCT_CODE            VARCHAR(64)                              COMMENT '产品代码',
     LH_DAYS                 SMALLINT                                 COMMENT '流动性期限天数：10/20/40/60/120（MAR33.4 j=1..5）',
     BASE_VALUATION_CNY      DECIMAL(38, 10)                          COMMENT '基准估值（人民币）',
-    IR_VALUATION            DECIMAL(38, 10)                          COMMENT '利率风险因子子集重定价估值',
     IR_PNL                  DECIMAL(38, 10)                          COMMENT '利率风险损益',
-    CS_VALUATION            DECIMAL(38, 10)                          COMMENT '信用利差风险因子子集重定价估值',
     CS_PNL                  DECIMAL(38, 10)                          COMMENT '信用利差风险损益',
-    FX_VALUATION            DECIMAL(38, 10)                          COMMENT '外汇风险因子子集重定价估值',
     FX_PNL                  DECIMAL(38, 10)                          COMMENT '外汇风险损益',
-    EQ_VALUATION            DECIMAL(38, 10)                          COMMENT '权益风险因子子集重定价估值',
     EQ_PNL                  DECIMAL(38, 10)                          COMMENT '权益风险损益',
-    COMM_VALUATION          DECIMAL(38, 10)                          COMMENT '大宗商品风险因子子集重定价估值',
     COMM_PNL                DECIMAL(38, 10)                          COMMENT '大宗商品风险损益',
-    ALL_VALUATION           DECIMAL(38, 10)                          COMMENT '全风险类别子集重定价估值',
     ALL_PNL                 DECIMAL(38, 10)                          COMMENT '全风险类别损益',
     STATUS                  VARCHAR(16)                              COMMENT '情景PnL状态：SUCCESS / ERROR',
     LOGS_JSON               TEXT                                     COMMENT '情景PnL日志JSON',
-    CREATED_AT              DATETIME(3)                                   COMMENT '创建时间',
-    UPDATED_AT              DATETIME(3)                                   COMMENT '更新时间'
+    CREATED_AT              DATETIME(3)                                   COMMENT '创建时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -455,10 +436,7 @@ PROPERTIES (
 -- SES 聚合从本表读取，按 RISK_FACTOR_ID 分组取最大损失作为压力场景损失。
 CREATE TABLE IF NOT EXISTS TB_OUT_IMA_NMRF_SCENARIO_PNL (
     ID                      BIGINT          NOT NULL AUTO_INCREMENT   COMMENT '主键',
-    REQUEST_ID              VARCHAR(128)                             COMMENT '请求ID',
-    JOB_ID                  VARCHAR(64)                              COMMENT '任务ID',
     BATCH_ID                VARCHAR(64)                              COMMENT '批次ID',
-    SEQ_NO                  BIGINT                                   COMMENT '序号',
     DATA_DATE               DATE NOT NULL                              COMMENT '计算基准日期',
     SCENARIO_ID             VARCHAR(128)                             COMMENT '情景集ID（NMRF压力情景集）',
     SUBSCENARIO_ID          VARCHAR(128)                             COMMENT '子情景ID（单条压力情景）',
@@ -468,12 +446,10 @@ CREATE TABLE IF NOT EXISTS TB_OUT_IMA_NMRF_SCENARIO_PNL (
     RISK_FACTOR_ID          VARCHAR(256)                             COMMENT '不可建模风险因子ID（MAR31.13 NMRF）',
     NMRF_TYPE               VARCHAR(32)                              COMMENT 'NMRF分类：IDIO_CREDIT / IDIO_EQUITY / OTHER（MAR33.17）',
     BASE_VALUATION_CNY      DECIMAL(38, 10)                          COMMENT '基准估值（人民币）',
-    STRESS_VALUATION_CNY    DECIMAL(38, 10)                          COMMENT '压力情景重定价估值（仅冲击该NMRF因子）',
     PNL                     DECIMAL(38, 10)                          COMMENT '压力情景损益 = STRESS_VALUATION - BASE_VALUATION',
     STATUS                  VARCHAR(16)                              COMMENT '情景PnL状态：SUCCESS / ERROR',
     LOGS_JSON               TEXT                                     COMMENT '情景PnL日志JSON',
-    CREATED_AT              DATETIME(3)                                   COMMENT '创建时间',
-    UPDATED_AT              DATETIME(3)                                   COMMENT '更新时间'
+    CREATED_AT              DATETIME(3)                                   COMMENT '创建时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8

@@ -11,7 +11,6 @@ import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.common.Measure;
 
 import java.time.LocalDate;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
@@ -31,7 +30,6 @@ public abstract class AbstractCalc implements ProductCalculator {
 
     protected JSONObject result = new JSONObject();
     protected JSONArray trade = new JSONArray();
-    protected JSONArray log = new JSONArray();
 
     /**
      * 标准构造（无 Calendar）
@@ -61,7 +59,6 @@ public abstract class AbstractCalc implements ProductCalculator {
         calculateTrades();
         this.result.put("data", new JSONObject());
         ((JSONObject) this.result.get("data")).put("trade_data", trade);
-        ((JSONObject) this.result.get("data")).put("log_data", log);
         JsonNumberUtils.normalizeNumbersInPlace(this.result);
         return JSON.toJSONString(this.result, JSONWriter.Feature.WriteBigDecimalAsPlain);
     }
@@ -112,19 +109,19 @@ public abstract class AbstractCalc implements ProductCalculator {
 
     // ===== 公共工具方法 =====
 
-    /** 记录失败日志（成功交易不写 log_data） */
-    protected void addLog(String instrumentId, Measure measure) {
-        if (!"SUCCESS".equals(measure.status)) {
-            JSONObject logInfo = new JSONObject();
-            logInfo.put("INSTRUMENT_ID", instrumentId);
-            logInfo.put("info", "校验失败");
-            log.add(logInfo);
+    /** 场景结果缺少交易 ID 时使用缓存中的交易 ID 补回。 */
+    protected void ensureScenarioInstrumentId(Measure measure, String instrumentId) {
+        if (measure == null || instrumentId == null || instrumentId.trim().isEmpty()) {
+            return;
+        }
+        if (measure.instrumentId == null || measure.instrumentId.trim().isEmpty()) {
+            measure.instrumentId = instrumentId;
         }
     }
 
     /** 统一异常处理：生成错误 Measure 和错误日志 */
     protected void handleError(HashMap<String, Object> tradeData, Exception e) {
-        appendErrorResult(this.trade, this.log, dataDate, tradeData, e);
+        appendErrorResult(this.trade, dataDate, tradeData, e);
     }
 
     /** 将标的债券数组转换为按 BOND_ID 索引的对象。 */
@@ -157,18 +154,14 @@ public abstract class AbstractCalc implements ProductCalculator {
         return err;
     }
 
-    /** 为手写 Calc 追加标准错误交易结果，避免异常交易只进 log_data 而从 trade_data 消失。 */
-    public static void appendErrorResult(JSONArray tradeDataResult, JSONArray logData,
+    /** 为手写 Calc 追加标准错误交易结果。 */
+    public static void appendErrorResult(JSONArray tradeDataResult,
             LocalDate dataDate, HashMap<String, Object> tradeData, Exception e) {
         String instId = java.util.Objects.toString(tradeData.get("INSTRUMENT_ID"), "");
         String prodCode = java.util.Objects.toString(tradeData.get("PRODUCT_CODE"), "");
         Measure err = buildErrorMeasure(dataDate, instId, prodCode, e);
         tradeDataResult.add(err);
 
-        JSONObject errLog = new JSONObject();
-        errLog.put("INSTRUMENT_ID", instId);
-        errLog.put("info", "计算异常: " + resolveErrorMessage(e));
-        logData.add(errLog);
     }
 
     private static String resolveErrorMessage(Exception e) {

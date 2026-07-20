@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.eq;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.option.DigOptBase;
@@ -15,9 +15,9 @@ import java.util.Map;
  * 标的价格从 eqSpot 获取，rf = 0（不考虑股息）。
  * rebase 统一使用 discountCurve。
  */
-public class EqDigOpt extends DigOptBase<EqDigOpt.EqDigOptInfo> {
+public class EqDigOpt extends DigOptBase<EqDigOpt.EqDigOptTradeInfo> {
 
-    public EqDigOpt(LocalDate dataDate, EqDigOptInfo info, MarketData marketData) {
+    public EqDigOpt(LocalDate dataDate, EqDigOptTradeInfo info, MarketData marketData) {
         super(dataDate, info, marketData);
     }
 
@@ -92,7 +92,7 @@ public class EqDigOpt extends DigOptBase<EqDigOpt.EqDigOptInfo> {
             throw new IllegalArgumentException("缺少波动率曲面: VOLATILITY_SURFACE");
     }
 
-    public static class EqDigOptInfo extends DigOptBase.DigOptBaseInfo {
+    public static class EqDigOptTradeInfo extends DigOptBase.DigOptBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;

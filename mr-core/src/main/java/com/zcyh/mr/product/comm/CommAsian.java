@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.*;
@@ -18,9 +18,9 @@ import java.util.*;
 /**
  * COMM 亚式期权。
  */
-public class CommAsian extends AsianBase<CommAsian.CommAsianInfo, CommAsian.CommAsianMeasure> {
+public class CommAsian extends AsianBase<CommAsian.CommAsianTradeInfo, CommAsian.CommAsianMeasure> {
 
-    public CommAsian(LocalDate dataDate, CommAsianInfo tradeInfo, MarketData marketData) {
+    public CommAsian(LocalDate dataDate, CommAsianTradeInfo tradeInfo, MarketData marketData) {
         super(dataDate, tradeInfo, marketData);
     }
 
@@ -268,7 +268,7 @@ public class CommAsian extends AsianBase<CommAsian.CommAsianInfo, CommAsian.Comm
     public static class CommAsianMeasure extends OptionMeasure {
     }
 
-    public static class CommAsianInfo extends AsianBase.AsianBaseInfo {
+    public static class CommAsianTradeInfo extends AsianBase.AsianBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;

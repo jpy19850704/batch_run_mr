@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * 外汇远期估值计算器
  */
-public class FxFwdCalc extends AbstractProductCacheCalc<FxFwd, FxFwd.FxFwdInfo> {
+public class FxFwdCalc extends AbstractProductCacheCalc<FxFwd, FxFwd.FxFwdTradeInfo> {
 
     public FxFwdCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class FxFwdCalc extends AbstractProductCacheCalc<FxFwd, FxFwd.FxFwdInfo> 
     }
 
     @Override
-    protected FxFwd.FxFwdInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxFwd.FxFwdInfo.class);
+    protected FxFwd.FxFwdTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxFwd.FxFwdTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(FxFwd.FxFwdInfo info) {
+    protected String getInstrumentId(FxFwd.FxFwdTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected FxFwd createProduct(FxFwd.FxFwdInfo info, MarketData md) {
+    protected FxFwd createProduct(FxFwd.FxFwdTradeInfo info, MarketData md) {
         return new FxFwd(dataDate, info, md);
     }
 

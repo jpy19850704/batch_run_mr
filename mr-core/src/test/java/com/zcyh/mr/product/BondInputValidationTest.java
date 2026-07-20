@@ -8,7 +8,7 @@ import com.zcyh.mr.support.Series;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.ir.Bond;
 import com.zcyh.mr.product.ir.BondFuture;
 import org.junit.jupiter.api.Assertions;
@@ -24,7 +24,7 @@ public class BondInputValidationTest {
 
     @Test
     public void testBondFieldDefaults() {
-        Bond.BondInfo info = new Bond.BondInfo();
+        Bond.BondTradeInfo info = new Bond.BondTradeInfo();
 
         Assertions.assertEquals(100.0, info.notional);
         Assertions.assertEquals(1.0, info.positionTrade);
@@ -36,7 +36,7 @@ public class BondInputValidationTest {
 
     @Test
     public void testLastResetRateMetadataRequiresFiniteValue() throws NoSuchFieldException {
-        ProductInputField metadata = Bond.BondInfo.class.getField("lastResetRate")
+        ProductInputField metadata = Bond.BondTradeInfo.class.getField("lastResetRate")
                 .getAnnotation(ProductInputField.class);
 
         Assertions.assertNotNull(metadata);
@@ -45,7 +45,7 @@ public class BondInputValidationTest {
 
     @Test
     public void testBondAllowsZeroNotional() {
-        Bond.BondInfo info = buildBondInfo();
+        Bond.BondTradeInfo info = buildBondInfo();
         info.notional = 0.0;
 
         Assertions.assertDoesNotThrow(() -> new Bond(DATA_DATE, info, buildMarketData(), new Calendar()));
@@ -53,7 +53,7 @@ public class BondInputValidationTest {
 
     @Test
     public void testBondRejectsNegativeNotional() {
-        Bond.BondInfo info = buildBondInfo();
+        Bond.BondTradeInfo info = buildBondInfo();
         info.notional = -1.0;
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -64,7 +64,7 @@ public class BondInputValidationTest {
 
     @Test
     public void testBondRejectsInvalidInterestType() {
-        Bond.BondInfo info = buildBondInfo();
+        Bond.BondTradeInfo info = buildBondInfo();
         info.interestType = "OTHER";
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -75,7 +75,7 @@ public class BondInputValidationTest {
 
     @Test
     public void testBondFutureAllowsZeroPosition() {
-        BondFuture.BondFutureInfo info = buildBondFutureInfo();
+        BondFuture.BondFutureTradeInfo info = buildBondFutureInfo();
         info.underlyingPosition = 0.0;
 
         Assertions.assertDoesNotThrow(() -> new BondFuture(
@@ -84,7 +84,7 @@ public class BondInputValidationTest {
 
     @Test
     public void testBondFutureRequiresConvertFactors() {
-        BondFuture.BondFutureInfo info = buildBondFutureInfo();
+        BondFuture.BondFutureTradeInfo info = buildBondFutureInfo();
         info.convertFactors = null;
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -95,7 +95,7 @@ public class BondInputValidationTest {
 
     @Test
     public void testBondFutureRejectsZeroConvertFactor() {
-        BondFuture.BondFutureInfo info = buildBondFutureInfo();
+        BondFuture.BondFutureTradeInfo info = buildBondFutureInfo();
         info.convertFactors.get(0).convertFactor = 0.0;
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -106,14 +106,14 @@ public class BondInputValidationTest {
 
     @Test
     public void testBondFutureParsesMaturityDateByFieldFormat() {
-        BondFuture.BondFutureInfo info = JSON.parseObject(
-                "{\"MATURITY_DATE\":\"20260331\"}", BondFuture.BondFutureInfo.class);
+        BondFuture.BondFutureTradeInfo info = JSON.parseObject(
+                "{\"MATURITY_DATE\":\"20260331\"}", BondFuture.BondFutureTradeInfo.class);
 
         Assertions.assertEquals(LocalDate.of(2026, 3, 31), info.maturityDate);
     }
 
-    private Bond.BondInfo buildBondInfo() {
-        Bond.BondInfo info = new Bond.BondInfo();
+    private Bond.BondTradeInfo buildBondInfo() {
+        Bond.BondTradeInfo info = new Bond.BondTradeInfo();
         info.productCode = EngineConstants.PRODUCT_CODE.BOND;
         info.instrumentId = "UT_BOND_001";
         info.bondId = "UT_BOND_ID_001";
@@ -128,12 +128,12 @@ public class BondInputValidationTest {
         return info;
     }
 
-    private BondFuture.BondFutureInfo buildBondFutureInfo() {
+    private BondFuture.BondFutureTradeInfo buildBondFutureInfo() {
         BondFuture.ConvertFactor factor = new BondFuture.ConvertFactor();
         factor.underlyingBondId = "UT_BOND_ID_001";
         factor.convertFactor = 0.95;
 
-        BondFuture.BondFutureInfo info = new BondFuture.BondFutureInfo();
+        BondFuture.BondFutureTradeInfo info = new BondFuture.BondFutureTradeInfo();
         info.productCode = EngineConstants.PRODUCT_CODE.BOND_FUTURE;
         info.instrumentId = "UT_BOND_FUTURE_001";
         info.currencyCode = "USD";

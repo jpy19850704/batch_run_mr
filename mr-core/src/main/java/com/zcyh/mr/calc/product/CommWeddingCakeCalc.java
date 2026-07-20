@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * CommWeddingCake 估值计算器
  */
-public class CommWeddingCakeCalc extends AbstractProductCacheCalc<CommWeddingCake, CommWeddingCake.CommWeddingCakeInfo> {
+public class CommWeddingCakeCalc extends AbstractProductCacheCalc<CommWeddingCake, CommWeddingCake.CommWeddingCakeTradeInfo> {
 
     public CommWeddingCakeCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class CommWeddingCakeCalc extends AbstractProductCacheCalc<CommWeddingCak
     }
 
     @Override
-    protected CommWeddingCake.CommWeddingCakeInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommWeddingCake.CommWeddingCakeInfo.class);
+    protected CommWeddingCake.CommWeddingCakeTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommWeddingCake.CommWeddingCakeTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(CommWeddingCake.CommWeddingCakeInfo info) {
+    protected String getInstrumentId(CommWeddingCake.CommWeddingCakeTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected CommWeddingCake createProduct(CommWeddingCake.CommWeddingCakeInfo info, MarketData md) {
+    protected CommWeddingCake createProduct(CommWeddingCake.CommWeddingCakeTradeInfo info, MarketData md) {
         return new CommWeddingCake(dataDate, info, md);
     }
 

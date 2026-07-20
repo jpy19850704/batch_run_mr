@@ -1,7 +1,9 @@
 package com.zcyh.mr.product.comm;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.Preconditions;
 import com.zcyh.mr.support.EngineConstants;
@@ -25,7 +27,7 @@ import java.util.*;
  */
 public class CommSwap {
     private LocalDate dataDate;
-    private CommSwapInfo commSwapInfo;
+    private CommSwapTradeInfo commSwapInfo;
     private MarketData marketData;
     private CommSwapMeasure commSwapMeasure = new CommSwapMeasure();
 
@@ -33,7 +35,7 @@ public class CommSwap {
     private int[] termDays;//根据估值日期
     private final static double[] num = EngineConstants.PRODUCT_CODE.TERM_YEAR;
 
-    public CommSwap(LocalDate dataDate,CommSwapInfo tradeInfo,MarketData marketData){
+    public CommSwap(LocalDate dataDate,CommSwapTradeInfo tradeInfo,MarketData marketData){
         this.dataDate = dataDate;
         this.commSwapInfo = tradeInfo;
         this.marketData = marketData;
@@ -387,7 +389,7 @@ public class CommSwap {
     }
 
     /* 商品掉期内部类，封装传入的基本信息 */
-    public static class CommSwapInfo{
+    public static class CommSwapTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;

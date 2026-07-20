@@ -1,7 +1,10 @@
+
 package com.zcyh.mr.product.basic.structure;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.common.Measure;
@@ -28,7 +31,7 @@ import static com.zcyh.mr.product.basic.frtb.OptionBaseFrtbSupport.*;
  * - 内部增量化处理；
  * - 到期后使用 fixing 直接判定层级收益。
  */
-public abstract class WeddingCakeBase<T extends WeddingCakeBase.WeddingCakeBaseInfo, M extends OptionMeasure> {
+public abstract class WeddingCakeBase<T extends WeddingCakeBase.WeddingCakeBaseTradeInfo, M extends OptionMeasure> {
 
     protected static final double MIN_SPOT = 1e-12;
     protected static final double DEFAULT_EPS = 0.0001;
@@ -653,7 +656,7 @@ public abstract class WeddingCakeBase<T extends WeddingCakeBase.WeddingCakeBaseI
         public List<java.util.Map<String, Object>> volCurve;
     }
 
-    public static class WeddingCakeBaseInfo {
+    public static class WeddingCakeBaseTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;

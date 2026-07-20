@@ -15,7 +15,7 @@ public class CommAsianTest {
     @Test
     public void testCommAsianCalcAndDetailFields() {
         LocalDate dataDate = LocalDate.of(2026, 1, 10);
-        CommAsian.CommAsianInfo info = buildBaseInfo(dataDate);
+        CommAsian.CommAsianTradeInfo info = buildBaseInfo(dataDate);
         info.obsStartDate = LocalDate.of(2026, 1, 5);
         info.obsEndDate = LocalDate.of(2026, 1, 20);
         info.fixingId = "COMM_ASIAN_FIX";
@@ -44,8 +44,8 @@ public class CommAsianTest {
         }
     }
 
-    private CommAsian.CommAsianInfo buildBaseInfo(LocalDate dataDate) {
-        CommAsian.CommAsianInfo info = new CommAsian.CommAsianInfo();
+    private CommAsian.CommAsianTradeInfo buildBaseInfo(LocalDate dataDate) {
+        CommAsian.CommAsianTradeInfo info = new CommAsian.CommAsianTradeInfo();
         info.productCode = EngineConstants.PRODUCT_CODE.COMM_ASIAN;
         info.instrumentId = "UT_COMM_ASIAN_001";
         info.callOrPut = "CALL";

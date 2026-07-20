@@ -8,12 +8,13 @@ import org.junit.jupiter.api.Test;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class CalcResultMergeServiceTest {
     private final CalcResultMergeService service = new CalcResultMergeService();
 
     @Test
-    void curveGenerationOnlyResultContainsGeneratedDataAndErrorLog() {
+    void curveGenerationOnlyResultDoesNotExposeTopLevelLogData() {
         JSONArray generated = new JSONArray().fluentAdd(
                 new JSONObject().fluentPut("CURVE_ID", "CNY_IR"));
 
@@ -22,8 +23,7 @@ class CalcResultMergeServiceTest {
         JSONObject data = result.getJSONObject("data");
 
         assertEquals(1, data.getJSONArray("generated_market_data").size());
-        assertEquals("曲线生成失败: 曲线缺少点位",
-                data.getJSONArray("log_data").getJSONObject(0).getString("info"));
+        assertFalse(data.containsKey("log_data"));
     }
 
     @Test

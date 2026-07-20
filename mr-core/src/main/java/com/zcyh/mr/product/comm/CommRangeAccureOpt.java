@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
@@ -16,9 +16,9 @@ import java.util.*;
  * 商品标的区间累计期权。
  * 标的价格取自商品远期曲线，波动率取自商品波动率曲面。
  */
-public class CommRangeAccureOpt extends RangeAccureOptBase<CommRangeAccureOpt.CommRangeAccureInfo> {
+public class CommRangeAccureOpt extends RangeAccureOptBase<CommRangeAccureOpt.CommRangeAccureTradeInfo> {
 
-    public CommRangeAccureOpt(LocalDate dataDate, CommRangeAccureInfo rangeAccureInfo, MarketData marketData) {
+    public CommRangeAccureOpt(LocalDate dataDate, CommRangeAccureTradeInfo rangeAccureInfo, MarketData marketData) {
         super(dataDate, rangeAccureInfo, marketData);
     }
 
@@ -130,7 +130,7 @@ public class CommRangeAccureOpt extends RangeAccureOptBase<CommRangeAccureOpt.Co
         return sensitivities;
     }
 
-    public static class CommRangeAccureInfo extends RangeAccureOptBase.RangeAccureFrtbInfo {
+    public static class CommRangeAccureTradeInfo extends RangeAccureOptBase.RangeAccureFrtbTradeInfo {
         @JSONField(name = "FRTB_COMM_BUCKET")
         public String frtbCommBucket;
         @JSONField(name = "FRTB_COMM_ASSET")

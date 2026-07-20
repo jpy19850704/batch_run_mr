@@ -43,6 +43,7 @@ public class ScenarioMapper {
                 .append("TERM_CODE, ")
                 .append("TERM_DAYS, ")
                 .append("END_DATE, ")
+                .append("HOLIDAY_CALENDAR, ")
                 .append("SCENARIO_SHIFT_VALUE, ")
                 .append("SCENARIO_SHIFT_RULE ")
                 .append("FROM V_SCENARIO_RULE");
@@ -118,8 +119,8 @@ public class ScenarioMapper {
                 .append("CURVE_CODE, ")
                 .append("RISKGROUP_ID, ")
                 .append("TERM_CODE, ")
-                .append("TERM_DAYS ")
-                .append(", ")
+                .append("TERM_DAYS, ")
+                .append("HOLIDAY_CALENDAR, ")
                 .append("CAL_END_DATE AS END_DATE ")
                 .append("FROM MR_SCENARIO_RULE WHERE STATUS = 'ACTIVE'");
         List<Object> params = new ArrayList<Object>();
@@ -144,8 +145,8 @@ public class ScenarioMapper {
                 .append("CURVE_CODE, ")
                 .append("RISKGROUP_ID, ")
                 .append("TERM_CODE, ")
-                .append("TERM_DAYS ")
-                .append(", ")
+                .append("TERM_DAYS, ")
+                .append("HOLIDAY_CALENDAR, ")
                 .append("CAL_END_DATE AS END_DATE ")
                 .append("FROM MR_SCENARIO_RULE WHERE STATUS = 'ACTIVE'");
         List<Object> params = new ArrayList<Object>();

@@ -6,6 +6,7 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.calendar.Calendar;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.credit.Trs;
 
 import java.time.LocalDate;
@@ -25,7 +26,9 @@ public class TrsCalc extends AbstractCalc {
 
     @Override
     protected void calcTrade(HashMap<String, Object> tradeData) {
-        Trs.TrsInfo info = JSONObject.parseObject(tradeData.toString(), Trs.TrsInfo.class);
+        Trs.TrsTradeInfo info = JSONObject.parseObject(tradeData.toString(), Trs.TrsTradeInfo.class);
+        info.validateInput(new JSONObject(tradeData), String.valueOf(tradeData.get("PRODUCT_CODE")))
+                .throwIfInvalid();
         Trs trs = new Trs(dataDate, info, marketData, calendar,
                 indexUnderlyingDataByBondId(tradeData.get("UNDERLYING_DATA")));
         trsCache.put(info.instrumentId, trs);
@@ -39,7 +42,9 @@ public class TrsCalc extends AbstractCalc {
                 continue;
             }
             try {
-                scenarioRst.add(entry.getValue().calc(scenarioMd));
+                Measure measure = entry.getValue().calc(scenarioMd);
+                ensureScenarioInstrumentId(measure, entry.getKey());
+                scenarioRst.add(measure);
             } catch (Exception e) {
                 scenarioRst.add(AbstractCalc.buildErrorMeasure(dataDate, entry.getKey(), null, e));
             }

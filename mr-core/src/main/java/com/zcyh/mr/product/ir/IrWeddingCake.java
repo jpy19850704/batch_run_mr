@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.Fixing;
@@ -15,9 +15,9 @@ import com.zcyh.mr.product.basic.structure.WeddingCakeBase;
 import java.time.LocalDate;
 
 public class IrWeddingCake
-        extends WeddingCakeBase<IrWeddingCake.IrWeddingCakeInfo, IrWeddingCake.IrWeddingCakeMeasure> {
+        extends WeddingCakeBase<IrWeddingCake.IrWeddingCakeTradeInfo, IrWeddingCake.IrWeddingCakeMeasure> {
 
-    public IrWeddingCake(LocalDate dataDate, IrWeddingCakeInfo info, MarketData marketData) {
+    public IrWeddingCake(LocalDate dataDate, IrWeddingCakeTradeInfo info, MarketData marketData) {
         super(dataDate, info, marketData);
     }
 
@@ -132,7 +132,7 @@ public class IrWeddingCake
     public static class IrWeddingCakeMeasure extends OptionMeasure {
     }
 
-    public static class IrWeddingCakeInfo extends WeddingCakeBase.WeddingCakeBaseInfo {
+    public static class IrWeddingCakeTradeInfo extends WeddingCakeBase.WeddingCakeBaseTradeInfo {
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
         @ProductInputField(allowedValues = {"ZERO", "PAR"}, ignoreCase = true)

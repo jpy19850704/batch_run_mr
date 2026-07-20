@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * FxBarOpt 估值计算器
  */
-public class FxBarOptCalc extends AbstractProductCacheCalc<FxBarOpt, FxBarOpt.FxBarOptInfo> {
+public class FxBarOptCalc extends AbstractProductCacheCalc<FxBarOpt, FxBarOpt.FxBarOptTradeInfo> {
 
     public FxBarOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class FxBarOptCalc extends AbstractProductCacheCalc<FxBarOpt, FxBarOpt.Fx
     }
 
     @Override
-    protected FxBarOpt.FxBarOptInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxBarOpt.FxBarOptInfo.class);
+    protected FxBarOpt.FxBarOptTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxBarOpt.FxBarOptTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(FxBarOpt.FxBarOptInfo info) {
+    protected String getInstrumentId(FxBarOpt.FxBarOptTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected FxBarOpt createProduct(FxBarOpt.FxBarOptInfo info, MarketData md) {
+    protected FxBarOpt createProduct(FxBarOpt.FxBarOptTradeInfo info, MarketData md) {
         return new FxBarOpt(dataDate, info, md);
     }
 

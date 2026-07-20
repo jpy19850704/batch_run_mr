@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * EqBarOpt 估值计算器
  */
-public class EqBarOptCalc extends AbstractProductCacheCalc<EqBarOpt, EqBarOpt.EqBarOptInfo> {
+public class EqBarOptCalc extends AbstractProductCacheCalc<EqBarOpt, EqBarOpt.EqBarOptTradeInfo> {
 
     public EqBarOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class EqBarOptCalc extends AbstractProductCacheCalc<EqBarOpt, EqBarOpt.Eq
     }
 
     @Override
-    protected EqBarOpt.EqBarOptInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), EqBarOpt.EqBarOptInfo.class);
+    protected EqBarOpt.EqBarOptTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), EqBarOpt.EqBarOptTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(EqBarOpt.EqBarOptInfo info) {
+    protected String getInstrumentId(EqBarOpt.EqBarOptTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected EqBarOpt createProduct(EqBarOpt.EqBarOptInfo info, MarketData md) {
+    protected EqBarOpt createProduct(EqBarOpt.EqBarOptTradeInfo info, MarketData md) {
         return new EqBarOpt(dataDate, info, md);
     }
 

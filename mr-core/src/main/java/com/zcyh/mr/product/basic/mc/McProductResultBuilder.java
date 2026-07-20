@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.basic.mc;
 
 import com.zcyh.mr.product.basic.common.OptionMeasure;
-import com.zcyh.mr.product.all.GenericMc.GenericMcInfo;
+import com.zcyh.mr.product.all.GenericMc.GenericMcTradeInfo;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -17,7 +17,7 @@ public final class McProductResultBuilder {
     private McProductResultBuilder() {
     }
 
-    public static OptionMeasure success(GenericMcInfo input, McPricingContext ctx,
+    public static OptionMeasure success(GenericMcTradeInfo input, McPricingContext ctx,
             GenericMcEngine.PayoffResult payoffResult) {
         OptionMeasure measure = newMeasure(input, ctx == null ? null : ctx.dataDate);
         measure.position = ctx.position;
@@ -40,7 +40,7 @@ public final class McProductResultBuilder {
         return measure;
     }
 
-    public static OptionMeasure error(GenericMcInfo input, LocalDate dataDate, List<String> errors) {
+    public static OptionMeasure error(GenericMcTradeInfo input, LocalDate dataDate, List<String> errors) {
         OptionMeasure measure = newMeasure(input, dataDate);
         measure.status = "ERROR";
         measure.logs = OptionMeasure.errorLogs(errors);
@@ -50,7 +50,7 @@ public final class McProductResultBuilder {
         return measure;
     }
 
-    private static OptionMeasure newMeasure(GenericMcInfo input, LocalDate dataDate) {
+    private static OptionMeasure newMeasure(GenericMcTradeInfo input, LocalDate dataDate) {
         OptionMeasure measure = new OptionMeasure();
         if (input != null) {
             measure.instrumentId = input.instrumentId;

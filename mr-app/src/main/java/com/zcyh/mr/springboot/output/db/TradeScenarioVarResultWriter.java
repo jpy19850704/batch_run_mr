@@ -30,10 +30,7 @@ import java.util.Map;
 class TradeScenarioVarResultWriter {
     private static final String TABLE_NAME = "TB_OUT_TRADE_SCENARIO_VAR_RESULT_DETAIL";
     private static final List<String> COLUMN_LIST = Collections.unmodifiableList(Arrays.asList(
-            "REQUEST_ID",
-            "JOB_ID",
             "BATCH_ID",
-            "SEQ_NO",
             "DATA_DATE",
             "SCENARIO_ID",
             "SUBSCENARIO_ID",
@@ -41,20 +38,14 @@ class TradeScenarioVarResultWriter {
             "INSTRUMENT_ID",
             "PRODUCT_CODE",
             "BASE_VALUATION_CNY",
-            "IR_VALUATION",
             "IR_PNL",
-            "FX_VALUATION",
             "FX_PNL",
-            "EQ_VALUATION",
             "EQ_PNL",
-            "COMM_VALUATION",
             "COMM_PNL",
-            "ALL_VALUATION",
             "ALL_PNL",
             "STATUS",
             "LOGS_JSON",
-            "CREATED_AT",
-            "UPDATED_AT"
+            "CREATED_AT"
     ));
     private static final String COLUMNS = String.join(",", COLUMN_LIST);
 
@@ -104,10 +95,9 @@ class TradeScenarioVarResultWriter {
                     rows.put(rowKey, row);
                 }
                 if (isScenarioErrorTrade(trade)) {
-                    appendPersistVarLog(row, riskClass, trade.getJSONArray("LOGS"));
+                    appendPersistVarLog(row, riskClass, trade.getJSONArray("LOGS_JSON"));
                     continue;
                 }
-                row.put(prefix + "_VALUATION", toBigDecimal(trade.get("SCENARIO_VALUATION_CNY")));
                 row.put(prefix + "_PNL", toBigDecimal(trade.get("PNL")));
             }
         }
@@ -141,18 +131,13 @@ class TradeScenarioVarResultWriter {
             row.put("INSTRUMENT_ID", instrumentId);
             row.put("PRODUCT_CODE", baseTrade == null ? null : trimToNull(baseTrade.getString("PRODUCT_CODE")));
             row.put("BASE_VALUATION_CNY", trade.get("BASE_VALUATION_CNY"));
-            row.put("IR_VALUATION", trade.get("IR_VALUATION"));
             row.put("IR_PNL", trade.get("IR_PNL"));
-            row.put("FX_VALUATION", trade.get("FX_VALUATION"));
             row.put("FX_PNL", trade.get("FX_PNL"));
-            row.put("EQ_VALUATION", trade.get("EQ_VALUATION"));
             row.put("EQ_PNL", trade.get("EQ_PNL"));
-            row.put("COMM_VALUATION", trade.get("COMM_VALUATION"));
             row.put("COMM_PNL", trade.get("COMM_PNL"));
-            row.put("ALL_VALUATION", trade.get("ALL_VALUATION"));
             row.put("ALL_PNL", trade.get("ALL_PNL"));
             row.put("STATUS", resolveStatus(trade));
-            row.put("LOGS", resolveLogs(trade, "情景估值错误"));
+            row.put("LOGS_JSON", resolveLogs(trade, "情景估值错误"));
             appendVarRow(context, buffer, row);
         }
         buffer.flush();
@@ -171,10 +156,7 @@ class TradeScenarioVarResultWriter {
                                       DorisCsvStreamLoadBuffer buffer,
                                       JSONObject row) {
         buffer.appendRow(
-                context.requestId,
-                context.jobId,
                 context.batchId,
-                context.seqNo,
                 normalizeDataDate(context.dataDate),
                 trimToNull(row.getString("SCENARIO_ID")),
                 trimToNull(row.getString("SUBSCENARIO_ID")),
@@ -182,20 +164,14 @@ class TradeScenarioVarResultWriter {
                 trimToNull(row.getString("INSTRUMENT_ID")),
                 trimToNull(row.getString("PRODUCT_CODE")),
                 DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("BASE_VALUATION_CNY"))),
-                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("IR_VALUATION"))),
                 DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("IR_PNL"))),
-                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("FX_VALUATION"))),
                 DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("FX_PNL"))),
-                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("EQ_VALUATION"))),
                 DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("EQ_PNL"))),
-                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("COMM_VALUATION"))),
                 DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("COMM_PNL"))),
-                DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("ALL_VALUATION"))),
                 DorisCsvStreamLoadBuffer.decimalText(toBigDecimal(row.get("ALL_PNL"))),
                 resolveStatus(row),
-                toJsonString(row.get("LOGS")),
-                context.createdAt,
-                context.updatedAt
+                toJsonString(row.get("LOGS_JSON")),
+                context.createdAt
         );
     }
 
@@ -216,15 +192,10 @@ class TradeScenarioVarResultWriter {
         row.put("INSTRUMENT_ID", instrumentId);
         row.put("PRODUCT_CODE", baseTrade == null ? null : trimToNull(baseTrade.getString("PRODUCT_CODE")));
         row.put("BASE_VALUATION_CNY", baseValuation);
-        row.put("IR_VALUATION", baseValuation);
         row.put("IR_PNL", BigDecimal.ZERO);
-        row.put("FX_VALUATION", baseValuation);
         row.put("FX_PNL", BigDecimal.ZERO);
-        row.put("EQ_VALUATION", baseValuation);
         row.put("EQ_PNL", BigDecimal.ZERO);
-        row.put("COMM_VALUATION", baseValuation);
         row.put("COMM_PNL", BigDecimal.ZERO);
-        row.put("ALL_VALUATION", baseValuation);
         row.put("ALL_PNL", BigDecimal.ZERO);
         row.put("STATUS", STATUS_SUCCESS);
         return row;
@@ -263,10 +234,10 @@ class TradeScenarioVarResultWriter {
 
     private static void appendPersistVarLog(JSONObject row, String riskClass, JSONArray sourceLogs) {
         row.put("STATUS", STATUS_ERROR);
-        JSONArray logs = row.getJSONArray("LOGS");
+        JSONArray logs = row.getJSONArray("LOGS_JSON");
         if (logs == null) {
             logs = new JSONArray();
-            row.put("LOGS", logs);
+            row.put("LOGS_JSON", logs);
         }
         String prefix = trimToNull(riskClass) == null ? "UNKNOWN" : riskClass.trim();
         if (sourceLogs == null || sourceLogs.isEmpty()) {

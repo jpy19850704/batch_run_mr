@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.option.DigOptBase;
@@ -15,9 +15,9 @@ import java.util.Map;
  * 标的价格从 commSpot 获取，持有成本隐含在远期价格中。
  * rebase 统一使用 discountCurve。
  */
-public class CommDigOpt extends DigOptBase<CommDigOpt.CommDigOptInfo> {
+public class CommDigOpt extends DigOptBase<CommDigOpt.CommDigOptTradeInfo> {
 
-    public CommDigOpt(LocalDate dataDate, CommDigOptInfo info, MarketData marketData) {
+    public CommDigOpt(LocalDate dataDate, CommDigOptTradeInfo info, MarketData marketData) {
         super(dataDate, info, marketData);
     }
 
@@ -97,7 +97,7 @@ public class CommDigOpt extends DigOptBase<CommDigOpt.CommDigOptInfo> {
             throw new IllegalArgumentException("缺少波动率曲面: VOLATILITY_SURFACE");
     }
 
-    public static class CommDigOptInfo extends DigOptBase.DigOptBaseInfo {
+    public static class CommDigOptTradeInfo extends DigOptBase.DigOptBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;

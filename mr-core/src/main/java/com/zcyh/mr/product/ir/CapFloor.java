@@ -1,5 +1,7 @@
 package com.zcyh.mr.product.ir;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
@@ -9,7 +11,7 @@ import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.ReflectionUtils;
 import com.zcyh.mr.calendar.Calendar;
 import com.zcyh.mr.marketdata.*;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
@@ -34,11 +36,11 @@ public class CapFloor {
     private final LocalDate dataDate;
     private final MarketData marketData;
     private final Calendar calendar;
-    private final CapFloor.CapFloorInfo capFloorInfo;                                 /*入参交易实体类*/
+    private final CapFloor.CapFloorTradeInfo capFloorInfo;                                 /*入参交易实体类*/
     private CapFloor.CapFloorMeasure measure = new CapFloorMeasure();           /*返回结果类*/
     private StructuredCashflow scf;
 
-    public CapFloor(LocalDate dataDate, CapFloor.CapFloorInfo tradeInfo, MarketData marketData, Calendar calendar) {
+    public CapFloor(LocalDate dataDate, CapFloor.CapFloorTradeInfo tradeInfo, MarketData marketData, Calendar calendar) {
         this.dataDate = dataDate;
         this.capFloorInfo = tradeInfo;
         this.marketData = marketData;
@@ -469,7 +471,7 @@ public class CapFloor {
     }
     
     /*capFloor内部类，封装入参信息，入参Json转化为内部类的形式,方便后面使用*/
-    public static class CapFloorInfo{
+    public static class CapFloorTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;

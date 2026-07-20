@@ -128,9 +128,7 @@ public class Calc {
 
                         long scenarioPrepareStart = System.nanoTime();
                         JSONArray baseTrades = SCENARIO_PNL_SERVICE.buildEffectiveBaseTrades(
-                                        dataObj.getJSONArray("trade_data"),
-                                        dataObj.getJSONArray("log_data"),
-                                        this.trades);
+                                        dataObj.getJSONArray("trade_data"));
                         dataObj.put("trade_data", baseTrades);
                         Map<String, JSONObject> baseTradeIndex = SCENARIO_PNL_SERVICE.buildTradeIndex(baseTrades);
                         Set<String> unsupportedScenarioProducts = SCENARIO_PNL_SERVICE.collectUnsupportedScenarioProducts(
@@ -293,36 +291,48 @@ public class Calc {
          */
         private String runWithMarketData(MarketData md, List<ProductCalculator> cachedCalcs,
                         Set<String> scenarioProductCodes) {
+                JSONObject mergedData = new JSONObject();
+                mergedData.put("trade_data", new JSONArray());
                 if (this.trades == null || this.trades.isEmpty()) {
-                        JSONObject mergedData = new JSONObject();
-                        mergedData.put("trade_data", new JSONArray());
-                        if (this.validationErrors != null && !this.validationErrors.isEmpty()) {
-                                mergedData.put("log_data", new JSONArray(this.validationErrors));
-                        } else {
-                                mergedData.put("log_data", new JSONArray());
-                        }
+                        writeSystemValidationErrors();
                         JSONObject result = new JSONObject();
                         result.put("data", mergedData);
                         return result.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
                 }
 
+                List<HashMap<String, Object>> calculableTrades = new ArrayList<HashMap<String, Object>>();
+                for (HashMap<String, Object> tradeData : this.trades) {
+                        String instrumentId = Objects.toString(tradeData.get("INSTRUMENT_ID"), "").trim();
+                        if (instrumentId.isEmpty()) {
+                                log.error("交易输入缺少INSTRUMENT_ID，无法生成交易结果: productCode={}",
+                                                Objects.toString(tradeData.get("PRODUCT_CODE"), ""));
+                                continue;
+                        }
+                        String inputError = trimToNull(Objects.toString(
+                                        tradeData.get(EngineConstants.CONTROL_FIELD.INPUT_ERROR), null));
+                        if (inputError != null) {
+                                appendErrorTrade(mergedData, tradeData, inputError);
+                        } else {
+                                calculableTrades.add(tradeData);
+                        }
+                }
+
                 // 按 PRODUCT_CODE 分组
-                Map<String, List<HashMap<String, Object>>> grouped = this.trades.stream()
+                Map<String, List<HashMap<String, Object>>> grouped = calculableTrades.stream()
                                 .collect(Collectors.groupingBy(
                                                 t -> Objects.toString(t.get("PRODUCT_CODE"), ""),
                                                 LinkedHashMap::new,
                                                 Collectors.toList()));
-
-                JSONObject mergedData = new JSONObject();
-                RESULT_MERGE_SERVICE.appendEmptyCalendarLogs(mergedData, this.trades);
 
                 for (Map.Entry<String, List<HashMap<String, Object>>> entry : grouped.entrySet()) {
                         String productCode = entry.getKey();
                         List<HashMap<String, Object>> groupTrades = entry.getValue();
 
                         if (!ProductCalculatorRegistry.supports(productCode)) {
-                                RESULT_MERGE_SERVICE.addLog(mergedData, productCode, null,
-                                                "不支持的产品类型: " + productCode);
+                                for (HashMap<String, Object> tradeData : groupTrades) {
+                                        appendErrorTrade(mergedData, tradeData,
+                                                        "不支持的产品类型: " + productCode);
+                                }
                                 continue;
                         }
 
@@ -335,13 +345,7 @@ public class Calc {
                         } catch (Exception e) {
                                 log.error("计算器初始化异常: productCode={}", productCode, e);
                                 for (HashMap<String, Object> t : groupTrades) {
-                                        RESULT_MERGE_SERVICE.addLog(mergedData, productCode,
-                                                        Objects.toString(t.get("INSTRUMENT_ID"), ""),
-                                                        "初始化异常: " + e.getMessage()
-                                                                        + (e.getCause() != null
-                                                                                        ? " - " + e.getCause()
-                                                                                                        .getMessage()
-                                                                                        : ""));
+                                        appendErrorTrade(mergedData, t, "初始化异常: " + resolveErrorMessage(e));
                                 }
                                 continue;
                         }
@@ -360,13 +364,7 @@ public class Calc {
                         } catch (Exception e) {
                                 log.error("计算执行异常: productCode={}", productCode, e);
                                 for (HashMap<String, Object> t : groupTrades) {
-                                        RESULT_MERGE_SERVICE.addLog(mergedData, productCode,
-                                                        Objects.toString(t.get("INSTRUMENT_ID"), ""),
-                                                        "计算异常: " + e.getMessage()
-                                                                        + (e.getCause() != null
-                                                                                        ? " - " + e.getCause()
-                                                                                                        .getMessage()
-                                                                                        : ""));
+                                        appendErrorTrade(mergedData, t, resolveErrorMessage(e));
                                 }
                                 continue;
                         }
@@ -375,14 +373,52 @@ public class Calc {
                         RESULT_MERGE_SERVICE.mergeData(mergedData, groupResult, productCode);
                 }
 
-                // 合并输入校验错误到 log_data
-                if (this.validationErrors != null && !this.validationErrors.isEmpty()) {
-                        RESULT_MERGE_SERVICE.getOrCreateArray(mergedData, "log_data").addAll(this.validationErrors);
-                }
+                RESULT_MERGE_SERVICE.appendEmptyCalendarLogs(mergedData, this.trades);
+                writeSystemValidationErrors();
 
                 JSONObject result = new JSONObject();
                 result.put("data", mergedData);
                 return result.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
+        }
+
+        private void appendErrorTrade(
+                        JSONObject mergedData,
+                        HashMap<String, Object> tradeData,
+                        String message) {
+                JSONArray results = RESULT_MERGE_SERVICE.getOrCreateArray(mergedData, "trade_data");
+                results.add(AbstractCalc.buildErrorMeasure(
+                                dataDate,
+                                Objects.toString(tradeData.get("INSTRUMENT_ID"), ""),
+                                Objects.toString(tradeData.get("PRODUCT_CODE"), ""),
+                                new IllegalArgumentException(message)));
+        }
+
+        private void writeSystemValidationErrors() {
+                if (validationErrors == null || validationErrors.isEmpty()) {
+                        return;
+                }
+                for (Object error : validationErrors) {
+                        log.error("输入数据校验异常: {}", error);
+                }
+        }
+
+        private static String resolveErrorMessage(Exception error) {
+                if (error == null) {
+                        return "unknown";
+                }
+                String message = trimToNull(error.getMessage());
+                if (message != null) {
+                        return message;
+                }
+                return error.getClass().getSimpleName();
+        }
+
+        private static String trimToNull(String value) {
+                if (value == null) {
+                        return null;
+                }
+                String trimmed = value.trim();
+                return trimmed.isEmpty() ? null : trimmed;
         }
 
 }

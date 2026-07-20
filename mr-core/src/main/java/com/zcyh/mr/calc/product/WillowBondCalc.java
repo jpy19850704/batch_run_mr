@@ -7,6 +7,7 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.calendar.Calendar;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.ir.Bond;
 import com.zcyh.mr.product.ir.WillowBond;
 import org.slf4j.Logger;
@@ -30,8 +31,10 @@ public class WillowBondCalc extends AbstractCalc {
 
     @Override
     protected void calcTrade(HashMap<String, Object> tradeData) {
-        WillowBond.WillowBondInfo info = JSONObject.parseObject(JSON.toJSONString(tradeData),
-                WillowBond.WillowBondInfo.class);
+        WillowBond.WillowBondTradeInfo info = JSONObject.parseObject(JSON.toJSONString(tradeData),
+                WillowBond.WillowBondTradeInfo.class);
+        info.validateInput(new JSONObject(tradeData), String.valueOf(tradeData.get("PRODUCT_CODE")))
+                .throwIfInvalid();
         WillowBond bond = new WillowBond(dataDate, info, marketData, calendar);
         Bond.BondMeasure measure = bond.calc();
         bondCache.put(info.instrumentId, new CachedWillowBond(info, measure.spreadOverYield));
@@ -48,7 +51,9 @@ public class WillowBondCalc extends AbstractCalc {
             try {
                 WillowBond bond = new WillowBond(dataDate, cached.info, scenarioMd, calendar);
                 bond.setSpreadOverYield(cached.spreadOverYield);
-                scenarioRst.add(bond.calc());
+                Measure measure = bond.calc();
+                ensureScenarioInstrumentId(measure, entry.getKey());
+                scenarioRst.add(measure);
             } catch (Exception e) {
                 scenarioRst.add(AbstractCalc.buildErrorMeasure(dataDate, entry.getKey(), null, e));
             }
@@ -63,10 +68,10 @@ public class WillowBondCalc extends AbstractCalc {
     }
 
     private static class CachedWillowBond {
-        private final WillowBond.WillowBondInfo info;
+        private final WillowBond.WillowBondTradeInfo info;
         private final double spreadOverYield;
 
-        private CachedWillowBond(WillowBond.WillowBondInfo info, double spreadOverYield) {
+        private CachedWillowBond(WillowBond.WillowBondTradeInfo info, double spreadOverYield) {
             this.info = info;
             this.spreadOverYield = spreadOverYield;
         }

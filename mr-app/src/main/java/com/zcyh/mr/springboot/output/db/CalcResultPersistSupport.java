@@ -111,7 +111,7 @@ final class CalcResultPersistSupport {
         if (row == null) {
             return null;
         }
-        Object logs = row.get("LOGS");
+        Object logs = row.get("LOGS_JSON");
         if (!isErrorStatus(row)) {
             return logs;
         }
@@ -131,10 +131,10 @@ final class CalcResultPersistSupport {
         if (!(sourceLogs instanceof JSONArray) || ((JSONArray) sourceLogs).isEmpty()) {
             return;
         }
-        JSONArray logs = row.getJSONArray("LOGS");
+        JSONArray logs = row.getJSONArray("LOGS_JSON");
         if (logs == null) {
             logs = new JSONArray();
-            row.put("LOGS", logs);
+            row.put("LOGS_JSON", logs);
         }
         logs.addAll((JSONArray) sourceLogs);
     }
@@ -148,7 +148,7 @@ final class CalcResultPersistSupport {
         if (message != null) {
             return message;
         }
-        JSONArray logs = row == null ? null : row.getJSONArray("LOGS");
+        JSONArray logs = row == null ? null : row.getJSONArray("LOGS_JSON");
         if (logs == null) {
             return null;
         }

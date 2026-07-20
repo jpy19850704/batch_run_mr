@@ -15,7 +15,7 @@ import java.util.List;
 /**
  * Swaption 估值计算器
  */
-public class SwaptionCalc extends AbstractProductCacheCalc<Swaption, Swaption.SwaptionInfo> {
+public class SwaptionCalc extends AbstractProductCacheCalc<Swaption, Swaption.SwaptionTradeInfo> {
 
     public SwaptionCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData, Calendar calendar) {
@@ -23,17 +23,17 @@ public class SwaptionCalc extends AbstractProductCacheCalc<Swaption, Swaption.Sw
     }
 
     @Override
-    protected Swaption.SwaptionInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), Swaption.SwaptionInfo.class);
+    protected Swaption.SwaptionTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), Swaption.SwaptionTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(Swaption.SwaptionInfo info) {
+    protected String getInstrumentId(Swaption.SwaptionTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected Swaption createProduct(Swaption.SwaptionInfo info, MarketData md) {
+    protected Swaption createProduct(Swaption.SwaptionTradeInfo info, MarketData md) {
         return new Swaption(dataDate, info, md, calendar);
     }
 

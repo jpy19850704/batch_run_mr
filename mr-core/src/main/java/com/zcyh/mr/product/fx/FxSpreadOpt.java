@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FxSpot;
@@ -19,8 +19,8 @@ import java.util.List;
  * FX Spread Option 产品类。
  * 继承 SpreadOptBase，实现 FX 特有的市场数据获取和校验。
  */
-public class FxSpreadOpt extends SpreadOptBase<FxSpreadOpt.SpreadOptInfo, FxSpreadOpt.SpreadOptMeasure> {
-    public FxSpreadOpt(LocalDate dataDate, SpreadOptInfo tradeInfo, MarketData marketData) {
+public class FxSpreadOpt extends SpreadOptBase<FxSpreadOpt.SpreadOptTradeInfo, FxSpreadOpt.SpreadOptMeasure> {
+    public FxSpreadOpt(LocalDate dataDate, SpreadOptTradeInfo tradeInfo, MarketData marketData) {
         super(dataDate, tradeInfo, marketData);
     }
 
@@ -106,7 +106,7 @@ public class FxSpreadOpt extends SpreadOptBase<FxSpreadOpt.SpreadOptInfo, FxSpre
     public static class SpreadOptMeasure extends OptionMeasure {
     }
 
-    public static class SpreadOptInfo extends SpreadOptBase.SpreadOptBaseInfo {
+    public static class SpreadOptTradeInfo extends SpreadOptBase.SpreadOptBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "BASE_DISCOUNT_CURVE")
         public String baseDiscountCurve;

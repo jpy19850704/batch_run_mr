@@ -1,7 +1,9 @@
 package com.zcyh.mr.product.basic.option;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FxSpot;
@@ -30,9 +32,9 @@ import static com.zcyh.mr.product.basic.frtb.OptionBaseFrtbSupport.*;
  * 提取 Ir/Eq/Fx/Comm BarOpt 的公共估值逻辑。
  * OPTION_TYPE 驱动单双障碍判定：Call→Up单障碍，Put→Down单障碍，Double→双障碍。
  *
- * @param <I> 子类 Info 类型，必须继承 BarOptBaseInfo
+ * @param <I> 子类 Info 类型，必须继承 BarOptBaseTradeInfo
  */
-public abstract class BarOptBase<I extends BarOptBase.BarOptBaseInfo> {
+public abstract class BarOptBase<I extends BarOptBase.BarOptBaseTradeInfo> {
 
     protected final LocalDate dataDate;
     protected final I info;
@@ -610,7 +612,7 @@ public abstract class BarOptBase<I extends BarOptBase.BarOptBaseInfo> {
     /**
      * 障碍期权公共输入信息基类。
      */
-    public static class BarOptBaseInfo {
+    public static class BarOptBaseTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;

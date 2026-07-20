@@ -45,6 +45,141 @@ public class MarketData implements Serializable {
     }
 
     /**
+     * 只校验明确指定的市场数据类型，不要求其他类型存在。
+     */
+    public List<String> validateInput(String marketDataType) {
+        List<String> errors = new ArrayList<String>();
+        if (marketDataType == null || marketDataType.trim().isEmpty()) {
+            errors.add("marketDataType不能为空");
+            return errors;
+        }
+        switch (marketDataType) {
+            case EngineConstants.RF_TYPE.IR_SPOT:
+            case EngineConstants.RF_TYPE.CREDIT_SPOT:
+                validateIrSpotInput(marketDataType, errors);
+                break;
+            case EngineConstants.RF_TYPE.FX_SPOT:
+                FxSpot.validateInput(fxSpot, errors);
+                break;
+            case EngineConstants.RF_TYPE.EQ_SPOT:
+                validateEqSpotInput(errors);
+                break;
+            case EngineConstants.RF_TYPE.COMM_SPOT:
+                validateCommSpotInput(errors);
+                break;
+            case EngineConstants.RF_TYPE.IR_VOL:
+                validateIrVolInput(errors);
+                break;
+            case EngineConstants.RF_TYPE.FX_VOL:
+                validateFxVolInput(errors);
+                break;
+            case EngineConstants.RF_TYPE.EQ_VOL:
+                validateEqVolInput(errors);
+                break;
+            case EngineConstants.RF_TYPE.COMM_VOL:
+                validateCommVolInput(errors);
+                break;
+            case EngineConstants.RF_TYPE.FIXING:
+                validateFixingInput(errors);
+                break;
+            default:
+                errors.add("不支持的市场数据类型: " + marketDataType);
+                break;
+        }
+        return errors;
+    }
+
+    private void validateIrSpotInput(String marketDataType, List<String> errors) {
+        int matched = 0;
+        if (irSpot != null) {
+            for (Map.Entry<String, IrSpot.IrSpotInfo> entry : irSpot.entrySet()) {
+                IrSpot.IrSpotInfo info = entry.getValue();
+                if (info != null && marketDataType.equals(info.curveType)) {
+                    matched++;
+                    IrSpot.validateInput(entry.getKey(), info, errors);
+                }
+            }
+        }
+        requireMatchedType(marketDataType, matched, errors);
+    }
+
+    private void validateEqSpotInput(List<String> errors) {
+        if (eqSpot == null || eqSpot.isEmpty()) {
+            errors.add("EQ_SPOT: 市场数据为空");
+            return;
+        }
+        for (Map.Entry<String, EqSpot.EqSpotInfo> entry : eqSpot.entrySet()) {
+            EqSpot.validateInput(entry.getKey(), entry.getValue(), errors);
+        }
+    }
+
+    private void validateCommSpotInput(List<String> errors) {
+        if (commSpot == null || commSpot.isEmpty()) {
+            errors.add("COMM_SPOT: 市场数据为空");
+            return;
+        }
+        for (Map.Entry<String, CommSpot.CommSpotInfo> entry : commSpot.entrySet()) {
+            CommSpot.validateInput(entry.getKey(), entry.getValue(), errors);
+        }
+    }
+
+    private void validateIrVolInput(List<String> errors) {
+        if (irVol == null || irVol.isEmpty()) {
+            errors.add("IR_VOL: 市场数据为空");
+            return;
+        }
+        for (Map.Entry<String, IrVol.IrVolInfo> entry : irVol.entrySet()) {
+            IrVol.validateInput(entry.getKey(), entry.getValue(), errors);
+        }
+    }
+
+    private void validateFxVolInput(List<String> errors) {
+        if (fxVol == null || fxVol.isEmpty()) {
+            errors.add("FX_VOL: 市场数据为空");
+            return;
+        }
+        for (Map.Entry<String, FxVol.FxVolInfo> entry : fxVol.entrySet()) {
+            FxVol.validateInput(entry.getKey(), entry.getValue(), errors);
+        }
+    }
+
+    private void validateEqVolInput(List<String> errors) {
+        if (eqVol == null || eqVol.isEmpty()) {
+            errors.add("EQ_VOL: 市场数据为空");
+            return;
+        }
+        for (Map.Entry<String, EqVol.EqVolInfo> entry : eqVol.entrySet()) {
+            EqVol.validateInput(entry.getKey(), entry.getValue(), errors);
+        }
+    }
+
+    private void validateCommVolInput(List<String> errors) {
+        if (commVol == null || commVol.isEmpty()) {
+            errors.add("COMM_VOL: 市场数据为空");
+            return;
+        }
+        for (Map.Entry<String, CommVol.CommVolInfo> entry : commVol.entrySet()) {
+            CommVol.validateInput(entry.getKey(), entry.getValue(), errors);
+        }
+    }
+
+    private void validateFixingInput(List<String> errors) {
+        if (fixingRate == null || fixingRate.isEmpty()) {
+            errors.add("FIXING: 市场数据为空");
+            return;
+        }
+        for (Map.Entry<String, Fixing.FixingInfo> entry : fixingRate.entrySet()) {
+            Fixing.validateInput(entry.getKey(), entry.getValue(), errors);
+        }
+    }
+
+    private static void requireMatchedType(String marketDataType, int matched, List<String> errors) {
+        if (matched == 0) {
+            errors.add(marketDataType + ": 市场数据为空");
+        }
+    }
+
+    /**
      * 合并基础市场数据和情景变动数据。
      * IR_SPOT/EQ_SPOT/COMM_SPOT/IR_VOL/EQ_VOL/COMM_VOL：情景中存在的曲线整条替换到基础数据。
      * FX_SPOT：基于基础汇率逐笔覆盖，仅替换情景中出现的货币对。

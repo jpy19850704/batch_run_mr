@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * FxStepUpOpt 估值计算器
  */
-public class FxStepUpOptCalc extends AbstractProductCacheCalc<FxStepUpOpt, FxStepUpOpt.FxStepUpInfo> {
+public class FxStepUpOptCalc extends AbstractProductCacheCalc<FxStepUpOpt, FxStepUpOpt.FxStepUpTradeInfo> {
 
     public FxStepUpOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class FxStepUpOptCalc extends AbstractProductCacheCalc<FxStepUpOpt, FxSte
     }
 
     @Override
-    protected FxStepUpOpt.FxStepUpInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxStepUpOpt.FxStepUpInfo.class);
+    protected FxStepUpOpt.FxStepUpTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxStepUpOpt.FxStepUpTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(FxStepUpOpt.FxStepUpInfo info) {
+    protected String getInstrumentId(FxStepUpOpt.FxStepUpTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected FxStepUpOpt createProduct(FxStepUpOpt.FxStepUpInfo info, MarketData md) {
+    protected FxStepUpOpt createProduct(FxStepUpOpt.FxStepUpTradeInfo info, MarketData md) {
         return new FxStepUpOpt(dataDate, info, md);
     }
 

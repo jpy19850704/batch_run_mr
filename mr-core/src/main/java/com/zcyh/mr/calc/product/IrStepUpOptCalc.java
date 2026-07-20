@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * IrStepUpOpt 估值计算器
  */
-public class IrStepUpOptCalc extends AbstractProductCacheCalc<IrStepUpOpt, IrStepUpOpt.IrStepUpInfo> {
+public class IrStepUpOptCalc extends AbstractProductCacheCalc<IrStepUpOpt, IrStepUpOpt.IrStepUpTradeInfo> {
 
     public IrStepUpOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class IrStepUpOptCalc extends AbstractProductCacheCalc<IrStepUpOpt, IrSte
     }
 
     @Override
-    protected IrStepUpOpt.IrStepUpInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrStepUpOpt.IrStepUpInfo.class);
+    protected IrStepUpOpt.IrStepUpTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrStepUpOpt.IrStepUpTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(IrStepUpOpt.IrStepUpInfo info) {
+    protected String getInstrumentId(IrStepUpOpt.IrStepUpTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected IrStepUpOpt createProduct(IrStepUpOpt.IrStepUpInfo info, MarketData md) {
+    protected IrStepUpOpt createProduct(IrStepUpOpt.IrStepUpTradeInfo info, MarketData md) {
         return new IrStepUpOpt(dataDate, info, md);
     }
 

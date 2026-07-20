@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * FX 亚式期权估值计算器。
  */
-public class FxAsianCalc extends AbstractProductCacheCalc<FxAsian, FxAsian.FxAsianInfo> {
+public class FxAsianCalc extends AbstractProductCacheCalc<FxAsian, FxAsian.FxAsianTradeInfo> {
 
     public FxAsianCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class FxAsianCalc extends AbstractProductCacheCalc<FxAsian, FxAsian.FxAsi
     }
 
     @Override
-    protected FxAsian.FxAsianInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxAsian.FxAsianInfo.class);
+    protected FxAsian.FxAsianTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxAsian.FxAsianTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(FxAsian.FxAsianInfo info) {
+    protected String getInstrumentId(FxAsian.FxAsianTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected FxAsian createProduct(FxAsian.FxAsianInfo info, MarketData md) {
+    protected FxAsian createProduct(FxAsian.FxAsianTradeInfo info, MarketData md) {
         return new FxAsian(dataDate, info, md);
     }
 

@@ -1,5 +1,7 @@
 package com.zcyh.mr.product.ir;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.DrcDetail;
 import com.zcyh.mr.product.basic.frtb.FrtbDrcInterface;
@@ -19,7 +21,7 @@ import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.scf.StructuredCashflow;
@@ -39,14 +41,14 @@ import java.util.stream.Collectors;
 public class BondFuture implements FrtbDrcInterface {
 
     private final LocalDate dataDate;
-    private BondFutureInfo bondFutureInfo; /* 入参交易数据实体 */
+    private BondFutureTradeInfo bondFutureInfo; /* 入参交易数据实体 */
     private final MarketData marketData;
     private final Calendar cal;
     private BondFutureMeasure bondFutureMeasure = new BondFutureMeasure(); /* 返回类全局变量 */
     private Result result;
     private HashMap<String, Double> cfMap = new HashMap<>();
 
-    public BondFuture(LocalDate dataDate, BondFutureInfo bondFutureInfo,
+    public BondFuture(LocalDate dataDate, BondFutureTradeInfo bondFutureInfo,
             MarketData marketData, Calendar calendar, JSONObject udData) {
         this.dataDate = dataDate;
         this.bondFutureInfo = bondFutureInfo;
@@ -63,7 +65,7 @@ public class BondFuture implements FrtbDrcInterface {
                 array.add(TradeJsonUtil.mergeTrade(und, EngineConstants.PRODUCT_CODE.BOND_FUTURE, "UNDERLYING_DATA"));
             }
         });
-        bondFutureInfo.bondInfos = JSON.parseArray(array.toString(), Bond.BondInfo.class);
+        bondFutureInfo.bondInfos = JSON.parseArray(array.toString(), Bond.BondTradeInfo.class);
     }
 
     /**
@@ -216,7 +218,7 @@ public class BondFuture implements FrtbDrcInterface {
          * 返回与之对应的bond信息，baseValue，bondid等
          */
         LinkedList<Result> list = new LinkedList<>();
-        for (Bond.BondInfo info : bondFutureInfo.bondInfos) {
+        for (Bond.BondTradeInfo info : bondFutureInfo.bondInfos) {
             Result result = bfPrice(info, this.marketData);
             list.add(result);
         }
@@ -233,7 +235,7 @@ public class BondFuture implements FrtbDrcInterface {
      * 获取合约价格，返回包含标的债估值、模型期货价格、SOY 等信息
      * 如果 this.result 已存在（基准阶段已完成），复用其 SOY，不重新校准
      */
-    private Result bfPrice(Bond.BondInfo bondInfo, MarketData marketData) {
+    private Result bfPrice(Bond.BondTradeInfo bondInfo, MarketData marketData) {
         Bond bond = new Bond(dataDate, bondInfo, marketData, cal);
         // 复用已校准的 SOY（非 null 时 bond.calc() 跳过校准）
         if (this.result != null) {
@@ -424,7 +426,7 @@ public class BondFuture implements FrtbDrcInterface {
          */
         double baseValue;
         double price;
-        Bond.BondInfo undBondInfo;
+        Bond.BondTradeInfo undBondInfo;
         double spreadOverYield;
         List<BaseCashFlow> cashFlowList;
         double bondForwardPrice;
@@ -497,7 +499,7 @@ public class BondFuture implements FrtbDrcInterface {
         }
     }
 
-    public static class BondFutureInfo {
+    public static class BondFutureTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
@@ -520,7 +522,7 @@ public class BondFuture implements FrtbDrcInterface {
         @JSONField(name = "CONVERT_FACTORS")
         public List<ConvertFactor> convertFactors;
         @JSONField(serialize = false, deserialize = false)
-        public List<Bond.BondInfo> bondInfos;
+        public List<Bond.BondTradeInfo> bondInfos;
         @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;

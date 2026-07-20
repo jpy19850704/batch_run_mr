@@ -1,7 +1,9 @@
 package com.zcyh.mr.product.basic.option;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FxSpot;
@@ -29,9 +31,9 @@ import static com.zcyh.mr.product.basic.frtb.OptionBaseFrtbSupport.*;
  * 提取 Ir/Eq/Fx/Comm DigOpt 的公共估值逻辑。
  * 使用 DigOptUtil 进行解析定价和 Greek 计算。
  *
- * @param <I> 子类 Info 类型，必须继承 DigOptBaseInfo
+ * @param <I> 子类 Info 类型，必须继承 DigOptBaseTradeInfo
  */
-public abstract class DigOptBase<I extends DigOptBase.DigOptBaseInfo> {
+public abstract class DigOptBase<I extends DigOptBase.DigOptBaseTradeInfo> {
 
     protected final LocalDate dataDate;
     protected final I info;
@@ -530,7 +532,7 @@ public abstract class DigOptBase<I extends DigOptBase.DigOptBaseInfo> {
     /**
      * 数字期权公共输入信息基类。
      */
-    public static class DigOptBaseInfo {
+    public static class DigOptBaseTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;

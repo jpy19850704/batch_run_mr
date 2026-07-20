@@ -9,8 +9,10 @@ import com.zcyh.mr.marketdata.MarketData;
 
 import java.time.LocalDate;
 import java.util.Locale;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * 市场数据加载器。
@@ -44,6 +46,7 @@ public class MarketDataLoader {
         MarketData marketData = new MarketData();
         parseMarketData(marketDataArray, marketData);
         normalizeBaseIrSpotMeta(marketData);
+        validateLoadedTypes(marketDataArray, marketData);
         return marketData;
     }
 
@@ -126,6 +129,26 @@ public class MarketDataLoader {
                 || EngineConstants.RF_TYPE.IR_VOL.equals(curveType)
                 || EngineConstants.RF_TYPE.EQ_VOL.equals(curveType)
                 || EngineConstants.RF_TYPE.COMM_VOL.equals(curveType);
+    }
+
+    private void validateLoadedTypes(JSONArray marketDataArray, MarketData marketData) {
+        if (marketDataArray == null || marketDataArray.isEmpty()) {
+            return;
+        }
+        Set<String> marketDataTypes = new LinkedHashSet<String>();
+        for (Object item : marketDataArray) {
+            if (item instanceof JSONObject) {
+                String marketDataType = ((JSONObject) item).getString("CURVE_TYPE");
+                if (marketDataType != null && !marketDataType.trim().isEmpty()) {
+                    marketDataTypes.add(marketDataType);
+                }
+            }
+        }
+        for (String marketDataType : marketDataTypes) {
+            for (String error : marketData.validateInput(marketDataType)) {
+                validationCollector.error(marketDataType, "", error);
+            }
+        }
     }
 
     /**

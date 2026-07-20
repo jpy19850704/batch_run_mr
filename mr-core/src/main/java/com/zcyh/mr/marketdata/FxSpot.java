@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
@@ -21,6 +23,23 @@ import java.util.Set;
  * @date 2024/7/10 14:00
  */
 public class FxSpot implements Serializable {
+
+    public static void validateInput(FxSpotInfo info, List<String> errors) {
+        if (info == null || info.curveData == null || info.curveData.isEmpty()) {
+            errors.add("FX_SPOT: CURVE_DATA 不能为空");
+            return;
+        }
+        for (Map.Entry<String, Double> point : info.curveData.entrySet()) {
+            String currencyPair = point.getKey();
+            Double rate = point.getValue();
+            if (currencyPair == null || !currencyPair.matches("^[A-Z]{3}/[A-Z]{3}$")) {
+                errors.add("FX_SPOT: CURRENCY 格式错误: " + currencyPair);
+            }
+            if (rate == null || !Double.isFinite(rate) || rate <= 0.0d) {
+                errors.add("FX_SPOT: RATE 必须大于0: " + currencyPair);
+            }
+        }
+    }
     private static final Logger log = LoggerFactory.getLogger(FxSpot.class);
     private volatile static FxSpot instance = null;
     private FxSpotInfo fxSpotInfo;

@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * CommSpreadOpt 估值计算器
  */
-public class CommSpreadOptCalc extends AbstractProductCacheCalc<CommSpreadOpt, CommSpreadOpt.SpreadOptInfo> {
+public class CommSpreadOptCalc extends AbstractProductCacheCalc<CommSpreadOpt, CommSpreadOpt.SpreadOptTradeInfo> {
 
     public CommSpreadOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class CommSpreadOptCalc extends AbstractProductCacheCalc<CommSpreadOpt, C
     }
 
     @Override
-    protected CommSpreadOpt.SpreadOptInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommSpreadOpt.SpreadOptInfo.class);
+    protected CommSpreadOpt.SpreadOptTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommSpreadOpt.SpreadOptTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(CommSpreadOpt.SpreadOptInfo info) {
+    protected String getInstrumentId(CommSpreadOpt.SpreadOptTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected CommSpreadOpt createProduct(CommSpreadOpt.SpreadOptInfo info, MarketData md) {
+    protected CommSpreadOpt createProduct(CommSpreadOpt.SpreadOptTradeInfo info, MarketData md) {
         return new CommSpreadOpt(dataDate, info, md);
     }
 

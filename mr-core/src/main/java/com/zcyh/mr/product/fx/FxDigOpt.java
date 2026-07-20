@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.support.Convert;
@@ -23,13 +23,13 @@ import java.util.stream.Collectors;
  * 保留场景估值与敏感性框架。
  * FRTB 敏感性统一通过基类公共模板输出。
  */
-public class FxDigOpt extends DigOptBase<FxDigOpt.FxDigOptInfo> {
+public class FxDigOpt extends DigOptBase<FxDigOpt.FxDigOptTradeInfo> {
 
     private OptionMeasure fxDigOptMeasure;
     private DigOptUtil digUtil;
     private final Middle middle = new Middle();
 
-    public FxDigOpt(LocalDate dataDate, FxDigOptInfo info, MarketData marketData) {
+    public FxDigOpt(LocalDate dataDate, FxDigOptTradeInfo info, MarketData marketData) {
         super(dataDate, info, marketData);
     }
 
@@ -227,7 +227,7 @@ public class FxDigOpt extends DigOptBase<FxDigOpt.FxDigOptInfo> {
 
     // ---------- 内部类 ----------
 
-    public static class FxDigOptInfo extends DigOptBase.DigOptBaseInfo {
+    public static class FxDigOptTradeInfo extends DigOptBase.DigOptBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_CURRENCY_CODE")
         public String underlyingCurrencyCode;

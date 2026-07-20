@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * EqSharkFin 估值计算器
  */
-public class EqSharkFinCalc extends AbstractProductCacheCalc<EqSharkFin, EqSharkFin.EqSharkFinInfo> {
+public class EqSharkFinCalc extends AbstractProductCacheCalc<EqSharkFin, EqSharkFin.EqSharkFinTradeInfo> {
 
     public EqSharkFinCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class EqSharkFinCalc extends AbstractProductCacheCalc<EqSharkFin, EqShark
     }
 
     @Override
-    protected EqSharkFin.EqSharkFinInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), EqSharkFin.EqSharkFinInfo.class);
+    protected EqSharkFin.EqSharkFinTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), EqSharkFin.EqSharkFinTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(EqSharkFin.EqSharkFinInfo info) {
+    protected String getInstrumentId(EqSharkFin.EqSharkFinTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected EqSharkFin createProduct(EqSharkFin.EqSharkFinInfo info, MarketData md) {
+    protected EqSharkFin createProduct(EqSharkFin.EqSharkFinTradeInfo info, MarketData md) {
         return new EqSharkFin(dataDate, info, md);
     }
 

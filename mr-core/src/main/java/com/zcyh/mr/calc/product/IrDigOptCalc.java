@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * IrDigOpt 估值计算器
  */
-public class IrDigOptCalc extends AbstractProductCacheCalc<IrDigOpt, IrDigOpt.IrDigOptInfo> {
+public class IrDigOptCalc extends AbstractProductCacheCalc<IrDigOpt, IrDigOpt.IrDigOptTradeInfo> {
 
     public IrDigOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class IrDigOptCalc extends AbstractProductCacheCalc<IrDigOpt, IrDigOpt.Ir
     }
 
     @Override
-    protected IrDigOpt.IrDigOptInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrDigOpt.IrDigOptInfo.class);
+    protected IrDigOpt.IrDigOptTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrDigOpt.IrDigOptTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(IrDigOpt.IrDigOptInfo info) {
+    protected String getInstrumentId(IrDigOpt.IrDigOptTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected IrDigOpt createProduct(IrDigOpt.IrDigOptInfo info, MarketData md) {
+    protected IrDigOpt createProduct(IrDigOpt.IrDigOptTradeInfo info, MarketData md) {
         return new IrDigOpt(dataDate, info, md);
     }
 

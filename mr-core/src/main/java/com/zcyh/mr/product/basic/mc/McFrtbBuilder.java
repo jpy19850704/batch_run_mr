@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.basic.mc;
 
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.product.all.GenericMc.GenericMcInfo;
+import com.zcyh.mr.product.all.GenericMc.GenericMcTradeInfo;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
@@ -30,7 +30,7 @@ public final class McFrtbBuilder {
         OptionMeasure reprice(MarketData shockedMarketData);
     }
 
-    public static List<FrtbSenes> build(GenericMcInfo input, McPricingContext ctx, OptionMeasure measure,
+    public static List<FrtbSenes> build(GenericMcTradeInfo input, McPricingContext ctx, OptionMeasure measure,
             MarketData marketData, LocalDate dataDate, RepriceFunction repriceFunction) {
         if (input == null || ctx == null || measure == null || repriceFunction == null) {
             return new ArrayList<>();
@@ -53,10 +53,10 @@ public final class McFrtbBuilder {
     }
 
     private static final class FxFrtb {
-        private static List<FrtbSenes> build(GenericMcInfo input, McPricingContext ctx, MeasureValuation baseValuation,
+        private static List<FrtbSenes> build(GenericMcTradeInfo input, McPricingContext ctx, MeasureValuation baseValuation,
                 MarketData marketData, LocalDate dataDate, RepriceFunction repriceFunction) {
             List<FrtbSenes> list = new ArrayList<>();
-            GenericMcInfo c = input;
+            GenericMcTradeInfo c = input;
             List<FrtbDependency> fxDeltaDependencies = FrtbSensitivityBuilder.buildFxDeltaDependencies(
                     collectFxRiskCurrencies(c.underlyingCurrencyCode, c.baseCurrencyCode, c.currencyCode),
                     FrtbSensitivityBuilder.buildFxPair(c.underlyingCurrencyCode, c.baseCurrencyCode));
@@ -102,11 +102,11 @@ public final class McFrtbBuilder {
     }
 
     private static final class EqFrtb {
-        private static List<FrtbSenes> build(GenericMcInfo input, McPricingContext ctx, OptionMeasure measure,
+        private static List<FrtbSenes> build(GenericMcTradeInfo input, McPricingContext ctx, OptionMeasure measure,
                 MeasureValuation baseValuation, MarketData marketData, LocalDate dataDate,
                 RepriceFunction repriceFunction) {
             List<FrtbSenes> list = new ArrayList<>();
-            GenericMcInfo c = input;
+            GenericMcTradeInfo c = input;
             list.addAll(FrtbSensitivityBuilder.buildFxSensitivities(
                     marketData,
                     dataDate,
@@ -162,11 +162,11 @@ public final class McFrtbBuilder {
     }
 
     private static final class CommFrtb {
-        private static List<FrtbSenes> build(GenericMcInfo input, McPricingContext ctx, OptionMeasure measure,
+        private static List<FrtbSenes> build(GenericMcTradeInfo input, McPricingContext ctx, OptionMeasure measure,
                 MeasureValuation baseValuation, MarketData marketData, LocalDate dataDate,
                 RepriceFunction repriceFunction) {
             List<FrtbSenes> list = new ArrayList<>();
-            GenericMcInfo c = input;
+            GenericMcTradeInfo c = input;
             list.addAll(FrtbSensitivityBuilder.buildFxSensitivities(
                     marketData,
                     dataDate,
@@ -227,7 +227,7 @@ public final class McFrtbBuilder {
             return list;
         }
 
-        private static String resolveCmtyRiskFactorId(GenericMcInfo c) {
+        private static String resolveCmtyRiskFactorId(GenericMcTradeInfo c) {
             String base = resolveCmtyRiskFactorIdBase(c);
             if (!hasText(base)) {
                 return null;
@@ -238,7 +238,7 @@ public final class McFrtbBuilder {
             return base + "&" + c.frtbCommLocation.trim();
         }
 
-        private static String resolveCmtyRiskFactorIdBase(GenericMcInfo c) {
+        private static String resolveCmtyRiskFactorIdBase(GenericMcTradeInfo c) {
             if (hasText(c.frtbCommAsset)) {
                 return c.frtbCommAsset.trim();
             }
@@ -247,7 +247,7 @@ public final class McFrtbBuilder {
     }
 
     private static final class IrFrtb {
-        private static List<FrtbSenes> build(GenericMcInfo input, McPricingContext ctx, MeasureValuation baseValuation,
+        private static List<FrtbSenes> build(GenericMcTradeInfo input, McPricingContext ctx, MeasureValuation baseValuation,
                 MarketData marketData, LocalDate dataDate, RepriceFunction repriceFunction) {
             return new ArrayList<>();
         }

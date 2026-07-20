@@ -1,5 +1,7 @@
 package com.zcyh.mr.product.credit;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.DrcDetail;
 import com.zcyh.mr.product.basic.frtb.FrtbDrcInterface;
@@ -19,7 +21,7 @@ import com.zcyh.mr.marketdata.CurveFunc;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.scf.StructuredCashflow;
@@ -39,11 +41,11 @@ public class Cds implements FrtbDrcInterface {
 
     private LocalDate dataDate;
     private MarketData marketData;
-    private Cds.CdsInfo cdsInfo;
+    private Cds.CdsTradeInfo cdsInfo;
     private JSONObject udData;
     private Calendar cal;
 
-    public Cds(LocalDate dataDate, Cds.CdsInfo cdsInfo, MarketData marketData, Calendar calendar, JSONObject udData) {
+    public Cds(LocalDate dataDate, Cds.CdsTradeInfo cdsInfo, MarketData marketData, Calendar calendar, JSONObject udData) {
         this.dataDate = dataDate;
         this.cdsInfo = cdsInfo;
         this.cal = calendar;
@@ -80,7 +82,7 @@ public class Cds implements FrtbDrcInterface {
     }
 
     private LinkedList<StructuredCashflow.Cashflow> buildDefaultPaymentCashflows(MarketData marketData,
-            Bond.BondInfo bondInfo) {
+            Bond.BondTradeInfo bondInfo) {
         StructuredCashflow.ScfInfo localScfInfo = ReflectionUtils.bean2Bean(bondInfo, StructuredCashflow.ScfInfo.class);
         localScfInfo.fixingCalendar = localScfInfo.settleCalendar;
         StructuredCashflow localScf = new StructuredCashflow(dataDate, localScfInfo, marketData, cal);
@@ -108,7 +110,7 @@ public class Cds implements FrtbDrcInterface {
         return cashFlowFilterD;
     }
 
-    private List<LegCashFlow> buildDefaultLeg(MarketData marketData, Bond.BondInfo bondInfo,
+    private List<LegCashFlow> buildDefaultLeg(MarketData marketData, Bond.BondTradeInfo bondInfo,
             List<StructuredCashflow.Cashflow> cashFlowFilterD) {
         if (marketData.irSpot == null || !marketData.irSpot.containsKey(cdsInfo.discountCurve)) {
             throw new IllegalArgumentException("折现曲线不存在: " + cdsInfo.discountCurve
@@ -161,7 +163,7 @@ public class Cds implements FrtbDrcInterface {
     }
 
     private LinkedList<StructuredCashflow.Cashflow> buildPremiumCashflows(MarketData marketData,
-            Bond.BondInfo premiumBondInfo) {
+            Bond.BondTradeInfo premiumBondInfo) {
         StructuredCashflow.ScfInfo localScfInfo = ReflectionUtils.bean2Bean(premiumBondInfo, StructuredCashflow.ScfInfo.class);
         localScfInfo.fixingCalendar = localScfInfo.settleCalendar;
         // CDS 保费腔利息在期初支付，使用 SCF 内置的期初支付逻辑
@@ -185,7 +187,7 @@ public class Cds implements FrtbDrcInterface {
         return cashFlowFilterS;
     }
 
-    private List<LegCashFlow> buildPremiumLeg(MarketData marketData, Bond.BondInfo bondInfo,
+    private List<LegCashFlow> buildPremiumLeg(MarketData marketData, Bond.BondTradeInfo bondInfo,
             LinkedList<StructuredCashflow.Cashflow> cashFlowFilterS, CdsMeasure measure) {
         int units = cdsInfo.buyOrSell.equalsIgnoreCase("B") ? -1 : 1;
         if (marketData.irSpot == null || !marketData.irSpot.containsKey(cdsInfo.discountCurve)) {
@@ -359,8 +361,8 @@ public class Cds implements FrtbDrcInterface {
         }
 
         try {
-            Bond.BondInfo bondInfo = buildDefaultBondInfo(underlyingData);
-            Bond.BondInfo premiumBondInfo = buildPremiumBondInfo(bondInfo);
+            Bond.BondTradeInfo bondInfo = buildDefaultBondInfo(underlyingData);
+            Bond.BondTradeInfo premiumBondInfo = buildPremiumBondInfo(bondInfo);
 
             LinkedList<StructuredCashflow.Cashflow> defaultCashFlows = buildDefaultPaymentCashflows(marketData, bondInfo);
             List<LegCashFlow> defaultPaymentExpected = buildDefaultLeg(marketData, bondInfo, defaultCashFlows);
@@ -416,7 +418,7 @@ public class Cds implements FrtbDrcInterface {
         return outcome;
     }
 
-    private List<FrtbSenes> getFrtbSensitivity(CdsMeasure measure, Bond.BondInfo bondInfo) {
+    private List<FrtbSenes> getFrtbSensitivity(CdsMeasure measure, Bond.BondTradeInfo bondInfo) {
         MeasureValuation baseValuation = toMeasureValuation(measure);
         List<FrtbSenes> list = new ArrayList<>();
         List<FrtbDependency> fxDeltaDependencies = FrtbSensitivityBuilder.buildFxDeltaDependencies(
@@ -512,8 +514,8 @@ public class Cds implements FrtbDrcInterface {
         return dpSum + sfSum;
     }
 
-    private Bond.BondInfo buildDefaultBondInfo(JSONObject underlyingData) {
-        Bond.BondInfo bondInfo = JSON.parseObject(underlyingData.toString(), Bond.BondInfo.class);
+    private Bond.BondTradeInfo buildDefaultBondInfo(JSONObject underlyingData) {
+        Bond.BondTradeInfo bondInfo = JSON.parseObject(underlyingData.toString(), Bond.BondTradeInfo.class);
         // 默认支付
         bondInfo.currencyCode = cdsInfo.currencyCode;
         bondInfo.interestType = "fixed";
@@ -534,8 +536,8 @@ public class Cds implements FrtbDrcInterface {
         return bondInfo;
     }
 
-    private Bond.BondInfo buildPremiumBondInfo(Bond.BondInfo bondInfo) {
-        Bond.BondInfo bondInfoSF = ReflectionUtils.bean2Bean(bondInfo, Bond.BondInfo.class);
+    private Bond.BondTradeInfo buildPremiumBondInfo(Bond.BondTradeInfo bondInfo) {
+        Bond.BondTradeInfo bondInfoSF = ReflectionUtils.bean2Bean(bondInfo, Bond.BondTradeInfo.class);
         bondInfoSF.issueDate = cdsInfo.startDate;
         bondInfoSF.maturityDate = cdsInfo.maturityDate;
         bondInfoSF.interestStub = cdsInfo.interestStub;
@@ -555,7 +557,7 @@ public class Cds implements FrtbDrcInterface {
         return calculateJtd(outcome.bondInfo, outcome.measure.valuation);
     }
 
-    private DrcDetail buildDrc(Bond.BondInfo bondInfo, double valuation) {
+    private DrcDetail buildDrc(Bond.BondTradeInfo bondInfo, double valuation) {
         if (!bondInfo.isDrcEnabled()) {
             return null;
         }
@@ -569,7 +571,7 @@ public class Cds implements FrtbDrcInterface {
         return drcDetail;
     }
 
-    private double calculateJtd(Bond.BondInfo bondInfo, double valuation) {
+    private double calculateJtd(Bond.BondTradeInfo bondInfo, double valuation) {
         // LGD 默认值常量化，不修改原始对象状态
         double lgd = (bondInfo.lgd != null) ? bondInfo.lgd : DEFAULT_LGD;
         if (bondInfo.absFlag) {
@@ -618,7 +620,7 @@ public class Cds implements FrtbDrcInterface {
         return cashflowList;
     }
 
-    public static class CdsInfo {
+    public static class CdsTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
@@ -666,7 +668,7 @@ public class Cds implements FrtbDrcInterface {
         @JSONField(name = "FIXED_PREMIUM")
         public String fixedPremium;
         @JSONField(serialize = false, deserialize = false)
-        public Bond.BondInfo bondInfo;
+        public Bond.BondTradeInfo bondInfo;
     }
 
     public static class CdsMeasure extends Measure {
@@ -708,7 +710,7 @@ public class Cds implements FrtbDrcInterface {
      */
     private static class PricingOutcome {
         private CdsMeasure measure;
-        private Bond.BondInfo bondInfo;
+        private Bond.BondTradeInfo bondInfo;
     }
 }
 

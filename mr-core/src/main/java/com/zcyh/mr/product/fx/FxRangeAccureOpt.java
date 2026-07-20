@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.*;
@@ -16,9 +16,9 @@ import java.util.*;
  * 标的价格取自外汇定盘利率，波动率取自外汇波动率曲面，
  * 远期汇率通过两条隐含利率曲线推导。
  */
-public class FxRangeAccureOpt extends RangeAccureOptBase<FxRangeAccureOpt.FxRangeAccureInfo> {
+public class FxRangeAccureOpt extends RangeAccureOptBase<FxRangeAccureOpt.FxRangeAccureTradeInfo> {
 
-    public FxRangeAccureOpt(LocalDate dataDate, FxRangeAccureInfo rangeAccureInfo, MarketData marketData) {
+    public FxRangeAccureOpt(LocalDate dataDate, FxRangeAccureTradeInfo rangeAccureInfo, MarketData marketData) {
         super(dataDate, rangeAccureInfo, marketData);
     }
 
@@ -169,7 +169,7 @@ public class FxRangeAccureOpt extends RangeAccureOptBase<FxRangeAccureOpt.FxRang
         }
     }
 
-    public static class FxRangeAccureInfo extends RangeAccureOptBase.RangeAccureFrtbInfo {
+    public static class FxRangeAccureTradeInfo extends RangeAccureOptBase.RangeAccureFrtbTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_CURRENCY_CODE")
         public String underlyingCurrencyCode;

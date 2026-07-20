@@ -20,7 +20,7 @@ public class IrSwapInputValidationTest {
 
     @Test
     public void testStdIrsAllowsZeroNotional() {
-        StdIrs.StdIrsInfo info = buildStdIrsInfo();
+        StdIrs.StdIrsTradeInfo info = buildStdIrsInfo();
         info.notional = 0.0;
 
         StdIrs.StdIrsMeasure result = new StdIrs(
@@ -32,7 +32,7 @@ public class IrSwapInputValidationTest {
 
     @Test
     public void testIrsCcsAllowsZeroNotional() {
-        IrsCcs.IrsCcsInfo info = buildIrsCcsInfo();
+        IrsCcs.IrsCcsTradeInfo info = buildIrsCcsInfo();
         info.payNotional = 0.0;
         info.recNotional = 0.0;
 
@@ -45,7 +45,7 @@ public class IrSwapInputValidationTest {
 
     @Test
     public void testStdIrsRejectsNegativeNotional() {
-        StdIrs.StdIrsInfo info = buildStdIrsInfo();
+        StdIrs.StdIrsTradeInfo info = buildStdIrsInfo();
         info.notional = -1.0;
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -57,7 +57,7 @@ public class IrSwapInputValidationTest {
 
     @Test
     public void testIrsCcsRejectsNegativeNotional() {
-        IrsCcs.IrsCcsInfo info = buildIrsCcsInfo();
+        IrsCcs.IrsCcsTradeInfo info = buildIrsCcsInfo();
         info.payNotional = -1.0;
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -68,7 +68,7 @@ public class IrSwapInputValidationTest {
 
     @Test
     public void testStdIrsRejectsInvalidDirection() {
-        StdIrs.StdIrsInfo info = buildStdIrsInfo();
+        StdIrs.StdIrsTradeInfo info = buildStdIrsInfo();
         info.buyOrSell = "OTHER";
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -80,7 +80,7 @@ public class IrSwapInputValidationTest {
 
     @Test
     public void testStdIrsRejectsInvalidTermCode() {
-        StdIrs.StdIrsInfo info = buildStdIrsInfo();
+        StdIrs.StdIrsTradeInfo info = buildStdIrsInfo();
         info.termCode = "UNKNOWN";
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -92,7 +92,7 @@ public class IrSwapInputValidationTest {
 
     @Test
     public void testIrsCcsRejectsInvalidSwapType() {
-        IrsCcs.IrsCcsInfo info = buildIrsCcsInfo();
+        IrsCcs.IrsCcsTradeInfo info = buildIrsCcsInfo();
         info.swapType = "OTHER";
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -103,7 +103,7 @@ public class IrSwapInputValidationTest {
 
     @Test
     public void testIrsCcsRejectsInvalidNotionalExchangeType() {
-        IrsCcs.IrsCcsInfo info = buildIrsCcsInfo();
+        IrsCcs.IrsCcsTradeInfo info = buildIrsCcsInfo();
         info.notionalExchangeType = "OTHER";
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -114,7 +114,7 @@ public class IrSwapInputValidationTest {
 
     @Test
     public void testIrsCcsFloatingLegRequiresReferenceCurve() {
-        IrsCcs.IrsCcsInfo info = buildIrsCcsInfo();
+        IrsCcs.IrsCcsTradeInfo info = buildIrsCcsInfo();
         info.recInterestType = "FLOATING";
         info.recInterest = null;
         info.recReferenceCurve = null;
@@ -127,8 +127,8 @@ public class IrSwapInputValidationTest {
         Assertions.assertTrue(exception.getMessage().contains("REC_REFERENCE_CURVE"));
     }
 
-    private StdIrs.StdIrsInfo buildStdIrsInfo() {
-        StdIrs.StdIrsInfo info = new StdIrs.StdIrsInfo();
+    private StdIrs.StdIrsTradeInfo buildStdIrsInfo() {
+        StdIrs.StdIrsTradeInfo info = new StdIrs.StdIrsTradeInfo();
         info.instrumentId = "UT_STD_IRS_001";
         info.productCode = EngineConstants.PRODUCT_CODE.STD_IRS;
         info.currencyCode = "USD";
@@ -140,8 +140,8 @@ public class IrSwapInputValidationTest {
         return info;
     }
 
-    private IrsCcs.IrsCcsInfo buildIrsCcsInfo() {
-        IrsCcs.IrsCcsInfo info = new IrsCcs.IrsCcsInfo();
+    private IrsCcs.IrsCcsTradeInfo buildIrsCcsInfo() {
+        IrsCcs.IrsCcsTradeInfo info = new IrsCcs.IrsCcsTradeInfo();
         info.productCode = EngineConstants.PRODUCT_CODE.IRSCCS;
         info.instrumentId = "UT_IRSCCS_001";
         info.swapType = "IRS";

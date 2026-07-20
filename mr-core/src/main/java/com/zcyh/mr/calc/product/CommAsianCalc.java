@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * COMM 亚式期权估值计算器。
  */
-public class CommAsianCalc extends AbstractProductCacheCalc<CommAsian, CommAsian.CommAsianInfo> {
+public class CommAsianCalc extends AbstractProductCacheCalc<CommAsian, CommAsian.CommAsianTradeInfo> {
 
     public CommAsianCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class CommAsianCalc extends AbstractProductCacheCalc<CommAsian, CommAsian
     }
 
     @Override
-    protected CommAsian.CommAsianInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommAsian.CommAsianInfo.class);
+    protected CommAsian.CommAsianTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommAsian.CommAsianTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(CommAsian.CommAsianInfo info) {
+    protected String getInstrumentId(CommAsian.CommAsianTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected CommAsian createProduct(CommAsian.CommAsianInfo info, MarketData md) {
+    protected CommAsian createProduct(CommAsian.CommAsianTradeInfo info, MarketData md) {
         return new CommAsian(dataDate, info, md);
     }
 

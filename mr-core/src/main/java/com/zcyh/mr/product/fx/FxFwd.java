@@ -1,5 +1,7 @@
 package com.zcyh.mr.product.fx;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.Preconditions;
@@ -7,7 +9,7 @@ import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
@@ -27,11 +29,11 @@ import java.util.Map;
  */
 public class FxFwd {
     private LocalDate dataDate;
-    private FxFwdInfo fxFwdInfo;
+    private FxFwdTradeInfo fxFwdInfo;
     private MarketData marketData;
     private FxFwdMeasure fxFwdMeasure = new FxFwdMeasure();
 
-    public FxFwd(LocalDate dataDate, FxFwdInfo tradeInfo, MarketData marketData) {
+    public FxFwd(LocalDate dataDate, FxFwdTradeInfo tradeInfo, MarketData marketData) {
         this.dataDate = dataDate;
         this.fxFwdInfo = tradeInfo;
         this.marketData = marketData;
@@ -276,7 +278,7 @@ public class FxFwd {
         public double bPv01;
     }
 
-    static public class FxFwdInfo {
+    static public class FxFwdTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
@@ -309,7 +311,7 @@ public class FxFwd {
         public String baseDiscountCurve;
         @Override
         public String toString() {
-            return "FxFwdInfo{" + "productCode='" + productCode + '\'' +
+            return "FxFwdTradeInfo{" + "productCode='" + productCode + '\'' +
                     ", instrumentId='" + instrumentId + '\'' +
                     ", buyOrSell='" + buyOrSell + '\'' +
                     ", underlyingCurrencyCode='" + underlyingCurrencyCode + '\'' +

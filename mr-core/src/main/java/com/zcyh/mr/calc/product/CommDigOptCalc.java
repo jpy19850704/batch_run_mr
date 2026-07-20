@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * CommDigOpt 估值计算器
  */
-public class CommDigOptCalc extends AbstractProductCacheCalc<CommDigOpt, CommDigOpt.CommDigOptInfo> {
+public class CommDigOptCalc extends AbstractProductCacheCalc<CommDigOpt, CommDigOpt.CommDigOptTradeInfo> {
 
     public CommDigOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class CommDigOptCalc extends AbstractProductCacheCalc<CommDigOpt, CommDig
     }
 
     @Override
-    protected CommDigOpt.CommDigOptInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommDigOpt.CommDigOptInfo.class);
+    protected CommDigOpt.CommDigOptTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommDigOpt.CommDigOptTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(CommDigOpt.CommDigOptInfo info) {
+    protected String getInstrumentId(CommDigOpt.CommDigOptTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected CommDigOpt createProduct(CommDigOpt.CommDigOptInfo info, MarketData md) {
+    protected CommDigOpt createProduct(CommDigOpt.CommDigOptTradeInfo info, MarketData md) {
         return new CommDigOpt(dataDate, info, md);
     }
 

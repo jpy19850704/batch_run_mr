@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.Fixing;
@@ -16,9 +16,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-public class IrSharkFin extends SharkFinBase<IrSharkFin.IrSharkFinInfo, IrSharkFin.IrSharkFinMeasure> {
+public class IrSharkFin extends SharkFinBase<IrSharkFin.IrSharkFinTradeInfo, IrSharkFin.IrSharkFinMeasure> {
 
-    public IrSharkFin(java.time.LocalDate dataDate, IrSharkFinInfo tradeInfo, MarketData marketData) {
+    public IrSharkFin(java.time.LocalDate dataDate, IrSharkFinTradeInfo tradeInfo, MarketData marketData) {
         super(dataDate, tradeInfo, marketData);
     }
 
@@ -177,7 +177,7 @@ public class IrSharkFin extends SharkFinBase<IrSharkFin.IrSharkFinInfo, IrSharkF
     public static class IrSharkFinMeasure extends OptionMeasure {
     }
 
-    public static class IrSharkFinInfo extends SharkFinBase.SharkFinBaseInfo {
+    public static class IrSharkFinTradeInfo extends SharkFinBase.SharkFinBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;

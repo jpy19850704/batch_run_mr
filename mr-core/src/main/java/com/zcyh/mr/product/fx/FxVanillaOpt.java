@@ -1,7 +1,9 @@
 package com.zcyh.mr.product.fx;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.support.Convert;
@@ -30,7 +32,7 @@ import java.util.stream.Collectors;
 public class FxVanillaOpt {
 
     private final LocalDate dataDate;
-    private final VanillaOptInfo info;
+    private final VanillaOptTradeInfo info;
     private final MarketData marketData;
     private VanillaOptMeasure measure;
     private final double pos;
@@ -45,7 +47,7 @@ public class FxVanillaOpt {
     /** 是否美式期权 */
     private final boolean isAmerican;
 
-    public FxVanillaOpt(LocalDate dataDate, VanillaOptInfo tradeInfo, MarketData marketData) {
+    public FxVanillaOpt(LocalDate dataDate, VanillaOptTradeInfo tradeInfo, MarketData marketData) {
         this.dataDate = dataDate;
         this.info = tradeInfo;
         this.marketData = marketData;
@@ -354,7 +356,7 @@ public class FxVanillaOpt {
     public static class VanillaOptMeasure extends OptionMeasure {
     }
 
-    public static class VanillaOptInfo {
+    public static class VanillaOptTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;

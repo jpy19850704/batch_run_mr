@@ -7,7 +7,7 @@ import com.zcyh.mr.marketdata.CurveFunc;
 import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.CommUtils;
 import org.apache.commons.lang3.StringUtils;
 

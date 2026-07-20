@@ -17,14 +17,14 @@ public class ProductDayCountDefaultTest {
     @Test
     public void testAllProductDayCountDefaults() {
         Assertions.assertEquals("actual/365", new StructuredCashflow.ScfInfo().dayCountBasis);
-        Assertions.assertEquals("actual/365", new StepUpOptBase.StepUpBaseInfo().dayCountBasis);
-        Assertions.assertEquals("actual/365", new Cds.CdsInfo().dayCountBasis);
-        Assertions.assertEquals("actual/365", new Trs.TrsInfo().dayCountBasis);
-        Assertions.assertEquals("actual/365", new Bond.BondInfo().dayCountBasis);
-        Assertions.assertEquals("actual/365", new CapFloor.CapFloorInfo().dayCountBasis);
-        Assertions.assertEquals("actual/365", new Swaption.SwaptionInfo().fixedDayCountBasis);
-        Assertions.assertEquals("actual/365", new StdIrs.StdIrsInfo().dayCountBasis);
-        Assertions.assertEquals("actual/365", new IrsCcs.IrsCcsInfo().payDayCountBasis);
-        Assertions.assertEquals("actual/365", new IrsCcs.IrsCcsInfo().recDayCountBasis);
+        Assertions.assertEquals("actual/365", new StepUpOptBase.StepUpBaseTradeInfo().dayCountBasis);
+        Assertions.assertEquals("actual/365", new Cds.CdsTradeInfo().dayCountBasis);
+        Assertions.assertEquals("actual/365", new Trs.TrsTradeInfo().dayCountBasis);
+        Assertions.assertEquals("actual/365", new Bond.BondTradeInfo().dayCountBasis);
+        Assertions.assertEquals("actual/365", new CapFloor.CapFloorTradeInfo().dayCountBasis);
+        Assertions.assertEquals("actual/365", new Swaption.SwaptionTradeInfo().fixedDayCountBasis);
+        Assertions.assertEquals("actual/365", new StdIrs.StdIrsTradeInfo().dayCountBasis);
+        Assertions.assertEquals("actual/365", new IrsCcs.IrsCcsTradeInfo().payDayCountBasis);
+        Assertions.assertEquals("actual/365", new IrsCcs.IrsCcsTradeInfo().recDayCountBasis);
     }
 }

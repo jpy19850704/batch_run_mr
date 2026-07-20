@@ -15,7 +15,7 @@ public class FxAsianTest {
     @Test
     public void testDefaultCashAndDetailFields() {
         LocalDate dataDate = LocalDate.of(2026, 1, 10);
-        FxAsian.FxAsianInfo info = buildBaseInfo(dataDate);
+        FxAsian.FxAsianTradeInfo info = buildBaseInfo(dataDate);
         info.settleType = null;
         info.obsStartDate = LocalDate.of(2026, 1, 5);
         info.obsEndDate = LocalDate.of(2026, 1, 15);
@@ -53,7 +53,7 @@ public class FxAsianTest {
     @Test
     public void testFutureOnlyNoFixingRequired() {
         LocalDate dataDate = LocalDate.of(2026, 1, 10);
-        FxAsian.FxAsianInfo info = buildBaseInfo(dataDate);
+        FxAsian.FxAsianTradeInfo info = buildBaseInfo(dataDate);
         info.obsStartDate = LocalDate.of(2026, 1, 11);
         info.obsEndDate = LocalDate.of(2026, 1, 20);
         info.fixingId = null;
@@ -68,8 +68,8 @@ public class FxAsianTest {
         Assertions.assertNull(measure.detail.get("AVERAGE_PAST"));
     }
 
-    private FxAsian.FxAsianInfo buildBaseInfo(LocalDate dataDate) {
-        FxAsian.FxAsianInfo info = new FxAsian.FxAsianInfo();
+    private FxAsian.FxAsianTradeInfo buildBaseInfo(LocalDate dataDate) {
+        FxAsian.FxAsianTradeInfo info = new FxAsian.FxAsianTradeInfo();
         info.productCode = EngineConstants.PRODUCT_CODE.FX_ASIAN;
         info.instrumentId = "UT_FX_ASIAN_001";
         info.callOrPut = "CALL";

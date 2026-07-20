@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.structure.StepUpOptBase;
@@ -15,9 +15,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class IrStepUpOpt extends StepUpOptBase<IrStepUpOpt.IrStepUpInfo, OptionMeasure> {
+public class IrStepUpOpt extends StepUpOptBase<IrStepUpOpt.IrStepUpTradeInfo, OptionMeasure> {
 
-    public IrStepUpOpt(LocalDate dataDate, IrStepUpInfo stepUpInfo, MarketData marketData) {
+    public IrStepUpOpt(LocalDate dataDate, IrStepUpTradeInfo stepUpInfo, MarketData marketData) {
         super(dataDate, stepUpInfo, marketData);
     }
 
@@ -284,7 +284,7 @@ public class IrStepUpOpt extends StepUpOptBase<IrStepUpOpt.IrStepUpInfo, OptionM
         return true;
     }
 
-    public static class IrStepUpInfo extends StepUpOptBase.StepUpBaseInfo {
+    public static class IrStepUpTradeInfo extends StepUpOptBase.StepUpBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;

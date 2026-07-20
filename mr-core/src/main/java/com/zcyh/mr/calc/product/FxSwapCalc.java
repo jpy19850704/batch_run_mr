@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * FxSwap 估值计算器
  */
-public class FxSwapCalc extends AbstractProductCacheCalc<FxSwap, FxSwap.FxSwapInfo> {
+public class FxSwapCalc extends AbstractProductCacheCalc<FxSwap, FxSwap.FxSwapTradeInfo> {
 
     public FxSwapCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class FxSwapCalc extends AbstractProductCacheCalc<FxSwap, FxSwap.FxSwapIn
     }
 
     @Override
-    protected FxSwap.FxSwapInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxSwap.FxSwapInfo.class);
+    protected FxSwap.FxSwapTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxSwap.FxSwapTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(FxSwap.FxSwapInfo info) {
+    protected String getInstrumentId(FxSwap.FxSwapTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected FxSwap createProduct(FxSwap.FxSwapInfo info, MarketData md) {
+    protected FxSwap createProduct(FxSwap.FxSwapTradeInfo info, MarketData md) {
         return new FxSwap(dataDate, info, md);
     }
 

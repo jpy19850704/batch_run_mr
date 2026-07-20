@@ -19,7 +19,7 @@ public class FxForwardSwapInputValidationTest {
 
     @Test
     public void testFxFwdAllowsZeroNotional() {
-        FxFwd.FxFwdInfo info = buildFxFwdInfo();
+        FxFwd.FxFwdTradeInfo info = buildFxFwdInfo();
         info.underlyingCurrencyNotional = 0.0;
         info.baseCurrencyNotional = 0.0;
 
@@ -31,7 +31,7 @@ public class FxForwardSwapInputValidationTest {
 
     @Test
     public void testFxSwapAllowsZeroNotional() {
-        FxSwap.FxSwapInfo info = buildFxSwapInfo();
+        FxSwap.FxSwapTradeInfo info = buildFxSwapInfo();
         info.underlyingCurrencyNotionalSpot = 0.0;
         info.baseCurrencyNotionalSpot = 0.0;
         info.underlyingCurrencyNotionalFwd = 0.0;
@@ -45,7 +45,7 @@ public class FxForwardSwapInputValidationTest {
 
     @Test
     public void testFxFwdRejectsNegativeNotional() {
-        FxFwd.FxFwdInfo info = buildFxFwdInfo();
+        FxFwd.FxFwdTradeInfo info = buildFxFwdInfo();
         info.baseCurrencyNotional = -1.0;
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -56,7 +56,7 @@ public class FxForwardSwapInputValidationTest {
 
     @Test
     public void testFxSwapRejectsNegativeNotional() {
-        FxSwap.FxSwapInfo info = buildFxSwapInfo();
+        FxSwap.FxSwapTradeInfo info = buildFxSwapInfo();
         info.underlyingCurrencyNotionalSpot = -1.0;
 
         IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
@@ -67,8 +67,8 @@ public class FxForwardSwapInputValidationTest {
 
     @Test
     public void testFxFwdDirectionIgnoresCase() {
-        FxFwd.FxFwdInfo uppercaseInfo = buildFxFwdInfo();
-        FxFwd.FxFwdInfo lowercaseInfo = buildFxFwdInfo();
+        FxFwd.FxFwdTradeInfo uppercaseInfo = buildFxFwdInfo();
+        FxFwd.FxFwdTradeInfo lowercaseInfo = buildFxFwdInfo();
         lowercaseInfo.buyOrSell = "b";
 
         FxFwd.FxFwdMeasure uppercase = new FxFwd(
@@ -82,8 +82,8 @@ public class FxForwardSwapInputValidationTest {
 
     @Test
     public void testFxSwapDirectionIgnoresCase() {
-        FxSwap.FxSwapInfo uppercaseInfo = buildFxSwapInfo();
-        FxSwap.FxSwapInfo lowercaseInfo = buildFxSwapInfo();
+        FxSwap.FxSwapTradeInfo uppercaseInfo = buildFxSwapInfo();
+        FxSwap.FxSwapTradeInfo lowercaseInfo = buildFxSwapInfo();
         lowercaseInfo.buyOrSell = "b";
 
         FxSwap.FxSwapMeasure uppercase = new FxSwap(
@@ -95,8 +95,8 @@ public class FxForwardSwapInputValidationTest {
         Assertions.assertEquals(uppercase.position, lowercase.position);
     }
 
-    private FxFwd.FxFwdInfo buildFxFwdInfo() {
-        FxFwd.FxFwdInfo info = new FxFwd.FxFwdInfo();
+    private FxFwd.FxFwdTradeInfo buildFxFwdInfo() {
+        FxFwd.FxFwdTradeInfo info = new FxFwd.FxFwdTradeInfo();
         info.productCode = EngineConstants.PRODUCT_CODE.FXFWD;
         info.instrumentId = "UT_FXFWD_001";
         info.buyOrSell = "B";
@@ -110,8 +110,8 @@ public class FxForwardSwapInputValidationTest {
         return info;
     }
 
-    private FxSwap.FxSwapInfo buildFxSwapInfo() {
-        FxSwap.FxSwapInfo info = new FxSwap.FxSwapInfo();
+    private FxSwap.FxSwapTradeInfo buildFxSwapInfo() {
+        FxSwap.FxSwapTradeInfo info = new FxSwap.FxSwapTradeInfo();
         info.productCode = EngineConstants.PRODUCT_CODE.FXSWAP;
         info.instrumentId = "UT_FXSWAP_001";
         info.buyOrSell = "B";

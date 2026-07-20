@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * EqWeddingCake 估值计算器
  */
-public class EqWeddingCakeCalc extends AbstractProductCacheCalc<EqWeddingCake, EqWeddingCake.EqWeddingCakeInfo> {
+public class EqWeddingCakeCalc extends AbstractProductCacheCalc<EqWeddingCake, EqWeddingCake.EqWeddingCakeTradeInfo> {
 
     public EqWeddingCakeCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class EqWeddingCakeCalc extends AbstractProductCacheCalc<EqWeddingCake, E
     }
 
     @Override
-    protected EqWeddingCake.EqWeddingCakeInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), EqWeddingCake.EqWeddingCakeInfo.class);
+    protected EqWeddingCake.EqWeddingCakeTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), EqWeddingCake.EqWeddingCakeTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(EqWeddingCake.EqWeddingCakeInfo info) {
+    protected String getInstrumentId(EqWeddingCake.EqWeddingCakeTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected EqWeddingCake createProduct(EqWeddingCake.EqWeddingCakeInfo info, MarketData md) {
+    protected EqWeddingCake createProduct(EqWeddingCake.EqWeddingCakeTradeInfo info, MarketData md) {
         return new EqWeddingCake(dataDate, info, md);
     }
 

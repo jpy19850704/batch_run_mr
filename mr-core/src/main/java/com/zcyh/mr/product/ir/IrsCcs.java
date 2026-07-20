@@ -1,5 +1,7 @@
 package com.zcyh.mr.product.ir;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.calendar.Calendar;
@@ -11,7 +13,7 @@ import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
 import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
@@ -30,7 +32,7 @@ public class IrsCcs {
 
     LinkedList<StructuredCashflow.Cashflow> cashflowList;
     private LocalDate dataDate;
-    private IrsCcs.IrsCcsInfo irsCcsInfo;
+    private IrsCcs.IrsCcsTradeInfo irsCcsInfo;
     private MarketData marketData;
     private Calendar calendar;
     private IrsCcsMeasure irsCcsMeasure = new IrsCcsMeasure();
@@ -426,7 +428,7 @@ public class IrsCcs {
      * @author xujg
      */
 
-    public IrsCcs(LocalDate dataDate, IrsCcs.IrsCcsInfo tradeInfo, MarketData marketData, Calendar calendar) {
+    public IrsCcs(LocalDate dataDate, IrsCcs.IrsCcsTradeInfo tradeInfo, MarketData marketData, Calendar calendar) {
         this.dataDate = dataDate;
         this.irsCcsInfo = tradeInfo;
         this.marketData = marketData;
@@ -547,7 +549,7 @@ public class IrsCcs {
         }
     }
 
-    public static class IrsCcsInfo {
+    public static class IrsCcsTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;

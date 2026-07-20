@@ -19,7 +19,7 @@ class ScenarioPnlServiceTest {
         baseTrade.put("INSTRUMENT_ID", "T_BASE_ERR");
         baseTrade.put("VALUATION_CNY", 100.0);
         baseTrade.put("STATUS", "ERROR");
-        baseTrade.put("LOGS", logs("具体基准错误"));
+        baseTrade.put("LOGS_JSON", logs("具体基准错误"));
 
         JSONObject row = service.buildBaseErrorPnlRow(baseTrade);
 
@@ -27,7 +27,7 @@ class ScenarioPnlServiceTest {
         assertEquals(0.0, row.getDoubleValue("BASE_VALUATION_CNY"));
         assertEquals(0.0, row.getDoubleValue("SCENARIO_VALUATION_CNY"));
         assertEquals(0.0, row.getDoubleValue("PNL"));
-        assertEquals("基准估值错误", row.getJSONArray("LOGS").getJSONObject(0).getString("message"));
+        assertEquals("基准估值错误", row.getJSONArray("LOGS_JSON").getJSONObject(0).getString("message"));
     }
 
     @Test
@@ -39,7 +39,7 @@ class ScenarioPnlServiceTest {
         JSONObject scenarioTrade = new JSONObject();
         scenarioTrade.put("INSTRUMENT_ID", "T_SCEN_ERR");
         scenarioTrade.put("STATUS", "ERROR");
-        scenarioTrade.put("LOGS", logs("情景市场数据异常"));
+        scenarioTrade.put("LOGS_JSON", logs("情景市场数据异常"));
 
         JSONObject row = service.buildScenarioErrorPnlRow(baseTrade, scenarioTrade);
 
@@ -47,7 +47,7 @@ class ScenarioPnlServiceTest {
         assertEquals(100.0, row.getDoubleValue("BASE_VALUATION_CNY"));
         assertEquals(100.0, row.getDoubleValue("SCENARIO_VALUATION_CNY"));
         assertEquals(0.0, row.getDoubleValue("PNL"));
-        assertEquals("情景市场数据异常", row.getJSONArray("LOGS").getJSONObject(0).getString("message"));
+        assertEquals("情景市场数据异常", row.getJSONArray("LOGS_JSON").getJSONObject(0).getString("message"));
     }
 
     @Test
@@ -69,7 +69,7 @@ class ScenarioPnlServiceTest {
         assertEquals("ERROR", row.getString("STATUS"));
         assertEquals(0.0, row.getDoubleValue("PNL"));
         assertEquals("产品类型不支持情景: PROD_UNSUPPORTED",
-                row.getJSONArray("LOGS").getJSONObject(0).getString("message"));
+                row.getJSONArray("LOGS_JSON").getJSONObject(0).getString("message"));
     }
 
     @Test
@@ -89,7 +89,7 @@ class ScenarioPnlServiceTest {
 
         assertEquals("ERROR", row.getString("STATUS"));
         assertEquals(0.0, row.getDoubleValue("PNL"));
-        assertEquals("情景结果缺失", row.getJSONArray("LOGS").getJSONObject(0).getString("message"));
+        assertEquals("情景结果缺失", row.getJSONArray("LOGS_JSON").getJSONObject(0).getString("message"));
     }
 
     @Test

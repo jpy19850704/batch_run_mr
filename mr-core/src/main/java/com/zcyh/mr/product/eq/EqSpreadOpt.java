@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.eq;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.EqSpot;
@@ -20,9 +20,9 @@ import java.util.List;
  * 权益 Spread Option 产品类。
  * 继承 SpreadOptBase，实现 EQ 特有的市场数据获取和校验。
  */
-public class EqSpreadOpt extends SpreadOptBase<EqSpreadOpt.SpreadOptInfo, EqSpreadOpt.SpreadOptMeasure> {
+public class EqSpreadOpt extends SpreadOptBase<EqSpreadOpt.SpreadOptTradeInfo, EqSpreadOpt.SpreadOptMeasure> {
 
-    public EqSpreadOpt(LocalDate dataDate, SpreadOptInfo tradeInfo, MarketData marketData) {
+    public EqSpreadOpt(LocalDate dataDate, SpreadOptTradeInfo tradeInfo, MarketData marketData) {
         super(dataDate, tradeInfo, marketData);
     }
 
@@ -89,7 +89,7 @@ public class EqSpreadOpt extends SpreadOptBase<EqSpreadOpt.SpreadOptInfo, EqSpre
     public static class SpreadOptMeasure extends OptionMeasure {
     }
 
-    public static class SpreadOptInfo extends SpreadOptBase.SpreadOptBaseInfo {
+    public static class SpreadOptTradeInfo extends SpreadOptBase.SpreadOptBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;

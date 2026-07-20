@@ -1,6 +1,10 @@
 package com.zcyh.mr.support;
 
 final public class EngineConstants {
+    final public static class CONTROL_FIELD {
+        public final static String INPUT_ERROR = "inputError";
+    }
+
     final static public class PRODUCT_CODE {
         // 商品相关产品
         public final static String COMMFWD = "COMMFWD";

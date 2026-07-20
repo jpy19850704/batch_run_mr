@@ -6,12 +6,30 @@ import com.zcyh.mr.support.Series;
 
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.time.temporal.ChronoUnit;
 
 /**
  * 通用定盘数据：用于按日期获取已发生的 fixing 值。
  */
 public class Fixing implements Serializable {
+
+    public static void validateInput(String fixingId, FixingInfo info, List<String> errors) {
+        if (fixingId == null || fixingId.trim().isEmpty()) {
+            errors.add("FIXING_ID 不能为空");
+            return;
+        }
+        if (info == null || info.curveData == null || info.curveData.isEmpty()) {
+            errors.add(fixingId + ": CURVE_DATA 不能为空");
+            return;
+        }
+        for (Map.Entry<LocalDate, Double> point : info.curveData.entrySet()) {
+            if (point.getKey() == null || point.getValue() == null || !Double.isFinite(point.getValue())) {
+                errors.add(fixingId + ": TRADE_DATE和FIXING_VALUE必须为有效值");
+            }
+        }
+    }
     private FixingInfo fixingInfo;
 
     public Fixing(FixingInfo fixingInfo) {

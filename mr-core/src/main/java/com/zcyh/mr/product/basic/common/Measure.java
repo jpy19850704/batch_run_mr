@@ -43,7 +43,7 @@ public class Measure {
     public String status;
 
     /** 交易级日志，按 level 区分 ERROR / WARNING。 */
-    @JSONField(name = "LOGS")
+    @JSONField(name = "LOGS_JSON")
     public List<MeasureLog> logs;
 
     /** 中间计算明细，仅在首次完整计量时填充 */

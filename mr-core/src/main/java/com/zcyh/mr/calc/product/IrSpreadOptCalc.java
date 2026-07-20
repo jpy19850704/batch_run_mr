@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * IrSpreadOpt 估值计算器
  */
-public class IrSpreadOptCalc extends AbstractProductCacheCalc<IrSpreadOpt, IrSpreadOpt.SpreadOptInfo> {
+public class IrSpreadOptCalc extends AbstractProductCacheCalc<IrSpreadOpt, IrSpreadOpt.SpreadOptTradeInfo> {
 
     public IrSpreadOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class IrSpreadOptCalc extends AbstractProductCacheCalc<IrSpreadOpt, IrSpr
     }
 
     @Override
-    protected IrSpreadOpt.SpreadOptInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrSpreadOpt.SpreadOptInfo.class);
+    protected IrSpreadOpt.SpreadOptTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrSpreadOpt.SpreadOptTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(IrSpreadOpt.SpreadOptInfo info) {
+    protected String getInstrumentId(IrSpreadOpt.SpreadOptTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected IrSpreadOpt createProduct(IrSpreadOpt.SpreadOptInfo info, MarketData md) {
+    protected IrSpreadOpt createProduct(IrSpreadOpt.SpreadOptTradeInfo info, MarketData md) {
         return new IrSpreadOpt(dataDate, info, md);
     }
 

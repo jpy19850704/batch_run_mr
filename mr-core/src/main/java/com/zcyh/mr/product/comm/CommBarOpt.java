@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.option.BarOptBase;
@@ -14,9 +14,9 @@ import java.util.Map;
  * 商品标的障碍期权。
  * 标的价格从 commSpot 获取，持有成本隐含在远期价格中。
  */
-public class CommBarOpt extends BarOptBase<CommBarOpt.CommBarOptInfo> {
+public class CommBarOpt extends BarOptBase<CommBarOpt.CommBarOptTradeInfo> {
 
-    public CommBarOpt(LocalDate dataDate, CommBarOptInfo info, MarketData marketData) {
+    public CommBarOpt(LocalDate dataDate, CommBarOptTradeInfo info, MarketData marketData) {
         super(dataDate, info, marketData);
     }
 
@@ -95,7 +95,7 @@ public class CommBarOpt extends BarOptBase<CommBarOpt.CommBarOptInfo> {
             throw new IllegalArgumentException("缺少波动率曲面: VOLATILITY_SURFACE");
     }
 
-    public static class CommBarOptInfo extends BarOptBase.BarOptBaseInfo {
+    public static class CommBarOptTradeInfo extends BarOptBase.BarOptBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;

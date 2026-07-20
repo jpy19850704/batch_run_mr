@@ -4,6 +4,8 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.support.TradeJsonUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,6 +19,7 @@ import java.util.Set;
  * 负责解析交易、校验底层资产数据，并将底层资产补入交易。
  */
 public class TradeDataLoader {
+    private static final Logger log = LoggerFactory.getLogger(TradeDataLoader.class);
     private final JSONArray validationErrors;
 
     public TradeDataLoader(JSONArray validationErrors) {
@@ -38,14 +41,21 @@ public class TradeDataLoader {
             return trades;
         }
         for (Object obj : tradeData) {
+            if (!(obj instanceof JSONObject)) {
+                log.error("交易输入不是JSON对象，无法识别INSTRUMENT_ID");
+                continue;
+            }
             JSONObject tradeJson = (JSONObject) obj;
+            String instrumentId = Objects.toString(tradeJson.get("INSTRUMENT_ID"), "").trim();
             String productCode = Objects.toString(tradeJson.get("PRODUCT_CODE"), "");
-            List<String> errors = TradeValidator.validate(tradeJson, productCode, "TRADE");
-            if (!errors.isEmpty()) {
-                JSONObject errLog = new JSONObject();
-                errLog.put("INSTRUMENT_ID", Objects.toString(tradeJson.get("INSTRUMENT_ID"), "UNKNOWN"));
-                errLog.put("info", "数据校验失败: " + String.join("; ", errors));
-                validationErrors.add(errLog);
+            if (instrumentId.isEmpty()) {
+                log.error("交易输入缺少INSTRUMENT_ID: productCode={}", productCode);
+                continue;
+            }
+            if (productCode.trim().isEmpty()) {
+                HashMap<String, Object> errorTrade = new HashMap<String, Object>(tradeJson);
+                errorTrade.put(EngineConstants.CONTROL_FIELD.INPUT_ERROR, "缺少必填字段: PRODUCT_CODE");
+                trades.add(errorTrade);
                 continue;
             }
             trades.add(TradeJsonUtil.mergeTrade(tradeJson, productCode, "TRADE"));
@@ -74,6 +84,9 @@ public class TradeDataLoader {
         }
         Set<String> checkedCodes = new HashSet<>();
         for (Object tradeObj : tradeData) {
+            if (!(tradeObj instanceof JSONObject)) {
+                continue;
+            }
             JSONObject tradeJson = (JSONObject) tradeObj;
             String productCode = Objects.toString(tradeJson.get("PRODUCT_CODE"), "");
             if (productCode.isEmpty() || !checkedCodes.add(productCode)) {

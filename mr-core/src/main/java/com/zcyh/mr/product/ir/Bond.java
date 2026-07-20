@@ -1,5 +1,7 @@
 package com.zcyh.mr.product.ir;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.DrcDetail;
 import com.zcyh.mr.product.basic.frtb.FrtbDrcInterface;
@@ -19,7 +21,7 @@ import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.math.Newton;
 import com.zcyh.mr.math.Ops;
 import com.zcyh.mr.math.Interpolation;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
@@ -45,7 +47,7 @@ import java.util.stream.Collectors;
 public class Bond implements FrtbDrcInterface {
 
     private LocalDate dataDate;
-    private BondInfo bondInfo;
+    private BondTradeInfo bondInfo;
     private MarketData marketData;
     private Calendar cal;
     StructuredCashflow scf;
@@ -54,7 +56,7 @@ public class Bond implements FrtbDrcInterface {
 
     LinkedList<StructuredCashflow.Cashflow> cashflowList;
 
-    public Bond(LocalDate dataDate, BondInfo bondInfo, MarketData marketData, Calendar calendar) {
+    public Bond(LocalDate dataDate, BondTradeInfo bondInfo, MarketData marketData, Calendar calendar) {
         this.dataDate = dataDate;
         this.bondInfo = bondInfo;
         this.marketData = marketData;
@@ -682,7 +684,7 @@ public class Bond implements FrtbDrcInterface {
     public BondMeasure calcWithReselectMaturity(MarketData scenarioMd) {
         String selectedDate = pickMaturityDate(scenarioMd);
         // 临时构建一个新 Bond 实例，避免修改当前实例状态
-        BondInfo tmpInfo = ReflectionUtils.bean2Bean(bondInfo, BondInfo.class);
+        BondTradeInfo tmpInfo = ReflectionUtils.bean2Bean(bondInfo, BondTradeInfo.class);
         tmpInfo.maturityDate = LocalDate.parse(selectedDate);
         Bond tmpBond = new Bond(dataDate, tmpInfo, marketData, cal);
         tmpBond.spreadOverYield = this.spreadOverYield;
@@ -843,7 +845,7 @@ public class Bond implements FrtbDrcInterface {
     }
 
     // 债券内部类，封装基本信息
-    static public class BondInfo {
+    static public class BondTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;

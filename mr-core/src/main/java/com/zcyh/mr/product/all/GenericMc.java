@@ -1,5 +1,8 @@
 package com.zcyh.mr.product.all;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+import com.zcyh.mr.product.basic.validation.TradeValidationCollector;
+
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.marketdata.MarketData;
@@ -34,25 +37,30 @@ public final class GenericMc {
     }
 
     public OptionMeasure price(Map<String, Object> tradeData, MarketData marketData) {
-        GenericMcInfo input = GenericMcInfo.fromTradeMap(tradeData);
-        return price(input, marketData, true);
+        GenericMcTradeInfo input = GenericMcTradeInfo.fromTradeMap(tradeData);
+        return price(input, marketData, true, new JSONObject(tradeData));
     }
 
-    public OptionMeasure price(GenericMcInfo input, MarketData marketData) {
-        return price(input, marketData, true);
+    public OptionMeasure price(GenericMcTradeInfo input, MarketData marketData) {
+        return price(input, marketData, true, null);
     }
 
     public OptionMeasure priceScenario(Map<String, Object> tradeData, MarketData marketData) {
-        GenericMcInfo input = GenericMcInfo.fromTradeMap(tradeData);
-        return price(input, marketData, false);
+        GenericMcTradeInfo input = GenericMcTradeInfo.fromTradeMap(tradeData);
+        return price(input, marketData, false, new JSONObject(tradeData));
     }
 
-    private OptionMeasure priceWithoutFrtb(GenericMcInfo input, MarketData marketData) {
-        return price(input, marketData, false);
+    private OptionMeasure priceWithoutFrtb(GenericMcTradeInfo input, MarketData marketData) {
+        return price(input, marketData, false, null);
     }
 
-    private OptionMeasure price(GenericMcInfo input, MarketData marketData, boolean includeFrtb) {
+    private OptionMeasure price(
+            GenericMcTradeInfo input,
+            MarketData marketData,
+            boolean includeFrtb,
+            JSONObject source) {
         try {
+            input.validateInput(source, input.productCode).throwIfInvalid();
             input.normalize();
             ValidationCollector errors = new ValidationCollector();
             input.validate(marketData, errors);
@@ -91,7 +99,7 @@ public final class GenericMc {
     /**
      * 通用 MC 产品输入。字段直接平铺，保持与其他产品 Info 类一致。
      */
-    public static final class GenericMcInfo {
+    public static final class GenericMcTradeInfo implements TradeInfo {
         public String instrumentId;
         public String productCode;
         public String underlyingType;
@@ -125,8 +133,8 @@ public final class GenericMc {
         public Object modelParams;
         public Object payoffParams;
 
-        public static GenericMcInfo fromTradeMap(Map<String, Object> trade) {
-            GenericMcInfo input = new GenericMcInfo();
+        public static GenericMcTradeInfo fromTradeMap(Map<String, Object> trade) {
+            GenericMcTradeInfo input = new GenericMcTradeInfo();
             if (trade == null) {
                 return input;
             }
@@ -163,6 +171,39 @@ public final class GenericMc {
             input.modelParams = trade.get("MODEL_PARAMS");
             input.payoffParams = trade.get("PAYOFF_PARAMS");
             return input;
+        }
+
+        @Override
+        public void validateBusinessRules(TradeValidationCollector errors) {
+            requireText(errors, "INSTRUMENT_ID", instrumentId);
+            requireText(errors, "PRODUCT_CODE", productCode);
+            requireText(errors, "UNDERLYING_TYPE", underlyingType);
+            requireText(errors, "PAYOFF_TYPE", payoffType);
+            requireText(errors, "MODEL_TYPE", modelType);
+            requireText(errors, "CURRENCY_CODE", currencyCode);
+            requireText(errors, "OBS_DATES", obsDates);
+            if (buyOrSell != null && !"B".equalsIgnoreCase(buyOrSell) && !"S".equalsIgnoreCase(buyOrSell)) {
+                errors.add("BUY_OR_SELL", "仅支持B/S");
+            }
+            if (pathNb != null && pathNb <= 0) {
+                errors.add("PATH_NB", "必须为正整数");
+            }
+            if (startDate != null && settleDate != null && startDate.isAfter(settleDate)) {
+                errors.add("START_DATE", "不能晚于SETTLE_DATE");
+            }
+            if (underlyingType != null
+                    && !"FX".equalsIgnoreCase(underlyingType)
+                    && !"EQ".equalsIgnoreCase(underlyingType)
+                    && !"COMM".equalsIgnoreCase(underlyingType)
+                    && !"IR".equalsIgnoreCase(underlyingType)) {
+                errors.add("UNDERLYING_TYPE", "仅支持FX/EQ/COMM/IR");
+            }
+        }
+
+        private static void requireText(TradeValidationCollector errors, String field, String value) {
+            if (value == null || value.trim().isEmpty()) {
+                errors.add(field, "不能为空");
+            }
         }
 
         public void normalize() {
@@ -289,7 +330,7 @@ public final class GenericMc {
         }
     }
 
-    private static Map<String, Object> buildAutoCallPayoffParams(GenericMcInfo input) {
+    private static Map<String, Object> buildAutoCallPayoffParams(GenericMcTradeInfo input) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("BARRIER", input.barrier);
         params.put("BARRIER_DIRECTION", input.barrierDirection);

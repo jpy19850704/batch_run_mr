@@ -185,7 +185,10 @@ public class ScenarioRequestAssembler {
             definition.setHoldingPeriod(toInteger(row.get("HOLDING_PERIOD")));
             definition.setJumpDayNo(toInteger(row.get("JUMP_DAY_NO")));
             definition.setIncreaseDays(toInteger(row.get("INCREASE_DAYS")));
-            definition.setHolidayCalendarCode(defaultHolidayCalendarCode);
+            definition.setHolidayCalendarCode(firstNonBlank(
+                    row.get("HOLIDAY_CALENDAR"),
+                    row.get("holiday_calendar"),
+                    defaultHolidayCalendarCode));
             definition.setStartDate(toLocalDate(row.get("START_DATE")));
             definition.setEndDate(toLocalDate(row.get("END_DATE")));
             result.add(definition);

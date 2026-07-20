@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.*;
@@ -17,9 +17,9 @@ import java.util.List;
  * 继承 SpreadOptBase，实现 IR 特有的市场数据获取和校验。
  * spot 取自历史定盘利率，远期利率通过 calFi() 计算，波动率取自利率波动率曲面。
  */
-public class IrSpreadOpt extends SpreadOptBase<IrSpreadOpt.SpreadOptInfo, IrSpreadOpt.SpreadOptMeasure> {
+public class IrSpreadOpt extends SpreadOptBase<IrSpreadOpt.SpreadOptTradeInfo, IrSpreadOpt.SpreadOptMeasure> {
 
-    public IrSpreadOpt(LocalDate dataDate, SpreadOptInfo tradeInfo, MarketData marketData) {
+    public IrSpreadOpt(LocalDate dataDate, SpreadOptTradeInfo tradeInfo, MarketData marketData) {
         super(dataDate, tradeInfo, marketData);
     }
 
@@ -169,7 +169,7 @@ public class IrSpreadOpt extends SpreadOptBase<IrSpreadOpt.SpreadOptInfo, IrSpre
     public static class SpreadOptMeasure extends OptionMeasure {
     }
 
-    public static class SpreadOptInfo extends SpreadOptBase.SpreadOptBaseInfo {
+    public static class SpreadOptTradeInfo extends SpreadOptBase.SpreadOptBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;

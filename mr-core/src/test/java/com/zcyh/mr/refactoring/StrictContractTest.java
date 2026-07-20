@@ -9,9 +9,8 @@ import com.zcyh.mr.frtbima.scenariopnl.SubsetScenarioRunner;
 import com.zcyh.mr.frtbsa.sba.common.FrtbParamsCache;
 import com.zcyh.mr.loader.FileUtils;
 import com.zcyh.mr.loader.Loader;
-import com.zcyh.mr.loader.TradeValidator;
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.frtb.builder.CmtySensitivityBuilder;
 import com.zcyh.mr.product.ir.IrDigOpt;
 import com.zcyh.mr.saccr.addon.EquityAddOnCalc;
@@ -42,42 +41,6 @@ class StrictContractTest {
                 () -> Preconditions.require(false, "字段不能为空: %s", "DATA_DATE"));
 
         assertEquals("字段不能为空: DATA_DATE", ex.getMessage());
-    }
-
-    @Test
-    void tradeValidatorLoadsRuntimeValidationRules() {
-        JSONObject trade = new JSONObject();
-        trade.put("INSTRUMENT_ID", "T001");
-        trade.put("PRODUCT_CODE", "BOND");
-
-        List<String> errors = TradeValidator.validate(trade, "BOND", "TRADE");
-
-        assertTrue(errors.contains("缺少必填字段: CURRENCY_CODE"));
-        assertTrue(errors.contains("缺少必填字段: DISCOUNT_CURVE"));
-    }
-
-    @Test
-    void tradeValidatorRequiresConfiguredCommodityFields() {
-        JSONObject trade = new JSONObject();
-        trade.put("INSTRUMENT_ID", "T_COMM_WEDDING_001");
-        trade.put("PRODUCT_CODE", "COMM_WEDDING_CAKE");
-
-        List<String> errors = TradeValidator.validate(trade, "COMM_WEDDING_CAKE", "TRADE");
-
-        assertTrue(errors.contains("缺少必填字段: NOTIONAL"));
-        assertTrue(errors.contains("缺少必填字段: FIXING_ID"));
-    }
-
-    @Test
-    void tradeValidatorDomainIgnoresCase() {
-        JSONObject trade = new JSONObject();
-        trade.put("INSTRUMENT_ID", "T_COMM_WEDDING_002");
-        trade.put("PRODUCT_CODE", "COMM_WEDDING_CAKE");
-        trade.put("BUY_OR_SELL", "b");
-
-        List<String> errors = TradeValidator.validate(trade, "COMM_WEDDING_CAKE", "TRADE");
-
-        assertFalse(errors.stream().anyMatch(error -> error.startsWith("BUY_OR_SELL 值不在允许范围内")));
     }
 
     @Test
@@ -150,20 +113,20 @@ class StrictContractTest {
         LocalDate dataDate = LocalDate.of(2026, 3, 31);
         MarketData marketData = minimalIrOptionMarketData();
 
-        IrDigOpt.IrDigOptInfo missingTermCode = baseIrDigInfo(dataDate);
+        IrDigOpt.IrDigOptTradeInfo missingTermCode = baseIrDigInfo(dataDate);
         missingTermCode.rateType = "PAR";
         missingTermCode.termFreq = "1Y";
         IllegalArgumentException termCodeEx = assertThrows(IllegalArgumentException.class,
                 () -> new IrDigOpt(dataDate, missingTermCode, marketData).calc());
         assertTrue(termCodeEx.getMessage().contains("TERM_CODE"));
 
-        IrDigOpt.IrDigOptInfo missingRateType = baseIrDigInfo(dataDate);
+        IrDigOpt.IrDigOptTradeInfo missingRateType = baseIrDigInfo(dataDate);
         missingRateType.termCode = "10Y";
         IllegalArgumentException rateTypeEx = assertThrows(IllegalArgumentException.class,
                 () -> new IrDigOpt(dataDate, missingRateType, marketData).calc());
         assertTrue(rateTypeEx.getMessage().contains("RATE_TYPE"));
 
-        IrDigOpt.IrDigOptInfo missingTermFreq = baseIrDigInfo(dataDate);
+        IrDigOpt.IrDigOptTradeInfo missingTermFreq = baseIrDigInfo(dataDate);
         missingTermFreq.termCode = "10Y";
         missingTermFreq.rateType = "PAR";
         IllegalArgumentException termFreqEx = assertThrows(IllegalArgumentException.class,
@@ -219,8 +182,8 @@ class StrictContractTest {
         return false;
     }
 
-    private static IrDigOpt.IrDigOptInfo baseIrDigInfo(LocalDate dataDate) {
-        IrDigOpt.IrDigOptInfo info = new IrDigOpt.IrDigOptInfo();
+    private static IrDigOpt.IrDigOptTradeInfo baseIrDigInfo(LocalDate dataDate) {
+        IrDigOpt.IrDigOptTradeInfo info = new IrDigOpt.IrDigOptTradeInfo();
         info.instrumentId = "T_IR_DIG_001";
         info.productCode = "IR_DIG_OPT";
         info.buyOrSell = "B";

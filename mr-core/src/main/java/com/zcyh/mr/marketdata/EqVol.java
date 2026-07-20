@@ -15,6 +15,15 @@ import java.util.Map;
  */
 public class EqVol implements Serializable {
 
+    public static void validateInput(String curveId, EqVolInfo info, List<String> errors) {
+        MarketDataValidationSupport.validateVolSurface(
+                curveId,
+                info == null ? null : info.curveData,
+                info == null ? null : info.axis2Type,
+                null,
+                errors);
+    }
+
     private static final String FRTB_VEGA_SHOCK_APPLIED = "_FRTB_VEGA_SHOCK_APPLIED";
 
     private EqVolInfo eqVolInfo;

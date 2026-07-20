@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FxSpot;
@@ -14,10 +14,10 @@ import com.zcyh.mr.product.basic.structure.WeddingCakeBase;
 import java.time.LocalDate;
 import java.util.Locale;
 
-public class FxWeddingCake extends WeddingCakeBase<FxWeddingCake.FxWeddingCakeInfo, FxWeddingCake.FxWeddingCakeMeasure> {
+public class FxWeddingCake extends WeddingCakeBase<FxWeddingCake.FxWeddingCakeTradeInfo, FxWeddingCake.FxWeddingCakeMeasure> {
     private boolean frtbScenarioPricing;
 
-    public FxWeddingCake(LocalDate dataDate, FxWeddingCakeInfo info, MarketData marketData) {
+    public FxWeddingCake(LocalDate dataDate, FxWeddingCakeTradeInfo info, MarketData marketData) {
         super(dataDate, info, marketData);
     }
 
@@ -152,7 +152,7 @@ public class FxWeddingCake extends WeddingCakeBase<FxWeddingCake.FxWeddingCakeIn
     public static class FxWeddingCakeMeasure extends OptionMeasure {
     }
 
-    public static class FxWeddingCakeInfo extends WeddingCakeBase.WeddingCakeBaseInfo {
+    public static class FxWeddingCakeTradeInfo extends WeddingCakeBase.WeddingCakeBaseTradeInfo {
         @ProductInputField(length = 3)
         @JSONField(name = "UNDERLYING_CURRENCY_CODE")
         public String underlyingCurrencyCode;

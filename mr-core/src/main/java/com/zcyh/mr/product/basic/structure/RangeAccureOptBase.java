@@ -1,7 +1,9 @@
 package com.zcyh.mr.product.basic.structure;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.support.Convert;
@@ -27,7 +29,7 @@ import static com.zcyh.mr.product.basic.frtb.OptionBaseFrtbSupport.*;
  * 区间累计期权抽象基类，封装估值循环、Greeks 计算及 FRTB 敏感性等公共逻辑。
  * 各标的子类（商品/外汇/利率/指数）仅需实现参数获取的差异化方法。
  */
-public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccureBaseInfo> {
+public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccureBaseTradeInfo> {
     protected static final double FRTB_ZERO_TOL = 1e-12;
     protected static final double DEFAULT_EPS = 0.0001;
     protected LocalDate dataDate;
@@ -491,8 +493,8 @@ public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccur
      * FRTB 结算日，未配置时回退到到期日。
      */
     protected LocalDate getFrtbSettleDate() {
-        if (rangeAccureInfo instanceof RangeAccureFrtbInfo) {
-            RangeAccureFrtbInfo frtbInfo = (RangeAccureFrtbInfo) rangeAccureInfo;
+        if (rangeAccureInfo instanceof RangeAccureFrtbTradeInfo) {
+            RangeAccureFrtbTradeInfo frtbInfo = (RangeAccureFrtbTradeInfo) rangeAccureInfo;
             if (frtbInfo.settleDate != null) {
                 return frtbInfo.settleDate;
             }
@@ -756,7 +758,7 @@ public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccur
     /**
      * 区间累计基础字段（估值主流程通用）。
      */
-    public static class RangeAccureBaseInfo {
+    public static class RangeAccureBaseTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
@@ -817,7 +819,7 @@ public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccur
     /**
      * 区间累计FRTB字段（四类产品通用）。
      */
-    public static class RangeAccureFrtbInfo extends RangeAccureBaseInfo {
+    public static class RangeAccureFrtbTradeInfo extends RangeAccureBaseTradeInfo {
         @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
         public LocalDate settleDate;
     }

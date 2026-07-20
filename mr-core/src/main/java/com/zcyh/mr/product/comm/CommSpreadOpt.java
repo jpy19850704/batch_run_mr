@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.CommSpot;
@@ -20,9 +20,9 @@ import java.util.List;
  * 商品 Spread Option 产品类。
  * 继承 SpreadOptBase，实现 Commodity 特有的市场数据获取和校验。
  */
-public class CommSpreadOpt extends SpreadOptBase<CommSpreadOpt.SpreadOptInfo, CommSpreadOpt.SpreadOptMeasure> {
+public class CommSpreadOpt extends SpreadOptBase<CommSpreadOpt.SpreadOptTradeInfo, CommSpreadOpt.SpreadOptMeasure> {
 
-    public CommSpreadOpt(LocalDate dataDate, SpreadOptInfo tradeInfo, MarketData marketData) {
+    public CommSpreadOpt(LocalDate dataDate, SpreadOptTradeInfo tradeInfo, MarketData marketData) {
         super(dataDate, tradeInfo, marketData);
     }
 
@@ -98,7 +98,7 @@ public class CommSpreadOpt extends SpreadOptBase<CommSpreadOpt.SpreadOptInfo, Co
     public static class SpreadOptMeasure extends OptionMeasure {
     }
 
-    public static class SpreadOptInfo extends SpreadOptBase.SpreadOptBaseInfo {
+    public static class SpreadOptTradeInfo extends SpreadOptBase.SpreadOptBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;

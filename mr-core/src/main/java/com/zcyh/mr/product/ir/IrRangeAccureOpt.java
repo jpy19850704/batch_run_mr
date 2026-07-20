@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.structure.RangeAccureOptBase;
@@ -17,11 +17,11 @@ import java.util.*;
  * - PAR：平价互换利率，由 TERM_CODE 指定互换期限，TERM_FREQ 指定付息频率
  * Delta/Gamma 使用 IR 版本（getDelta/getGamma）。
  */
-public class IrRangeAccureOpt extends RangeAccureOptBase<IrRangeAccureOpt.IrRangeAccureInfo> {
+public class IrRangeAccureOpt extends RangeAccureOptBase<IrRangeAccureOpt.IrRangeAccureTradeInfo> {
     /** 即期价格与远期利率的差值，在计算远期利率时作为基差调整 */
     private double diff;
 
-    public IrRangeAccureOpt(LocalDate dataDate, IrRangeAccureInfo rangeAccureInfo, MarketData marketData) {
+    public IrRangeAccureOpt(LocalDate dataDate, IrRangeAccureTradeInfo rangeAccureInfo, MarketData marketData) {
         super(dataDate, rangeAccureInfo, marketData);
     }
 
@@ -147,7 +147,7 @@ public class IrRangeAccureOpt extends RangeAccureOptBase<IrRangeAccureOpt.IrRang
         return rangeAccureInfo.termCode;
     }
 
-    public static class IrRangeAccureInfo extends RangeAccureOptBase.RangeAccureFrtbInfo {
+    public static class IrRangeAccureTradeInfo extends RangeAccureOptBase.RangeAccureFrtbTradeInfo {
         /** 利率类型：ZERO（零息远期利率）或 PAR（平价互换利率），不区分大小写 */
         @ProductInputField(allowedValues = {"ZERO", "PAR"}, ignoreCase = true)
         @JSONField(name = "RATE_TYPE")

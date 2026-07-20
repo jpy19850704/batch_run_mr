@@ -4,11 +4,14 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -16,6 +19,7 @@ import java.util.Set;
  * Calc 基准结果、曲线生成结果和日志合并服务。
  */
 public final class CalcResultMergeService {
+    private static final Logger log = LoggerFactory.getLogger(CalcResultMergeService.class);
     private static final Set<String> TRADE_CALENDAR_FIELDS = new LinkedHashSet<String>(Arrays.asList(
             "SETTLE_CALENDAR",
             "FIXING_CALENDAR",
@@ -30,7 +34,6 @@ public final class CalcResultMergeService {
             List<String> curveGenerationErrors) {
         JSONObject mergedData = new JSONObject();
         mergedData.put("trade_data", new JSONArray());
-        mergedData.put("log_data", new JSONArray());
         appendCurveGenerationOutput(mergedData, generatedMarketData, curveGenerationErrors);
 
         JSONObject result = new JSONObject();
@@ -50,12 +53,8 @@ public final class CalcResultMergeService {
         if (curveGenerationErrors == null || curveGenerationErrors.isEmpty()) {
             return;
         }
-        JSONArray logData = getOrCreateArray(dataObj, "log_data");
         for (String error : curveGenerationErrors) {
-            JSONObject logItem = new JSONObject();
-            logItem.put("PRODUCT_CODE", "CURVE_GENERATION");
-            logItem.put("info", "曲线生成失败: " + error);
-            logData.add(logItem);
+            log.error("曲线生成失败: {}", error);
         }
     }
 
@@ -68,29 +67,25 @@ public final class CalcResultMergeService {
         return array;
     }
 
-    public void addLog(JSONObject mergedData, String productCode, String instrumentId, String info) {
-        JSONObject logItem = new JSONObject();
-        if (instrumentId != null) {
-            logItem.put("INSTRUMENT_ID", instrumentId);
-        }
-        if (productCode != null) {
-            logItem.put("PRODUCT_CODE", productCode);
-        }
-        logItem.put("info", info);
-        getOrCreateArray(mergedData, "log_data").add(logItem);
-    }
-
     public void appendEmptyCalendarLogs(
             JSONObject mergedData,
             List<HashMap<String, Object>> trades) {
         if (trades == null || trades.isEmpty()) {
             return;
         }
+        Map<String, JSONObject> resultIndex = new HashMap<String, JSONObject>();
+        JSONArray results = getOrCreateArray(mergedData, "trade_data");
+        for (int i = 0; i < results.size(); i++) {
+            JSONObject result = results.getJSONObject(i);
+            String instrumentId = result == null ? null : result.getString("INSTRUMENT_ID");
+            if (instrumentId != null && !instrumentId.trim().isEmpty()) {
+                resultIndex.put(instrumentId, result);
+            }
+        }
         for (HashMap<String, Object> tradeData : trades) {
             if (tradeData == null || tradeData.isEmpty()) {
                 continue;
             }
-            String productCode = Objects.toString(tradeData.get("PRODUCT_CODE"), "");
             String instrumentId = Objects.toString(tradeData.get("INSTRUMENT_ID"), "");
             for (String field : TRADE_CALENDAR_FIELDS) {
                 if (!tradeData.containsKey(field)) {
@@ -98,11 +93,27 @@ public final class CalcResultMergeService {
                 }
                 Object value = tradeData.get(field);
                 if (value == null || value.toString().trim().isEmpty()) {
-                    addLog(mergedData, productCode, instrumentId,
-                            "交易指定的日历为空: " + field);
+                    JSONObject result = resultIndex.get(instrumentId);
+                    if (result == null) {
+                        log.warn("交易指定的日历为空且未找到交易结果: instrumentId={}, field={}", instrumentId, field);
+                    } else {
+                        appendResultLog(result, "WARNING", "交易指定的日历为空: " + field);
+                    }
                 }
             }
         }
+    }
+
+    private static void appendResultLog(JSONObject result, String level, String message) {
+        JSONArray logs = result.getJSONArray("LOGS_JSON");
+        if (logs == null) {
+            logs = new JSONArray();
+            result.put("LOGS_JSON", logs);
+        }
+        JSONObject item = new JSONObject();
+        item.put("level", level);
+        item.put("message", message);
+        logs.add(item);
     }
 
     public void mergeData(JSONObject mergedData, String groupResult, String defaultProductCode) {

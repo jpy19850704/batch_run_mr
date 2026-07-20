@@ -9,7 +9,7 @@ import com.zcyh.mr.marketdata.CurveFunc;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
@@ -39,12 +39,12 @@ public class WillowBond {
     private static final double SPREAD_ROOT_TOLERANCE = 1e-12;
 
     private final LocalDate dataDate;
-    private final WillowBondInfo info;
+    private final WillowBondTradeInfo info;
     private final MarketData marketData;
     private final Calendar calendar;
     private Double fixedSpreadOverYield;
 
-    public WillowBond(LocalDate dataDate, WillowBondInfo info, MarketData marketData, Calendar calendar) {
+    public WillowBond(LocalDate dataDate, WillowBondTradeInfo info, MarketData marketData, Calendar calendar) {
         this.dataDate = Objects.requireNonNull(dataDate, "DATA_DATE不能为空");
         this.info = Objects.requireNonNull(info, "WILLOW_BOND交易信息不能为空");
         this.marketData = Objects.requireNonNull(marketData, "市场数据不能为空");
@@ -681,7 +681,7 @@ public class WillowBond {
         }
     }
 
-    public static class WillowBondInfo extends Bond.BondInfo {
+    public static class WillowBondTradeInfo extends Bond.BondTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "WILLOW_REFERENCE_CURVE")
         public String willowReferenceCurve;

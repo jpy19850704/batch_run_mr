@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.eq;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.option.BarOptBase;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
@@ -14,9 +14,9 @@ import java.util.Map;
  * 权益标的障碍期权。
  * 标的价格从 eqSpot 获取，rf = 0（不考虑股息）。
  */
-public class EqBarOpt extends BarOptBase<EqBarOpt.EqBarOptInfo> {
+public class EqBarOpt extends BarOptBase<EqBarOpt.EqBarOptTradeInfo> {
 
-    public EqBarOpt(LocalDate dataDate, EqBarOptInfo info, MarketData marketData) {
+    public EqBarOpt(LocalDate dataDate, EqBarOptTradeInfo info, MarketData marketData) {
         super(dataDate, info, marketData);
     }
 
@@ -91,7 +91,7 @@ public class EqBarOpt extends BarOptBase<EqBarOpt.EqBarOptInfo> {
             throw new IllegalArgumentException("缺少波动率曲面: VOLATILITY_SURFACE");
     }
 
-    public static class EqBarOptInfo extends BarOptBase.BarOptBaseInfo {
+    public static class EqBarOptTradeInfo extends BarOptBase.BarOptBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;

@@ -1,4 +1,4 @@
-package com.zcyh.mr.product.basic.common;
+package com.zcyh.mr.product.basic.validation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

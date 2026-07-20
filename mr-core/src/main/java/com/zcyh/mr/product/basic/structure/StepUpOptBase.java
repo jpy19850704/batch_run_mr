@@ -1,7 +1,10 @@
+
 package com.zcyh.mr.product.basic.structure;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.support.Convert;
@@ -786,7 +789,7 @@ public abstract class StepUpOptBase<T, M extends OptionMeasure> {
     /**
      * StepUp 期权产品公共输入信息基类，子类 Info 继承此类。
      */
-    public static class StepUpBaseInfo {
+    public static class StepUpBaseTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;

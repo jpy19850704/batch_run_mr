@@ -5,7 +5,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.calendar.Calendar;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.structure.RangeAccureOptBase;
 import com.zcyh.mr.product.basic.structure.StepUpOptBase;
 import com.zcyh.mr.product.basic.structure.WeddingCakeBase;
@@ -24,15 +24,15 @@ public class CreditInputValidationTest {
 
     @Test
     public void testCreditAndIrInputDatesUseFieldFormats() {
-        Cds.CdsInfo cds = JSON.parseObject(
-                "{\"START_DATE\":\"20260101\",\"MATURITY_DATE\":\"20261231\"}", Cds.CdsInfo.class);
-        Trs.TrsInfo trs = JSON.parseObject(
-                "{\"START_DATE\":\"20260101\",\"MATURITY_DATE\":\"20261231\"}", Trs.TrsInfo.class);
-        IrsCcs.IrsCcsInfo irsCcs = JSON.parseObject(
-                "{\"START_DATE\":\"20260101\",\"MATURITY_DATE\":\"20261231\"}", IrsCcs.IrsCcsInfo.class);
-        Swaption.SwaptionInfo swaption = JSON.parseObject(
+        Cds.CdsTradeInfo cds = JSON.parseObject(
+                "{\"START_DATE\":\"20260101\",\"MATURITY_DATE\":\"20261231\"}", Cds.CdsTradeInfo.class);
+        Trs.TrsTradeInfo trs = JSON.parseObject(
+                "{\"START_DATE\":\"20260101\",\"MATURITY_DATE\":\"20261231\"}", Trs.TrsTradeInfo.class);
+        IrsCcs.IrsCcsTradeInfo irsCcs = JSON.parseObject(
+                "{\"START_DATE\":\"20260101\",\"MATURITY_DATE\":\"20261231\"}", IrsCcs.IrsCcsTradeInfo.class);
+        Swaption.SwaptionTradeInfo swaption = JSON.parseObject(
                 "{\"MATURITY_DATE\":\"20260331\",\"UNDERLYING_START_DATE\":\"20260401\","
-                        + "\"UNDERLYING_MATURITY_DATE\":\"20270401\"}", Swaption.SwaptionInfo.class);
+                        + "\"UNDERLYING_MATURITY_DATE\":\"20270401\"}", Swaption.SwaptionTradeInfo.class);
 
         Assertions.assertEquals(LocalDate.of(2026, 1, 1), cds.startDate);
         Assertions.assertEquals(LocalDate.of(2026, 12, 31), cds.maturityDate);
@@ -47,7 +47,7 @@ public class CreditInputValidationTest {
 
     @Test
     public void testTrsRequiresIndependentUnderlyingNotional() {
-        Trs.TrsInfo info = buildTrsInfo();
+        Trs.TrsTradeInfo info = buildTrsInfo();
         info.underlyingNotional = null;
 
         Trs.TrsMeasure result = new Trs(
@@ -59,7 +59,7 @@ public class CreditInputValidationTest {
 
     @Test
     public void testTrsAllowsZeroNotionals() {
-        Trs.TrsInfo info = buildTrsInfo();
+        Trs.TrsTradeInfo info = buildTrsInfo();
         info.notional = 0.0;
         info.underlyingNotional = 0.0;
 
@@ -72,9 +72,9 @@ public class CreditInputValidationTest {
 
     @Test
     public void testStructuredNotionalMetadataAllowsZero() throws NoSuchFieldException {
-        assertZeroAllowed(RangeAccureOptBase.RangeAccureBaseInfo.class);
-        assertZeroAllowed(StepUpOptBase.StepUpBaseInfo.class);
-        assertZeroAllowed(WeddingCakeBase.WeddingCakeBaseInfo.class);
+        assertZeroAllowed(RangeAccureOptBase.RangeAccureBaseTradeInfo.class);
+        assertZeroAllowed(StepUpOptBase.StepUpBaseTradeInfo.class);
+        assertZeroAllowed(WeddingCakeBase.WeddingCakeBaseTradeInfo.class);
     }
 
     private void assertZeroAllowed(Class<?> infoClass) throws NoSuchFieldException {
@@ -84,8 +84,8 @@ public class CreditInputValidationTest {
         Assertions.assertTrue(metadata.minInclusive());
     }
 
-    private Trs.TrsInfo buildTrsInfo() {
-        Trs.TrsInfo info = new Trs.TrsInfo();
+    private Trs.TrsTradeInfo buildTrsInfo() {
+        Trs.TrsTradeInfo info = new Trs.TrsTradeInfo();
         info.instrumentId = "UT_TRS_001";
         info.productCode = EngineConstants.PRODUCT_CODE.TRS;
         info.buyOrSell = "B";

@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * CommSharkFin 估值计算器
  */
-public class CommSharkFinCalc extends AbstractProductCacheCalc<CommSharkFin, CommSharkFin.CommSharkFinInfo> {
+public class CommSharkFinCalc extends AbstractProductCacheCalc<CommSharkFin, CommSharkFin.CommSharkFinTradeInfo> {
 
     public CommSharkFinCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class CommSharkFinCalc extends AbstractProductCacheCalc<CommSharkFin, Com
     }
 
     @Override
-    protected CommSharkFin.CommSharkFinInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommSharkFin.CommSharkFinInfo.class);
+    protected CommSharkFin.CommSharkFinTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommSharkFin.CommSharkFinTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(CommSharkFin.CommSharkFinInfo info) {
+    protected String getInstrumentId(CommSharkFin.CommSharkFinTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected CommSharkFin createProduct(CommSharkFin.CommSharkFinInfo info, MarketData md) {
+    protected CommSharkFin createProduct(CommSharkFin.CommSharkFinTradeInfo info, MarketData md) {
         return new CommSharkFin(dataDate, info, md);
     }
 

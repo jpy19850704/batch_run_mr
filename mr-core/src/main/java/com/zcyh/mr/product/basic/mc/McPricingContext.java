@@ -10,7 +10,7 @@ import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.FxVol;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.product.all.GenericMc.GenericMcInfo;
+import com.zcyh.mr.product.all.GenericMc.GenericMcTradeInfo;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -50,10 +50,10 @@ public final class McPricingContext {
     public String payoffType;
     public String instrumentId;
 
-    public static McPricingContext fromInput(GenericMcInfo input, MarketData marketData,
+    public static McPricingContext fromInput(GenericMcTradeInfo input, MarketData marketData,
             LocalDate dataDate, ValidationCollector errors) {
         if (input == null) {
-            errors.add("GenericMcInfo 未设置");
+            errors.add("GenericMcTradeInfo 未设置");
             return null;
         }
         McPricingContext ctx = new McPricingContext();
@@ -103,7 +103,7 @@ public final class McPricingContext {
         return request;
     }
 
-    private static void initMarketFactors(McPricingContext ctx, GenericMcInfo input,
+    private static void initMarketFactors(McPricingContext ctx, GenericMcTradeInfo input,
             MarketData marketData, LocalDate dataDate, ValidationCollector errors) {
         try {
             if ("FX".equals(ctx.underlyingType)) {
@@ -122,7 +122,7 @@ public final class McPricingContext {
         }
     }
 
-    private static void initFxFactors(McPricingContext ctx, GenericMcInfo input,
+    private static void initFxFactors(McPricingContext ctx, GenericMcTradeInfo input,
             MarketData marketData, LocalDate dataDate) {
         FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         IrSpot baseIrSpot = new IrSpot(marketData.irSpot.get(input.baseDiscountCurve));
@@ -139,7 +139,7 @@ public final class McPricingContext {
         }
     }
 
-    private static void initEqFactors(McPricingContext ctx, GenericMcInfo input,
+    private static void initEqFactors(McPricingContext ctx, GenericMcTradeInfo input,
             MarketData marketData, LocalDate dataDate) {
         FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         EqSpot eqSpot = new EqSpot(marketData.eqSpot.get(input.referenceCurve));
@@ -155,7 +155,7 @@ public final class McPricingContext {
         }
     }
 
-    private static void initCommFactors(McPricingContext ctx, GenericMcInfo input,
+    private static void initCommFactors(McPricingContext ctx, GenericMcTradeInfo input,
             MarketData marketData, LocalDate dataDate) {
         FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         CommSpot commSpot = new CommSpot(marketData.commSpot.get(input.referenceCurve));

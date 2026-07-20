@@ -1,5 +1,7 @@
 package com.zcyh.mr.product.ir;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.calendar.Calendar;
@@ -14,7 +16,7 @@ import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
@@ -37,11 +39,11 @@ import java.util.Map;
 public class StdIrs {
 
     private LocalDate dataDate;
-    private StdIrsInfo tradeInfo;
+    private StdIrsTradeInfo tradeInfo;
     private MarketData marketData;
     private Calendar calendar;
 
-    public StdIrs(LocalDate dataDate, StdIrsInfo tradeInfo, MarketData marketData, Calendar calendar) {
+    public StdIrs(LocalDate dataDate, StdIrsTradeInfo tradeInfo, MarketData marketData, Calendar calendar) {
         this.dataDate = dataDate;
         this.tradeInfo = tradeInfo;
         this.marketData = marketData;
@@ -327,7 +329,7 @@ public class StdIrs {
     /**
      * 交易信息
      */
-    public static class StdIrsInfo {
+    public static class StdIrsTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;

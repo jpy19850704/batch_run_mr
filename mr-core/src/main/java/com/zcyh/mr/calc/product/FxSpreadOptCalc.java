@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * FxSpreadOpt 估值计算器
  */
-public class FxSpreadOptCalc extends AbstractProductCacheCalc<FxSpreadOpt, FxSpreadOpt.SpreadOptInfo> {
+public class FxSpreadOptCalc extends AbstractProductCacheCalc<FxSpreadOpt, FxSpreadOpt.SpreadOptTradeInfo> {
 
     public FxSpreadOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class FxSpreadOptCalc extends AbstractProductCacheCalc<FxSpreadOpt, FxSpr
     }
 
     @Override
-    protected FxSpreadOpt.SpreadOptInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxSpreadOpt.SpreadOptInfo.class);
+    protected FxSpreadOpt.SpreadOptTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxSpreadOpt.SpreadOptTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(FxSpreadOpt.SpreadOptInfo info) {
+    protected String getInstrumentId(FxSpreadOpt.SpreadOptTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected FxSpreadOpt createProduct(FxSpreadOpt.SpreadOptInfo info, MarketData md) {
+    protected FxSpreadOpt createProduct(FxSpreadOpt.SpreadOptTradeInfo info, MarketData md) {
         return new FxSpreadOpt(dataDate, info, md);
     }
 

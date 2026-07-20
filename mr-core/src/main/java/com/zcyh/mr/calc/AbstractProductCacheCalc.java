@@ -5,6 +5,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.calendar.Calendar;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.common.Measure;
+import com.zcyh.mr.product.basic.validation.TradeInfo;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -18,9 +19,9 @@ import java.util.Set;
  * 适用于产品类提供 calc(MarketData) 方法的场景估值模式。
  *
  * @param <P> 产品类型（如 FxFwd, CommSwap 等）
- * @param <I> Info 类型（如 FxFwd.FxFwdInfo 等）
+ * @param <I> 产品交易输入类型
  */
-public abstract class AbstractProductCacheCalc<P, I> extends AbstractCalc {
+public abstract class AbstractProductCacheCalc<P, I extends TradeInfo> extends AbstractCalc {
 
     /** 基准估值后缓存产品实例，场景估值时直接复用 */
     protected Map<String, P> productCache = new LinkedHashMap<>();
@@ -38,12 +39,13 @@ public abstract class AbstractProductCacheCalc<P, I> extends AbstractCalc {
 
     @Override
     protected void calcTrade(HashMap<String, Object> tradeData) {
-        I info = parseInfo(tradeData);
+        I info = parseTradeInfo(tradeData);
+        String productCode = String.valueOf(tradeData.get("PRODUCT_CODE"));
+        info.validateInput(new JSONObject(tradeData), productCode).throwIfInvalid();
         P product = createProduct(info, this.marketData);
         Measure measure = doCalc(product);
         productCache.put(getInstrumentId(info), product);
         this.trade.add(measure);
-        addLog(getInstrumentId(info), measure);
     }
 
     @Override
@@ -63,19 +65,10 @@ public abstract class AbstractProductCacheCalc<P, I> extends AbstractCalc {
         }
     }
 
-    private void ensureScenarioInstrumentId(Measure measure, String instrumentId) {
-        if (measure == null || instrumentId == null || instrumentId.trim().isEmpty()) {
-            return;
-        }
-        if (measure.instrumentId == null || measure.instrumentId.trim().isEmpty()) {
-            measure.instrumentId = instrumentId;
-        }
-    }
-
     // ===== 子类实现以下方法 =====
 
-    /** JSON HashMap → Info 对象反序列化 */
-    protected abstract I parseInfo(HashMap<String, Object> tradeData);
+    /** 原始交易数据转为产品交易输入对象。 */
+    protected abstract I parseTradeInfo(HashMap<String, Object> tradeData);
 
     /** 从 Info 对象获取 INSTRUMENT_ID */
     protected abstract String getInstrumentId(I info);

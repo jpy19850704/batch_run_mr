@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.CommSpot;
@@ -14,9 +14,9 @@ import com.zcyh.mr.product.basic.structure.WeddingCakeBase;
 
 import java.time.LocalDate;
 
-public class CommWeddingCake extends WeddingCakeBase<CommWeddingCake.CommWeddingCakeInfo, CommWeddingCake.CommWeddingCakeMeasure> {
+public class CommWeddingCake extends WeddingCakeBase<CommWeddingCake.CommWeddingCakeTradeInfo, CommWeddingCake.CommWeddingCakeMeasure> {
 
-    public CommWeddingCake(LocalDate dataDate, CommWeddingCakeInfo info, MarketData marketData) {
+    public CommWeddingCake(LocalDate dataDate, CommWeddingCakeTradeInfo info, MarketData marketData) {
         super(dataDate, info, marketData);
     }
 
@@ -93,7 +93,7 @@ public class CommWeddingCake extends WeddingCakeBase<CommWeddingCake.CommWedding
     public static class CommWeddingCakeMeasure extends OptionMeasure {
     }
 
-    public static class CommWeddingCakeInfo extends WeddingCakeBase.WeddingCakeBaseInfo {
+    public static class CommWeddingCakeTradeInfo extends WeddingCakeBase.WeddingCakeBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;

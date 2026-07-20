@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * FxDigOpt 估值计算器
  */
-public class FxDigOptCalc extends AbstractProductCacheCalc<FxDigOpt, FxDigOpt.FxDigOptInfo> {
+public class FxDigOptCalc extends AbstractProductCacheCalc<FxDigOpt, FxDigOpt.FxDigOptTradeInfo> {
 
     public FxDigOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class FxDigOptCalc extends AbstractProductCacheCalc<FxDigOpt, FxDigOpt.Fx
     }
 
     @Override
-    protected FxDigOpt.FxDigOptInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxDigOpt.FxDigOptInfo.class);
+    protected FxDigOpt.FxDigOptTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), FxDigOpt.FxDigOptTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(FxDigOpt.FxDigOptInfo info) {
+    protected String getInstrumentId(FxDigOpt.FxDigOptTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected FxDigOpt createProduct(FxDigOpt.FxDigOptInfo info, MarketData md) {
+    protected FxDigOpt createProduct(FxDigOpt.FxDigOptTradeInfo info, MarketData md) {
         return new FxDigOpt(dataDate, info, md);
     }
 

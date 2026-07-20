@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * EqStepUpOpt 估值计算器
  */
-public class EqStepUpOptCalc extends AbstractProductCacheCalc<EqStepUpOpt, EqStepUpOpt.EqStepUpInfo> {
+public class EqStepUpOptCalc extends AbstractProductCacheCalc<EqStepUpOpt, EqStepUpOpt.EqStepUpTradeInfo> {
 
     public EqStepUpOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class EqStepUpOptCalc extends AbstractProductCacheCalc<EqStepUpOpt, EqSte
     }
 
     @Override
-    protected EqStepUpOpt.EqStepUpInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), EqStepUpOpt.EqStepUpInfo.class);
+    protected EqStepUpOpt.EqStepUpTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), EqStepUpOpt.EqStepUpTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(EqStepUpOpt.EqStepUpInfo info) {
+    protected String getInstrumentId(EqStepUpOpt.EqStepUpTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected EqStepUpOpt createProduct(EqStepUpOpt.EqStepUpInfo info, MarketData md) {
+    protected EqStepUpOpt createProduct(EqStepUpOpt.EqStepUpTradeInfo info, MarketData md) {
         return new EqStepUpOpt(dataDate, info, md);
     }
 

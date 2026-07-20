@@ -1,7 +1,9 @@
 package com.zcyh.mr.product.comm;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
@@ -25,7 +27,7 @@ import java.util.*;
 public class CommVanillaOpt {
 
     private final LocalDate dataDate;
-    private final CommVanillaOpt.CommOptInfo commOptInfo;
+    private final CommVanillaOpt.CommOptTradeInfo commOptInfo;
     private final MarketData marketData;
     private CommOptMeasure measure = new CommOptMeasure();
     private double fxRate = 1.0;
@@ -35,7 +37,7 @@ public class CommVanillaOpt {
     private final boolean isAmerican;
     private final Middle middle = new Middle();
 
-    public CommVanillaOpt(LocalDate dataDate, CommVanillaOpt.CommOptInfo tradeInfo, MarketData marketData) {
+    public CommVanillaOpt(LocalDate dataDate, CommVanillaOpt.CommOptTradeInfo tradeInfo, MarketData marketData) {
         this.dataDate = dataDate;
         this.commOptInfo = tradeInfo;
         this.marketData = marketData;
@@ -372,7 +374,7 @@ public class CommVanillaOpt {
     static public class CommOptMeasure extends OptionMeasure {
     }
 
-    public static class CommOptInfo {
+    public static class CommOptTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;

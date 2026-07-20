@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.eq;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
@@ -20,9 +20,9 @@ import java.util.Map;
  * 标的价格取自 EQ_SPOT 曲线，波动率取自 EQ_VOL 曲面，
  * 远期价格通过 EQ_SPOT 曲线插值获取。
  */
-public class EqRangeAccureOpt extends RangeAccureOptBase<EqRangeAccureOpt.EqRangeAccureInfo> {
+public class EqRangeAccureOpt extends RangeAccureOptBase<EqRangeAccureOpt.EqRangeAccureTradeInfo> {
 
-    public EqRangeAccureOpt(LocalDate dataDate, EqRangeAccureInfo rangeAccureInfo, MarketData marketData) {
+    public EqRangeAccureOpt(LocalDate dataDate, EqRangeAccureTradeInfo rangeAccureInfo, MarketData marketData) {
         super(dataDate, rangeAccureInfo, marketData);
     }
 
@@ -133,7 +133,7 @@ public class EqRangeAccureOpt extends RangeAccureOptBase<EqRangeAccureOpt.EqRang
         return sensitivities;
     }
 
-    public static class EqRangeAccureInfo extends RangeAccureOptBase.RangeAccureFrtbInfo {
+    public static class EqRangeAccureTradeInfo extends RangeAccureOptBase.RangeAccureFrtbTradeInfo {
         @ProductInputField
         @JSONField(name = "FRTB_EQ_BUCKET")
         public String frtbEqBucket;

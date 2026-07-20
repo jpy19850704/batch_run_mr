@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * CommVanillaOpt 估值计算器
  */
-public class CommOptCalc extends AbstractProductCacheCalc<CommVanillaOpt, CommVanillaOpt.CommOptInfo> {
+public class CommOptCalc extends AbstractProductCacheCalc<CommVanillaOpt, CommVanillaOpt.CommOptTradeInfo> {
 
     public CommOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class CommOptCalc extends AbstractProductCacheCalc<CommVanillaOpt, CommVa
     }
 
     @Override
-    protected CommVanillaOpt.CommOptInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommVanillaOpt.CommOptInfo.class);
+    protected CommVanillaOpt.CommOptTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommVanillaOpt.CommOptTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(CommVanillaOpt.CommOptInfo info) {
+    protected String getInstrumentId(CommVanillaOpt.CommOptTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected CommVanillaOpt createProduct(CommVanillaOpt.CommOptInfo info, MarketData md) {
+    protected CommVanillaOpt createProduct(CommVanillaOpt.CommOptTradeInfo info, MarketData md) {
         return new CommVanillaOpt(dataDate, info, md);
     }
 

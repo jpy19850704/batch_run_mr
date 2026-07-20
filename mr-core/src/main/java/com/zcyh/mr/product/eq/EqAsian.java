@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.eq;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.*;
@@ -18,9 +18,9 @@ import java.util.*;
 /**
  * EQ 亚式期权。
  */
-public class EqAsian extends AsianBase<EqAsian.EqAsianInfo, EqAsian.EqAsianMeasure> {
+public class EqAsian extends AsianBase<EqAsian.EqAsianTradeInfo, EqAsian.EqAsianMeasure> {
 
-    public EqAsian(LocalDate dataDate, EqAsianInfo tradeInfo, MarketData marketData) {
+    public EqAsian(LocalDate dataDate, EqAsianTradeInfo tradeInfo, MarketData marketData) {
         super(dataDate, tradeInfo, marketData);
     }
 
@@ -230,7 +230,7 @@ public class EqAsian extends AsianBase<EqAsian.EqAsianInfo, EqAsian.EqAsianMeasu
     public static class EqAsianMeasure extends OptionMeasure {
     }
 
-    public static class EqAsianInfo extends AsianBase.AsianBaseInfo {
+    public static class EqAsianTradeInfo extends AsianBase.AsianBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;

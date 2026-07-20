@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * IrSharkFin 估值计算器
  */
-public class IrSharkFinCalc extends AbstractProductCacheCalc<IrSharkFin, IrSharkFin.IrSharkFinInfo> {
+public class IrSharkFinCalc extends AbstractProductCacheCalc<IrSharkFin, IrSharkFin.IrSharkFinTradeInfo> {
 
     public IrSharkFinCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class IrSharkFinCalc extends AbstractProductCacheCalc<IrSharkFin, IrShark
     }
 
     @Override
-    protected IrSharkFin.IrSharkFinInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrSharkFin.IrSharkFinInfo.class);
+    protected IrSharkFin.IrSharkFinTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrSharkFin.IrSharkFinTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(IrSharkFin.IrSharkFinInfo info) {
+    protected String getInstrumentId(IrSharkFin.IrSharkFinTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected IrSharkFin createProduct(IrSharkFin.IrSharkFinInfo info, MarketData md) {
+    protected IrSharkFin createProduct(IrSharkFin.IrSharkFinTradeInfo info, MarketData md) {
         return new IrSharkFin(dataDate, info, md);
     }
 

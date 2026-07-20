@@ -1,7 +1,9 @@
 package com.zcyh.mr.product.basic.option;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.common.Measure;
@@ -17,7 +19,7 @@ import java.util.*;
  * 1. 统一处理输入校验、历史均值计算、估值流程与 Greeks 数值法；
  * 2. 子类仅负责市场参数装配与结果后处理（如敏感性）。
  */
-public abstract class AsianBase<I extends AsianBase.AsianBaseInfo, M extends OptionMeasure> {
+public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extends OptionMeasure> {
 
     protected final LocalDate dataDate;
     protected final I info;
@@ -360,7 +362,7 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseInfo, M extends Opt
     /**
      * 亚式通用输入字段。
      */
-    public static class AsianBaseInfo {
+    public static class AsianBaseTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;

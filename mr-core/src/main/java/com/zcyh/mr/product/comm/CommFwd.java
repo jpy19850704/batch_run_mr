@@ -1,7 +1,9 @@
 package com.zcyh.mr.product.comm;
 
+import com.zcyh.mr.product.basic.validation.TradeInfo;
+
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.Preconditions;
 import com.zcyh.mr.support.EngineConstants;
@@ -27,11 +29,11 @@ import java.util.Map;
  */
 public class CommFwd {
     private LocalDate dataDate;
-    private CommFwdInfo commFwdInfo;
+    private CommFwdTradeInfo commFwdInfo;
     private MarketData marketData;
     private Measure commFwdMeasure = new Measure();
 
-    public CommFwd(LocalDate dataDate, CommFwdInfo tradeInfo, MarketData marketData) {
+    public CommFwd(LocalDate dataDate, CommFwdTradeInfo tradeInfo, MarketData marketData) {
         this.dataDate = dataDate;
         this.commFwdInfo = tradeInfo;
         this.marketData = marketData;
@@ -343,7 +345,7 @@ public class CommFwd {
     }
 
     // 商品远期内部类，封装传入的基本信息
-    static public class CommFwdInfo {
+    static public class CommFwdTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;

@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.*;
@@ -22,9 +22,9 @@ import java.util.Locale;
  * 1. 产品输入与市场参数装配由本类负责；
  * 2. 亚式通用流程由 AsianBase 统一处理。
  */
-public class FxAsian extends AsianBase<FxAsian.FxAsianInfo, FxAsian.FxAsianMeasure> {
+public class FxAsian extends AsianBase<FxAsian.FxAsianTradeInfo, FxAsian.FxAsianMeasure> {
 
-    public FxAsian(LocalDate dataDate, FxAsianInfo tradeInfo, MarketData marketData) {
+    public FxAsian(LocalDate dataDate, FxAsianTradeInfo tradeInfo, MarketData marketData) {
         super(dataDate, tradeInfo, marketData);
     }
 
@@ -217,7 +217,7 @@ public class FxAsian extends AsianBase<FxAsian.FxAsianInfo, FxAsian.FxAsianMeasu
     public static class FxAsianMeasure extends OptionMeasure {
     }
 
-    public static class FxAsianInfo extends AsianBase.AsianBaseInfo {
+    public static class FxAsianTradeInfo extends AsianBase.AsianBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_CURRENCY_CODE")
         public String underlyingCurrencyCode;

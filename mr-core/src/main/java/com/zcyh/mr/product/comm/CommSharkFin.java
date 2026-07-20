@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.CommSpot;
@@ -15,9 +15,9 @@ import com.zcyh.mr.product.basic.structure.SharkFinBase;
 import java.util.ArrayList;
 import java.util.List;
 
-public class CommSharkFin extends SharkFinBase<CommSharkFin.CommSharkFinInfo, CommSharkFin.CommSharkFinMeasure> {
+public class CommSharkFin extends SharkFinBase<CommSharkFin.CommSharkFinTradeInfo, CommSharkFin.CommSharkFinMeasure> {
 
-    public CommSharkFin(java.time.LocalDate dataDate, CommSharkFinInfo tradeInfo, MarketData marketData) {
+    public CommSharkFin(java.time.LocalDate dataDate, CommSharkFinTradeInfo tradeInfo, MarketData marketData) {
         super(dataDate, tradeInfo, marketData);
     }
 
@@ -99,7 +99,7 @@ public class CommSharkFin extends SharkFinBase<CommSharkFin.CommSharkFinInfo, Co
     public static class CommSharkFinMeasure extends OptionMeasure {
     }
 
-    public static class CommSharkFinInfo extends SharkFinBase.SharkFinBaseInfo {
+    public static class CommSharkFinTradeInfo extends SharkFinBase.SharkFinBaseTradeInfo {
         @JSONField(name = "UNDERLYING_CODE")
         public String underlyingCode;
         @ProductInputField(required = true)

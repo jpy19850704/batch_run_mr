@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * EqDigOpt 估值计算器
  */
-public class EqDigOptCalc extends AbstractProductCacheCalc<EqDigOpt, EqDigOpt.EqDigOptInfo> {
+public class EqDigOptCalc extends AbstractProductCacheCalc<EqDigOpt, EqDigOpt.EqDigOptTradeInfo> {
 
     public EqDigOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class EqDigOptCalc extends AbstractProductCacheCalc<EqDigOpt, EqDigOpt.Eq
     }
 
     @Override
-    protected EqDigOpt.EqDigOptInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), EqDigOpt.EqDigOptInfo.class);
+    protected EqDigOpt.EqDigOptTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), EqDigOpt.EqDigOptTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(EqDigOpt.EqDigOptInfo info) {
+    protected String getInstrumentId(EqDigOpt.EqDigOptTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected EqDigOpt createProduct(EqDigOpt.EqDigOptInfo info, MarketData md) {
+    protected EqDigOpt createProduct(EqDigOpt.EqDigOptTradeInfo info, MarketData md) {
         return new EqDigOpt(dataDate, info, md);
     }
 

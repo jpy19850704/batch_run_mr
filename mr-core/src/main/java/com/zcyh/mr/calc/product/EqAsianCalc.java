@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * EQ 亚式期权估值计算器。
  */
-public class EqAsianCalc extends AbstractProductCacheCalc<EqAsian, EqAsian.EqAsianInfo> {
+public class EqAsianCalc extends AbstractProductCacheCalc<EqAsian, EqAsian.EqAsianTradeInfo> {
 
     public EqAsianCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class EqAsianCalc extends AbstractProductCacheCalc<EqAsian, EqAsian.EqAsi
     }
 
     @Override
-    protected EqAsian.EqAsianInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), EqAsian.EqAsianInfo.class);
+    protected EqAsian.EqAsianTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), EqAsian.EqAsianTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(EqAsian.EqAsianInfo info) {
+    protected String getInstrumentId(EqAsian.EqAsianTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected EqAsian createProduct(EqAsian.EqAsianInfo info, MarketData md) {
+    protected EqAsian createProduct(EqAsian.EqAsianTradeInfo info, MarketData md) {
         return new EqAsian(dataDate, info, md);
     }
 

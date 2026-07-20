@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.ir;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.marketdata.*;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.option.DigOptBase;
@@ -15,9 +15,9 @@ import java.util.Map;
  * 使用定盘利率作为即期价格，通过曲线平移推导远期利率。
  * rebase = rd（无独立结算折现曲线）。
  */
-public class IrDigOpt extends DigOptBase<IrDigOpt.IrDigOptInfo> {
+public class IrDigOpt extends DigOptBase<IrDigOpt.IrDigOptTradeInfo> {
 
-    public IrDigOpt(LocalDate dataDate, IrDigOptInfo info, MarketData marketData) {
+    public IrDigOpt(LocalDate dataDate, IrDigOptTradeInfo info, MarketData marketData) {
         super(dataDate, info, marketData);
     }
 
@@ -132,7 +132,7 @@ public class IrDigOpt extends DigOptBase<IrDigOpt.IrDigOptInfo> {
         }
     }
 
-    public static class IrDigOptInfo extends DigOptBase.DigOptBaseInfo {
+    public static class IrDigOptTradeInfo extends DigOptBase.DigOptBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;

@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * IrRangeAccureOpt 估值计算器
  */
-public class IrRangeAccureOptCalc extends AbstractProductCacheCalc<IrRangeAccureOpt, IrRangeAccureOpt.IrRangeAccureInfo> {
+public class IrRangeAccureOptCalc extends AbstractProductCacheCalc<IrRangeAccureOpt, IrRangeAccureOpt.IrRangeAccureTradeInfo> {
 
     public IrRangeAccureOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class IrRangeAccureOptCalc extends AbstractProductCacheCalc<IrRangeAccure
     }
 
     @Override
-    protected IrRangeAccureOpt.IrRangeAccureInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrRangeAccureOpt.IrRangeAccureInfo.class);
+    protected IrRangeAccureOpt.IrRangeAccureTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), IrRangeAccureOpt.IrRangeAccureTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(IrRangeAccureOpt.IrRangeAccureInfo info) {
+    protected String getInstrumentId(IrRangeAccureOpt.IrRangeAccureTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected IrRangeAccureOpt createProduct(IrRangeAccureOpt.IrRangeAccureInfo info, MarketData md) {
+    protected IrRangeAccureOpt createProduct(IrRangeAccureOpt.IrRangeAccureTradeInfo info, MarketData md) {
         return new IrRangeAccureOpt(dataDate, info, md);
     }
 

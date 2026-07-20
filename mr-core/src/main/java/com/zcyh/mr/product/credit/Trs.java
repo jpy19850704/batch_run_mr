@@ -1,4 +1,7 @@
+
 package com.zcyh.mr.product.credit;
+
+import com.zcyh.mr.product.basic.validation.TradeInfo;
 
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.DrcDetail;
@@ -18,7 +21,7 @@ import com.zcyh.mr.marketdata.CurveFunc;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.scf.StructuredCashflow;
@@ -42,11 +45,11 @@ public class Trs implements FrtbDrcInterface {
 
     private LocalDate dataDate;
     private MarketData marketData;
-    private TrsInfo trsInfo;
+    private TrsTradeInfo trsInfo;
     private JSONObject udData;
     private Calendar cal;
 
-    public Trs(LocalDate dataDate, TrsInfo trsInfo, MarketData marketData, Calendar calendar, JSONObject udData) {
+    public Trs(LocalDate dataDate, TrsTradeInfo trsInfo, MarketData marketData, Calendar calendar, JSONObject udData) {
         this.dataDate = dataDate;
         this.trsInfo = trsInfo;
         this.cal = calendar;
@@ -113,7 +116,7 @@ public class Trs implements FrtbDrcInterface {
         }
 
         try {
-            Bond.BondInfo bondInfo = JSON.parseObject(underlyingData.toString(), Bond.BondInfo.class);
+            Bond.BondTradeInfo bondInfo = JSON.parseObject(underlyingData.toString(), Bond.BondTradeInfo.class);
 
             // TRS 信用利差曲线与 CDS 保持一致：只使用底层债券信用利差曲线。
             String effectiveCreditSpreadCurve = bondInfo.creditSpreadCurve;
@@ -151,7 +154,7 @@ public class Trs implements FrtbDrcInterface {
             IrSpot creditSpreadSpot = new IrSpot(creditSpreadInfo);
 
             // 债券腿现金流（coupon + principal）
-            Bond.BondInfo bondCopy = ReflectionUtils.bean2Bean(bondInfo, Bond.BondInfo.class);
+            Bond.BondTradeInfo bondCopy = ReflectionUtils.bean2Bean(bondInfo, Bond.BondTradeInfo.class);
             bondCopy.notional = underlyingNotional;
             bondCopy.includeTodayCashflow = true;
             StructuredCashflow.ScfInfo bondLocalScfInfo = ReflectionUtils.bean2Bean(bondCopy, StructuredCashflow.ScfInfo.class);
@@ -306,7 +309,7 @@ public class Trs implements FrtbDrcInterface {
     }
 
     /**
-     * 构建融资腿 SCF 配置，使用 TrsInfo 中的融资腿字段。
+     * 构建融资腿 SCF 配置，使用 TrsTradeInfo 中的融资腿字段。
      */
     private StructuredCashflow.ScfInfo buildFundingScfInfo() {
         StructuredCashflow.ScfInfo scfInfo = new StructuredCashflow.ScfInfo();
@@ -362,7 +365,7 @@ public class Trs implements FrtbDrcInterface {
         return shockedMarketData;
     }
 
-    private List<FrtbSenes> getFrtbSensitivity(TrsMeasure measure, Bond.BondInfo bondInfo,
+    private List<FrtbSenes> getFrtbSensitivity(TrsMeasure measure, Bond.BondTradeInfo bondInfo,
             String effectiveCreditSpreadCurve, String effectiveAssetDiscountCurve) {
         List<FrtbSenes> list = new ArrayList<>();
         MeasureValuation baseValuation = toMeasureValuation(measure);
@@ -447,7 +450,7 @@ public class Trs implements FrtbDrcInterface {
         return calculateJtd(outcome.bondInfo, outcome.measure.valuation, outcome.underlyingNotional);
     }
 
-    private DrcDetail buildDrc(Bond.BondInfo bondInfo, double valuation, double underlyingNotional) {
+    private DrcDetail buildDrc(Bond.BondTradeInfo bondInfo, double valuation, double underlyingNotional) {
         if (!bondInfo.isDrcEnabled()) {
             return null;
         }
@@ -468,7 +471,7 @@ public class Trs implements FrtbDrcInterface {
         return drcDetail;
     }
 
-    private double calculateJtd(Bond.BondInfo bondInfo, double valuationInUnderlyingCcy, double underlyingNotional) {
+    private double calculateJtd(Bond.BondTradeInfo bondInfo, double valuationInUnderlyingCcy, double underlyingNotional) {
         double lgd = (bondInfo.lgd != null) ? bondInfo.lgd : DEFAULT_LGD;
         if (bondInfo.absFlag) {
             return "B".equalsIgnoreCase(trsInfo.buyOrSell)
@@ -606,7 +609,7 @@ public class Trs implements FrtbDrcInterface {
 
     // ===== 内部静态类 =====
 
-    public static class TrsInfo {
+    public static class TrsTradeInfo implements TradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
@@ -714,7 +717,7 @@ public class Trs implements FrtbDrcInterface {
      */
     private static class PricingOutcome {
         TrsMeasure measure;
-        Bond.BondInfo bondInfo;
+        Bond.BondTradeInfo bondInfo;
         String effectiveCreditSpreadCurve;
         String effectiveAssetDiscountCurve;
         double underlyingNotional;

@@ -16,6 +16,15 @@ import java.util.Map;
  */
 public class CommVol implements Serializable {
 
+    public static void validateInput(String curveId, CommVolInfo info, List<String> errors) {
+        MarketDataValidationSupport.validateVolSurface(
+                curveId,
+                info == null ? null : info.curveData,
+                info == null ? null : info.axis2Type,
+                null,
+                errors);
+    }
+
     private static final String FRTB_VEGA_SHOCK_APPLIED = "_FRTB_VEGA_SHOCK_APPLIED";
 
     private CommVol.CommVolInfo commVolInfo;

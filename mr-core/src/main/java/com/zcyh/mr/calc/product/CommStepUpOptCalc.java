@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * CommStepUpOpt 估值计算器
  */
-public class CommStepUpOptCalc extends AbstractProductCacheCalc<CommStepUpOpt, CommStepUpOpt.CommStepUpInfo> {
+public class CommStepUpOptCalc extends AbstractProductCacheCalc<CommStepUpOpt, CommStepUpOpt.CommStepUpTradeInfo> {
 
     public CommStepUpOptCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class CommStepUpOptCalc extends AbstractProductCacheCalc<CommStepUpOpt, C
     }
 
     @Override
-    protected CommStepUpOpt.CommStepUpInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommStepUpOpt.CommStepUpInfo.class);
+    protected CommStepUpOpt.CommStepUpTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommStepUpOpt.CommStepUpTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(CommStepUpOpt.CommStepUpInfo info) {
+    protected String getInstrumentId(CommStepUpOpt.CommStepUpTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected CommStepUpOpt createProduct(CommStepUpOpt.CommStepUpInfo info, MarketData md) {
+    protected CommStepUpOpt createProduct(CommStepUpOpt.CommStepUpTradeInfo info, MarketData md) {
         return new CommStepUpOpt(dataDate, info, md);
     }
 

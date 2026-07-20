@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.fx;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
@@ -20,9 +20,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-public class FxStepUpOpt extends StepUpOptBase<FxStepUpOpt.FxStepUpInfo, OptionMeasure> {
+public class FxStepUpOpt extends StepUpOptBase<FxStepUpOpt.FxStepUpTradeInfo, OptionMeasure> {
 
-    public FxStepUpOpt(LocalDate dataDate, FxStepUpInfo stepUpInfo, MarketData marketData) {
+    public FxStepUpOpt(LocalDate dataDate, FxStepUpTradeInfo stepUpInfo, MarketData marketData) {
         super(dataDate, stepUpInfo, marketData);
     }
 
@@ -306,7 +306,7 @@ public class FxStepUpOpt extends StepUpOptBase<FxStepUpOpt.FxStepUpInfo, OptionM
         return stepUpInfo.currencyCode;
     }
 
-    public static class FxStepUpInfo extends StepUpOptBase.StepUpBaseInfo {
+    public static class FxStepUpTradeInfo extends StepUpOptBase.StepUpBaseTradeInfo {
         @ProductInputField(required = true, length = 3)
         @JSONField(name = "UNDERLYING_CURRENCY_CODE")
         public String underlyingCurrencyCode;

@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.comm;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
@@ -19,9 +19,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class CommStepUpOpt extends StepUpOptBase<CommStepUpOpt.CommStepUpInfo, OptionMeasure> {
+public class CommStepUpOpt extends StepUpOptBase<CommStepUpOpt.CommStepUpTradeInfo, OptionMeasure> {
 
-    public CommStepUpOpt(LocalDate dataDate, CommStepUpInfo stepUpInfo, MarketData marketData) {
+    public CommStepUpOpt(LocalDate dataDate, CommStepUpTradeInfo stepUpInfo, MarketData marketData) {
         super(dataDate, stepUpInfo, marketData);
     }
 
@@ -302,7 +302,7 @@ public class CommStepUpOpt extends StepUpOptBase<CommStepUpOpt.CommStepUpInfo, O
         stepUpInfo.absFlag = absFlag;
     }
 
-    public static class CommStepUpInfo extends StepUpOptBase.StepUpBaseInfo {
+    public static class CommStepUpTradeInfo extends StepUpOptBase.StepUpBaseTradeInfo {
         @JSONField(name = "UNDERLYING_CODE")
         public String underlyingCode;
         @JSONField(name = "FRTB_COMM_ASSET")

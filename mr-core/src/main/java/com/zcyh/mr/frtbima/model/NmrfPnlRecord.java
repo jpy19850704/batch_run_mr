@@ -10,10 +10,7 @@ import java.math.BigDecimal;
  */
 public class NmrfPnlRecord {
 
-    private String requestId;
-    private String jobId;
     private String batchId;
-    private long seqNo;
     private String dataDate;
 
     /** 情景集ID（即 bucketId，如 CNY_SWAP_1826_999999） */
@@ -33,24 +30,14 @@ public class NmrfPnlRecord {
     private String nmrfType;
 
     private BigDecimal baseValuationCny;
-    private BigDecimal stressValuationCny;
 
     /** PnL = stressValuation - baseValuation（亏损为负） */
     private BigDecimal pnl;
 
     private long createdAt;
 
-    public String getRequestId() { return requestId; }
-    public void setRequestId(String requestId) { this.requestId = requestId; }
-
-    public String getJobId() { return jobId; }
-    public void setJobId(String jobId) { this.jobId = jobId; }
-
     public String getBatchId() { return batchId; }
     public void setBatchId(String batchId) { this.batchId = batchId; }
-
-    public long getSeqNo() { return seqNo; }
-    public void setSeqNo(long seqNo) { this.seqNo = seqNo; }
 
     public String getDataDate() { return dataDate; }
     public void setDataDate(String dataDate) { this.dataDate = dataDate; }
@@ -78,9 +65,6 @@ public class NmrfPnlRecord {
 
     public BigDecimal getBaseValuationCny() { return baseValuationCny; }
     public void setBaseValuationCny(BigDecimal baseValuationCny) { this.baseValuationCny = baseValuationCny; }
-
-    public BigDecimal getStressValuationCny() { return stressValuationCny; }
-    public void setStressValuationCny(BigDecimal stressValuationCny) { this.stressValuationCny = stressValuationCny; }
 
     public BigDecimal getPnl() { return pnl; }
     public void setPnl(BigDecimal pnl) { this.pnl = pnl; }

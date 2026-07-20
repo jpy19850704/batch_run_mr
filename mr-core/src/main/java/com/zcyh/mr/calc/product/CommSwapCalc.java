@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * CommSwap 估值计算器
  */
-public class CommSwapCalc extends AbstractProductCacheCalc<CommSwap, CommSwap.CommSwapInfo> {
+public class CommSwapCalc extends AbstractProductCacheCalc<CommSwap, CommSwap.CommSwapTradeInfo> {
 
     public CommSwapCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {
@@ -22,17 +22,17 @@ public class CommSwapCalc extends AbstractProductCacheCalc<CommSwap, CommSwap.Co
     }
 
     @Override
-    protected CommSwap.CommSwapInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommSwap.CommSwapInfo.class);
+    protected CommSwap.CommSwapTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CommSwap.CommSwapTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(CommSwap.CommSwapInfo info) {
+    protected String getInstrumentId(CommSwap.CommSwapTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected CommSwap createProduct(CommSwap.CommSwapInfo info, MarketData md) {
+    protected CommSwap createProduct(CommSwap.CommSwapTradeInfo info, MarketData md) {
         return new CommSwap(dataDate, info, md);
     }
 

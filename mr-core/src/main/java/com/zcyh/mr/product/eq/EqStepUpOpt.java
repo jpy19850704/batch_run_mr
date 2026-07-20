@@ -1,7 +1,7 @@
 package com.zcyh.mr.product.eq;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.zcyh.mr.product.basic.common.ProductInputField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.marketdata.EqSpot;
 import com.zcyh.mr.marketdata.EqVol;
 import com.zcyh.mr.marketdata.IrSpot;
@@ -18,9 +18,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-public class EqStepUpOpt extends StepUpOptBase<EqStepUpOpt.EqStepUpInfo, OptionMeasure> {
+public class EqStepUpOpt extends StepUpOptBase<EqStepUpOpt.EqStepUpTradeInfo, OptionMeasure> {
 
-    public EqStepUpOpt(LocalDate dataDate, EqStepUpInfo stepUpInfo, MarketData marketData) {
+    public EqStepUpOpt(LocalDate dataDate, EqStepUpTradeInfo stepUpInfo, MarketData marketData) {
         super(dataDate, stepUpInfo, marketData);
     }
 
@@ -252,7 +252,7 @@ public class EqStepUpOpt extends StepUpOptBase<EqStepUpOpt.EqStepUpInfo, OptionM
         stepUpInfo.absFlag = absFlag;
     }
 
-    public static class EqStepUpInfo extends StepUpOptBase.StepUpBaseInfo {
+    public static class EqStepUpTradeInfo extends StepUpOptBase.StepUpBaseTradeInfo {
         @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;

@@ -15,7 +15,7 @@ import java.util.List;
 /**
  * CapFloor 估值计算器
  */
-public class CapFloorCalc extends AbstractProductCacheCalc<CapFloor, CapFloor.CapFloorInfo> {
+public class CapFloorCalc extends AbstractProductCacheCalc<CapFloor, CapFloor.CapFloorTradeInfo> {
 
     public CapFloorCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData, Calendar calendar) {
@@ -23,17 +23,17 @@ public class CapFloorCalc extends AbstractProductCacheCalc<CapFloor, CapFloor.Ca
     }
 
     @Override
-    protected CapFloor.CapFloorInfo parseInfo(HashMap<String, Object> tradeData) {
-        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CapFloor.CapFloorInfo.class);
+    protected CapFloor.CapFloorTradeInfo parseTradeInfo(HashMap<String, Object> tradeData) {
+        return JSONObject.parseObject(JSONObject.toJSONString(tradeData), CapFloor.CapFloorTradeInfo.class);
     }
 
     @Override
-    protected String getInstrumentId(CapFloor.CapFloorInfo info) {
+    protected String getInstrumentId(CapFloor.CapFloorTradeInfo info) {
         return info.instrumentId;
     }
 
     @Override
-    protected CapFloor createProduct(CapFloor.CapFloorInfo info, MarketData md) {
+    protected CapFloor createProduct(CapFloor.CapFloorTradeInfo info, MarketData md) {
         return new CapFloor(dataDate, info, md, calendar);
     }
 
