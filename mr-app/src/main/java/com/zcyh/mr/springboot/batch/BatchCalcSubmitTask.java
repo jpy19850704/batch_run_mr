@@ -101,6 +101,7 @@ public class BatchCalcSubmitTask implements BatchRunTask {
 
         BatchExecutionResult submitResult = new BatchExecutionResult();
         submitResult.setBatchId(batchId);
+        submitResult.setExecutionId(context.getExecutionId());
         submitResult.setRequestId(requestId);
         submitResult.setEngineCode(engineCode);
         submitResult.setOpCode(opCode);

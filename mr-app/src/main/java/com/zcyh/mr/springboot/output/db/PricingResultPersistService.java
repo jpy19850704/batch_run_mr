@@ -4,14 +4,19 @@ import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.trimToNu
 
 import com.zcyh.mr.springboot.measurement.valuation.ValuationExecutionAdapter;
 import com.zcyh.mr.springboot.execution.MeasurementExecutionResult;
+import com.zcyh.mr.springboot.output.file.FileCsvRowWriterFactory;
+import com.zcyh.mr.springboot.support.DorisStreamLoadService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -30,6 +35,7 @@ public class PricingResultPersistService {
     private final TradeScenarioPnlWriter tradeScenarioPnlWriter;
     private final TradeScenarioVarResultWriter tradeScenarioVarResultWriter;
     private final ImaScenarioPnlWriter imaScenarioPnlWriter;
+    private final DorisStreamLoadService dorisStreamLoadService;
     private final Object schemaVerifyLock = new Object();
     private volatile boolean requiredSchemaVerified = false;
 
@@ -41,7 +47,8 @@ public class PricingResultPersistService {
                                        DrcDetailWriter drcDetailWriter,
                                        TradeScenarioPnlWriter tradeScenarioPnlWriter,
                                        TradeScenarioVarResultWriter tradeScenarioVarResultWriter,
-                                       ImaScenarioPnlWriter imaScenarioPnlWriter) {
+                                       ImaScenarioPnlWriter imaScenarioPnlWriter,
+                                       DorisStreamLoadService dorisStreamLoadService) {
         this.jdbcTemplate = jdbcTemplate;
         this.contextFactory = contextFactory;
         this.tradeResultWriter = tradeResultWriter;
@@ -51,6 +58,7 @@ public class PricingResultPersistService {
         this.tradeScenarioPnlWriter = tradeScenarioPnlWriter;
         this.tradeScenarioVarResultWriter = tradeScenarioVarResultWriter;
         this.imaScenarioPnlWriter = imaScenarioPnlWriter;
+        this.dorisStreamLoadService = dorisStreamLoadService;
     }
 
     /**
@@ -62,11 +70,14 @@ public class PricingResultPersistService {
     }
 
     /**
-     * 按任务覆盖写入结果明细。
+     * 将单个计量分片转换为结果 CSV。
      * 写入失败由异步任务终态处理回写为失败状态。
      */
-    @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
-    public void persistJobResult(String requestId, String jobId, String payloadJson, MeasurementExecutionResult runResult) {
+    public void writeJobResultCsv(Path directory,
+                                  String requestId,
+                                  String jobId,
+                                  String payloadJson,
+                                  MeasurementExecutionResult runResult) {
         if (runResult == null || !runResult.isSuccess()) {
             return;
         }
@@ -81,30 +92,63 @@ public class PricingResultPersistService {
         }
 
         long totalStart = System.nanoTime();
-        long stepStart = System.nanoTime();
-        tradeResultWriter.write(context);
-        double tradeMs = elapsedMs(stepStart);
-        double marketMs = 0.0d;
-        if (!context.localRerun) {
-            stepStart = System.nanoTime();
-            marketDataResultWriter.write(context);
-            marketMs = elapsedMs(stepStart);
+        try (FileCsvRowWriterFactory writerFactory =
+                     new FileCsvRowWriterFactory(directory, dorisStreamLoadService)) {
+            for (StagedCsvTable table : stagedCsvTables()) {
+                writerFactory.create(table.tableName, table.columns, table.tableName, 0);
+            }
+            tradeResultWriter.write(context, writerFactory);
+            drcDetailWriter.write(context, writerFactory);
+            frtbSensitivityDetailWriter.write(context, writerFactory);
+            tradeScenarioPnlWriter.write(
+                    context, context.scenarioResults, context.baseTradeIndex, varTableExists, writerFactory);
+            imaScenarioPnlWriter.writeModellableRows(
+                    context, context.imaModellableScenarioResults, writerFactory);
+        } catch (IOException ex) {
+            throw new IllegalStateException("关闭分片结果CSV失败: jobId=" + jobId, ex);
         }
-        stepStart = System.nanoTime();
-        drcDetailWriter.write(context);
-        double drcMs = elapsedMs(stepStart);
-        stepStart = System.nanoTime();
-        frtbSensitivityDetailWriter.write(context);
-        double sensitivityMs = elapsedMs(stepStart);
-        stepStart = System.nanoTime();
-        tradeScenarioPnlWriter.write(context, context.scenarioResults, context.baseTradeIndex, varTableExists);
-        double scenarioPnlMs = elapsedMs(stepStart);
-        stepStart = System.nanoTime();
-        imaScenarioPnlWriter.writeModellableRows(context, context.imaModellableScenarioResults);
-        double imaMs = elapsedMs(stepStart);
-        log.info("Doris写入性能统计: batchId={}, jobId={}, tradeMs={}, marketMs={}, drcMs={}, sensitivityMs={}, scenarioPnlMs={}, imaMs={}, totalMs={}",
-                context.batchId, context.jobId, tradeMs, marketMs, drcMs, sensitivityMs, scenarioPnlMs,
-                imaMs, elapsedMs(totalStart));
+        log.info("分片结果CSV生成完成: batchId={}, jobId={}, elapsedMs={}",
+                context.batchId, context.jobId, elapsedMs(totalStart));
+    }
+
+    public List<StagedCsvTable> stagedCsvTables() {
+        List<StagedCsvTable> tables = new ArrayList<StagedCsvTable>();
+        tables.add(table(tradeResultWriter.tableName(), tradeResultWriter.writeColumns()));
+        tables.add(table(tradeScenarioPnlWriter.tableName(), tradeScenarioPnlWriter.writeColumns()));
+        tables.add(table(tradeScenarioVarResultWriter.tableName(), tradeScenarioVarResultWriter.writeColumns()));
+        tables.add(table(frtbSensitivityDetailWriter.tableName(), frtbSensitivityDetailWriter.writeColumns()));
+        tables.add(table(drcDetailWriter.tableName(), drcDetailWriter.writeColumns()));
+        tables.add(new StagedCsvTable(
+                imaScenarioPnlWriter.modellableTableName(), imaScenarioPnlWriter.modellableColumns()));
+        tables.add(new StagedCsvTable(
+                imaScenarioPnlWriter.nmrfTableName(), imaScenarioPnlWriter.nmrfColumns()));
+        return Collections.unmodifiableList(tables);
+    }
+
+    private static StagedCsvTable table(String tableName, List<String> columns) {
+        return new StagedCsvTable(tableName, String.join(",", columns));
+    }
+
+    public static final class StagedCsvTable {
+        private final String tableName;
+        private final String columns;
+
+        private StagedCsvTable(String tableName, String columns) {
+            this.tableName = tableName;
+            this.columns = columns;
+        }
+
+        public String getTableName() {
+            return tableName;
+        }
+
+        public String getColumns() {
+            return columns;
+        }
+
+        public String getFileName() {
+            return FileCsvRowWriterFactory.fileName(tableName);
+        }
     }
 
     private static double elapsedMs(long startNanos) {

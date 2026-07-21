@@ -9,6 +9,7 @@ import com.zcyh.mr.springboot.batch.model.BatchExecutionResult;
 import com.zcyh.mr.springboot.batch.model.BatchPatchRequest;
 import com.zcyh.mr.springboot.batch.model.BatchRunRequest;
 import com.zcyh.mr.springboot.batch.model.BatchRunResult;
+import com.zcyh.mr.springboot.output.file.BatchResultStageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -23,6 +24,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
@@ -51,6 +53,7 @@ public class BatchRunService {
     private final BatchJobService batchJobService;
     private final AlertService alertService;
     private final TradeFilterResolver tradeFilterResolver;
+    private final BatchResultStageService batchResultStageService;
     private final ExecutorService batchRunWorkflowExecutor;
 
     public BatchRunService(
@@ -60,15 +63,17 @@ public class BatchRunService {
             BatchScenarioFileTask scenarioFileTask,
             BatchTradeLoadTask tradeLoadTask,
             BatchMarketDataLoadTask marketDataLoadTask,
+            BatchMarketDataPersistTask marketDataPersistTask,
             BatchChunkBuildTask chunkBuildTask,
             BatchPayloadBuildTask payloadBuildTask,
             BatchScenarioInputLoadTask scenarioInputLoadTask,
-            BatchLocalMrCalcDetailCleanupTask localDetailCleanupTask,
             BatchCalcSubmitTask calcSubmitTask,
             BatchCalcWaitTask calcWaitTask,
+            BatchDorisResultWriteTask resultWriteTask,
             BatchJobService batchJobService,
             AlertService alertService,
             TradeFilterResolver tradeFilterResolver,
+            BatchResultStageService batchResultStageService,
             @Qualifier("batchRunWorkflowExecutor") ExecutorService batchRunWorkflowExecutor) {
         this.batchPrepareTasks = Arrays.<BatchRunTask>asList(detailCleanupTask, prepareTask);
         this.scenarioTasks = Arrays.<BatchRunTask>asList(
@@ -77,16 +82,18 @@ public class BatchRunService {
         this.payloadTasks = Arrays.<BatchRunTask>asList(
                 tradeLoadTask,
                 marketDataLoadTask,
+                marketDataPersistTask,
                 chunkBuildTask,
                 payloadBuildTask,
                 scenarioInputLoadTask);
         this.calcTasks = Arrays.<BatchRunTask>asList(
-                localDetailCleanupTask,
                 calcSubmitTask,
-                calcWaitTask);
+                calcWaitTask,
+                resultWriteTask);
         this.batchJobService = batchJobService;
         this.alertService = alertService;
         this.tradeFilterResolver = tradeFilterResolver;
+        this.batchResultStageService = batchResultStageService;
         this.batchRunWorkflowExecutor = batchRunWorkflowExecutor;
     }
 
@@ -176,6 +183,12 @@ public class BatchRunService {
         context.setCacheScenarioResult(Boolean.TRUE.equals(request.getCacheScenarioResult()));
         context.setFrtbDisabled(frtbDisabled);
         context.setLocalRerun(localRerun);
+        context.setExecutionType(localRerun
+                ? BatchResultStageService.EXECUTION_TYPE_PATCH
+                : BatchResultStageService.EXECUTION_TYPE_BATCH);
+        context.setExecutionId(localRerun
+                ? buildPatchExecutionId()
+                : BatchResultStageService.BATCH_EXECUTION_ID);
         if (localRerun) {
             List<String> instrumentIds = normalizeInstrumentIds(
                     ((BatchPatchRequest) request).getInstrumentIdList());
@@ -219,6 +232,7 @@ public class BatchRunService {
     private BatchExecutionResult buildAcceptedPatchResult(BatchRunWorkflowContext context) {
         BatchExecutionResult result = new BatchExecutionResult();
         result.setBatchId(context.getBatchId());
+        result.setExecutionId(context.getExecutionId());
         result.setRequestId(context.getBatchId());
         result.setEngineCode(ENGINE_CODE);
         result.setOpCode(context.isScenarioMode() ? "SCENARIO" : "PRICING");
@@ -257,6 +271,7 @@ public class BatchRunService {
                 System.currentTimeMillis(),
                 "批次工作流已启动"
         );
+        batchResultStageService.resetBatch(context.getBatchId());
     }
 
     private void runWorkflow(BatchRunWorkflowContext context) {
@@ -363,6 +378,11 @@ public class BatchRunService {
     private static String buildGeneratedBatchId(String dataDate) {
         String random = Long.toUnsignedString(ThreadLocalRandom.current().nextLong(), 36);
         return "batch_" + dataDate + "_" + LocalDateTime.now().format(GENERATED_BATCH_TIME_FORMATTER) + "_" + random;
+    }
+
+    private static String buildPatchExecutionId() {
+        return "patch_" + System.currentTimeMillis() + "_"
+                + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
     }
 
     private static void validateBatchId(String batchId) {

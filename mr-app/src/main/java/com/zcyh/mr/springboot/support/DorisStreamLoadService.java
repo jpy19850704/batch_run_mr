@@ -18,6 +18,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 
 /**
  * Doris Stream Load 服务。
@@ -40,6 +41,7 @@ public class DorisStreamLoadService {
     private final String databaseName;
     private final String authHeader;
     private final Duration requestTimeout;
+    private final Semaphore streamLoadSemaphore;
 
     public DorisStreamLoadService(
             @Value("${mr.doris.stream-load.base-url:http://127.0.0.1:8040}") String baseUrl,
@@ -47,7 +49,8 @@ public class DorisStreamLoadService {
             @Value("${mr.doris.stream-load.username:${ENGINE_RESULT_DB_USERNAME:root}}") String username,
             @Value("${mr.doris.stream-load.password:${ENGINE_RESULT_DB_PASSWORD:pwd123}}") String password,
             @Value("${mr.doris.stream-load.connect-timeout-ms:10000}") long connectTimeoutMs,
-            @Value("${mr.doris.stream-load.read-timeout-ms:300000}") long readTimeoutMs) {
+            @Value("${mr.doris.stream-load.read-timeout-ms:300000}") long readTimeoutMs,
+            @Value("${mr.doris.stream-load.max-concurrency:2}") int maxConcurrency) {
         this.baseUrl = trimTrailingSlash(requireText(baseUrl, "Doris Stream Load 地址不能为空"));
         this.databaseName = requireText(databaseName, "Doris Stream Load 数据库不能为空");
         this.authHeader = "Basic " + Base64.getEncoder()
@@ -58,6 +61,7 @@ public class DorisStreamLoadService {
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .build();
         this.requestTimeout = Duration.ofMillis(Math.max(readTimeoutMs, 1000L));
+        this.streamLoadSemaphore = new Semaphore(Math.max(1, maxConcurrency), true);
     }
 
     /**
@@ -87,7 +91,10 @@ public class DorisStreamLoadService {
                 .PUT(HttpRequest.BodyPublishers.ofByteArray(payload))
                 .build();
 
+        boolean permitAcquired = false;
         try {
+            streamLoadSemaphore.acquire();
+            permitAcquired = true;
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new IllegalStateException("Doris Stream Load HTTP 状态异常: " + response.statusCode() + ", body=" + response.body());
@@ -97,6 +104,7 @@ public class DorisStreamLoadService {
             if (!isSuccessStatus(status)) {
                 throw new IllegalStateException("Doris Stream Load 失败, label=" + label + ", body=" + response.body());
             }
+            validateLoadedRows(result, label, response.body());
             log.info("Doris Stream Load 成功, table={}, label={}, rows={}, loadedRows={}, loadTimeMs={}",
                     safeTableName,
                     label,
@@ -104,8 +112,39 @@ public class DorisStreamLoadService {
                     result.getString("NumberLoadedRows"),
                     result.getString("LoadTimeMs"));
             return result;
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Doris Stream Load等待并发许可时被中断, table=" + safeTableName, ex);
         } catch (Exception ex) {
             throw new IllegalStateException("Doris Stream Load 调用失败, table=" + safeTableName + ", label=" + label, ex);
+        } finally {
+            if (permitAcquired) {
+                streamLoadSemaphore.release();
+            }
+        }
+    }
+
+    private static void validateLoadedRows(JSONObject result, String label, String responseBody) {
+        long totalRows = longValue(result, "NumberTotalRows");
+        long loadedRows = longValue(result, "NumberLoadedRows");
+        long filteredRows = longValue(result, "NumberFilteredRows");
+        if (filteredRows > 0L || (totalRows >= 0L && loadedRows >= 0L && totalRows != loadedRows)) {
+            throw new IllegalStateException("Doris Stream Load行数校验失败, label=" + label
+                    + ", totalRows=" + totalRows
+                    + ", loadedRows=" + loadedRows
+                    + ", filteredRows=" + filteredRows
+                    + ", body=" + responseBody);
+        }
+    }
+
+    private static long longValue(JSONObject value, String fieldName) {
+        if (value == null || value.get(fieldName) == null) {
+            return -1L;
+        }
+        try {
+            return Long.parseLong(String.valueOf(value.get(fieldName)));
+        } catch (NumberFormatException ex) {
+            return -1L;
         }
     }
 

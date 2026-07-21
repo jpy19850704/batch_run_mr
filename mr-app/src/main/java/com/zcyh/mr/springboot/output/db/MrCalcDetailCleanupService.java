@@ -64,9 +64,25 @@ public class MrCalcDetailCleanupService {
     }
 
     public void cleanupBatch(String batchId, LocalDate dataDate) {
+        cleanupTables(batchId, dataDate, FULL_BATCH_TABLES);
+    }
+
+    public void cleanupBatchDetails(String batchId, LocalDate dataDate) {
+        cleanupTables(batchId, dataDate, INSTRUMENT_TABLES);
+    }
+
+    public void cleanupMarketDataByBatchId(String batchId) {
+        String safeBatchId = requireText(batchId, "batchId 不能为空");
+        executeDelete(
+                "TB_OUT_MARKET_DATA_DETAIL",
+                "DELETE FROM TB_OUT_MARKET_DATA_DETAIL WHERE BATCH_ID=?",
+                new Object[]{safeBatchId});
+    }
+
+    private void cleanupTables(String batchId, LocalDate dataDate, List<String> tableNames) {
         String safeBatchId = requireText(batchId, "batchId 不能为空");
         String resultDataDate = formatDataDate(dataDate);
-        for (String tableName : FULL_BATCH_TABLES) {
+        for (String tableName : tableNames) {
             executeDelete(
                     tableName,
                     "DELETE FROM " + tableName + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",

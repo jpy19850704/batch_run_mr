@@ -16,8 +16,8 @@ import com.zcyh.mr.springboot.execution.MeasurementExecutionRequest;
 import com.zcyh.mr.springboot.execution.MeasurementExecutionResult;
 import com.zcyh.mr.springboot.batch.model.JobStatus;
 import com.zcyh.mr.springboot.output.cache.JobScenarioPnlCacheService;
-import com.zcyh.mr.springboot.output.db.PricingResultPersistService;
 import com.zcyh.mr.springboot.output.file.BatchResultFileService;
+import com.zcyh.mr.springboot.output.file.BatchResultStageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,7 +36,7 @@ class AsyncJobExecutionService {
     private static final Logger log = LoggerFactory.getLogger(AsyncJobExecutionService.class);
 
     private final MeasurementExecutionService executionService;
-    private final PricingResultPersistService pricingResultPersistService;
+    private final BatchResultStageService batchResultStageService;
     private final BatchResultFileService batchResultFileService;
     private final JobScenarioPnlCacheService jobScenarioPnlCacheService;
     private final AlertService alertService;
@@ -47,7 +47,7 @@ class AsyncJobExecutionService {
 
     AsyncJobExecutionService(
             MeasurementExecutionService executionService,
-            PricingResultPersistService pricingResultPersistService,
+            BatchResultStageService batchResultStageService,
             BatchResultFileService batchResultFileService,
             JobScenarioPnlCacheService jobScenarioPnlCacheService,
             AlertService alertService,
@@ -56,7 +56,7 @@ class AsyncJobExecutionService {
             @Value("${mr.job.engine.retry.max-attempts:2}") int engineRetryMaxAttempts,
             @Value("${mr.job.engine.retry.backoff-ms:200}") long engineRetryBackoffMs) {
         this.executionService = executionService;
-        this.pricingResultPersistService = pricingResultPersistService;
+        this.batchResultStageService = batchResultStageService;
         this.batchResultFileService = batchResultFileService;
         this.jobScenarioPnlCacheService = jobScenarioPnlCacheService;
         this.alertService = alertService;
@@ -175,8 +175,8 @@ class AsyncJobExecutionService {
         boolean persistResult = shouldPersistResult(running.payloadJson);
         cacheScenarioResultIfRequested(jobId, running.payloadJson, runResult);
         if (ValuationExecutionAdapter.CODE.equalsIgnoreCase(defaultEngineCode(running.engineCode)) && persistResult) {
-            pricingResultPersistService.persistJobResult(
-                    running.requestId, jobId, running.payloadJson, runResult);
+            batchResultStageService.stage(
+                    jobId, running.requestId, running.payloadJson, runResult);
         }
     }
 
@@ -186,7 +186,7 @@ class AsyncJobExecutionService {
 
     void writeTerminalSnapshotIfNeeded(String jobId, String payloadJson) {
         try {
-            if (shouldPersistResult(payloadJson) && !isLocalRerun(payloadJson)) {
+            if (shouldPersistResult(payloadJson) && !isStagedBatchResult(payloadJson)) {
                 batchResultFileService.tryWriteSnapshotForJob(jobId);
             }
         } catch (Exception ex) {
@@ -194,10 +194,11 @@ class AsyncJobExecutionService {
         }
     }
 
-    private static boolean isLocalRerun(String payloadJson) {
+    private static boolean isStagedBatchResult(String payloadJson) {
         JSONObject payload = parseJsonObject(payloadJson);
         JSONObject batchMeta = payload == null ? null : payload.getJSONObject("batch_meta");
-        return batchMeta != null && batchMeta.getBooleanValue("localRerun");
+        return batchMeta != null
+                && trimToNull(batchMeta.getString(BatchResultStageService.META_EXECUTION_TYPE)) != null;
     }
 
     void markRejected(String jobId, String reason) {

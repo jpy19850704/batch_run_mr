@@ -1,7 +1,8 @@
 package com.zcyh.mr.springboot.output.db;
 
+import com.zcyh.mr.springboot.support.CsvRowWriter;
+import com.zcyh.mr.springboot.support.CsvRowWriterFactory;
 import com.zcyh.mr.springboot.support.DorisCsvStreamLoadBuffer;
-import com.zcyh.mr.springboot.support.DorisStreamLoadService;
 
 import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.normalizeDataDate;
 import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.resolveLogs;
@@ -49,14 +50,11 @@ class TradeScenarioPnlWriter {
     private static final String RESULT_KIND_SCENARIO = "SCENARIO";
     private static final String RESULT_KIND_VAR = "VAR";
 
-    private final DorisStreamLoadService dorisStreamLoadService;
     private final TradeScenarioVarResultWriter tradeScenarioVarResultWriter;
     private final ImaScenarioPnlWriter imaScenarioPnlWriter;
 
-    TradeScenarioPnlWriter(DorisStreamLoadService dorisStreamLoadService,
-                              TradeScenarioVarResultWriter tradeScenarioVarResultWriter,
+    TradeScenarioPnlWriter(TradeScenarioVarResultWriter tradeScenarioVarResultWriter,
                               ImaScenarioPnlWriter imaScenarioPnlWriter) {
-        this.dorisStreamLoadService = dorisStreamLoadService;
         this.tradeScenarioVarResultWriter = tradeScenarioVarResultWriter;
         this.imaScenarioPnlWriter = imaScenarioPnlWriter;
     }
@@ -72,15 +70,15 @@ class TradeScenarioPnlWriter {
     void write(CalcPersistContext context,
                JSONArray scenarioResults,
                Map<String, JSONObject> baseTradeIndex,
-               boolean varTableExists) {
+               boolean varTableExists,
+               CsvRowWriterFactory writerFactory) {
         if (scenarioResults == null || scenarioResults.isEmpty()) {
             return;
         }
         List<JSONObject> varScenarios = new ArrayList<JSONObject>();
         List<JSONObject> imaModellableScenarios = new ArrayList<JSONObject>();
         List<JSONObject> imaNmrfScenarios = new ArrayList<JSONObject>();
-        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
-                dorisStreamLoadService,
+        CsvRowWriter buffer = writerFactory.create(
                 TABLE_NAME,
                 COLUMNS,
                 "scenario_result_" + context.batchId + "_" + context.jobId,
@@ -92,7 +90,7 @@ class TradeScenarioPnlWriter {
             }
             if (isVarScenarioResult(scenario)) {
                 if (varTableExists) {
-                    tradeScenarioVarResultWriter.writeDirect(context, scenario, baseTradeIndex);
+                    tradeScenarioVarResultWriter.writeDirect(context, scenario, baseTradeIndex, writerFactory);
                 }
                 continue;
             }
@@ -113,15 +111,17 @@ class TradeScenarioPnlWriter {
         }
         buffer.flush();
         if (varTableExists) {
-            tradeScenarioVarResultWriter.writeProcessed(context, varScenarios, baseTradeIndex);
+            tradeScenarioVarResultWriter.writeProcessed(context, varScenarios, baseTradeIndex, writerFactory);
         }
-        imaScenarioPnlWriter.writeModellableFromScenarioResults(context, imaModellableScenarios, baseTradeIndex);
-        imaScenarioPnlWriter.writeNmrfFromScenarioResults(context, imaNmrfScenarios, baseTradeIndex);
+        imaScenarioPnlWriter.writeModellableFromScenarioResults(
+                context, imaModellableScenarios, baseTradeIndex, writerFactory);
+        imaScenarioPnlWriter.writeNmrfFromScenarioResults(
+                context, imaNmrfScenarios, baseTradeIndex, writerFactory);
     }
 
     private void writeNormalScenario(CalcPersistContext context,
                                      Map<String, JSONObject> baseTradeIndex,
-                                     DorisCsvStreamLoadBuffer buffer,
+                                     CsvRowWriter buffer,
                                      JSONObject scenario) {
         JSONArray tradeData = scenario.getJSONArray("trade_data");
         if (tradeData == null || tradeData.isEmpty()) {

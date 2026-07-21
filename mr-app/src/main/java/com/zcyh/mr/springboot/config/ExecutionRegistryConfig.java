@@ -14,6 +14,7 @@ import com.zcyh.mr.frtbsa.sba.core.FrtbResultMapper;
 import com.zcyh.mr.scenario.ScenarioGenerationEngine;
 import com.zcyh.mr.springboot.scenario.ScenarioExecutionAdapter;
 import com.zcyh.mr.springboot.scenario.ScenarioRequestAssembler;
+import com.zcyh.mr.springboot.scenario.SharedScenarioInputLoader;
 import com.zcyh.mr.springboot.measurement.ima.ImaRiskFactorConfigService;
 import com.zcyh.mr.springboot.output.db.ScenarioDetailPersistService;
 import com.zcyh.mr.springboot.output.cache.ScenarioDetailCacheService;
@@ -39,8 +40,9 @@ public class ExecutionRegistryConfig {
 
     @Bean
     public ValuationExecutionAdapter valuationExecutionAdapter(
-            ImaRiskFactorConfigService imaRiskFactorConfigService) {
-        return new ValuationExecutionAdapter(imaRiskFactorConfigService);
+            ImaRiskFactorConfigService imaRiskFactorConfigService,
+            SharedScenarioInputLoader sharedScenarioInputLoader) {
+        return new ValuationExecutionAdapter(imaRiskFactorConfigService, sharedScenarioInputLoader);
     }
 
     @Bean(destroyMethod = "shutdown")

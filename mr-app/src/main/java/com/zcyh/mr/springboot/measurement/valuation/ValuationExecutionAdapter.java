@@ -12,6 +12,7 @@ import com.zcyh.mr.calc.scenario.CalcScenarioInputCache;
 import com.zcyh.mr.frtbima.common.LiquidityHorizonTable;
 import com.zcyh.mr.springboot.execution.ExecutionAdapter;
 import com.zcyh.mr.springboot.measurement.ima.ImaRiskFactorConfigService;
+import com.zcyh.mr.springboot.scenario.SharedScenarioInputLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,9 +26,16 @@ public class ValuationExecutionAdapter implements ExecutionAdapter {
     public static final String CODE = "MR_CALC";
     private static final Logger log = LoggerFactory.getLogger(ValuationExecutionAdapter.class);
     private final ImaRiskFactorConfigService imaRiskFactorConfigService;
+    private final SharedScenarioInputLoader sharedScenarioInputLoader;
 
     public ValuationExecutionAdapter(ImaRiskFactorConfigService imaRiskFactorConfigService) {
+        this(imaRiskFactorConfigService, null);
+    }
+
+    public ValuationExecutionAdapter(ImaRiskFactorConfigService imaRiskFactorConfigService,
+                                     SharedScenarioInputLoader sharedScenarioInputLoader) {
         this.imaRiskFactorConfigService = imaRiskFactorConfigService;
+        this.sharedScenarioInputLoader = sharedScenarioInputLoader;
     }
 
     @Override
@@ -51,6 +59,9 @@ public class ValuationExecutionAdapter implements ExecutionAdapter {
             throw new IllegalArgumentException("mr 不再支持 batch_tasks，请改为单任务调用或走调度层拆批");
         }
 
+        if (sharedScenarioInputLoader != null) {
+            sharedScenarioInputLoader.ensureLoaded(req);
+        }
         JSONObject singlePayload = validateScenarioInputCacheReferences(req);
         return runSingle(singlePayload);
     }

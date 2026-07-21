@@ -16,15 +16,11 @@ final class CalcPersistContext {
     String dataDate;
     String createdAt;
     String updatedAt;
-    boolean localRerun;
-
     JSONObject payload;
     JSONObject resultData;
     JSONObject tradeDimension;
     JSONObject tradeRrao;
 
-    JSONArray inputMarketData;
-    JSONArray generatedMarketData;
     JSONArray effectiveBaseTrades;
     JSONArray scenarioResults;
     JSONArray imaModellableScenarioResults;

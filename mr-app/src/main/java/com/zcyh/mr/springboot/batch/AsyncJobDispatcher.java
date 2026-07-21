@@ -57,7 +57,7 @@ class AsyncJobDispatcher {
             @Value("${mr.job.executor.max-size:16}") int maxSize,
             @Value("${mr.job.executor.queue-capacity:1000}") int queueCapacity,
             @Value("${mr.job.store.node-id:node-default}") String nodeId,
-            @Value("${mr.job.dispatcher.enabled:false}") boolean dispatcherEnabled,
+            @Value("${mr.job.dispatcher.enabled:true}") boolean dispatcherEnabled,
             @Value("${mr.job.dispatcher.interval-ms:500}") long dispatchIntervalMs,
             @Value("${mr.job.dispatcher.claim-batch-size:50}") int claimBatchSize,
             @Value("${mr.job.dispatcher.stale-pending-ms:30000}") long stalePendingMs,
@@ -179,7 +179,7 @@ class AsyncJobDispatcher {
                 dispatchPendingJobs();
             }
             recoverStaleRunningJobs();
-            if (localFutureMap.isEmpty() && (!dispatcherEnabled || countPendingJobs() == 0)) {
+            if (localFutureMap.isEmpty() && !dispatcherEnabled) {
                 stop();
             }
         } catch (Exception ex) {

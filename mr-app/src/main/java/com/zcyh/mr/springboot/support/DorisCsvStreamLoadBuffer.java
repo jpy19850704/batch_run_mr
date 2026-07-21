@@ -13,7 +13,7 @@ import java.util.Set;
  * Doris CSV Stream Load 批次缓冲器。
  * 用于在内存中按固定行数聚合 CSV 内容，再统一推送到 Doris。
  */
-public class DorisCsvStreamLoadBuffer {
+public class DorisCsvStreamLoadBuffer implements CsvRowWriter {
     private static final DateTimeFormatter PROTOCOL_DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
     private static final Set<String> DATE_COLUMNS = Set.of(
             "DATA_DATE", "START_DATE", "END_DATE", "EXCEPTION_DATE", "OPTION_EXPIRY");
@@ -51,6 +51,7 @@ public class DorisCsvStreamLoadBuffer {
     /**
      * 追加一行 CSV 数据。
      */
+    @Override
     public void appendRow(Object... values) {
         if (values != null && values.length != columns.length) {
             throw new IllegalArgumentException("Doris列数与数据值数量不一致: table=" + tableName
@@ -66,6 +67,7 @@ public class DorisCsvStreamLoadBuffer {
     /**
      * 刷出当前批次。
      */
+    @Override
     public void flush() {
         if (csvBuilder.length() == 0) {
             return;
@@ -82,6 +84,21 @@ public class DorisCsvStreamLoadBuffer {
 
     public static String decimalText(BigDecimal value) {
         return value == null ? null : value.toPlainString();
+    }
+
+    public static String formatRow(String columnsHeader,
+                                   char columnSeparatorChar,
+                                   char encloseChar,
+                                   char escapeChar,
+                                   Object... values) {
+        StringBuilder builder = new StringBuilder(256);
+        String[] parsedColumns = parseColumns(columnsHeader);
+        if (values != null && values.length != parsedColumns.length) {
+            throw new IllegalArgumentException("Doris列数与数据值数量不一致: columns="
+                    + parsedColumns.length + ", values=" + values.length);
+        }
+        appendCsvRow(builder, columnSeparatorChar, encloseChar, escapeChar, parsedColumns, values);
+        return builder.toString();
     }
 
     private static void appendCsvRow(StringBuilder csvBuilder,

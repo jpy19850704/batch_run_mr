@@ -1,7 +1,8 @@
 package com.zcyh.mr.springboot.output.db;
 
+import com.zcyh.mr.springboot.support.CsvRowWriter;
+import com.zcyh.mr.springboot.support.CsvRowWriterFactory;
 import com.zcyh.mr.springboot.support.DorisCsvStreamLoadBuffer;
-import com.zcyh.mr.springboot.support.DorisStreamLoadService;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
@@ -50,12 +51,6 @@ public class DrcDetailWriter {
     );
     private static final String COLUMNS = String.join(",", COLUMN_LIST);
 
-    private final DorisStreamLoadService dorisStreamLoadService;
-
-    public DrcDetailWriter(DorisStreamLoadService dorisStreamLoadService) {
-        this.dorisStreamLoadService = dorisStreamLoadService;
-    }
-
     String tableName() {
         return TARGET_TABLE;
     }
@@ -64,15 +59,14 @@ public class DrcDetailWriter {
         return COLUMN_LIST;
     }
 
-    void write(CalcPersistContext context) {
+    void write(CalcPersistContext context, CsvRowWriterFactory writerFactory) {
         JSONArray trades = context == null ? null : context.effectiveBaseTrades;
         if (trades == null || trades.isEmpty()) {
             return;
         }
         int skippedNullJtdCny = 0;
         int logged = 0;
-        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
-                dorisStreamLoadService,
+        CsvRowWriter buffer = writerFactory.create(
                 TARGET_TABLE,
                 COLUMNS,
                 "drc_detail_" + context.batchId + "_" + context.jobId,

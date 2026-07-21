@@ -38,6 +38,8 @@ public class BatchRunWorkflowContext {
     private boolean cacheScenarioResult;
     private boolean frtbDisabled;
     private boolean localRerun;
+    private String executionType;
+    private String executionId;
     private int firstJobSeqNo = 1;
     private List<String> instrumentIds = new ArrayList<String>();
     private InputFilterExpression tradeFilter;
@@ -193,6 +195,22 @@ public class BatchRunWorkflowContext {
 
     public void setLocalRerun(boolean localRerun) {
         this.localRerun = localRerun;
+    }
+
+    public String getExecutionType() {
+        return executionType;
+    }
+
+    public void setExecutionType(String executionType) {
+        this.executionType = executionType;
+    }
+
+    public String getExecutionId() {
+        return executionId;
+    }
+
+    public void setExecutionId(String executionId) {
+        this.executionId = executionId;
     }
 
     public int getFirstJobSeqNo() {

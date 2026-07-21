@@ -1,18 +1,22 @@
 package com.zcyh.mr.springboot.output.db;
 
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONWriter;
+import com.zcyh.mr.springboot.input.db.MarketCurveInputRow;
 import com.zcyh.mr.springboot.support.DorisCsvStreamLoadBuffer;
 import com.zcyh.mr.springboot.support.DorisStreamLoadService;
-
-import com.alibaba.fastjson2.JSONArray;
-import com.alibaba.fastjson2.JSONObject;
+import com.zcyh.mr.springboot.support.ResultPersistTime;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * 写入计量使用的市场数据明细。
+ * 按批次写入市场数据快照。
  */
 @Service
 public class MarketDataResultWriter {
@@ -29,9 +33,13 @@ public class MarketDataResultWriter {
     private static final String COLUMNS = String.join(",", COLUMN_LIST);
 
     private final DorisStreamLoadService dorisStreamLoadService;
+    private final int batchSize;
 
-    public MarketDataResultWriter(DorisStreamLoadService dorisStreamLoadService) {
+    public MarketDataResultWriter(
+            DorisStreamLoadService dorisStreamLoadService,
+            @Value("${mr.doris.result.batch-size:50000}") int batchSize) {
         this.dorisStreamLoadService = dorisStreamLoadService;
+        this.batchSize = Math.max(1000, batchSize);
     }
 
     String tableName() {
@@ -42,81 +50,54 @@ public class MarketDataResultWriter {
         return COLUMN_LIST;
     }
 
-    void write(CalcPersistContext context) {
-        LinkedHashMap<String, JSONObject> merged = new LinkedHashMap<String, JSONObject>();
-        appendMarketDataByPriority(merged, context == null ? null : context.inputMarketData, true, "INPUT");
-        appendMarketDataByPriority(merged, context == null ? null : context.generatedMarketData, false, "GENERATED");
-        if (merged.isEmpty()) {
+    public void writeSnapshot(String batchId,
+                              LocalDate dataDate,
+                              List<MarketCurveInputRow> marketData) {
+        if (marketData == null || marketData.isEmpty()) {
             return;
         }
+        Map<String, MarketCurveInputRow> deduplicated = new LinkedHashMap<String, MarketCurveInputRow>();
+        for (MarketCurveInputRow row : marketData) {
+            if (row == null) {
+                continue;
+            }
+            String curveType = requireText(row.marketDataType, "市场数据CURVE_TYPE不能为空");
+            String curveId = requireText(row.curveId, "市场数据CURVE_ID不能为空");
+            deduplicated.putIfAbsent(batchId + "|" + curveType + "|" + curveId, row);
+        }
+        String now = ResultPersistTime.nowText();
         DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
                 dorisStreamLoadService,
                 TARGET_TABLE,
                 COLUMNS,
-                "market_data_" + context.batchId + "_" + context.jobId,
-                CalcResultPersistSupport.DEFAULT_BATCH_SIZE);
-        for (JSONObject curve : merged.values()) {
-            if (curve == null) {
-                continue;
-            }
+                "market_data_" + batchId,
+                batchSize);
+        for (MarketCurveInputRow row : deduplicated.values()) {
             buffer.appendRow(
-                    context.batchId,
-                    CalcResultPersistSupport.normalizeDataDate(context.dataDate),
-                    resolveCurveType(curve),
-                    resolveCurveId(curve),
-                    CalcResultPersistSupport.toJsonString(curve),
-                    context.createdAt,
-                    context.updatedAt
-            );
+                    batchId,
+                    dataDate,
+                    row.marketDataType,
+                    row.curveId,
+                    normalizeJson(row.curveContentText),
+                    now,
+                    now);
         }
         buffer.flush();
     }
 
-    private void appendMarketDataByPriority(LinkedHashMap<String, JSONObject> merged, JSONArray marketData,
-                                            boolean overrideOnConflict, String sourceTag) {
-        if (merged == null || marketData == null || marketData.isEmpty()) {
-            return;
-        }
-        for (int i = 0; i < marketData.size(); i++) {
-            JSONObject curve = marketData.getJSONObject(i);
-            if (curve == null) {
-                continue;
-            }
-            String key = buildCurveMergeKey(curve, sourceTag, i);
-            if (overrideOnConflict || !merged.containsKey(key)) {
-                merged.put(key, curve);
-            }
+    private static String normalizeJson(String raw) {
+        String value = requireText(raw, "市场数据内容不能为空");
+        try {
+            return JSON.toJSONString(JSON.parse(value), JSONWriter.Feature.WriteBigDecimalAsPlain);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("市场数据内容不是合法JSON", ex);
         }
     }
 
-    private String buildCurveMergeKey(JSONObject curve, String sourceTag, int index) {
-        if (curve == null) {
-            throw new IllegalArgumentException("市场数据为空，无法构建合并键: source=" + sourceTag + ", index=" + index);
+    private static String requireText(String value, String message) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(message);
         }
-        String curveType = resolveCurveType(curve);
-        String curveId = resolveCurveId(curve);
-        if (curveType == null || curveId == null) {
-            throw new IllegalArgumentException("市场数据缺少 CURVE_TYPE 或 CURVE_ID/FIXING_ID，无法构建合并键: source="
-                    + sourceTag + ", index=" + index);
-        }
-        return curveType + "|" + curveId;
-    }
-
-    private static String resolveCurveType(JSONObject curve) {
-        if (curve == null) {
-            return null;
-        }
-        return CalcResultPersistSupport.trimToNull(curve.getString("CURVE_TYPE"));
-    }
-
-    private static String resolveCurveId(JSONObject curve) {
-        if (curve == null) {
-            return null;
-        }
-        String curveId = CalcResultPersistSupport.trimToNull(curve.getString("CURVE_ID"));
-        if (curveId == null) {
-            curveId = CalcResultPersistSupport.trimToNull(curve.getString("FIXING_ID"));
-        }
-        return curveId;
+        return value.trim();
     }
 }

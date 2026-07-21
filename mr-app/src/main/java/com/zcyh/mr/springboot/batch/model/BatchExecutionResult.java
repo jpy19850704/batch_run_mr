@@ -5,6 +5,7 @@ package com.zcyh.mr.springboot.batch.model;
  */
 public class BatchExecutionResult {
     private String batchId;
+    private String executionId;
     private String requestId;
     private String engineCode;
     private String opCode;
@@ -24,6 +25,14 @@ public class BatchExecutionResult {
 
     public void setBatchId(String batchId) {
         this.batchId = batchId;
+    }
+
+    public String getExecutionId() {
+        return executionId;
+    }
+
+    public void setExecutionId(String executionId) {
+        this.executionId = executionId;
     }
 
     public String getRequestId() {

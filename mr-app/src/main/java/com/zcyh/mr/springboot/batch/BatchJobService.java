@@ -196,7 +196,7 @@ public class BatchJobService {
         jobRequest.setIdempotencyKey(jobId);
         jobRequest.setPayload(jobPayload.getPayload());
 
-        JobSubmitResult submitResult = asyncJobService.submit(jobRequest);
+        JobSubmitResult submitResult = asyncJobService.submitDistributed(jobRequest);
         insertBatchItem(batchId, seqNo, submitResult.getJobId(), jobPayload.getChunkTrades());
         return submitResult.getJobId();
     }

@@ -89,7 +89,12 @@ public class BatchPayloadBuildTask implements BatchRunTask {
                 if (context.isScenarioMode() && context.isCacheScenarioResult()) {
                     payload.put("cache_scenario_result", true);
                 }
-                payload.getJSONObject("batch_meta").put("localRerun", context.isLocalRerun());
+                payload.getJSONObject("batch_meta").put(
+                        com.zcyh.mr.springboot.output.file.BatchResultStageService.META_EXECUTION_TYPE,
+                        context.getExecutionType());
+                payload.getJSONObject("batch_meta").put(
+                        com.zcyh.mr.springboot.output.file.BatchResultStageService.META_EXECUTION_ID,
+                        context.getExecutionId());
                 jobPayload.setPayload(payload);
             } catch (PayloadJsonParseException ex) {
                 markPayloadFailed(jobPayload, ex);

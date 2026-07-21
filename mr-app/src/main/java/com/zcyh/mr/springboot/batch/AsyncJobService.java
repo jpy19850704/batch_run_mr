@@ -72,6 +72,14 @@ public class AsyncJobService {
     }
 
     JobSubmitResult submit(JobSubmitRequest request) {
+        return submit(request, false);
+    }
+
+    JobSubmitResult submitDistributed(JobSubmitRequest request) {
+        return submit(request, true);
+    }
+
+    private JobSubmitResult submit(JobSubmitRequest request, boolean distributed) {
         if (request == null) {
             throw new IllegalArgumentException("request 不能为空");
         }
@@ -115,7 +123,7 @@ public class AsyncJobService {
         }
 
         try {
-            jobStateRepository.insertJob(create, nodeId);
+            jobStateRepository.insertJob(create, distributed ? null : nodeId);
         } catch (DataAccessException ex) {
             if (create.idempotencyKey != null && jobStateRepository.isDuplicateKey(ex)) {
                 AsyncJobEntity existed = findByIdempotencyKey(create.idempotencyKey);
@@ -128,18 +136,20 @@ public class AsyncJobService {
 
         ExecutionContextHolder.setJobId(jobId);
         ExecutionContextHolder.setEngineCode(create.engineCode);
-        try {
-            dispatcher.submit(jobId);
-        } catch (RejectedExecutionException ex) {
-            executionService.markRejected(jobId, ex.getMessage());
-            executionService.writeTerminalSnapshotIfNeeded(jobId, create.payloadJson);
-            alertService.error("EXECUTOR_QUEUE_FULL", "任务队列已满，jobId=" + jobId, ex);
-            throw new IllegalStateException("任务队列已满，请稍后重试");
+        if (!distributed) {
+            try {
+                dispatcher.submit(jobId);
+            } catch (RejectedExecutionException ex) {
+                executionService.markRejected(jobId, ex.getMessage());
+                executionService.writeTerminalSnapshotIfNeeded(jobId, create.payloadJson);
+                alertService.error("EXECUTOR_QUEUE_FULL", "任务队列已满，jobId=" + jobId, ex);
+                throw new IllegalStateException("任务队列已满，请稍后重试");
+            }
         }
 
         dispatcher.ensureRunning();
         cleanupIfNeeded();
-        return toSubmitResult(create, false, "任务已提交");
+        return toSubmitResult(create, false, distributed ? "任务已进入分布式队列" : "任务已提交");
     }
 
     public JobSubmitResult recordFailedJob(

@@ -52,18 +52,15 @@ public class CalcPersistContextFactory {
             JSONObject batchMeta = context.payload.getJSONObject("batch_meta");
             if (batchMeta != null) {
                 context.batchId = trimToNull(batchMeta.getString("batch_id"));
-                context.localRerun = batchMeta.getBooleanValue("localRerun");
                 if (batchMeta.get("seq_no") != null) {
                     context.seqNo = batchMeta.getLong("seq_no");
                 }
             }
             context.tradeDimension = context.payload.getJSONObject("trade_dimension");
             context.tradeRrao = context.payload.getJSONObject("trade_rrao");
-            context.inputMarketData = context.payload.getJSONArray("market_data");
         }
 
         JSONArray baseTrades = data.getJSONArray("trade_data");
-        context.generatedMarketData = data.getJSONArray("generated_market_data");
         context.scenarioResults = data.getJSONArray("scenario_result");
         if (hasScenarioRequest(context.payload) && (context.scenarioResults == null || context.scenarioResults.isEmpty())) {
             throw new IllegalStateException("情景请求未生成 scenario_result");

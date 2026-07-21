@@ -1,7 +1,8 @@
 package com.zcyh.mr.springboot.output.db;
 
+import com.zcyh.mr.springboot.support.CsvRowWriter;
+import com.zcyh.mr.springboot.support.CsvRowWriterFactory;
 import com.zcyh.mr.springboot.support.DorisCsvStreamLoadBuffer;
-import com.zcyh.mr.springboot.support.DorisStreamLoadService;
 import com.zcyh.mr.springboot.support.ResultPersistTime;
 
 import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.STATUS_ERROR;
@@ -37,31 +38,44 @@ class ImaScenarioPnlWriter {
             "BATCH_ID,DATA_DATE,SCENARIO_ID,SUBSCENARIO_ID,SCENARIO_NAME,"
                     + "INSTRUMENT_ID,PRODUCT_CODE,RISK_FACTOR_ID,NMRF_TYPE,BASE_VALUATION_CNY,PNL,STATUS,LOGS_JSON,CREATED_AT";
 
-    private final DorisStreamLoadService dorisStreamLoadService;
+    String modellableTableName() {
+        return MODELLABLE_TABLE;
+    }
 
-    ImaScenarioPnlWriter(DorisStreamLoadService dorisStreamLoadService) {
-        this.dorisStreamLoadService = dorisStreamLoadService;
+    String modellableColumns() {
+        return MODELLABLE_COLUMNS;
+    }
+
+    String nmrfTableName() {
+        return NMRF_TABLE;
+    }
+
+    String nmrfColumns() {
+        return NMRF_COLUMNS;
     }
 
     void writeModellableFromScenarioResults(CalcPersistContext context,
                                             List<JSONObject> scenarios,
-                                            Map<String, JSONObject> baseTradeIndex) {
-        writeModellableRows(context, buildModellableRows(context, scenarios, baseTradeIndex));
+                                            Map<String, JSONObject> baseTradeIndex,
+                                            CsvRowWriterFactory writerFactory) {
+        writeModellableRows(context, buildModellableRows(context, scenarios, baseTradeIndex), writerFactory);
     }
 
     void writeNmrfFromScenarioResults(CalcPersistContext context,
                                       List<JSONObject> scenarios,
-                                      Map<String, JSONObject> baseTradeIndex) {
-        writeNmrfRows(context, buildNmrfRows(context, scenarios, baseTradeIndex));
+                                      Map<String, JSONObject> baseTradeIndex,
+                                      CsvRowWriterFactory writerFactory) {
+        writeNmrfRows(context, buildNmrfRows(context, scenarios, baseTradeIndex), writerFactory);
     }
 
-    void writeModellableRows(CalcPersistContext context, JSONArray rows) {
+    void writeModellableRows(CalcPersistContext context,
+                             JSONArray rows,
+                             CsvRowWriterFactory writerFactory) {
         if (rows == null || rows.isEmpty()) {
             return;
         }
         String now = ResultPersistTime.nowText();
-        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
-                dorisStreamLoadService,
+        CsvRowWriter buffer = writerFactory.create(
                 MODELLABLE_TABLE,
                 MODELLABLE_COLUMNS,
                 "ima_modellable_" + context.batchId + "_" + context.jobId,
@@ -95,13 +109,14 @@ class ImaScenarioPnlWriter {
         buffer.flush();
     }
 
-    private void writeNmrfRows(CalcPersistContext context, JSONArray rows) {
+    private void writeNmrfRows(CalcPersistContext context,
+                               JSONArray rows,
+                               CsvRowWriterFactory writerFactory) {
         if (rows == null || rows.isEmpty()) {
             return;
         }
         String now = ResultPersistTime.nowText();
-        DorisCsvStreamLoadBuffer buffer = new DorisCsvStreamLoadBuffer(
-                dorisStreamLoadService,
+        CsvRowWriter buffer = writerFactory.create(
                 NMRF_TABLE,
                 NMRF_COLUMNS,
                 "ima_nmrf_" + context.batchId + "_" + context.jobId,

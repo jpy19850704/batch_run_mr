@@ -2,9 +2,9 @@ package com.zcyh.mr.springboot.batch;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.calc.scenario.CalcScenarioInputCache;
 import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
 import com.zcyh.mr.springboot.output.file.ScenarioSetPathResolver;
+import com.zcyh.mr.springboot.scenario.SharedScenarioInputLoader;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Files;
@@ -40,7 +40,6 @@ public class BatchScenarioInputLoadTask implements BatchRunTask {
             return;
         }
         LocalDate dataDate = LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE);
-        Set<String> loadedCacheKeys = new LinkedHashSet<String>();
         for (BatchJobPayload jobPayload : context.getJobPayloads()) {
             if (jobPayload == null || jobPayload.isFailed() || jobPayload.getPayload() == null) {
                 continue;
@@ -49,8 +48,7 @@ public class BatchScenarioInputLoadTask implements BatchRunTask {
                     jobPayload.getPayload(),
                     context.getBatchId(),
                     dataDate,
-                    context.getScenarioMarketKeys(),
-                    loadedCacheKeys);
+                    context.getScenarioMarketKeys());
         }
     }
 
@@ -58,8 +56,13 @@ public class BatchScenarioInputLoadTask implements BatchRunTask {
             JSONObject payload,
             String batchId,
             LocalDate dataDate,
-            Set<String> scenarioMarketKeys,
-            Set<String> loadedCacheKeys) {
+            Set<String> scenarioMarketKeys) {
+        JSONObject batchMeta = payload.getJSONObject("batch_meta");
+        if (batchMeta == null) {
+            throw new IllegalArgumentException("批量任务缺少batch_meta");
+        }
+        batchMeta.put(SharedScenarioInputLoader.META_SCENARIO_MARKET_KEYS,
+                new JSONArray(scenarioMarketKeys));
         for (String fieldName : SCENARIO_REF_FIELDS) {
             JSONArray items = payload.getJSONArray(fieldName);
             if (items == null || items.isEmpty()) {
@@ -74,13 +77,7 @@ public class BatchScenarioInputLoadTask implements BatchRunTask {
                         item.getString("scenario_set_id"),
                         fieldName + "[" + i + "].scenario_set_id 必填");
                 String cacheKey = buildCacheKey(fieldName, dataDate, batchId, scenarioIdList);
-                if (loadedCacheKeys.add(cacheKey)) {
-                    CalcScenarioInputCache.loadFromFiles(
-                            cacheKey,
-                            resolveScenarioPaths(scenarioIdList, dataDate, batchId),
-                            dataDate,
-                            scenarioMarketKeys);
-                }
+                resolveScenarioPaths(scenarioIdList, dataDate, batchId);
                 item.put("cache_key", cacheKey);
             }
         }

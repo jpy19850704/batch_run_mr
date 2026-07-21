@@ -76,6 +76,21 @@ public class BatchResultFileService {
         }
     }
 
+    public void tryWriteSnapshotForBatch(String batchId) {
+        if (!batchFileResultEnabled) {
+            return;
+        }
+        String safeBatchId = trimToNull(batchId);
+        if (safeBatchId == null || hasNonTerminalChild(safeBatchId)) {
+            return;
+        }
+        try {
+            writeBatchSnapshot(safeBatchId);
+        } catch (Exception ex) {
+            log.warn("批次结果快照生成失败，batchId={}，原因={}", safeBatchId, cleanReason(ex), ex);
+        }
+    }
+
     private String findBatchIdByJobId(String jobId) {
         List<String> batchIds = engineDbJdbcTemplate.query(
                 "SELECT batch_id FROM MR_ASYNC_BATCH_ITEM WHERE job_id=?",
