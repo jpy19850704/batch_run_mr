@@ -148,8 +148,9 @@ public class JobPayloadBuilder {
                 continue;
             }
             JSONObject dim = new JSONObject();
-            if (trade.tradeDimensions != null) {
-                for (Map.Entry<String, String> entry : trade.tradeDimensions.entrySet()) {
+            Map<String, String> dimensions = trade.dimensionAttributes();
+            if (!dimensions.isEmpty()) {
+                for (Map.Entry<String, String> entry : dimensions.entrySet()) {
                     String key = trimToNull(entry.getKey());
                     String value = trimToNull(entry.getValue());
                     if (key != null && value != null) {
@@ -171,16 +172,17 @@ public class JobPayloadBuilder {
             if (dimInstrumentId == null) {
                 continue;
             }
-            String rraoType = trimToNull(trade.rraoType);
-            if (rraoType == null && trade.rraoNotional == null) {
+            String rraoType = trimToNull(trade.getTextAttribute("RRAO_TYPE"));
+            java.math.BigDecimal rraoNotional = trade.getDecimalAttribute("RRAO_NOTIONAL");
+            if (rraoType == null && rraoNotional == null) {
                 continue;
             }
             JSONObject rrao = new JSONObject();
             if (rraoType != null) {
                 rrao.put("RRAO_TYPE", rraoType);
             }
-            if (trade.rraoNotional != null) {
-                rrao.put("RRAO_NOTIONAL", trade.rraoNotional);
+            if (rraoNotional != null) {
+                rrao.put("RRAO_NOTIONAL", rraoNotional);
             }
             tradeRrao.put(dimInstrumentId, rrao);
         }

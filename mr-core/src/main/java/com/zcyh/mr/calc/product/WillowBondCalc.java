@@ -42,6 +42,13 @@ public class WillowBondCalc extends AbstractCalc {
     }
 
     @Override
+    public List<String> validateTradeInput(JSONObject tradeData) {
+        WillowBond.WillowBondTradeInfo info = JSONObject.parseObject(JSON.toJSONString(tradeData),
+                WillowBond.WillowBondTradeInfo.class);
+        return info.validateInput(tradeData, tradeData.getString("PRODUCT_CODE")).getErrors();
+    }
+
+    @Override
     protected void runScenarioLoop(MarketData scenarioMd, Set<String> affectedIds, JSONArray scenarioRst) {
         for (Map.Entry<String, CachedWillowBond> entry : bondCache.entrySet()) {
             if (affectedIds != null && !affectedIds.contains(entry.getKey())) {

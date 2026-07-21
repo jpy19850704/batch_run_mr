@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
+import com.zcyh.mr.springboot.input.trade.TradeAttributeDefinition;
+import com.zcyh.mr.springboot.input.trade.TradeAttributeRegistry;
 
 import java.sql.Date;
 import java.sql.ResultSet;
@@ -26,12 +28,12 @@ public class TradeInputRepository {
             row.instrumentId = rs.getString("instrument_id");
             row.productCode = rs.getString("product_code");
             row.tradeContentText = rs.getString("trade_content_text");
-            row.rraoType = trimToNull(rs.getString("rrao_type"));
-            row.rraoNotional = rs.getBigDecimal("rrao_notional");
-            for (String column : TradeInputRow.dimensionColumns()) {
-                String value = trimToNull(rs.getString(column));
+            for (TradeAttributeDefinition definition : TradeAttributeRegistry.definitions()) {
+                Object value = definition.getValueType() == java.math.BigDecimal.class
+                        ? rs.getBigDecimal(definition.getColumnName())
+                        : trimToNull(rs.getString(definition.getColumnName()));
                 if (value != null) {
-                    row.tradeDimensions.put(column, value);
+                    row.attributes.put(definition.getFieldName(), value);
                 }
             }
             return row;
@@ -86,11 +88,11 @@ public class TradeInputRepository {
         sql.append(prefix).append("id AS id, ");
         sql.append(prefix).append("instrument_id AS instrument_id, ");
         sql.append(prefix).append("product_code AS product_code, ");
-        sql.append(prefix).append("trade_content_text AS trade_content_text, ");
-        sql.append(prefix).append("rrao_type AS rrao_type, ");
-        sql.append(prefix).append("rrao_notional AS rrao_notional");
-        for (String column : TradeInputRow.dimensionColumns()) {
-            sql.append(", ").append(prefix).append(column).append(" AS ").append(column);
+        sql.append(prefix).append("trade_content_text AS trade_content_text");
+        for (TradeAttributeDefinition definition : TradeAttributeRegistry.definitions()) {
+            sql.append(", ")
+                    .append(prefix).append(definition.getColumnName())
+                    .append(" AS ").append(definition.getColumnName());
         }
         return sql.toString();
     }

@@ -51,6 +51,14 @@ public final class ProductCalculatorRegistry {
         return factory.create(operCode, dataDate, trades, marketData, calendar, otherData);
     }
 
+    public static List<String> validateTradeInput(String productCode, LocalDate dataDate, JSONObject tradeData) {
+        HashMap<String, Object> trade = new HashMap<>();
+        trade.putAll(tradeData);
+        ProductCalculator calculator = create(productCode, EngineConstants.CALC_MODE.PRICING, dataDate,
+                Collections.singletonList(trade), new MarketData(), null, new JSONObject());
+        return calculator.validateTradeInput(tradeData);
+    }
+
     private static Map<String, CalcFactory> buildRegistry() {
         Map<String, CalcFactory> registry = new LinkedHashMap<>();
         registry.put(EngineConstants.PRODUCT_CODE.COMMFWD,

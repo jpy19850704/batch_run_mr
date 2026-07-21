@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS MR_TRADE_INPUT (
     rrao_notional DECIMAL(38, 10),
     created_at BIGINT NOT NULL,
     updated_at BIGINT NOT NULL,
-    CONSTRAINT uk_MR_TRADE_INPUT UNIQUE (data_date, instrument_id, version_no)
+    CONSTRAINT uk_MR_TRADE_INPUT UNIQUE (data_date, instrument_id, product_code)
 );
 
 CREATE INDEX IF NOT EXISTS idx_MR_TRADE_INPUT_date

@@ -77,10 +77,10 @@ public class BatchTradeLoadTask implements BatchRunTask {
             return portfolioCodes;
         }
         for (TradeInputRow trade : trades) {
-            if (trade == null || trade.tradeDimensions == null) {
+            if (trade == null) {
                 continue;
             }
-            String portfolio = trade.tradeDimensions.get("portfolio");
+            String portfolio = trade.getTextAttribute("PORTFOLIO");
             if (portfolio != null) {
                 portfolioCodes.add(portfolio);
             }

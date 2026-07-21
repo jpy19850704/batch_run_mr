@@ -3,6 +3,9 @@ package com.zcyh.mr.springboot.output.cache;
 import com.zcyh.mr.springboot.input.db.PortfolioHierarchyRow;
 
 import com.zcyh.mr.springboot.input.db.TradeInputRow;
+import com.zcyh.mr.springboot.input.trade.TradeAttributeCategory;
+import com.zcyh.mr.springboot.input.trade.TradeAttributeDefinition;
+import com.zcyh.mr.springboot.input.trade.TradeAttributeRegistry;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
@@ -89,7 +92,9 @@ public class TradeInfoCacheService {
         snapshot.put("batchId", batchId);
         snapshot.put("dataDate", dataDate);
         JSONArray dimensionFields = new JSONArray();
-        dimensionFields.addAll(TradeInputRow.dimensionColumns());
+        for (TradeAttributeDefinition definition : TradeAttributeRegistry.definitions(TradeAttributeCategory.DIMENSION)) {
+            dimensionFields.add(definition.getColumnName());
+        }
         snapshot.put("dimensionFields", dimensionFields);
         snapshot.put("total", rows.size());
         snapshot.put("rows", rows);
@@ -107,10 +112,10 @@ public class TradeInfoCacheService {
         JSONObject row = new JSONObject();
         row.put("instrumentId", instrumentId);
         putIfHasText(row, "productCode", trade.productCode);
-        for (String field : TradeInputRow.dimensionColumns()) {
-            putIfHasText(row, field, trade.tradeDimensions == null ? null : trade.tradeDimensions.get(field));
+        for (TradeAttributeDefinition definition : TradeAttributeRegistry.definitions(TradeAttributeCategory.DIMENSION)) {
+            putIfHasText(row, definition.getColumnName(), trade.getTextAttribute(definition.getFieldName()));
         }
-        String portfolio = trade.tradeDimensions == null ? null : trimToNull(trade.tradeDimensions.get("portfolio"));
+        String portfolio = trimToNull(trade.getTextAttribute("PORTFOLIO"));
         PortfolioHierarchyRow flatRow = portfolioFlatRows == null ? null : portfolioFlatRows.get(portfolio);
         appendPortfolioHierarchy(row, flatRow);
         return row;

@@ -36,6 +36,12 @@ public class TrsCalc extends AbstractCalc {
     }
 
     @Override
+    public List<String> validateTradeInput(JSONObject tradeData) {
+        Trs.TrsTradeInfo info = JSONObject.parseObject(tradeData.toString(), Trs.TrsTradeInfo.class);
+        return info.validateInput(tradeData, tradeData.getString("PRODUCT_CODE")).getErrors();
+    }
+
+    @Override
     protected void runScenarioLoop(MarketData scenarioMd, Set<String> affectedIds, JSONArray scenarioRst) {
         for (Map.Entry<String, Trs> entry : trsCache.entrySet()) {
             if (affectedIds != null && !affectedIds.contains(entry.getKey())) {

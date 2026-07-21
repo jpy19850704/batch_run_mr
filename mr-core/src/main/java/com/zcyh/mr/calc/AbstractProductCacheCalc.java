@@ -65,6 +65,14 @@ public abstract class AbstractProductCacheCalc<P, I extends TradeInfo> extends A
         }
     }
 
+    @Override
+    public List<String> validateTradeInput(JSONObject tradeData) {
+        HashMap<String, Object> source = new HashMap<>();
+        source.putAll(tradeData);
+        I info = parseTradeInfo(source);
+        return info.validateInput(tradeData, tradeData.getString("PRODUCT_CODE")).getErrors();
+    }
+
     // ===== 子类实现以下方法 =====
 
     /** 原始交易数据转为产品交易输入对象。 */

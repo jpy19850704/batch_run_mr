@@ -41,6 +41,13 @@ public class BondFutureCalc extends AbstractCalc {
     }
 
     @Override
+    public List<String> validateTradeInput(JSONObject tradeData) {
+        BondFuture.BondFutureTradeInfo info = JSONObject.parseObject(JSON.toJSONString(tradeData),
+                BondFuture.BondFutureTradeInfo.class);
+        return info.validateInput(tradeData, tradeData.getString("PRODUCT_CODE")).getErrors();
+    }
+
+    @Override
     protected void runScenarioLoop(MarketData scenarioMd, Set<String> affectedIds, JSONArray scenarioRst) {
         for (Map.Entry<String, BondFuture> entry : bondFutureCache.entrySet()) {
             if (affectedIds != null && !affectedIds.contains(entry.getKey())) {

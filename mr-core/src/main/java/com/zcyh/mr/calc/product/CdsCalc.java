@@ -36,6 +36,12 @@ public class CdsCalc extends AbstractCalc {
     }
 
     @Override
+    public List<String> validateTradeInput(JSONObject tradeData) {
+        Cds.CdsTradeInfo info = JSONObject.parseObject(tradeData.toString(), Cds.CdsTradeInfo.class);
+        return info.validateInput(tradeData, tradeData.getString("PRODUCT_CODE")).getErrors();
+    }
+
+    @Override
     protected void runScenarioLoop(MarketData scenarioMd, Set<String> affectedIds, JSONArray scenarioRst) {
         for (Map.Entry<String, Cds> entry : cdsCache.entrySet()) {
             if (affectedIds != null && !affectedIds.contains(entry.getKey())) {

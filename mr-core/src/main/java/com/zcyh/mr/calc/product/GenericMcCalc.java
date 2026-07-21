@@ -77,4 +77,10 @@ public class GenericMcCalc implements ProductCalculator {
         return genericMc.price(tradeData, md);
     }
 
+    @Override
+    public List<String> validateTradeInput(JSONObject tradeData) {
+        GenericMc.GenericMcTradeInfo info = GenericMc.GenericMcTradeInfo.fromTradeMap(tradeData);
+        return info.validateInput(tradeData, tradeData.getString("PRODUCT_CODE")).getErrors();
+    }
+
 }

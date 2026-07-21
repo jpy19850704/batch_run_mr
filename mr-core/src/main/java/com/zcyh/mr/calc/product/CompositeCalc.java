@@ -172,6 +172,18 @@ public class CompositeCalc implements ProductCalculator {
         return specs;
     }
 
+    @Override
+    public List<String> validateTradeInput(JSONObject tradeData) {
+        try {
+            HashMap<String, Object> source = toMap(tradeData);
+            String compositeId = requiredText(source.get("INSTRUMENT_ID"), "INSTRUMENT_ID");
+            parseComponents(compositeId, source);
+            return java.util.Collections.emptyList();
+        } catch (IllegalArgumentException e) {
+            return java.util.Collections.singletonList(e.getMessage());
+        }
+    }
+
     private ComponentRun runComponents(List<ComponentSpec> specs, MarketData md, boolean cacheScenarioCalcs)
             throws Exception {
         Map<String, List<HashMap<String, Object>>> grouped = new LinkedHashMap<>();

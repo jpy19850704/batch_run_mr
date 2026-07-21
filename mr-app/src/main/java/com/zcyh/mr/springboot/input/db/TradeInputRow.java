@@ -1,31 +1,44 @@
 package com.zcyh.mr.springboot.input.db;
 
+import com.zcyh.mr.springboot.input.trade.TradeAttributeCategory;
+import com.zcyh.mr.springboot.input.trade.TradeAttributeDefinition;
+import com.zcyh.mr.springboot.input.trade.TradeAttributeRegistry;
+
 import java.math.BigDecimal;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
  * 交易输入查询行。
  */
 public class TradeInputRow {
-    private static final List<String> DIMENSION_COLUMNS = Collections.unmodifiableList(Arrays.asList(
-            "portfolio",
-            "desk",
-            "trader"
-    ));
-
     public long id;
     public String instrumentId;
     public String productCode;
     public String tradeContentText;
-    public String rraoType;
-    public BigDecimal rraoNotional;
-    public Map<String, String> tradeDimensions = new LinkedHashMap<String, String>();
+    public Map<String, Object> attributes = new LinkedHashMap<>();
 
-    public static List<String> dimensionColumns() {
-        return DIMENSION_COLUMNS;
+    public String getTextAttribute(String fieldName) {
+        Object value = attributes.get(fieldName);
+        return value == null ? null : value.toString();
+    }
+
+    public BigDecimal getDecimalAttribute(String fieldName) {
+        Object value = attributes.get(fieldName);
+        if (value == null) {
+            return null;
+        }
+        return value instanceof BigDecimal ? (BigDecimal) value : new BigDecimal(value.toString());
+    }
+
+    public Map<String, String> dimensionAttributes() {
+        Map<String, String> result = new LinkedHashMap<>();
+        for (TradeAttributeDefinition definition : TradeAttributeRegistry.definitions(TradeAttributeCategory.DIMENSION)) {
+            String value = getTextAttribute(definition.getFieldName());
+            if (value != null) {
+                result.put(definition.getColumnName(), value);
+            }
+        }
+        return result;
     }
 }

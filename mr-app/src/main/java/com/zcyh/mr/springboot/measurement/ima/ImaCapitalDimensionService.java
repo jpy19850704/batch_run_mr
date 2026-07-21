@@ -34,7 +34,7 @@ public class ImaCapitalDimensionService {
                 tradeInputRepository.findByFilter(dataDate, rule.getFilterTree());
         List<String> portfolios = new ArrayList<String>();
         for (TradeInputRow trade : trades) {
-            String portfolio = trade.tradeDimensions.get("portfolio");
+            String portfolio = trade.getTextAttribute("PORTFOLIO");
             if (trimToNull(portfolio) != null) {
                 portfolios.add(portfolio);
             }
@@ -54,11 +54,11 @@ public class ImaCapitalDimensionService {
             Map<String, String> row = new LinkedHashMap<String, String>();
             put(row, "INSTRUMENT_ID", instrumentId);
             put(row, "PRODUCT_CODE", trade.productCode);
-            put(row, "PORTFOLIO", trade.tradeDimensions.get("portfolio"));
-            put(row, "DESK", trade.tradeDimensions.get("desk"));
-            put(row, "TRADER", trade.tradeDimensions.get("trader"));
+            put(row, "PORTFOLIO", trade.getTextAttribute("PORTFOLIO"));
+            put(row, "DESK", trade.getTextAttribute("DESK"));
+            put(row, "TRADER", trade.getTextAttribute("TRADER"));
             PortfolioHierarchyRow flatRow =
-                    portfolioFlatRows.get(trade.tradeDimensions.get("portfolio"));
+                    portfolioFlatRows.get(trade.getTextAttribute("PORTFOLIO"));
             if (flatRow != null) {
                 put(row, "PORTFOLIO_CODE_1", flatRow.portfolioCode1);
                 put(row, "PORTFOLIO_CODE_2", flatRow.portfolioCode2);
