@@ -17,6 +17,11 @@ import java.util.Map;
 import java.util.Set;
 
 public class CdsCalc extends AbstractCalc {
+
+    @Override
+    public Class<?> tradeInputType() {
+        return Cds.CdsTradeInfo.class;
+    }
     private final Map<String, Cds> cdsCache = new LinkedHashMap<>();
 
     public CdsCalc(String operCode, LocalDate dataDate, List<HashMap<String, Object>> trades,

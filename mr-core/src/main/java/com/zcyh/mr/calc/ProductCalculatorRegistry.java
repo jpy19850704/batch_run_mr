@@ -59,6 +59,12 @@ public final class ProductCalculatorRegistry {
         return calculator.validateTradeInput(tradeData);
     }
 
+    public static Class<?> tradeInputType(String productCode) {
+        ProductCalculator calculator = create(productCode, EngineConstants.CALC_MODE.PRICING,
+                LocalDate.of(2000, 1, 1), Collections.emptyList(), new MarketData(), null, new JSONObject());
+        return calculator.tradeInputType();
+    }
+
     private static Map<String, CalcFactory> buildRegistry() {
         Map<String, CalcFactory> registry = new LinkedHashMap<>();
         registry.put(EngineConstants.PRODUCT_CODE.COMMFWD,

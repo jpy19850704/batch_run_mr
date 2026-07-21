@@ -13,6 +13,8 @@ import java.util.Set;
  */
 public interface ProductCalculator {
 
+    Class<?> tradeInputType();
+
     String calc();
 
     JSONArray calcScenario(MarketData scenarioMd);

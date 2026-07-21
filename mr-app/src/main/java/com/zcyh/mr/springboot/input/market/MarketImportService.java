@@ -24,10 +24,6 @@ import java.util.Set;
 
 @Service
 public class MarketImportService {
-    private static final Set<String> SUPPORTED_TYPES = new HashSet<String>(Arrays.asList(
-            "IR_SPOT", "CREDIT_SPOT", "FX_SPOT", "EQ_SPOT", "COMM_SPOT",
-            "IR_VOL", "FX_VOL", "EQ_VOL", "COMM_VOL", "FIXING"));
-
     private final MarketExcelParser parser;
     private final MarketImportRepository repository;
 
@@ -53,6 +49,31 @@ public class MarketImportService {
         repository.insert(plan.insertRows);
         repository.update(plan.updateRows);
         return plan.toResponse(true);
+    }
+
+    @Transactional(transactionManager = "engineDbTransactionManager")
+    public JSONObject delete(List<MarketDeleteKey> rows) {
+        if (rows == null || rows.isEmpty()) throw new IllegalArgumentException("删除市场数据不能为空");
+        if (rows.size() > 1000) throw new IllegalArgumentException("单次最多删除1000条市场数据");
+        Set<String> keys = new HashSet<>();
+        for (MarketDeleteKey row : rows) {
+            LocalDate date = parseDate(row.getDataDate());
+            String type = normalizeType(row.getMarketDataType());
+            String curveId = required(row.getCurveId(), "curveId");
+            if (row.getVersionNo() == null || row.getVersionNo() < 1) {
+                throw new IllegalArgumentException("versionNo必须为正整数");
+            }
+            row.setDataDate(date.toString());
+            row.setMarketDataType(type);
+            row.setCurveId(curveId);
+            String key = date + "|" + type + "|" + curveId + "|" + row.getVersionNo();
+            if (!keys.add(key)) throw new IllegalArgumentException("删除市场数据业务键重复: " + curveId);
+        }
+        int deleted = repository.delete(rows);
+        if (deleted != rows.size()) throw new IllegalArgumentException("部分市场数据不存在，删除已回滚");
+        JSONObject response = new JSONObject();
+        response.put("deletedCount", deleted);
+        return response;
     }
 
     private ImportPlan buildPlan(LocalDate dataDate, String marketDataType, MultipartFile file) throws IOException {
@@ -181,10 +202,16 @@ public class MarketImportService {
 
     private static String normalizeType(String marketDataType) {
         String value = marketDataType == null ? "" : marketDataType.trim().toUpperCase(Locale.ROOT);
-        if (!SUPPORTED_TYPES.contains(value)) {
+        if (!MarketImportSchema.supportedTypes().contains(value)) {
             throw new IllegalArgumentException("不支持的市场数据类型: " + marketDataType);
         }
         return value;
+    }
+
+    private static String required(String value, String field) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) throw new IllegalArgumentException(field + "不能为空");
+        return normalized;
     }
 
     private static LocalDate parseDate(String dataDate) {

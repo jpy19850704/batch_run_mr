@@ -21,6 +21,11 @@ import java.util.Map;
 import java.util.Set;
 
 public class WillowBondCalc extends AbstractCalc {
+
+    @Override
+    public Class<?> tradeInputType() {
+        return WillowBond.WillowBondTradeInfo.class;
+    }
     private static final Logger log = LoggerFactory.getLogger(WillowBondCalc.class);
     private final Map<String, CachedWillowBond> bondCache = new LinkedHashMap<>();
 

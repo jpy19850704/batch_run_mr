@@ -77,6 +77,20 @@ public class TradeImportRepository {
         });
     }
 
+    public int delete(List<TradeDeleteKey> rows) {
+        int[][] counts = jdbcTemplate.batchUpdate(
+                "DELETE FROM MR_TRADE_INPUT WHERE data_date=? AND instrument_id=? AND product_code=?",
+                rows,
+                200,
+                (ps, row) -> {
+                    ps.setDate(1, Date.valueOf(row.getDataDate()));
+                    ps.setString(2, row.getInstrumentId());
+                    ps.setString(3, row.getProductCode());
+                });
+        return java.util.Arrays.stream(counts).flatMapToInt(java.util.Arrays::stream)
+                .map(value -> value == java.sql.Statement.SUCCESS_NO_INFO ? 1 : Math.max(value, 0)).sum();
+    }
+
     private static void bindCommon(java.sql.PreparedStatement ps, TradeImportRow row) throws java.sql.SQLException {
         int index = 1;
         ps.setDate(index++, Date.valueOf(row.dataDate));

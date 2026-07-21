@@ -50,6 +50,31 @@ public class TradeImportService {
         return plan.toResponse(true);
     }
 
+    @Transactional(transactionManager = "engineDbTransactionManager")
+    public JSONObject delete(List<TradeDeleteKey> rows) {
+        if (rows == null || rows.isEmpty()) throw new IllegalArgumentException("删除交易不能为空");
+        if (rows.size() > 1000) throw new IllegalArgumentException("单次最多删除1000笔交易");
+        Set<String> keys = new HashSet<>();
+        for (TradeDeleteKey row : rows) {
+            LocalDate date = parseDate(row.getDataDate());
+            String instrumentId = required(row.getInstrumentId(), "instrumentId");
+            String productCode = normalizeProductCode(row.getProductCode());
+            row.setDataDate(date.toString());
+            row.setInstrumentId(instrumentId);
+            row.setProductCode(productCode);
+            if (!keys.add(date + "|" + instrumentId + "|" + productCode)) {
+                throw new IllegalArgumentException("删除交易业务键重复: " + instrumentId);
+            }
+        }
+        int deleted = repository.delete(rows);
+        if (deleted != rows.size()) {
+            throw new IllegalArgumentException("部分交易不存在，删除已回滚");
+        }
+        JSONObject response = new JSONObject();
+        response.put("deletedCount", deleted);
+        return response;
+    }
+
     private ImportPlan buildPlan(LocalDate dataDate, String productCode, MultipartFile file) throws IOException {
         if (!ProductCalculatorRegistry.supports(productCode)) {
             throw new IllegalArgumentException("不支持的产品类型: " + productCode);
@@ -188,6 +213,12 @@ public class TradeImportService {
         } catch (Exception e) {
             throw new IllegalArgumentException("dataDate格式错误: " + dataDate);
         }
+    }
+
+    private static String required(String value, String field) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) throw new IllegalArgumentException(field + "不能为空");
+        return normalized;
     }
 
     private static String resolveMessage(Exception e) {

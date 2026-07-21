@@ -13,6 +13,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 
 /**
  * B 类计算器基类：缓存产品实例，场景估值时直接调用 product.calc(scenarioMd) 复用。
@@ -25,6 +27,23 @@ public abstract class AbstractProductCacheCalc<P, I extends TradeInfo> extends A
 
     /** 基准估值后缓存产品实例，场景估值时直接复用 */
     protected Map<String, P> productCache = new LinkedHashMap<>();
+
+    @Override
+    public Class<?> tradeInputType() {
+        Type type = getClass().getGenericSuperclass();
+        if (!(type instanceof ParameterizedType)) {
+            throw new IllegalStateException("无法识别产品输入类型: " + getClass().getName());
+        }
+        Type inputType = ((ParameterizedType) type).getActualTypeArguments()[1];
+        if (inputType instanceof Class<?>) {
+            return (Class<?>) inputType;
+        }
+        if (inputType instanceof ParameterizedType
+                && ((ParameterizedType) inputType).getRawType() instanceof Class<?>) {
+            return (Class<?>) ((ParameterizedType) inputType).getRawType();
+        }
+        throw new IllegalStateException("无法识别产品输入类型: " + getClass().getName());
+    }
 
     protected AbstractProductCacheCalc(String operCode, LocalDate dataDate,
             List<HashMap<String, Object>> trades, MarketData marketData) {

@@ -20,6 +20,11 @@ import java.util.Map;
 import java.util.Set;
 
 public class BondFutureCalc extends AbstractCalc {
+
+    @Override
+    public Class<?> tradeInputType() {
+        return BondFuture.BondFutureTradeInfo.class;
+    }
     private static final Logger log = LoggerFactory.getLogger(BondFutureCalc.class);
     private final Map<String, BondFuture> bondFutureCache = new LinkedHashMap<>();
 

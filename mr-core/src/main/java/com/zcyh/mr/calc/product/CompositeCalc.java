@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.validation.ProductInputField;
 
 /**
  * 组合产品计算器。
@@ -51,6 +53,11 @@ public class CompositeCalc implements ProductCalculator {
     private final JSONArray tradeResult = new JSONArray();
     private final Map<String, CompositeRuntime> compositeCache = new LinkedHashMap<>();
 
+    @Override
+    public Class<?> tradeInputType() {
+        return CompositeTradeInput.class;
+    }
+
     public CompositeCalc(String operCode, LocalDate dataDate, List<HashMap<String, Object>> trades,
             MarketData marketData, Calendar calendar, JSONObject otherData) {
         this.operCode = operCode;
@@ -59,6 +66,44 @@ public class CompositeCalc implements ProductCalculator {
         this.marketData = marketData;
         this.calendar = calendar;
         this.otherData = otherData;
+    }
+
+    public static class CompositeTradeInput {
+        @JSONField(name = "INSTRUMENT_ID")
+        @ProductInputField(required = true)
+        public String instrumentId;
+
+        @JSONField(name = "PRODUCT_CODE")
+        @ProductInputField(required = true, allowedValues = {"COMPOSITE"})
+        public String productCode;
+
+        @JSONField(name = "COMPONENTS")
+        @ProductInputField(required = true)
+        public List<CompositeComponentInput> components;
+    }
+
+    public static class CompositeComponentInput {
+        @JSONField(name = "COMPONENT_ID")
+        @ProductInputField(required = true)
+        public String componentId;
+
+        @JSONField(name = "WEIGHT")
+        @ProductInputField(required = true, finite = true)
+        public Double weight;
+
+        @JSONField(name = "DATA")
+        @ProductInputField(required = true)
+        public CompositeComponentData data;
+    }
+
+    public static class CompositeComponentData {
+        @JSONField(name = "INSTRUMENT_ID")
+        @ProductInputField(required = true)
+        public String instrumentId;
+
+        @JSONField(name = "PRODUCT_CODE")
+        @ProductInputField(required = true)
+        public String productCode;
     }
 
     public String calc() {

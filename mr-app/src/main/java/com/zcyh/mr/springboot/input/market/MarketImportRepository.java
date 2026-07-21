@@ -102,4 +102,19 @@ public class MarketImportRepository {
             ps.setString(4, row.curveId);
         });
     }
+
+    public int delete(List<MarketDeleteKey> rows) {
+        int[][] counts = jdbcTemplate.batchUpdate(
+                "DELETE FROM MR_MARKET_CURVE_INPUT WHERE data_date=? AND market_data_type=? AND curve_id=? AND version_no=?",
+                rows,
+                200,
+                (ps, row) -> {
+                    ps.setDate(1, Date.valueOf(row.getDataDate()));
+                    ps.setString(2, row.getMarketDataType());
+                    ps.setString(3, row.getCurveId());
+                    ps.setInt(4, row.getVersionNo());
+                });
+        return java.util.Arrays.stream(counts).flatMapToInt(java.util.Arrays::stream)
+                .map(value -> value == java.sql.Statement.SUCCESS_NO_INFO ? 1 : Math.max(value, 0)).sum();
+    }
 }

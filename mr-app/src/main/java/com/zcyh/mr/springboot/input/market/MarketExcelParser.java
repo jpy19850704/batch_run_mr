@@ -33,8 +33,6 @@ public class MarketExcelParser {
     private static final Set<String> SYSTEM_FIELDS = new HashSet<String>(Arrays.asList(
             "ID", "DATA_DATE", "MARKET_DATA_TYPE", "CURVE_TYPE", "FIXING_ID", "CURVE_DATA",
             "CONTENT_FORMAT", "VERSION_NO", "SOURCE_SYSTEM", "CREATED_AT", "UPDATED_AT"));
-    private static final Set<String> COMMON_POINT_FIELDS = new HashSet<String>(Arrays.asList(
-            "DATADATE", "CURVECODE"));
 
     public List<MarketImportRow> parse(MultipartFile file, LocalDate dataDate, String marketDataType)
             throws IOException {
@@ -87,7 +85,7 @@ public class MarketExcelParser {
                 if (value != null) {
                     throw rowError(rowNumber, header + "由系统生成，不允许在Excel中维护");
                 }
-            } else if (isPointField(marketDataType, normalized) && value != null) {
+            } else if (MarketImportSchema.isPointField(marketDataType, normalized) && value != null) {
                 point.put(header, value);
             } else if (value != null) {
                 meta.put(normalized, value);
@@ -107,34 +105,6 @@ public class MarketExcelParser {
             builder.requireSameMeta(meta, rowNumber);
         }
         builder.addPoint(point, rowNumber);
-    }
-
-    private static boolean isPointField(String marketDataType, String field) {
-        if (COMMON_POINT_FIELDS.contains(field)) {
-            return true;
-        }
-        switch (marketDataType) {
-            case "IR_SPOT":
-            case "CREDIT_SPOT":
-                return "TERM".equals(field) || "RATE".equals(field);
-            case "FX_SPOT":
-                return "CURRENCY".equals(field) || "RATE".equals(field);
-            case "EQ_SPOT":
-                return "TERM".equals(field) || "EQ_PRICE".equals(field);
-            case "COMM_SPOT":
-                return "TERM".equals(field) || "COMM_PRICE".equals(field);
-            case "FIXING":
-                return "TRADE_DATE".equals(field) || "FIXING_VALUE".equals(field);
-            case "IR_VOL":
-            case "FX_VOL":
-            case "EQ_VOL":
-            case "COMM_VOL":
-                return "OPTION_TERM".equals(field) || "DELTA".equals(field)
-                        || "UNDERLYING_TERM".equals(field) || "MONEYNESS".equals(field)
-                        || "STRIKE".equals(field) || "VOLATILITY_RATE".equals(field);
-            default:
-                return false;
-        }
     }
 
     private static final class CurveBuilder {

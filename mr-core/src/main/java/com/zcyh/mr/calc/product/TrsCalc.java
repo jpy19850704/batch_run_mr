@@ -17,6 +17,11 @@ import java.util.Map;
 import java.util.Set;
 
 public class TrsCalc extends AbstractCalc {
+
+    @Override
+    public Class<?> tradeInputType() {
+        return Trs.TrsTradeInfo.class;
+    }
     private final Map<String, Trs> trsCache = new LinkedHashMap<>();
 
     public TrsCalc(String operCode, LocalDate dataDate, List<HashMap<String, Object>> trades,
