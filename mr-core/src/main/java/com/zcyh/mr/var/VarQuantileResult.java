@@ -19,6 +19,7 @@ public class VarQuantileResult {
     private final VarScenarioPnl selectedScenario;
     private final BigDecimal selectedPnl;
     private final BigDecimal selectedVar;
+    private final BigDecimal interpolationWeightIn;
     private final boolean singleSample;
 
     public VarQuantileResult(BigDecimal quantile,
@@ -34,6 +35,7 @@ public class VarQuantileResult {
                              VarScenarioPnl selectedScenario,
                              BigDecimal selectedPnl,
                              BigDecimal selectedVar,
+                             BigDecimal interpolationWeightIn,
                              boolean singleSample) {
         this.quantile = quantile;
         this.rankIn = rankIn;
@@ -48,6 +50,7 @@ public class VarQuantileResult {
         this.selectedScenario = selectedScenario;
         this.selectedPnl = selectedPnl;
         this.selectedVar = selectedVar;
+        this.interpolationWeightIn = interpolationWeightIn;
         this.singleSample = singleSample;
     }
 
@@ -103,8 +106,11 @@ public class VarQuantileResult {
         return selectedVar;
     }
 
+    public BigDecimal getInterpolationWeightIn() {
+        return interpolationWeightIn;
+    }
+
     public boolean isSingleSample() {
         return singleSample;
     }
 }
-

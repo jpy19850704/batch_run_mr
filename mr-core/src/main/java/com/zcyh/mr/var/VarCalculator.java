@@ -10,7 +10,6 @@ import java.util.List;
  * VaR 分位点计算器。
  */
 public class VarCalculator {
-    private static final BigDecimal TWO = BigDecimal.valueOf(2L);
     private static final int DEFAULT_SCALE = 10;
 
     public List<VarQuantileResult> calculate(List<VarScenarioPnl> scenarioPnls,
@@ -85,6 +84,7 @@ public class VarCalculator {
                     only,
                     onlyPnl,
                     onlyVar,
+                    BigDecimal.ZERO,
                     true);
         }
 
@@ -99,8 +99,9 @@ public class VarCalculator {
         BigDecimal pnlIn = safePnl(inRow.getPnl());
         BigDecimal varOut = toVarValue(pnlOut);
         BigDecimal varIn = toVarValue(pnlIn);
-        BigDecimal avgPnl = pnlOut.add(pnlIn).divide(TWO, DEFAULT_SCALE, RoundingMode.HALF_UP);
-        BigDecimal avgVar = varOut.add(varIn).divide(TWO, DEFAULT_SCALE, RoundingMode.HALF_UP);
+        BigDecimal interpolationWeightIn = calculateInterpolationWeightIn(n, quantile);
+        BigDecimal interpolatedPnl = interpolate(pnlOut, pnlIn, interpolationWeightIn);
+        BigDecimal interpolatedVar = interpolate(varOut, varIn, interpolationWeightIn);
 
         VarScenarioPnl selectedScenario = null;
         BigDecimal selectedPnl;
@@ -114,8 +115,8 @@ public class VarCalculator {
             selectedPnl = pnlOut;
             selectedVar = varOut;
         } else {
-            selectedPnl = avgPnl;
-            selectedVar = avgVar;
+            selectedPnl = interpolatedPnl;
+            selectedVar = interpolatedVar;
         }
 
         return new VarQuantileResult(
@@ -132,6 +133,7 @@ public class VarCalculator {
                 selectedScenario,
                 selectedPnl,
                 selectedVar,
+                interpolationWeightIn,
                 false);
     }
 
@@ -143,15 +145,34 @@ public class VarCalculator {
         return calculateRank(sampleSize, quantile, RoundingMode.CEILING);
     }
 
+    static BigDecimal interpolate(BigDecimal outValue,
+                                  BigDecimal inValue,
+                                  BigDecimal interpolationWeightIn) {
+        BigDecimal safeWeightIn = interpolationWeightIn == null ? BigDecimal.ZERO : interpolationWeightIn;
+        BigDecimal weightOut = BigDecimal.ONE.subtract(safeWeightIn);
+        return safePnl(outValue).multiply(weightOut)
+                .add(safePnl(inValue).multiply(safeWeightIn))
+                .setScale(DEFAULT_SCALE, RoundingMode.HALF_UP);
+    }
+
+    private static BigDecimal calculateInterpolationWeightIn(int sampleSize, BigDecimal quantile) {
+        BigDecimal position = calculatePosition(sampleSize, quantile);
+        return position.subtract(position.setScale(0, RoundingMode.FLOOR));
+    }
+
     private static int calculateRank(int sampleSize, BigDecimal quantile, RoundingMode roundingMode) {
         if (sampleSize <= 0) {
             throw new IllegalArgumentException("VaR 样本数必须大于 0");
         }
-        validateQuantile(quantile);
-        BigDecimal position = BigDecimal.ONE.subtract(quantile)
-                .multiply(BigDecimal.valueOf(sampleSize));
+        BigDecimal position = calculatePosition(sampleSize, quantile);
         int rank = position.setScale(0, roundingMode).intValue();
         return Math.max(1, Math.min(rank, sampleSize));
+    }
+
+    private static BigDecimal calculatePosition(int sampleSize, BigDecimal quantile) {
+        validateQuantile(quantile);
+        return BigDecimal.ONE.subtract(quantile)
+                .multiply(BigDecimal.valueOf(sampleSize));
     }
 
     private static BigDecimal safePnl(BigDecimal pnl) {

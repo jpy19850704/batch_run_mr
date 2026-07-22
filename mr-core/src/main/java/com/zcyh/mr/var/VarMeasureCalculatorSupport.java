@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 
 abstract class VarMeasureCalculatorSupport {
-    private static final BigDecimal TWO = BigDecimal.valueOf(2L);
     private static final BigDecimal ONE_PERCENT = new BigDecimal("0.01");
     private static final int DEFAULT_SCALE = 10;
 
@@ -115,7 +114,8 @@ abstract class VarMeasureCalculatorSupport {
             selectedVar = pnlOut;
             selectedScenarioId = outScenario == null ? null : outScenario.getScenarioId();
         } else {
-            selectedVar = pnlOut.add(pnlIn).divide(TWO, DEFAULT_SCALE, RoundingMode.HALF_UP);
+            selectedVar = VarCalculator.interpolate(
+                    pnlOut, pnlIn, totalAllQuantile.getInterpolationWeightIn());
         }
 
         VarRiskClassMeasureResult result = new VarRiskClassMeasureResult();
@@ -167,7 +167,8 @@ abstract class VarMeasureCalculatorSupport {
         if (pickMethod == VarPickMethod.OUT) {
             return pnlOut;
         }
-        return pnlIn.add(pnlOut).divide(TWO, DEFAULT_SCALE, RoundingMode.HALF_UP);
+        return VarCalculator.interpolate(
+                pnlOut, pnlIn, totalQuantile.getInterpolationWeightIn());
     }
 
     protected BigDecimal calculateMarginalVar(VarDimensionGroup totalGroup,
