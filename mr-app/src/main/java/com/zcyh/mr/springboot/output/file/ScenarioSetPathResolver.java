@@ -3,11 +3,14 @@ package com.zcyh.mr.springboot.output.file;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Comparator;
 
 /**
  * 情景文件目录解析器。
@@ -39,6 +42,26 @@ public class ScenarioSetPathResolver {
             throw new IllegalArgumentException("非法情景文件路径: " + filePath);
         }
         return filePath;
+    }
+
+    public void resetBatchDirectory(String dataDate, String batchId) {
+        if (scenarioSetRootDir.isEmpty()) {
+            return;
+        }
+        Path batchDirectory = resolveBatchDirectory(dataDate, batchId);
+        try {
+            if (!Files.exists(batchDirectory)) {
+                return;
+            }
+            try (java.util.stream.Stream<Path> stream = Files.walk(batchDirectory)) {
+                Path[] paths = stream.sorted(Comparator.reverseOrder()).toArray(Path[]::new);
+                for (Path path : paths) {
+                    Files.deleteIfExists(path);
+                }
+            }
+        } catch (IOException ex) {
+            throw new IllegalStateException("清理情景批次目录失败: " + batchDirectory, ex);
+        }
     }
 
     private Path resolveRootDirectory() {

@@ -242,6 +242,12 @@ class AsyncJobStateRepository {
         withRetry(() -> jdbcTemplate.update(sql, cutoff), "清理历史任务");
     }
 
+    int deleteNonTerminalJobs() {
+        return withRetry(() -> jdbcTemplate.update(
+                "DELETE FROM MR_ASYNC_JOB WHERE status IN ('PENDING','RUNNING')"),
+                "重置未完成任务");
+    }
+
     boolean isDuplicateKey(DataAccessException ex) {
         if (ex instanceof DuplicateKeyException) {
             return true;

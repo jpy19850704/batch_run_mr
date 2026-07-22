@@ -2,8 +2,6 @@ package com.zcyh.mr.springboot.batch;
 
 import com.zcyh.mr.springboot.batch.model.JobStatus;
 import com.zcyh.mr.springboot.output.db.BatchDorisResultWriterService;
-import com.zcyh.mr.springboot.output.file.BatchResultFileService;
-import com.zcyh.mr.springboot.output.file.BatchResultStageService;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -15,12 +13,9 @@ import java.time.format.DateTimeFormatter;
 @Component
 public class BatchDorisResultWriteTask implements BatchRunTask {
     private final BatchDorisResultWriterService writerService;
-    private final BatchResultFileService batchResultFileService;
 
-    public BatchDorisResultWriteTask(BatchDorisResultWriterService writerService,
-                                     BatchResultFileService batchResultFileService) {
+    public BatchDorisResultWriteTask(BatchDorisResultWriterService writerService) {
         this.writerService = writerService;
-        this.batchResultFileService = batchResultFileService;
     }
 
     @Override
@@ -39,8 +34,5 @@ public class BatchDorisResultWriteTask implements BatchRunTask {
                 context.getExecutionId(),
                 context.getJobPayloads().size(),
                 context.isLocalRerun() ? context.getInstrumentIds() : null);
-        if (BatchResultStageService.EXECUTION_TYPE_BATCH.equals(context.getExecutionType())) {
-            batchResultFileService.tryWriteSnapshotForBatch(context.getBatchId());
-        }
     }
 }

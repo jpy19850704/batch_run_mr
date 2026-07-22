@@ -141,7 +141,6 @@ public class AsyncJobService {
                 dispatcher.submit(jobId);
             } catch (RejectedExecutionException ex) {
                 executionService.markRejected(jobId, ex.getMessage());
-                executionService.writeTerminalSnapshotIfNeeded(jobId, create.payloadJson);
                 alertService.error("EXECUTOR_QUEUE_FULL", "任务队列已满，jobId=" + jobId, ex);
                 throw new IllegalStateException("任务队列已满，请稍后重试");
             }
@@ -232,7 +231,6 @@ public class AsyncJobService {
 
         if (job.status == JobStatus.PENDING) {
             executionService.markCancelled(safeJobId, now, JobStatus.PENDING);
-            executionService.writeTerminalSnapshotIfNeeded(safeJobId, job.payloadJson);
         } else if (job.status == JobStatus.RUNNING) {
             dispatcher.cancelLocal(safeJobId);
         }

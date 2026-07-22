@@ -262,18 +262,7 @@ sequenceDiagram
 
 `BatchRunRequest`、`BatchRunWorkflowContext` 和批次任务列表均不包含汇总规则或汇总任务。VaR、SBA、DRC、RRAO、IMA 汇总通过独立接口按需执行，其结果不由 `batch/run` 清理、生成或导出。
 
-## 8.3 非最终结果：批次快照文件
-
-`BatchResultFileService.tryWriteSnapshotForJob` 会在批次全部子任务终态后写 JSON 快照到：
-
-- `engine/data/batch-result/<batchId>_<timestamp>.json`
-
-说明：
-
-- 该文件用于审计与排障，不是最终计量结果主存储。
-- 最终结果主存储口径仍为 Doris `engine_result_db`。
-
-## 8.4 Doris 数据源配置
+## 8.3 Doris 数据源配置
 
 配置键（`application.properties`）：
 
@@ -391,7 +380,6 @@ Controller：
 结果落库：
 
 - `com.zcyh.mr.springboot.service.PricingResultPersistService#persistJobResult`
-- `com.zcyh.mr.springboot.service.BatchResultFileService#tryWriteSnapshotForJob`
 
 ---
 

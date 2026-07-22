@@ -5,6 +5,7 @@ import com.zcyh.mr.springboot.runtime.AlertService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -28,6 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * 异步任务本地执行与多实例分发器。
  */
 @Service
+@DependsOn("batchStartupResetService")
 class AsyncJobDispatcher {
     private static final Logger log = LoggerFactory.getLogger(AsyncJobDispatcher.class);
 

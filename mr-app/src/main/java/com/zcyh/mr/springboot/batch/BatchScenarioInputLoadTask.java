@@ -40,6 +40,9 @@ public class BatchScenarioInputLoadTask implements BatchRunTask {
             return;
         }
         LocalDate dataDate = LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE);
+        String patchExecutionId = context.isLocalRerun()
+                ? requireText(context.getExecutionId(), "Patch execution_id 必填")
+                : null;
         for (BatchJobPayload jobPayload : context.getJobPayloads()) {
             if (jobPayload == null || jobPayload.isFailed() || jobPayload.getPayload() == null) {
                 continue;
@@ -48,7 +51,8 @@ public class BatchScenarioInputLoadTask implements BatchRunTask {
                     jobPayload.getPayload(),
                     context.getBatchId(),
                     dataDate,
-                    context.getScenarioMarketKeys());
+                    context.getScenarioMarketKeys(),
+                    patchExecutionId);
         }
     }
 
@@ -56,7 +60,8 @@ public class BatchScenarioInputLoadTask implements BatchRunTask {
             JSONObject payload,
             String batchId,
             LocalDate dataDate,
-            Set<String> scenarioMarketKeys) {
+            Set<String> scenarioMarketKeys,
+            String patchExecutionId) {
         JSONObject batchMeta = payload.getJSONObject("batch_meta");
         if (batchMeta == null) {
             throw new IllegalArgumentException("批量任务缺少batch_meta");
@@ -76,7 +81,8 @@ public class BatchScenarioInputLoadTask implements BatchRunTask {
                 String scenarioIdList = requireText(
                         item.getString("scenario_set_id"),
                         fieldName + "[" + i + "].scenario_set_id 必填");
-                String cacheKey = buildCacheKey(fieldName, dataDate, batchId, scenarioIdList);
+                String cacheKey = buildCacheKey(
+                        fieldName, dataDate, batchId, scenarioIdList, patchExecutionId);
                 resolveScenarioPaths(scenarioIdList, dataDate, batchId);
                 item.put("cache_key", cacheKey);
             }
@@ -111,9 +117,14 @@ public class BatchScenarioInputLoadTask implements BatchRunTask {
             String fieldName,
             LocalDate dataDate,
             String batchId,
-            String scenarioIdList) {
-        return fieldName + ":" + dataDate.format(DateTimeFormatter.BASIC_ISO_DATE)
-                + ":" + batchId + ":" + scenarioIdList;
+            String scenarioIdList,
+            String patchExecutionId) {
+        String batchCacheKey = fieldName + ":" + dataDate.format(DateTimeFormatter.BASIC_ISO_DATE)
+                + ":" + batchId;
+        if (patchExecutionId != null) {
+            batchCacheKey += ":" + patchExecutionId;
+        }
+        return batchCacheKey + ":" + scenarioIdList;
     }
 
     private static String requireText(String value, String message) {

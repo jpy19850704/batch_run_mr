@@ -100,6 +100,15 @@ class BatchJobStateRepository {
                 batchId);
     }
 
+    List<BatchJobRow> findActiveBatchRows() {
+        String sql = "SELECT batch_id, request_id, engine_code, trace_id, client_id, user_id, user_name, "
+                + "source_system, op_code, data_date, portfolio, desk, total_trades, total_jobs, chunk_size, "
+                + "status, pending_jobs, running_jobs, success_jobs, failed_jobs, cancelled_jobs, message, "
+                + "created_at, updated_at FROM MR_ASYNC_BATCH_JOB "
+                + "WHERE status IN ('PENDING','RUNNING') ORDER BY created_at";
+        return jdbcTemplate.query(sql, BATCH_JOB_ROW_MAPPER);
+    }
+
     void clearExistingBatchData(String batchId) {
         List<String> oldJobIds = jdbcTemplate.queryForList(
                 "SELECT job_id FROM MR_ASYNC_BATCH_ITEM WHERE batch_id=? ORDER BY seq_no",

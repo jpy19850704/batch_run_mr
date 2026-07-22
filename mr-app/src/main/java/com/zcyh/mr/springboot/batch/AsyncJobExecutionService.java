@@ -16,7 +16,6 @@ import com.zcyh.mr.springboot.execution.MeasurementExecutionRequest;
 import com.zcyh.mr.springboot.execution.MeasurementExecutionResult;
 import com.zcyh.mr.springboot.batch.model.JobStatus;
 import com.zcyh.mr.springboot.output.cache.JobScenarioPnlCacheService;
-import com.zcyh.mr.springboot.output.file.BatchResultFileService;
 import com.zcyh.mr.springboot.output.file.BatchResultStageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,7 +36,6 @@ class AsyncJobExecutionService {
 
     private final MeasurementExecutionService executionService;
     private final BatchResultStageService batchResultStageService;
-    private final BatchResultFileService batchResultFileService;
     private final JobScenarioPnlCacheService jobScenarioPnlCacheService;
     private final AlertService alertService;
     private final AsyncJobStateRepository jobStateRepository;
@@ -48,7 +46,6 @@ class AsyncJobExecutionService {
     AsyncJobExecutionService(
             MeasurementExecutionService executionService,
             BatchResultStageService batchResultStageService,
-            BatchResultFileService batchResultFileService,
             JobScenarioPnlCacheService jobScenarioPnlCacheService,
             AlertService alertService,
             AsyncJobStateRepository jobStateRepository,
@@ -57,7 +54,6 @@ class AsyncJobExecutionService {
             @Value("${mr.job.engine.retry.backoff-ms:200}") long engineRetryBackoffMs) {
         this.executionService = executionService;
         this.batchResultStageService = batchResultStageService;
-        this.batchResultFileService = batchResultFileService;
         this.jobScenarioPnlCacheService = jobScenarioPnlCacheService;
         this.alertService = alertService;
         this.jobStateRepository = jobStateRepository;
@@ -73,7 +69,6 @@ class AsyncJobExecutionService {
                 AsyncJobEntity current = jobStateRepository.findByJobId(jobId);
                 if (current != null && current.status == JobStatus.PENDING && current.cancelRequested) {
                     markCancelled(jobId, start, JobStatus.PENDING);
-                    writeTerminalSnapshotIfNeeded(jobId, current.payloadJson);
                 }
                 return;
             }
@@ -93,7 +88,6 @@ class AsyncJobExecutionService {
                 long finish = System.currentTimeMillis();
                 if (isCancelRequested(jobId)) {
                     markCancelled(jobId, finish, JobStatus.RUNNING);
-                    writeTerminalSnapshotIfNeeded(jobId, running.payloadJson);
                     return;
                 }
                 long finalizeStart = System.nanoTime();
@@ -107,7 +101,6 @@ class AsyncJobExecutionService {
                 long finish = System.currentTimeMillis();
                 if (isCancelRequested(jobId)) {
                     markCancelled(jobId, finish, JobStatus.RUNNING);
-                    writeTerminalSnapshotIfNeeded(jobId, running.payloadJson);
                     return;
                 }
                 completeFailure(
@@ -118,7 +111,6 @@ class AsyncJobExecutionService {
                         buildErrorMessage(ex));
                 alertService.error("JOB_FAILED",
                         "异步任务执行失败，jobId=" + jobId + ", engineCode=" + running.engineCode, ex);
-                writeTerminalSnapshotIfNeeded(jobId, running.payloadJson);
             }
         } finally {
             ExecutionContextHolder.clear();
@@ -139,7 +131,6 @@ class AsyncJobExecutionService {
                     finish,
                     runResult.getErrorCode(),
                     truncateForErrorMessage(runResult.getErrorMessage()));
-            writeTerminalSnapshotIfNeeded(jobId, running.payloadJson);
             return JobStatus.FAILED;
         }
         try {
@@ -153,7 +144,6 @@ class AsyncJobExecutionService {
                     buildErrorMessage(ex));
             log.error("任务结果明细落库失败，jobId={}", jobId, ex);
             alertService.error("JOB_RESULT_PERSIST_FAILED", "任务结果明细落库失败，jobId=" + jobId, ex);
-            writeTerminalSnapshotIfNeeded(jobId, running.payloadJson);
             return JobStatus.FAILED;
         }
         completeJob(
@@ -164,7 +154,6 @@ class AsyncJobExecutionService {
                 elapsed,
                 null,
                 null);
-        writeTerminalSnapshotIfNeeded(jobId, running.payloadJson);
         return JobStatus.SUCCESS;
     }
 
@@ -182,23 +171,6 @@ class AsyncJobExecutionService {
 
     private static double elapsedMs(long startNanos) {
         return (System.nanoTime() - startNanos) / 1_000_000.0d;
-    }
-
-    void writeTerminalSnapshotIfNeeded(String jobId, String payloadJson) {
-        try {
-            if (shouldPersistResult(payloadJson) && !isStagedBatchResult(payloadJson)) {
-                batchResultFileService.tryWriteSnapshotForJob(jobId);
-            }
-        } catch (Exception ex) {
-            log.error("批次结果快照生成失败，jobId={}", jobId, ex);
-        }
-    }
-
-    private static boolean isStagedBatchResult(String payloadJson) {
-        JSONObject payload = parseJsonObject(payloadJson);
-        JSONObject batchMeta = payload == null ? null : payload.getJSONObject("batch_meta");
-        return batchMeta != null
-                && trimToNull(batchMeta.getString(BatchResultStageService.META_EXECUTION_TYPE)) != null;
     }
 
     void markRejected(String jobId, String reason) {
