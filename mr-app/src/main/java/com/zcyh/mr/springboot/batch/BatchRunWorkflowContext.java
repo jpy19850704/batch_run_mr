@@ -11,6 +11,7 @@ import com.zcyh.mr.springboot.batch.model.BatchExecutionResult;
 import com.zcyh.mr.springboot.batch.model.BatchRunRequest;
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -22,7 +23,7 @@ import java.util.Set;
 public class BatchRunWorkflowContext {
     private BatchRunRequest request;
     private String batchId;
-    private String dataDate;
+    private LocalDate dataDate;
     private String user;
     private String regularScenarioIdList;
     private String varScenarioIdList;
@@ -69,11 +70,11 @@ public class BatchRunWorkflowContext {
         this.batchId = batchId;
     }
 
-    public String getDataDate() {
+    public LocalDate getDataDate() {
         return dataDate;
     }
 
-    public void setDataDate(String dataDate) {
+    public void setDataDate(LocalDate dataDate) {
         this.dataDate = dataDate;
     }
 

@@ -1,6 +1,7 @@
 package com.zcyh.mr.frtbima.model;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 /**
  * IMA ES 中间明细结果。
@@ -8,7 +9,7 @@ import java.math.BigDecimal;
 public class ImaEsResultDetail {
 
     private String batchId;
-    private String dataDate;
+    private LocalDate dataDate;
     private String ruleId;
     private String groupType;
     private String groupValue;
@@ -26,8 +27,8 @@ public class ImaEsResultDetail {
     public String getBatchId() { return batchId; }
     public void setBatchId(String batchId) { this.batchId = batchId; }
 
-    public String getDataDate() { return dataDate; }
-    public void setDataDate(String dataDate) { this.dataDate = dataDate; }
+    public LocalDate getDataDate() { return dataDate; }
+    public void setDataDate(LocalDate dataDate) { this.dataDate = dataDate; }
 
     public String getRuleId() { return ruleId; }
     public void setRuleId(String ruleId) { this.ruleId = ruleId; }

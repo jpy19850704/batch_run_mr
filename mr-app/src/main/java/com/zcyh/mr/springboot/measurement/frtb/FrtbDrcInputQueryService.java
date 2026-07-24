@@ -82,14 +82,14 @@ public class FrtbDrcInputQueryService {
                 + "TERM_TO_MATURITY, MODIFIED_REMAIN_TERM, RISK_WEIGHT, JTD, JTD_CNY, "
                 + "INSTRUMENT_VALUE, FRTB_LGD, NOTIONAL "
                 + "FROM TB_OUT_TRADE_DRC_DETAIL "
-                + "WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') "
+                + "WHERE BATCH_ID=? AND DATA_DATE=? "
                 + "ORDER BY SEQ_NO, ID";
 
         List<DrcDetail> rows = engineResultDbJdbcTemplate.query(
                 sql,
                 ps -> {
                     ps.setString(1, safeBatchId);
-                    ps.setString(2, safeDataDate);
+                    ps.setDate(2, com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(safeDataDate));
                 },
                 (rs, rowNum) -> {
                     DrcDetail detail = new DrcDetail();
@@ -189,9 +189,9 @@ public class FrtbDrcInputQueryService {
                 .append(usePortfolioFlatView
                         ? "LEFT JOIN " + RuleColumnSqlResolver.PORTFOLIO_FLAT_VIEW + " p ON p.BATCH_ID = d.BATCH_ID AND p.DATA_DATE = d.DATA_DATE AND p.PORTFOLIO_CODE = COALESCE(r.PORTFOLIO, d.PORTFOLIO_CODE) "
                         : "")
-                .append("WHERE d.BATCH_ID = ? AND d.DATA_DATE=STR_TO_DATE(?, '%Y%m%d')");
+                .append("WHERE d.BATCH_ID = ? AND d.DATA_DATE=?");
         params.add(safeBatchId);
-        params.add(safeDataDate);
+        params.add(com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(safeDataDate));
 
         AggregationFilterSqlBuilder.appendWhereClause(sql, params, rule, new AggregationFilterSqlBuilder.ColumnResolver() {
             @Override

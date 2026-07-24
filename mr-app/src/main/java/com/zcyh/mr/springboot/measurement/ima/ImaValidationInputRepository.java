@@ -7,7 +7,6 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,50 +22,47 @@ public class ImaValidationInputRepository {
     public static final int REQUIRED_OBSERVATION_COUNT = 250;
 
     private static final String RISK_CLASS_ALL = "ALL";
-    private static final DateTimeFormatter BASIC_DATE = DateTimeFormatter.BASIC_ISO_DATE;
-
     private final JdbcTemplate jdbcTemplate;
 
     public ImaValidationInputRepository(@Qualifier("engineResultDbJdbcTemplate") JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public List<String> queryObservationDates(String dataDate, String ruleId) {
+    public List<LocalDate> queryObservationDates(LocalDate dataDate, String ruleId) {
         String sql = "SELECT DATA_DATE FROM ("
                 + "SELECT DISTINCT DATA_DATE FROM TB_EXTERNAL_IMA_GROUP_PNL "
-                + "WHERE RULE_ID=? AND DATA_DATE<=STR_TO_DATE(?, '%Y%m%d') "
+                + "WHERE RULE_ID=? AND DATA_DATE<=? "
                 + "ORDER BY DATA_DATE DESC LIMIT " + REQUIRED_OBSERVATION_COUNT
                 + ") t ORDER BY DATA_DATE";
         return jdbcTemplate.query(
                 sql,
                 ps -> {
                     ps.setString(1, ruleId);
-                    ps.setString(2, dataDate);
+                    ps.setDate(2, ResultDbDateSupport.sqlDate(dataDate));
                 },
-                (rs, rowNum) -> protocolDate(rs.getDate("DATA_DATE"), "DATA_DATE"));
+                (rs, rowNum) -> requireDate(rs.getDate("DATA_DATE"), "DATA_DATE"));
     }
 
     public Map<GroupKey, List<ExternalPnlRow>> queryExternalPnl(
-            String startDate,
-            String endDate,
+            LocalDate startDate,
+            LocalDate endDate,
             String ruleId) {
         String sql = "SELECT DATA_DATE, RULE_ID, GROUP_TYPE, GROUP_VALUE, ACTUAL_PNL, "
                 + "HYPOTHETICAL_PNL, RISK_THEORETICAL_PNL, VALUATION_CCY "
                 + "FROM TB_EXTERNAL_IMA_GROUP_PNL "
-                + "WHERE RULE_ID=? AND DATA_DATE BETWEEN STR_TO_DATE(?, '%Y%m%d') "
-                + "AND STR_TO_DATE(?, '%Y%m%d') "
+                + "WHERE RULE_ID=? AND DATA_DATE BETWEEN ? "
+                + "AND ? "
                 + "ORDER BY GROUP_TYPE, GROUP_VALUE, DATA_DATE";
         List<ExternalPnlRow> rows = jdbcTemplate.query(
                 sql,
                 ps -> {
                     ps.setString(1, ruleId);
-                    ps.setString(2, startDate);
-                    ps.setString(3, endDate);
+                    ps.setDate(2, ResultDbDateSupport.sqlDate(startDate));
+                    ps.setDate(3, ResultDbDateSupport.sqlDate(endDate));
                 },
                 (rs, rowNum) -> {
                     ExternalPnlRow row = new ExternalPnlRow();
-                    row.dataDateText = protocolDate(rs.getDate("DATA_DATE"), "DATA_DATE");
-                    row.dataDate = parseDate(row.dataDateText, "DATA_DATE");
+                    row.dataDate = requireDate(rs.getDate("DATA_DATE"), "DATA_DATE");
                     row.ruleId = requireText(rs.getString("RULE_ID"), "RULE_ID");
                     row.groupType = requireText(rs.getString("GROUP_TYPE"), "GROUP_TYPE");
                     row.groupValue = requireText(rs.getString("GROUP_VALUE"), "GROUP_VALUE");
@@ -89,11 +85,11 @@ public class ImaValidationInputRepository {
 
     public Map<GroupKey, TreeMap<LocalDate, BigDecimal>> queryVarRows(
             String batchId,
-            String endDate,
+            LocalDate endDate,
             String ruleId,
             String quantile,
             String varScenarioId) {
-        List<String> varDates = queryVarObservationDates(batchId, endDate, ruleId, quantile, varScenarioId);
+        List<LocalDate> varDates = queryVarObservationDates(batchId, endDate, ruleId, quantile, varScenarioId);
         Map<GroupKey, TreeMap<LocalDate, BigDecimal>> result =
                 new LinkedHashMap<GroupKey, TreeMap<LocalDate, BigDecimal>>();
         if (varDates.isEmpty()) {
@@ -110,7 +106,7 @@ public class ImaValidationInputRepository {
         params.add(quantile);
         params.add(varScenarioId);
         params.add(RISK_CLASS_ALL);
-        for (String varDate : varDates) {
+        for (LocalDate varDate : varDates) {
             params.add(ResultDbDateSupport.sqlDate(varDate));
         }
         List<VarRow> rows = jdbcTemplate.query(
@@ -122,8 +118,7 @@ public class ImaValidationInputRepository {
                 },
                 (rs, rowNum) -> {
                     VarRow row = new VarRow();
-                    row.dataDateText = protocolDate(rs.getDate("DATA_DATE"), "DATA_DATE");
-                    row.dataDate = parseDate(row.dataDateText, "DATA_DATE");
+                    row.dataDate = requireDate(rs.getDate("DATA_DATE"), "DATA_DATE");
                     row.groupType = requireText(rs.getString("GROUP_TYPE"), "GROUP_TYPE");
                     row.groupValue = requireText(rs.getString("GROUP_VALUE"), "GROUP_VALUE");
                     row.varValue = requireDecimal(rs.getBigDecimal("VAR"), "VAR", row);
@@ -138,7 +133,7 @@ public class ImaValidationInputRepository {
         return result;
     }
 
-    public String minVarDate(Map<GroupKey, TreeMap<LocalDate, BigDecimal>> varByGroup) {
+    public LocalDate minVarDate(Map<GroupKey, TreeMap<LocalDate, BigDecimal>> varByGroup) {
         LocalDate min = null;
         for (TreeMap<LocalDate, BigDecimal> rows : varByGroup.values()) {
             if (rows == null || rows.isEmpty()) {
@@ -149,10 +144,10 @@ public class ImaValidationInputRepository {
                 min = first;
             }
         }
-        return min == null ? null : min.format(BASIC_DATE);
+        return min;
     }
 
-    public String maxVarDate(Map<GroupKey, TreeMap<LocalDate, BigDecimal>> varByGroup) {
+    public LocalDate maxVarDate(Map<GroupKey, TreeMap<LocalDate, BigDecimal>> varByGroup) {
         LocalDate max = null;
         for (TreeMap<LocalDate, BigDecimal> rows : varByGroup.values()) {
             if (rows == null || rows.isEmpty()) {
@@ -163,19 +158,19 @@ public class ImaValidationInputRepository {
                 max = last;
             }
         }
-        return max == null ? null : max.format(BASIC_DATE);
+        return max;
     }
 
-    private List<String> queryVarObservationDates(
+    private List<LocalDate> queryVarObservationDates(
             String batchId,
-            String endDate,
+            LocalDate endDate,
             String ruleId,
             String quantile,
             String varScenarioId) {
         String sql = "SELECT DATA_DATE FROM ("
                 + "SELECT DISTINCT DATA_DATE FROM TB_OUT_VAR_RESULT "
                 + "WHERE BATCH_ID=? AND RULE_ID=? AND QUANTILE=? AND SCENARIO_ID=? "
-                + "AND RISK_CLASS=? AND DATA_DATE<STR_TO_DATE(?, '%Y%m%d') "
+                + "AND RISK_CLASS=? AND DATA_DATE<? "
                 + "ORDER BY DATA_DATE DESC LIMIT " + REQUIRED_OBSERVATION_COUNT
                 + ") t ORDER BY DATA_DATE";
         return jdbcTemplate.query(
@@ -186,9 +181,9 @@ public class ImaValidationInputRepository {
                     ps.setString(3, quantile);
                     ps.setString(4, varScenarioId);
                     ps.setString(5, RISK_CLASS_ALL);
-                    ps.setString(6, endDate);
+                    ps.setDate(6, ResultDbDateSupport.sqlDate(endDate));
                 },
-                (rs, rowNum) -> protocolDate(rs.getDate("DATA_DATE"), "DATA_DATE"));
+                (rs, rowNum) -> requireDate(rs.getDate("DATA_DATE"), "DATA_DATE"));
     }
 
     private static String placeholders(int count) {
@@ -209,19 +204,11 @@ public class ImaValidationInputRepository {
         return value;
     }
 
-    private static String protocolDate(java.sql.Date value, String fieldName) {
+    private static LocalDate requireDate(java.sql.Date value, String fieldName) {
         if (value == null) {
             throw new IllegalArgumentException(fieldName + " 不能为空");
         }
-        return ResultDbDateSupport.protocolDate(value.toLocalDate());
-    }
-
-    private static LocalDate parseDate(String text, String fieldName) {
-        try {
-            return LocalDate.parse(text, BASIC_DATE);
-        } catch (Exception ex) {
-            throw new IllegalArgumentException(fieldName + " 必须为 yyyyMMdd: " + text);
-        }
+        return value.toLocalDate();
     }
 
     private static String requireText(String text, String fieldName) {
@@ -268,7 +255,6 @@ public class ImaValidationInputRepository {
     }
 
     public static final class ExternalPnlRow {
-        String dataDateText;
         LocalDate dataDate;
         String ruleId;
         String groupType;
@@ -282,12 +268,11 @@ public class ImaValidationInputRepository {
         public String toString() {
             return String.format(Locale.ROOT,
                     "DATA_DATE=%s,RULE_ID=%s,GROUP_TYPE=%s,GROUP_VALUE=%s",
-                    dataDateText, ruleId, groupType, groupValue);
+                    dataDate, ruleId, groupType, groupValue);
         }
     }
 
     private static final class VarRow {
-        private String dataDateText;
         private LocalDate dataDate;
         private String groupType;
         private String groupValue;
@@ -297,7 +282,7 @@ public class ImaValidationInputRepository {
         public String toString() {
             return String.format(Locale.ROOT,
                     "DATA_DATE=%s,GROUP_TYPE=%s,GROUP_VALUE=%s",
-                    dataDateText, groupType, groupValue);
+                    dataDate, groupType, groupValue);
         }
     }
 }

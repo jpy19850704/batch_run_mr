@@ -14,6 +14,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -56,13 +57,14 @@ public class SaccrResultPersistService {
     }
 
     public void persist(String batchId,
-                        String dataDate,
+                        LocalDate dataDate,
                         List<SaccrResult> results,
                         List<SaccrTradeRow> tradeRows,
                         List<SaccrCollateralOutputRow> collateralRows) {
-        engineResultJdbc.update("DELETE FROM TB_OUT_SACCR_RESULT WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')", batchId, dataDate);
-        engineResultJdbc.update("DELETE FROM TB_OUT_SACCR_TRADE_DETAIL WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')", batchId, dataDate);
-        engineResultJdbc.update("DELETE FROM TB_OUT_SACCR_COLLATERAL_DETAIL WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')", batchId, dataDate);
+        java.sql.Date sqlDataDate = com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate);
+        engineResultJdbc.update("DELETE FROM TB_OUT_SACCR_RESULT WHERE BATCH_ID = ? AND DATA_DATE=?", batchId, sqlDataDate);
+        engineResultJdbc.update("DELETE FROM TB_OUT_SACCR_TRADE_DETAIL WHERE BATCH_ID = ? AND DATA_DATE=?", batchId, sqlDataDate);
+        engineResultJdbc.update("DELETE FROM TB_OUT_SACCR_COLLATERAL_DETAIL WHERE BATCH_ID = ? AND DATA_DATE=?", batchId, sqlDataDate);
 
         String now = ResultPersistTime.nowText();
         writeResults(batchId, dataDate, results, now);
@@ -77,7 +79,7 @@ public class SaccrResultPersistService {
                 collateralRows == null ? 0 : collateralRows.size());
     }
 
-    private void writeResults(String batchId, String dataDate, List<SaccrResult> results, String now) {
+    private void writeResults(String batchId, LocalDate dataDate, List<SaccrResult> results, String now) {
         if (results == null || results.isEmpty()) {
             return;
         }
@@ -117,7 +119,7 @@ public class SaccrResultPersistService {
         buffer.flush();
     }
 
-    private void writeTradeDetails(String batchId, String dataDate, List<SaccrTradeRow> rows, String now) {
+    private void writeTradeDetails(String batchId, LocalDate dataDate, List<SaccrTradeRow> rows, String now) {
         if (rows == null || rows.isEmpty()) {
             return;
         }
@@ -163,7 +165,7 @@ public class SaccrResultPersistService {
     }
 
     private void writeCollateralDetails(String batchId,
-                                        String dataDate,
+                                        LocalDate dataDate,
                                         List<SaccrCollateralOutputRow> rows,
                                         String now) {
         if (rows == null || rows.isEmpty()) {

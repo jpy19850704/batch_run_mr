@@ -3,9 +3,6 @@ package com.zcyh.mr.springboot.batch;
 import com.zcyh.mr.springboot.output.db.MrCalcDetailCleanupService;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-
 /**
  * 完整批次 MR_CALC 明细清理任务。
  */
@@ -27,6 +24,6 @@ public class BatchMrCalcDetailCleanupTask implements BatchRunTask {
         }
         cleanupService.cleanupBatch(
                 context.getBatchId(),
-                LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE));
+                context.getDataDate());
     }
 }

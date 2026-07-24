@@ -15,7 +15,7 @@ public class AuditLogRepository {
     private static final String INSERT_SQL = "INSERT INTO MR_AUDIT_LOG "
             + "(trace_id, request_id, client_id, user_id, user_name, source_system, action, resource_type, "
             + "resource_id, engine_code, success_flag, error_code, message, remote_ip, request_uri, "
-            + "http_method, elapsed_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            + "http_method, elapsed_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP(3))";
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -44,8 +44,7 @@ public class AuditLogRepository {
             String remoteIp,
             String requestUri,
             String httpMethod,
-            Long elapsedMs,
-            Long createdAt) {
+            Long elapsedMs) {
         return jdbcTemplate.update(
                 INSERT_SQL,
                 traceId,
@@ -64,7 +63,6 @@ public class AuditLogRepository {
                 remoteIp,
                 requestUri,
                 httpMethod,
-                elapsedMs,
-                createdAt);
+                elapsedMs);
     }
 }

@@ -2,6 +2,7 @@ package com.zcyh.mr.springboot.output.db;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -18,13 +19,26 @@ public final class RuleScopedDeleteSupport {
                                       String batchId,
                                       String dataDate,
                                       List<String> ruleIds) {
+        return deleteByRuleIds(
+                jdbcTemplate,
+                tableName,
+                batchId,
+                com.zcyh.mr.springboot.support.ResultDbDateSupport.localDate(dataDate),
+                ruleIds);
+    }
+
+    public static int deleteByRuleIds(JdbcTemplate jdbcTemplate,
+                                      String tableName,
+                                      String batchId,
+                                      LocalDate dataDate,
+                                      List<String> ruleIds) {
         List<String> safeRuleIds = requireRuleIds(ruleIds);
         String sql = "DELETE FROM " + requireIdentifier(tableName)
-                + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND RULE_ID IN ("
+                + " WHERE BATCH_ID=? AND DATA_DATE=? AND RULE_ID IN ("
                 + placeholders(safeRuleIds.size()) + ")";
         List<Object> args = new ArrayList<Object>(2 + safeRuleIds.size());
         args.add(batchId);
-        args.add(dataDate);
+        args.add(com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate));
         args.addAll(safeRuleIds);
         return jdbcTemplate.update(sql, args.toArray());
     }
@@ -37,11 +51,11 @@ public final class RuleScopedDeleteSupport {
                                           List<String> ruleIds) {
         List<String> safeRuleIds = requireRuleIds(ruleIds);
         String sql = "DELETE FROM " + requireIdentifier(tableName)
-                + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND CALC_TYPE=? AND RULE_ID IN ("
+                + " WHERE BATCH_ID=? AND DATA_DATE=? AND CALC_TYPE=? AND RULE_ID IN ("
                 + placeholders(safeRuleIds.size()) + ")";
         List<Object> args = new ArrayList<Object>(3 + safeRuleIds.size());
         args.add(batchId);
-        args.add(dataDate);
+        args.add(com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate));
         args.add(calcType);
         args.addAll(safeRuleIds);
         return jdbcTemplate.update(sql, args.toArray());

@@ -1,11 +1,13 @@
 package com.zcyh.mr.springboot.measurement.saccr;
 
+import java.time.LocalDate;
+
 /**
  * SA-CCR 押品计量审计输出行。
  */
 public class SaccrCollateralOutputRow {
     public String batchId;
-    public String dataDate;
+    public LocalDate dataDate;
     public String collateralId;
     public String collateralScope;
     public String nettingSetId;

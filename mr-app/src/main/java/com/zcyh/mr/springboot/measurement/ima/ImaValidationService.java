@@ -17,11 +17,11 @@ import com.zcyh.mr.springboot.measurement.ima.ImaValidationResultAssembler.KsOut
 import com.zcyh.mr.springboot.measurement.ima.ImaValidationResultAssembler.ValidationMetadata;
 import com.zcyh.mr.springboot.measurement.SummaryCleanupMode;
 import com.zcyh.mr.springboot.output.db.ImaValidationResultPersistService;
+import com.zcyh.mr.springboot.support.ResultDbDateSupport;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -34,8 +34,6 @@ import java.util.TreeMap;
 public class ImaValidationService {
     private static final String VALIDATION_TYPE_BACKTEST = "BACKTEST";
     private static final String VALIDATION_TYPE_KS = "KS";
-    private static final DateTimeFormatter BASIC_DATE = DateTimeFormatter.BASIC_ISO_DATE;
-
     private final ImaValidationInputRepository inputRepository;
     private final ImaBacktestCalculationService backtestCalculationService;
     private final ImaKsCalculationService ksCalculationService;
@@ -62,7 +60,7 @@ public class ImaValidationService {
         }
         String validationType = normalizeValidationType(required(request, "validation_type"));
         String batchId = required(request, "batch_id");
-        String dataDate = normalizeDate(required(request, "data_date"), "data_date");
+        LocalDate dataDate = ResultDbDateSupport.localDate(required(request, "data_date"));
         String ruleId = required(request, "rule_id");
         String quantile = VALIDATION_TYPE_BACKTEST.equals(validationType)
                 ? required(request, "quantile") : null;
@@ -71,14 +69,14 @@ public class ImaValidationService {
         boolean persistResult = readBoolean(request, true, "persist_result");
         SummaryCleanupMode cleanupMode = readCleanupMode(request);
 
-        List<String> observationDates = inputRepository.queryObservationDates(dataDate, ruleId);
+        List<LocalDate> observationDates = inputRepository.queryObservationDates(dataDate, ruleId);
         if (VALIDATION_TYPE_KS.equals(validationType)
                 && observationDates.size() != ImaValidationInputRepository.REQUIRED_OBSERVATION_COUNT) {
             throw new IllegalArgumentException("IMA 返回检验需要最近250个有效观测日: data_date=" + dataDate
                     + ", rule_id=" + ruleId + ", actual_count=" + observationDates.size());
         }
-        String startDate = observationDates.isEmpty() ? dataDate : observationDates.get(0);
-        String endDate = observationDates.isEmpty() ? dataDate : observationDates.get(observationDates.size() - 1);
+        LocalDate startDate = observationDates.isEmpty() ? dataDate : observationDates.get(0);
+        LocalDate endDate = observationDates.isEmpty() ? dataDate : observationDates.get(observationDates.size() - 1);
 
         Map<GroupKey, TreeMap<LocalDate, BigDecimal>> varByGroup = null;
         if (VALIDATION_TYPE_BACKTEST.equals(validationType)) {
@@ -126,9 +124,9 @@ public class ImaValidationService {
         JSONObject response = new JSONObject();
         response.put("validation_type", validationType);
         response.put("batch_id", batchId);
-        response.put("data_date", dataDate);
-        response.put("start_date", startDate);
-        response.put("end_date", endDate);
+        response.put("data_date", ResultDbDateSupport.protocolDate(dataDate));
+        response.put("start_date", ResultDbDateSupport.protocolDate(startDate));
+        response.put("end_date", ResultDbDateSupport.protocolDate(endDate));
         response.put("rule_id", ruleId);
         if (VALIDATION_TYPE_BACKTEST.equals(validationType)) {
             response.put("quantile", quantile);
@@ -171,20 +169,6 @@ public class ImaValidationService {
             return SummaryCleanupMode.valueOf(value);
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("cleanupMode 仅支持 FULL 或 RULE");
-        }
-    }
-
-    private static String normalizeDate(String text, String fieldName) {
-        String value = requireText(text, fieldName);
-        parseDate(value, fieldName);
-        return value;
-    }
-
-    private static LocalDate parseDate(String text, String fieldName) {
-        try {
-            return LocalDate.parse(text, BASIC_DATE);
-        } catch (Exception ex) {
-            throw new IllegalArgumentException(fieldName + " 必须为 yyyyMMdd: " + text);
         }
     }
 

@@ -4,9 +4,6 @@ import com.zcyh.mr.springboot.batch.model.JobStatus;
 import com.zcyh.mr.springboot.output.db.BatchDorisResultWriterService;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-
 /**
  * 批次明细结果统一写入任务。
  */
@@ -29,7 +26,7 @@ public class BatchDorisResultWriteTask implements BatchRunTask {
         }
         writerService.persistExecution(
                 context.getBatchId(),
-                LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE),
+                context.getDataDate(),
                 context.getExecutionType(),
                 context.getExecutionId(),
                 context.getJobPayloads().size(),

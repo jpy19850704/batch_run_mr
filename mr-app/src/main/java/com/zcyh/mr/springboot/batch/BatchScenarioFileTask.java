@@ -6,6 +6,7 @@ import com.zcyh.mr.springboot.batch.BatchRunTask;
 import com.zcyh.mr.springboot.batch.BatchRunWorkflowContext;
 
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
+import com.zcyh.mr.springboot.support.ResultDbDateSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -73,7 +74,8 @@ public class BatchScenarioFileTask implements BatchRunTask {
         }
 
         try {
-            Path batchDir = prepareBatchDirectory(context.getDataDate(), context.getBatchId());
+            String dataDate = ResultDbDateSupport.protocolDate(context.getDataDate());
+            Path batchDir = prepareBatchDirectory(dataDate, context.getBatchId());
 
             Set<String> requestedScenarioIds = mergeScenarioIds(
                     context.getRegularScenarioIdList(),
@@ -91,7 +93,7 @@ public class BatchScenarioFileTask implements BatchRunTask {
                             + ", batchId=" + context.getBatchId());
                 }
                 Path filePath = pathResolver.resolveScenarioFile(
-                        context.getDataDate(), context.getBatchId(), scenarioId);
+                        dataDate, context.getBatchId(), scenarioId);
                 writeScenarioCsvGzip(filePath, scenarioRecords);
                 log.info("情景文件已写入: {}, SCENARIO_ID={}, 记录数={}",
                         filePath, scenarioId, scenarioRecords.size());

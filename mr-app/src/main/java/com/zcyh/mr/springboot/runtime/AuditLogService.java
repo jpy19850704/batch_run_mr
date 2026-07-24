@@ -39,7 +39,6 @@ public class AuditLogService {
             return;
         }
         ExecutionContext context = ExecutionContextHolder.snapshot();
-        long now = System.currentTimeMillis();
         try {
             auditLogRepository.insert(
                     safe(context == null ? null : context.getTraceId()),
@@ -58,8 +57,7 @@ public class AuditLogService {
                     safe(context == null ? null : context.getRemoteIp()),
                     safe(context == null ? null : context.getRequestUri()),
                     safe(context == null ? null : context.getMethod()),
-                    Math.max(0L, elapsedMs),
-                    now
+                    Math.max(0L, elapsedMs)
             );
         } catch (Exception ex) {
             log.error("审计日志写入失败，action={}, resourceType={}, resourceId={}", action, resourceType, resourceId, ex);

@@ -14,6 +14,7 @@ import com.zcyh.mr.frtbima.nmrf.NmrfStressAggregator;
 import com.zcyh.mr.frtbima.nmrf.SesCalculator;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
@@ -62,7 +63,7 @@ public class ImaCapitalCalculator {
      * @param saByDesk           各交易台标准法资本（deskId → SA）
      * @param amberDesks         Amber 区交易台 ID 集合
      * @param greenDesks         Green 区交易台 ID 集合
-     * @param dataDate           估值日期字符串
+     * @param dataDate           估值日期
      * @param batchId            批次ID
      * @return ImaCapitalResult
      */
@@ -71,7 +72,7 @@ public class ImaCapitalCalculator {
                                        Map<String, BigDecimal> saByDesk,
                                        Set<String> amberDesks,
                                        Set<String> greenDesks,
-                                       String dataDate,
+                                       LocalDate dataDate,
                                        String batchId) {
         List<EsResult> esResults = esCalculator.calculate(subsetPnlRecords);
         return calculateFromEsResults(esResults, nmrfPnlRecords, saByDesk, amberDesks, greenDesks, dataDate, batchId);
@@ -82,7 +83,7 @@ public class ImaCapitalCalculator {
                                                    Map<String, BigDecimal> saByDesk,
                                                    Set<String> amberDesks,
                                                    Set<String> greenDesks,
-                                                   String dataDate,
+                                                   LocalDate dataDate,
                                                    String batchId) {
         ImaCapitalResult result = new ImaCapitalResult();
         result.setDataDate(dataDate);

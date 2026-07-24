@@ -13,6 +13,7 @@ import com.zcyh.mr.springboot.measurement.aggregation.DimensionAggregationServic
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -45,7 +46,7 @@ public class ImaCapitalCalculationService {
             Map<String, BigDecimal> saByDesk,
             Set<String> amberDesks,
             Set<String> greenDesks,
-            String dataDate,
+            LocalDate dataDate,
             String batchId) {
         validateImaRule(rule);
         if (dimensionsByInstrument == null || dimensionsByInstrument.isEmpty()) {

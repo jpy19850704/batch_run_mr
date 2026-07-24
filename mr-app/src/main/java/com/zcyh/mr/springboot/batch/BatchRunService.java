@@ -10,6 +10,7 @@ import com.zcyh.mr.springboot.batch.model.BatchPatchRequest;
 import com.zcyh.mr.springboot.batch.model.BatchRunRequest;
 import com.zcyh.mr.springboot.batch.model.BatchRunResult;
 import com.zcyh.mr.springboot.output.file.BatchResultStageService;
+import com.zcyh.mr.springboot.support.ResultDbDateSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -18,7 +19,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -40,7 +40,6 @@ public class BatchRunService {
     private static final Logger log = LoggerFactory.getLogger(BatchRunService.class);
     private static final String DEFAULT_USER = "outer_service";
     private static final String RUN_MODE_WHATIF = "WHATIF";
-    private static final Pattern DATE_8_PATTERN = Pattern.compile("^\\d{8}$");
     private static final Pattern BATCH_ID_PATTERN = Pattern.compile("^[A-Za-z0-9._-]+$");
     private static final DateTimeFormatter GENERATED_BATCH_TIME_FORMATTER = DateTimeFormatter.ofPattern("HHmmssSSS");
     private static final String ENGINE_CODE = "MR_CALC";
@@ -144,7 +143,7 @@ public class BatchRunService {
         String stressReducedScenarioIdList = trimToNull(request.getStressReducedScenarioIdList());
         String nmrfScenarioIdList = trimToNull(request.getNmrfScenarioIdList());
         String runMode = normalizeRunMode(request.getRunMode());
-        String dataDate = normalizeDataDate(request.getDataDate());
+        LocalDate dataDate = normalizeDataDate(request.getDataDate());
         String externalBatchId = trimToNull(request.getBatchId());
         if (localRerun && externalBatchId == null) {
             throw new IllegalArgumentException("局部重跑 batchId 不能为空");
@@ -217,7 +216,7 @@ public class BatchRunService {
     private BatchRunResult buildAcceptedResult(BatchRunWorkflowContext context) {
         BatchRunResult result = new BatchRunResult();
         result.setBatchId(context.getBatchId());
-        result.setDataDate(context.getDataDate());
+        result.setDataDate(ResultDbDateSupport.protocolDate(context.getDataDate()));
         result.setUser(context.getUser());
         result.setMode(context.isScenarioMode() ? "SCENARIO" : "PRICING");
         result.setRunMode(context.getRunMode());
@@ -236,7 +235,7 @@ public class BatchRunService {
         result.setRequestId(context.getBatchId());
         result.setEngineCode(ENGINE_CODE);
         result.setOpCode(context.isScenarioMode() ? "SCENARIO" : "PRICING");
-        result.setDataDate(LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE).toString());
+        result.setDataDate(context.getDataDate().toString());
         result.setStatus("ACCEPTED");
         result.setTotalTrades(context.getInstrumentIds().size());
         result.setTotalJobs(0);
@@ -255,7 +254,7 @@ public class BatchRunService {
         if (context.isLocalRerun()) {
             int firstJobSeqNo = batchJobService.prepareLocalRerun(
                     context.getBatchId(),
-                    LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE));
+                    context.getDataDate());
             context.setFirstJobSeqNo(firstJobSeqNo);
             batchJobService.markWorkflowRunning(context.getBatchId(), "批次局部重跑工作流已启动");
             return;
@@ -265,7 +264,7 @@ public class BatchRunService {
                 context.getBatchId(),
                 ENGINE_CODE,
                 context.isScenarioMode() ? "SCENARIO" : "PRICING",
-                LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE),
+                context.getDataDate(),
                 null,
                 null,
                 System.currentTimeMillis(),
@@ -362,22 +361,15 @@ public class BatchRunService {
         return safe;
     }
 
-    private static String normalizeDataDate(String txt) {
+    private static LocalDate normalizeDataDate(String txt) {
         String safe = requireNonBlank(txt, "dataDate 不能为空");
-        if (!DATE_8_PATTERN.matcher(safe).matches()) {
-            throw new IllegalArgumentException("dataDate 格式错误，仅支持 yyyyMMdd");
-        }
-        try {
-            LocalDate.parse(safe, DateTimeFormatter.BASIC_ISO_DATE);
-            return safe;
-        } catch (DateTimeParseException ex) {
-            throw new IllegalArgumentException("dataDate 格式错误，仅支持 yyyyMMdd");
-        }
+        return ResultDbDateSupport.localDate(safe);
     }
 
-    private static String buildGeneratedBatchId(String dataDate) {
+    private static String buildGeneratedBatchId(LocalDate dataDate) {
         String random = Long.toUnsignedString(ThreadLocalRandom.current().nextLong(), 36);
-        return "batch_" + dataDate + "_" + LocalDateTime.now().format(GENERATED_BATCH_TIME_FORMATTER) + "_" + random;
+        return "batch_" + ResultDbDateSupport.protocolDate(dataDate) + "_"
+                + LocalDateTime.now().format(GENERATED_BATCH_TIME_FORMATTER) + "_" + random;
     }
 
     private static String buildPatchExecutionId() {

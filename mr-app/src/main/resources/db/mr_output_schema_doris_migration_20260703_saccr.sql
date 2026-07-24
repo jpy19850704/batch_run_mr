@@ -12,7 +12,7 @@ DROP TABLE IF EXISTS TB_OUT_SACCR_RESULT;
 CREATE TABLE TB_OUT_SACCR_RESULT (
     ID                  BIGINT          NOT NULL AUTO_INCREMENT,
     BATCH_ID            VARCHAR(64)     COMMENT '批次ID',
-    DATA_DATE           VARCHAR(16)     COMMENT '计算基准日期',
+    DATA_DATE           DATE            COMMENT '计算基准日期',
     NETTING_MODE        VARCHAR(32)     COMMENT '净额模式：NETTING_SET/TRADE',
     NETTING_SET_ID      VARCHAR(128)    COMMENT '净额结算集合ID',
     COUNTERPARTY_ID     VARCHAR(128)    COMMENT '交易对手ID',
@@ -33,7 +33,7 @@ CREATE TABLE TB_OUT_SACCR_RESULT (
     MULTIPLIER          DECIMAL(38,10)  COMMENT '乘数multiplier（[0.05,1.0]）',
     PFE                 DECIMAL(38,10)  COMMENT '潜在未来风险暴露PFE',
     EAD                 DECIMAL(38,10)  COMMENT '风险敞口EAD=1.4×(RC+PFE)',
-    CREATE_TIME         VARCHAR(32)     COMMENT '落库时间'
+    CREATE_TIME         DATETIME(3)     COMMENT '落库时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 4
@@ -46,7 +46,7 @@ PROPERTIES (
 CREATE TABLE TB_OUT_SACCR_TRADE_DETAIL (
     ID                      BIGINT          NOT NULL AUTO_INCREMENT,
     BATCH_ID                VARCHAR(64)     COMMENT '批次ID',
-    DATA_DATE               VARCHAR(16)     COMMENT '计算基准日期',
+    DATA_DATE               DATE            COMMENT '计算基准日期',
     INSTRUMENT_ID           VARCHAR(128)    COMMENT '交易唯一标识',
     COUNTERPARTY_ID         VARCHAR(128)    COMMENT '交易对手ID',
     NETTING_MODE            VARCHAR(32)     COMMENT '净额模式：NETTING_SET/TRADE',
@@ -72,7 +72,7 @@ CREATE TABLE TB_OUT_SACCR_TRADE_DETAIL (
     UNDERLYING_PRICE        DECIMAL(38,10)  COMMENT '标的价格',
     QUANTITY                DECIMAL(38,10)  COMMENT '数量',
     MEASURE_FACTOR_JSON     TEXT            COMMENT '交易级中间计量要素JSON',
-    CREATE_TIME             VARCHAR(32)     COMMENT '落库时间'
+    CREATE_TIME             DATETIME(3)     COMMENT '落库时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8
@@ -85,7 +85,7 @@ PROPERTIES (
 CREATE TABLE TB_OUT_SACCR_COLLATERAL_DETAIL (
     ID                      BIGINT          NOT NULL AUTO_INCREMENT,
     BATCH_ID                VARCHAR(64)     COMMENT '批次ID',
-    DATA_DATE               VARCHAR(16)     COMMENT '计算基准日期',
+    DATA_DATE               DATE            COMMENT '计算基准日期',
     COLLATERAL_ID           VARCHAR(128)    COMMENT '押品唯一标识',
     COLLATERAL_SCOPE        VARCHAR(32)     COMMENT 'NETTING_SET/TRADE',
     NETTING_SET_ID          VARCHAR(128)    COMMENT '净额集合ID',
@@ -97,7 +97,7 @@ CREATE TABLE TB_OUT_SACCR_COLLATERAL_DETAIL (
     FX_RATE_TO_CNY          DECIMAL(38,10)  COMMENT '押品币种兑人民币汇率',
     HAIRCUT_RATE            DECIMAL(18,10)  COMMENT '折扣率',
     ADJUSTED_VALUE_CNY      DECIMAL(38,10)  COMMENT '计入COLLATERAL_C的折后人民币金额',
-    CREATE_TIME             VARCHAR(32)     COMMENT '落库时间'
+    CREATE_TIME             DATETIME(3)     COMMENT '落库时间'
 )
 UNIQUE KEY(ID)
 DISTRIBUTED BY HASH(ID) BUCKETS 8

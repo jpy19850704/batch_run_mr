@@ -39,7 +39,6 @@ public class BatchScenarioInputLoadTask implements BatchRunTask {
         if (!context.isScenarioMode()) {
             return;
         }
-        LocalDate dataDate = LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE);
         String patchExecutionId = context.isLocalRerun()
                 ? requireText(context.getExecutionId(), "Patch execution_id 必填")
                 : null;
@@ -50,7 +49,7 @@ public class BatchScenarioInputLoadTask implements BatchRunTask {
             injectCacheKeys(
                     jobPayload.getPayload(),
                     context.getBatchId(),
-                    dataDate,
+                    context.getDataDate(),
                     context.getScenarioMarketKeys(),
                     patchExecutionId);
         }

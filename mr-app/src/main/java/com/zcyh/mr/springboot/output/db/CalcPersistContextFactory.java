@@ -9,13 +9,11 @@ import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.calc.scenario.ScenarioProcessConstants;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.springboot.execution.MeasurementExecutionResult;
+import com.zcyh.mr.springboot.support.ResultDbDateSupport;
 import org.springframework.stereotype.Service;
 
 import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.STATUS_ERROR;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -26,9 +24,6 @@ import java.util.Set;
  */
 @Service
 public class CalcPersistContextFactory {
-    private static final DateTimeFormatter DATE_8_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
-    private static final DateTimeFormatter DATE_10_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
-
     public CalcPersistContext build(String requestId, String jobId, String payloadJson, MeasurementExecutionResult runResult) {
         JSONObject root = toJsonObject(runResult == null ? null : runResult.getData());
         if (root == null) {
@@ -42,13 +37,13 @@ public class CalcPersistContextFactory {
         CalcPersistContext context = new CalcPersistContext();
         context.requestId = trimToNull(requestId);
         context.jobId = trimToNull(jobId);
-        context.createdAt = ResultPersistTime.nowText();
+        context.createdAt = ResultPersistTime.now();
         context.updatedAt = context.createdAt;
         context.payload = parseObjectSafely(payloadJson);
         context.resultData = data;
 
         if (context.payload != null) {
-            context.dataDate = normalizeDataDate(context.payload.getString("data_date"));
+            context.dataDate = ResultDbDateSupport.localDate(context.payload.getString("data_date"));
             JSONObject batchMeta = context.payload.getJSONObject("batch_meta");
             if (batchMeta != null) {
                 context.batchId = trimToNull(batchMeta.getString("batch_id"));
@@ -130,7 +125,7 @@ public class CalcPersistContextFactory {
         errorTrade.put("INSTRUMENT_ID", instrumentId);
         errorTrade.put("PRODUCT_CODE", productCode != null ? productCode
                 : inputTrade == null ? null : trimToNull(inputTrade.getString("PRODUCT_CODE")));
-        errorTrade.put("DATA_DATE", context == null ? null : context.dataDate);
+        errorTrade.put("DATA_DATE", context == null ? null : ResultDbDateSupport.protocolDate(context.dataDate));
         errorTrade.put("STATUS", STATUS_ERROR);
         errorTrade.put("LOGS_JSON", new JSONArray());
         return errorTrade;
@@ -226,24 +221,6 @@ public class CalcPersistContextFactory {
         } catch (Exception ex) {
             return null;
         }
-    }
-
-    private static String normalizeDataDate(String dataDateText) {
-        String text = trimToNull(dataDateText);
-        if (text == null) {
-            return null;
-        }
-        try {
-            if (text.length() == 8) {
-                return LocalDate.parse(text, DATE_8_FORMATTER).format(DATE_8_FORMATTER);
-            }
-            if (text.length() == 10) {
-                return LocalDate.parse(text, DATE_10_FORMATTER).format(DATE_8_FORMATTER);
-            }
-        } catch (DateTimeParseException ex) {
-            return text;
-        }
-        return text;
     }
 
     private static String trimToNull(String text) {

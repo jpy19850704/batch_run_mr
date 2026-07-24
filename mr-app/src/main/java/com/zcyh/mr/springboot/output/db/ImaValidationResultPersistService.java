@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -50,10 +51,10 @@ public class ImaValidationResultPersistService {
 
     @Transactional(transactionManager = "engineResultDbTransactionManager", rollbackFor = Exception.class)
     public void replace(String batchId,
-                        String dataDate,
+                        LocalDate dataDate,
                         SummaryCleanupMode cleanupMode,
-                        String startDate,
-                        String endDate,
+                        LocalDate startDate,
+                        LocalDate endDate,
                         String ruleId,
                         String quantile,
                         String varScenarioId,
@@ -75,7 +76,7 @@ public class ImaValidationResultPersistService {
     }
 
     private void deleteExisting(String batchId,
-                                String dataDate,
+                                LocalDate dataDate,
                                 SummaryCleanupMode cleanupMode,
                                 String ruleId,
                                 String quantile,
@@ -92,8 +93,8 @@ public class ImaValidationResultPersistService {
         if (deleteKs) {
             if (cleanupMode == SummaryCleanupMode.FULL) {
                 jdbcTemplate.update("DELETE FROM " + KS_TABLE
-                                + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
-                        batchId, dataDate);
+                                + " WHERE BATCH_ID=? AND DATA_DATE=?",
+                        batchId, com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate));
             } else {
                 RuleScopedDeleteSupport.deleteByRuleIds(
                         jdbcTemplate, KS_TABLE, batchId, dataDate, java.util.Collections.singletonList(ruleId));
@@ -102,26 +103,28 @@ public class ImaValidationResultPersistService {
     }
 
     private void deleteBacktestExisting(String batchId,
-                                        String dataDate,
+                                        LocalDate dataDate,
                                         SummaryCleanupMode cleanupMode,
                                         String ruleId,
                                         String quantile,
                                         String varScenarioId) {
         if (cleanupMode == SummaryCleanupMode.FULL) {
             jdbcTemplate.update("DELETE FROM " + BACKTEST_DETAIL_TABLE
-                            + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
-                    batchId, dataDate);
+                            + " WHERE BATCH_ID=? AND DATA_DATE=?",
+                    batchId, com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate));
             jdbcTemplate.update("DELETE FROM " + BACKTEST_TABLE
-                            + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
-                    batchId, dataDate);
+                            + " WHERE BATCH_ID=? AND DATA_DATE=?",
+                    batchId, com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate));
             return;
         }
-        String predicate = " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND RULE_ID=?"
+        String predicate = " WHERE BATCH_ID=? AND DATA_DATE=? AND RULE_ID=?"
                 + " AND QUANTILE=? AND VAR_SCENARIO_ID=?";
         jdbcTemplate.update("DELETE FROM " + BACKTEST_DETAIL_TABLE + predicate,
-                batchId, dataDate, ruleId, quantile, varScenarioId);
+                batchId, com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate),
+                ruleId, quantile, varScenarioId);
         jdbcTemplate.update("DELETE FROM " + BACKTEST_TABLE + predicate,
-                batchId, dataDate, ruleId, quantile, varScenarioId);
+                batchId, com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate),
+                ruleId, quantile, varScenarioId);
     }
 
     private void persistBacktestRows(String batchId, List<BacktestRow> rows) {
@@ -220,9 +223,9 @@ public class ImaValidationResultPersistService {
 
     public static class BacktestRow {
         public String batchId;
-        public String dataDate;
-        public String startDate;
-        public String endDate;
+        public LocalDate dataDate;
+        public LocalDate startDate;
+        public LocalDate endDate;
         public String ruleId;
         public String groupType;
         public String groupValue;
@@ -238,10 +241,10 @@ public class ImaValidationResultPersistService {
 
     public static class ExceptionRow {
         public String batchId;
-        public String dataDate;
-        public String startDate;
-        public String endDate;
-        public String exceptionDate;
+        public LocalDate dataDate;
+        public LocalDate startDate;
+        public LocalDate endDate;
+        public LocalDate exceptionDate;
         public String ruleId;
         public String groupType;
         public String groupValue;
@@ -255,9 +258,9 @@ public class ImaValidationResultPersistService {
 
     public static class KsRow {
         public String batchId;
-        public String dataDate;
-        public String startDate;
-        public String endDate;
+        public LocalDate dataDate;
+        public LocalDate startDate;
+        public LocalDate endDate;
         public String ruleId;
         public String groupType;
         public String groupValue;

@@ -96,7 +96,7 @@ public class TradeResultWriter {
                 context.jobId,
                 context.batchId,
                 context.seqNo,
-                CalcResultPersistSupport.normalizeDataDate(context.dataDate),
+                context.dataDate,
                 instrumentId,
                 CalcResultPersistSupport.trimToNull(trade.getString("PRODUCT_CODE")),
                 resolveDimensionField(context.tradeDimension, instrumentId, "PORTFOLIO"),

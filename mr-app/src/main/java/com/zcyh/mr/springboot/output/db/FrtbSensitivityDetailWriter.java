@@ -80,7 +80,7 @@ public class FrtbSensitivityDetailWriter {
                         context.jobId,
                         context.batchId,
                         context.seqNo,
-                        CalcResultPersistSupport.normalizeDataDate(context.dataDate),
+                        context.dataDate,
                         instrumentId,
                         productCode,
                         CalcResultPersistSupport.trimToNull(sensitivity.getString("RISK_FACTOR_ID")),

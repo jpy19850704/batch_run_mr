@@ -10,7 +10,7 @@ import java.time.LocalDate;
  */
 public class SaccrTradeRow {
     public String batchId;
-    public String dataDate;
+    public LocalDate dataDate;
     public String instrumentId;
     public String counterpartyId;
     public String nettingMode;

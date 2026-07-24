@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -47,8 +48,8 @@ public class VarResultPersistService {
      */
     public void deleteByBatchAndDataDate(String batchId, String dataDate) {
         int deleted = jdbcTemplate.update(
-                "DELETE FROM TB_OUT_VAR_RESULT WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
-                batchId, dataDate);
+                "DELETE FROM TB_OUT_VAR_RESULT WHERE BATCH_ID=? AND DATA_DATE=?",
+                batchId, com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate));
         if (deleted > 0) {
             log.info("清理 VaR 汇总历史结果: batchId={}, dataDate={}, deleted={}", batchId, dataDate, deleted);
         }
@@ -61,10 +62,10 @@ public class VarResultPersistService {
             throw new IllegalArgumentException("calculations 不能为空");
         }
         StringBuilder sql = new StringBuilder(
-                "DELETE FROM TB_OUT_VAR_RESULT WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND (");
+                "DELETE FROM TB_OUT_VAR_RESULT WHERE BATCH_ID=? AND DATA_DATE=? AND (");
         List<Object> params = new ArrayList<Object>();
         params.add(batchId);
-        params.add(dataDate);
+        params.add(com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate));
         for (int i = 0; i < calculations.size(); i++) {
             if (i > 0) {
                 sql.append(" OR ");
@@ -98,6 +99,7 @@ public class VarResultPersistService {
         if (safeDataDate == null) {
             throw new IllegalArgumentException("dataDate 不能为空");
         }
+        LocalDate localDataDate = com.zcyh.mr.springboot.support.ResultDbDateSupport.localDate(safeDataDate);
         if (varResult == null) {
             throw new IllegalArgumentException("varResult 不能为空");
         }
@@ -167,7 +169,7 @@ public class VarResultPersistService {
 
                             rows.add(ResultRow.of(
                                     safeBatchId,
-                                    safeDataDate,
+                                    localDataDate,
                                     quantile,
                                     ruleId,
                                     ruleName,
@@ -239,7 +241,7 @@ public class VarResultPersistService {
      */
     private static class ResultRow {
         private String batchId;
-        private String dataDate;
+        private LocalDate dataDate;
         private String quantile;
         private String ruleId;
         private String ruleName;
@@ -256,7 +258,7 @@ public class VarResultPersistService {
         private String selectedMethod;
 
         static ResultRow of(String batchId,
-                            String dataDate,
+                            LocalDate dataDate,
                             String quantile,
                             String ruleId,
                             String ruleName,

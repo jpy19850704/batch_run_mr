@@ -6,8 +6,6 @@ import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.support.EngineConstants;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -32,7 +30,6 @@ public class BatchPayloadBuildTask implements BatchRunTask {
 
     @Override
     public void execute(BatchRunWorkflowContext context) {
-        LocalDate dataDate = LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE);
         List<MrMarketDataSliceService.CurveSliceSource> curveSources =
                 JobPayloadBuilder.toCurveSliceSources(context.getLoadedMarketData());
         List<BatchJobPayload> jobPayloads = new ArrayList<BatchJobPayload>();
@@ -69,7 +66,7 @@ public class BatchPayloadBuildTask implements BatchRunTask {
             try {
                 JSONObject payload = payloadBuilder.buildPayload(
                         resolveCalcMode(context),
-                        dataDate,
+                        context.getDataDate(),
                         chunkTrades,
                         sliceResult.getCurves(),
                         sliceResult.getTradeMarketDataKeys(),

@@ -60,8 +60,8 @@ public class FrtbRraoResultPersistService {
         int deleted;
         if (cleanupMode == SummaryCleanupMode.FULL) {
             deleted = resultDbJdbcTemplate.update(
-                    "DELETE FROM " + TARGET_TABLE + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
-                    batchId, dataDate);
+                    "DELETE FROM " + TARGET_TABLE + " WHERE BATCH_ID=? AND DATA_DATE=?",
+                    batchId, com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate));
             calcRuleMetaPersistService.deleteByBatchAndCalcType(
                     batchId, dataDate, CALC_TYPE_RRAO);
         } else if (cleanupMode == SummaryCleanupMode.RULE) {

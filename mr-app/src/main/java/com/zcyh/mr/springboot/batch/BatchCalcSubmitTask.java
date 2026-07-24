@@ -10,8 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -48,7 +46,7 @@ public class BatchCalcSubmitTask implements BatchRunTask {
         String requestId = batchId;
         String engineCode = ValuationExecutionAdapter.CODE;
         String opCode = context.isScenarioMode() ? OP_CODE_SCENARIO : OP_CODE_PRICING;
-        LocalDate dataDate = LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE);
+        java.time.LocalDate dataDate = context.getDataDate();
         long now = System.currentTimeMillis();
         ExecutionContextHolder.setBatchId(batchId);
         ExecutionContextHolder.setEngineCode(engineCode);

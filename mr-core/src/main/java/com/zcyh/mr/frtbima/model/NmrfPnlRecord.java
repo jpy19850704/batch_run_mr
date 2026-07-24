@@ -1,6 +1,7 @@
 package com.zcyh.mr.frtbima.model;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 /**
  * NMRF 情景 PnL 记录（对应 TB_OUT_IMA_NMRF_SCENARIO_PNL 一行）。
@@ -11,7 +12,7 @@ import java.math.BigDecimal;
 public class NmrfPnlRecord {
 
     private String batchId;
-    private String dataDate;
+    private LocalDate dataDate;
 
     /** 情景集ID（即 bucketId，如 CNY_SWAP_1826_999999） */
     private String scenarioId;
@@ -39,8 +40,8 @@ public class NmrfPnlRecord {
     public String getBatchId() { return batchId; }
     public void setBatchId(String batchId) { this.batchId = batchId; }
 
-    public String getDataDate() { return dataDate; }
-    public void setDataDate(String dataDate) { this.dataDate = dataDate; }
+    public LocalDate getDataDate() { return dataDate; }
+    public void setDataDate(LocalDate dataDate) { this.dataDate = dataDate; }
 
     public String getScenarioId() { return scenarioId; }
     public void setScenarioId(String scenarioId) { this.scenarioId = scenarioId; }

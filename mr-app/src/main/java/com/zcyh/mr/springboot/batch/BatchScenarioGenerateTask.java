@@ -3,6 +3,7 @@ package com.zcyh.mr.springboot.batch;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
 import com.zcyh.mr.springboot.scenario.ScenarioExecutionAdapter;
+import com.zcyh.mr.springboot.support.ResultDbDateSupport;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -41,7 +42,7 @@ public class BatchScenarioGenerateTask implements BatchRunTask {
         JSONObject payload = new JSONObject();
         payload.put("mode", "service");
         payload.put("scenario_id_list", mergedScenarioIdList);
-        payload.put("data_date", context.getDataDate());
+        payload.put("data_date", ResultDbDateSupport.protocolDate(context.getDataDate()));
         payload.put("user", context.getUser());
         payload.put("batch_id", context.getBatchId());
         if (context.getRequest().getPersistScenario() != null) {

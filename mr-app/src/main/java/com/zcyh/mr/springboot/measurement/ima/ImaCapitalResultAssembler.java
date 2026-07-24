@@ -8,6 +8,7 @@ import com.zcyh.mr.frtbima.model.NmrfPnlRecord;
 import com.zcyh.mr.frtbima.model.SesResult;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -23,7 +24,7 @@ final class ImaCapitalResultAssembler {
     List<ImaNmrfResult> buildNmrfResults(
             ImaCapitalResult capitalResult,
             List<NmrfPnlRecord> nmrfPnls,
-            String dataDate,
+            LocalDate dataDate,
             String batchId) {
         LinkedHashSet<String> bucketIds = new LinkedHashSet<String>();
         for (NmrfPnlRecord record : nmrfPnls) {
@@ -52,7 +53,7 @@ final class ImaCapitalResultAssembler {
     List<ImaEsResultDetail> buildEsResultDetails(
             ImaCapitalResult capitalResult,
             List<EsResult> esResults,
-            String dataDate,
+            LocalDate dataDate,
             String batchId) {
         Map<String, ImaEsResultDetail> details = new LinkedHashMap<String, ImaEsResultDetail>();
         if (esResults == null) {

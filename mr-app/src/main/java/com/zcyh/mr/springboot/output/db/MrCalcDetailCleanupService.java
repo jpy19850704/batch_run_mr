@@ -81,11 +81,11 @@ public class MrCalcDetailCleanupService {
 
     private void cleanupTables(String batchId, LocalDate dataDate, List<String> tableNames) {
         String safeBatchId = requireText(batchId, "batchId 不能为空");
-        String resultDataDate = formatDataDate(dataDate);
+        java.sql.Date resultDataDate = java.sql.Date.valueOf(dataDate);
         for (String tableName : tableNames) {
             executeDelete(
                     tableName,
-                    "DELETE FROM " + tableName + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
+                    "DELETE FROM " + tableName + " WHERE BATCH_ID=? AND DATA_DATE=?",
                     new Object[]{safeBatchId, resultDataDate});
         }
     }
@@ -94,7 +94,7 @@ public class MrCalcDetailCleanupService {
                                    LocalDate dataDate,
                                    List<String> instrumentIds) {
         String safeBatchId = requireText(batchId, "batchId 不能为空");
-        String resultDataDate = formatDataDate(dataDate);
+        java.sql.Date resultDataDate = java.sql.Date.valueOf(dataDate);
         List<String> normalizedInstrumentIds = normalizeInstrumentIds(instrumentIds);
         if (normalizedInstrumentIds.isEmpty()) {
             throw new IllegalArgumentException("instrumentIds 不能为空");
@@ -111,7 +111,7 @@ public class MrCalcDetailCleanupService {
                 executeDelete(
                         tableName,
                         "DELETE FROM " + tableName
-                                + " WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND INSTRUMENT_ID IN (" + placeholders + ")",
+                                + " WHERE BATCH_ID=? AND DATA_DATE=? AND INSTRUMENT_ID IN (" + placeholders + ")",
                         args.toArray());
             }
         }

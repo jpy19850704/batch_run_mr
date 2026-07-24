@@ -4,9 +4,6 @@ import com.zcyh.mr.springboot.output.db.MarketDataResultWriter;
 import com.zcyh.mr.springboot.output.db.MrCalcDetailCleanupService;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-
 /**
  * 完整批次市场数据快照写入任务。
  */
@@ -29,7 +26,7 @@ public class BatchMarketDataPersistTask implements BatchRunTask {
         cleanupService.cleanupMarketDataByBatchId(context.getBatchId());
         marketDataResultWriter.writeSnapshot(
                 context.getBatchId(),
-                LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE),
+                context.getDataDate(),
                 context.getLoadedMarketData());
     }
 }

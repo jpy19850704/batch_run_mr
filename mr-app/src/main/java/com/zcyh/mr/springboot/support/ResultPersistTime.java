@@ -15,8 +15,12 @@ public final class ResultPersistTime {
     private ResultPersistTime() {
     }
 
+    public static LocalDateTime now() {
+        return LocalDateTime.now();
+    }
+
     public static String nowText() {
-        return LocalDateTime.now().format(DISPLAY_FORMATTER);
+        return now().format(DISPLAY_FORMATTER);
     }
 
     public static String formatEpochMillis(long epochMillis) {

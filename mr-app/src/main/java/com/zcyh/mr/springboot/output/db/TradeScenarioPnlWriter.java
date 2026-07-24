@@ -4,7 +4,6 @@ import com.zcyh.mr.springboot.support.CsvRowWriter;
 import com.zcyh.mr.springboot.support.CsvRowWriterFactory;
 import com.zcyh.mr.springboot.support.DorisCsvStreamLoadBuffer;
 
-import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.normalizeDataDate;
 import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.resolveLogs;
 import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.resolveStatus;
 import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.toBigDecimal;
@@ -139,7 +138,7 @@ class TradeScenarioPnlWriter {
                     context.jobId,
                     context.batchId,
                     context.seqNo,
-                    normalizeDataDate(context.dataDate),
+                    context.dataDate,
                     trimToNull(scenario.getString("SCENARIO_ID")),
                     trimToNull(scenario.getString("SUBSCENARIO_ID")),
                     trimToNull(scenario.getString("SCENARIO_NAME")),

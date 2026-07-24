@@ -101,7 +101,7 @@ public class DrcDetailWriter {
                     context.jobId,
                     context.batchId,
                     context.seqNo,
-                    CalcResultPersistSupport.normalizeDataDate(context.dataDate),
+                    context.dataDate,
                     instrumentId,
                     productCode,
                     CalcResultPersistSupport.trimToNull(drc.getString("PORTFOLIO_CODE")),

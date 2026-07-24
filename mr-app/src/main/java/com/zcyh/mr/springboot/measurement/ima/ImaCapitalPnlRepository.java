@@ -21,7 +21,7 @@ public class ImaCapitalPnlRepository {
             + "BASE_VALUATION_CNY, IR_PNL, CS_PNL, FX_PNL, "
             + "EQ_PNL, COMM_PNL, ALL_PNL, CREATED_AT "
             + "FROM TB_OUT_IMA_MODELLABLE_SCENARIO_PNL "
-            + "WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')";
+            + "WHERE BATCH_ID = ? AND DATA_DATE=?";
 
     private static final String QUERY_NMRF =
             "SELECT BATCH_ID, DATA_DATE, "
@@ -29,7 +29,7 @@ public class ImaCapitalPnlRepository {
             + "INSTRUMENT_ID, PRODUCT_CODE, RISK_FACTOR_ID, NMRF_TYPE, "
             + "BASE_VALUATION_CNY, PNL, CREATED_AT "
             + "FROM TB_OUT_IMA_NMRF_SCENARIO_PNL "
-            + "WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')";
+            + "WHERE BATCH_ID = ? AND DATA_DATE=?";
 
     private final JdbcTemplate resultDbJdbcTemplate;
 
@@ -42,7 +42,7 @@ public class ImaCapitalPnlRepository {
         return resultDbJdbcTemplate.query(QUERY_MODELLABLE, (rs, i) -> {
             SubsetPnlRecord record = new SubsetPnlRecord();
             record.setBatchId(rs.getString("BATCH_ID"));
-            record.setDataDate(ResultDbDateSupport.protocolDate(rs.getDate("DATA_DATE").toLocalDate()));
+            record.setDataDate(rs.getDate("DATA_DATE").toLocalDate());
             record.setScenarioId(rs.getString("SCENARIO_ID"));
             record.setSubscenarioId(rs.getString("SUBSCENARIO_ID"));
             record.setScenarioName(rs.getString("SCENARIO_NAME"));
@@ -58,14 +58,14 @@ public class ImaCapitalPnlRepository {
             record.setCommPnl(rs.getBigDecimal("COMM_PNL"));
             record.setAllPnl(rs.getBigDecimal("ALL_PNL"));
             return record;
-        }, batchId, dataDate);
+        }, batchId, ResultDbDateSupport.sqlDate(dataDate));
     }
 
     public List<NmrfPnlRecord> queryNmrfPnl(String batchId, String dataDate) {
         return resultDbJdbcTemplate.query(QUERY_NMRF, (rs, i) -> {
             NmrfPnlRecord record = new NmrfPnlRecord();
             record.setBatchId(rs.getString("BATCH_ID"));
-            record.setDataDate(ResultDbDateSupport.protocolDate(rs.getDate("DATA_DATE").toLocalDate()));
+            record.setDataDate(rs.getDate("DATA_DATE").toLocalDate());
             record.setScenarioId(rs.getString("SCENARIO_ID"));
             record.setSubscenarioId(rs.getString("SUBSCENARIO_ID"));
             record.setScenarioName(rs.getString("SCENARIO_NAME"));
@@ -76,6 +76,6 @@ public class ImaCapitalPnlRepository {
             record.setBaseValuationCny(rs.getBigDecimal("BASE_VALUATION_CNY"));
             record.setPnl(rs.getBigDecimal("PNL"));
             return record;
-        }, batchId, dataDate);
+        }, batchId, ResultDbDateSupport.sqlDate(dataDate));
     }
 }

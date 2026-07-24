@@ -2,6 +2,7 @@ package com.zcyh.mr.springboot.measurement.saccr;
 
 import com.zcyh.mr.saccr.model.SaccrNettingSet;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -9,13 +10,13 @@ import java.util.List;
  */
 public class SaccrRunInput {
     public final String batchId;
-    public final String dataDate;
+    public final LocalDate dataDate;
     public final List<SaccrNettingSet> nettingSets;
     public final List<SaccrTradeRow> tradeRows;
     public final List<SaccrCollateralOutputRow> collateralRows;
 
     public SaccrRunInput(String batchId,
-                         String dataDate,
+                         LocalDate dataDate,
                          List<SaccrNettingSet> nettingSets,
                          List<SaccrTradeRow> tradeRows,
                          List<SaccrCollateralOutputRow> collateralRows) {

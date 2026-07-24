@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,8 +53,8 @@ public class FrtbDrcResultPersistService {
      */
     public void deleteByBatchAndDataDate(String batchId, String dataDate) {
         int deleted = jdbcTemplate.update(
-                "DELETE FROM TB_OUT_TRADE_DRC_RESULT WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d')",
-                batchId, dataDate);
+                "DELETE FROM TB_OUT_TRADE_DRC_RESULT WHERE BATCH_ID=? AND DATA_DATE=?",
+                batchId, com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate));
         if (deleted > 0) {
             log.info("清理 DRC 汇总历史结果: batchId={}, dataDate={}, deleted={}", batchId, dataDate, deleted);
         }
@@ -89,6 +90,7 @@ public class FrtbDrcResultPersistService {
         if (drcResult == null) {
             throw new IllegalArgumentException("drcResult 不能为空");
         }
+        LocalDate localDataDate = com.zcyh.mr.springboot.support.ResultDbDateSupport.localDate(safeDataDate);
 
         List<ResultRow> rows = new ArrayList<ResultRow>();
         appendModuleRows(
@@ -96,13 +98,13 @@ public class FrtbDrcResultPersistService {
                 drcResult.getJSONArray(FLAG_DRC_VALUE),
                 CAPITAL_TYPE_NONADDITIVE,
                 "DRC_VALUE",
-                safeBatchId, safeDataDate, safeRuleId);
+                safeBatchId, localDataDate, safeRuleId);
         appendModuleRows(
                 rows,
                 drcResult.getJSONArray(FLAG_DECOMP_LEGAL_ENTITY),
                 CAPITAL_TYPE_ADDITIVE,
                 "CONTRIBUTION",
-                safeBatchId, safeDataDate, safeRuleId);
+                safeBatchId, localDataDate, safeRuleId);
 
         if (rows.isEmpty()) {
             log.warn("DRC 结果为空，跳过落库: batchId={}, dataDate={}", safeBatchId, safeDataDate);
@@ -143,7 +145,7 @@ public class FrtbDrcResultPersistService {
                                          String capitalType,
                                          String valueField,
                                          String batchId,
-                                         String dataDate,
+                                         LocalDate dataDate,
                                          String ruleId) {
         if (moduleRows == null || moduleRows.isEmpty()) {
             return;
@@ -229,7 +231,7 @@ public class FrtbDrcResultPersistService {
     }
 
     private static void logInvalidRow(String batchId,
-                                      String dataDate,
+                                      LocalDate dataDate,
                                       String capitalType,
                                       int rowIndex,
                                       String reason,
@@ -246,7 +248,7 @@ public class FrtbDrcResultPersistService {
      */
     private static class ResultRow {
         String batchId;
-        String dataDate;
+        LocalDate dataDate;
         String ruleId;
         String groupType;
         String groupValue;
@@ -258,7 +260,7 @@ public class FrtbDrcResultPersistService {
         BigDecimal drcValue;
 
         static ResultRow of(String batchId,
-                            String dataDate,
+                            LocalDate dataDate,
                             String ruleId,
                             String groupType,
                             String groupValue,

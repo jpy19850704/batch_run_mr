@@ -9,11 +9,12 @@ import com.zcyh.mr.frtbsa.sba.core.FrtbBatchCalculator;
 import com.zcyh.mr.frtbsa.sba.core.FrtbResultMapper;
 import com.zcyh.mr.frtbsa.sba.pojo.FRTBPosResult;
 import com.zcyh.mr.frtbsa.sba.pojo.FrtbInput;
-import com.zcyh.mr.springboot.measurement.frtb.FrtbSbaInputQueryService;
 import com.zcyh.mr.springboot.measurement.aggregation.AggregationRule;
+import com.zcyh.mr.springboot.support.ResultDbDateSupport;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -96,6 +97,7 @@ public class FrtbSbaDbRunnerService {
         if (ruleDefinitions == null || ruleDefinitions.isEmpty()) {
             throw new IllegalArgumentException("ruleDefinitions 不能为空");
         }
+        LocalDate localDataDate = ResultDbDateSupport.localDate(dataDate);
         List<FrtbInput> inputList = new ArrayList<FrtbInput>();
         for (AggregationRule ruleDefinition : ruleDefinitions) {
             applySbaRuleDefaults(ruleDefinition);
@@ -105,7 +107,7 @@ public class FrtbSbaDbRunnerService {
                 throw new IllegalArgumentException("未查到可用于规则汇总的 FRTB 敏感性明细: ruleId="
                         + ruleDefinition.getRuleId());
             }
-            inputList.addAll(buildRuleDrivenInputs(batchId, dataDate, ruleDefinition,
+            inputList.addAll(buildRuleDrivenInputs(batchId, localDataDate, ruleDefinition,
                     FrtbSbaInputValidator.validateAndNormalizeSbaRows(rows)));
         }
         if (inputList.isEmpty()) {
@@ -280,7 +282,7 @@ public class FrtbSbaDbRunnerService {
     }
 
     private List<FrtbInput> buildRuleDrivenInputs(String batchId,
-                                                  String dataDate,
+                                                  LocalDate dataDate,
                                                   AggregationRule rule,
                                                   List<Map<String, Object>> rows) {
         String sumField = resolveSumField(rule);

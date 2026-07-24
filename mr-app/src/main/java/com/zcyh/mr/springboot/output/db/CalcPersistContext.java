@@ -3,6 +3,8 @@ package com.zcyh.mr.springboot.output.db;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
@@ -13,9 +15,9 @@ final class CalcPersistContext {
     String jobId;
     String batchId;
     Long seqNo;
-    String dataDate;
-    String createdAt;
-    String updatedAt;
+    LocalDate dataDate;
+    LocalDateTime createdAt;
+    LocalDateTime updatedAt;
     JSONObject payload;
     JSONObject resultData;
     JSONObject tradeDimension;

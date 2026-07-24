@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
@@ -15,8 +16,12 @@ import java.util.Set;
  */
 public class DorisCsvStreamLoadBuffer implements CsvRowWriter {
     private static final DateTimeFormatter PROTOCOL_DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final DateTimeFormatter DATABASE_DATE_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     private static final Set<String> DATE_COLUMNS = Set.of(
             "DATA_DATE", "START_DATE", "END_DATE", "EXCEPTION_DATE", "OPTION_EXPIRY");
+    private static final Set<String> DATE_TIME_COLUMNS = Set.of(
+            "CREATE_TIME", "CREATED_AT", "UPDATE_TIME", "UPDATED_AT", "OBSERVATION_TIME");
 
     private final DorisStreamLoadService dorisStreamLoadService;
     private final String tableName;
@@ -131,7 +136,13 @@ public class DorisCsvStreamLoadBuffer implements CsvRowWriter {
     }
 
     private static Object normalizeColumnValue(String column, Object value) {
-        if (value == null || !DATE_COLUMNS.contains(column)) {
+        if (value == null) {
+            return value;
+        }
+        if (DATE_TIME_COLUMNS.contains(column) && value instanceof LocalDateTime) {
+            return ((LocalDateTime) value).format(DATABASE_DATE_TIME_FORMATTER);
+        }
+        if (!DATE_COLUMNS.contains(column)) {
             return value;
         }
         if (value instanceof LocalDate) {

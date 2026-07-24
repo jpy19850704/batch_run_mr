@@ -11,8 +11,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -39,13 +37,12 @@ public class SaccrInputQueryService {
         this.tradeInputConvertService = tradeInputConvertService;
     }
 
-    public SaccrRunInput build(String batchId, String dataDate) {
+    public SaccrRunInput build(String batchId, LocalDate dataDate) {
         String safeBatchId = requireText(batchId, "batch_id");
-        String safeDataDate = normalizeDataDate(dataDate);
 
-        List<TradeScopeRow> scopeRows = queryTradeScope(safeDataDate);
-        Map<String, TradeResultRow> resultRows = queryTradeResults(safeBatchId, safeDataDate, scopeRows);
-        Map<String, NettingSetInputRow> nettingSetRows = queryNettingSets(safeDataDate, scopeRows);
+        List<TradeScopeRow> scopeRows = queryTradeScope(dataDate);
+        Map<String, TradeResultRow> resultRows = queryTradeResults(safeBatchId, dataDate, scopeRows);
+        Map<String, NettingSetInputRow> nettingSetRows = queryNettingSets(dataDate, scopeRows);
 
         List<SaccrTradeRow> tradeRows = new ArrayList<>();
         Map<String, SaccrNettingSet> nettingSets = new LinkedHashMap<>();
@@ -78,7 +75,7 @@ public class SaccrInputQueryService {
 
             SaccrTradeConvertContext convertContext = new SaccrTradeConvertContext(
                     safeBatchId,
-                    safeDataDate,
+                    dataDate,
                     scope.instrumentId,
                     result.productCode,
                     result.valuationCny,
@@ -104,12 +101,12 @@ public class SaccrInputQueryService {
 
         List<SaccrCollateralOutputRow> collateralRows = queryCollateralRows(
                 safeBatchId,
-                safeDataDate,
+                dataDate,
                 effectiveSetByInstrument,
                 nettingSets.keySet());
         applyCollateral(nettingSets, collateralRows);
 
-        return new SaccrRunInput(safeBatchId, safeDataDate,
+        return new SaccrRunInput(safeBatchId, dataDate,
                 new ArrayList<>(nettingSets.values()), tradeRows, collateralRows);
     }
 
@@ -141,11 +138,12 @@ public class SaccrInputQueryService {
         return ns;
     }
 
-    private List<TradeScopeRow> queryTradeScope(String dataDate) {
+    private List<TradeScopeRow> queryTradeScope(LocalDate dataDate) {
         String sql = "SELECT DATA_DATE, INSTRUMENT_ID, COUNTERPARTY_ID, NETTING_SET_ID "
-                + "FROM SACCR_TRADE_CP WHERE DATA_DATE=STR_TO_DATE(?, '%Y%m%d') ORDER BY INSTRUMENT_ID";
+                + "FROM SACCR_TRADE_CP WHERE DATA_DATE=? ORDER BY INSTRUMENT_ID";
         try {
-            List<Map<String, Object>> rows = engineDbJdbcTemplate.queryForList(sql, dataDate);
+            List<Map<String, Object>> rows = engineDbJdbcTemplate.queryForList(
+                    sql, com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate));
             if (rows.isEmpty()) {
                 throw new IllegalArgumentException("SACCR_TRADE_CP 未找到 DATA_DATE=" + dataDate + " 的交易范围");
             }
@@ -167,17 +165,17 @@ public class SaccrInputQueryService {
         }
     }
 
-    private Map<String, TradeResultRow> queryTradeResults(String batchId, String dataDate, List<TradeScopeRow> scopeRows) {
+    private Map<String, TradeResultRow> queryTradeResults(String batchId, LocalDate dataDate, List<TradeScopeRow> scopeRows) {
         List<String> instrumentIds = new ArrayList<>();
         for (TradeScopeRow row : scopeRows) {
             instrumentIds.add(row.instrumentId);
         }
         String sql = "SELECT INSTRUMENT_ID, PRODUCT_CODE, VALUATION_CNY, STATUS, TRADE_INPUT_JSON "
                 + "FROM TB_OUT_TRADE_RESULT_DETAIL "
-                + "WHERE BATCH_ID = ? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND INSTRUMENT_ID IN (" + placeholders(instrumentIds.size()) + ")";
+                + "WHERE BATCH_ID = ? AND DATA_DATE=? AND INSTRUMENT_ID IN (" + placeholders(instrumentIds.size()) + ")";
         List<Object> params = new ArrayList<>();
         params.add(batchId);
-        params.add(dataDate);
+        params.add(com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate));
         params.addAll(instrumentIds);
         try {
             List<Map<String, Object>> rows = engineResultDbJdbcTemplate.queryForList(sql, params.toArray());
@@ -209,7 +207,7 @@ public class SaccrInputQueryService {
         }
     }
 
-    private Map<String, NettingSetInputRow> queryNettingSets(String dataDate, List<TradeScopeRow> scopeRows) {
+    private Map<String, NettingSetInputRow> queryNettingSets(LocalDate dataDate, List<TradeScopeRow> scopeRows) {
         Set<String> nettingSetIds = new LinkedHashSet<>();
         for (TradeScopeRow row : scopeRows) {
             if (row.nettingSetId != null) {
@@ -222,10 +220,10 @@ public class SaccrInputQueryService {
 
         String sql = "SELECT DATA_DATE, NETTING_SET_ID, COUNTERPARTY_ID, MARGIN_TYPE, MARGIN_CCY, "
                 + "MARGIN_FX_RATE_TO_CNY, THRESHOLD, MTA, NICA, MPOR_DAYS "
-                + "FROM SACCR_NETTING_SET WHERE DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND NETTING_SET_ID IN ("
+                + "FROM SACCR_NETTING_SET WHERE DATA_DATE=? AND NETTING_SET_ID IN ("
                 + placeholders(nettingSetIds.size()) + ")";
         List<Object> params = new ArrayList<>();
-        params.add(dataDate);
+        params.add(com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate));
         params.addAll(nettingSetIds);
         try {
             List<Map<String, Object>> rows = engineDbJdbcTemplate.queryForList(sql, params.toArray());
@@ -277,7 +275,7 @@ public class SaccrInputQueryService {
     }
 
     private List<SaccrCollateralOutputRow> queryCollateralRows(String batchId,
-                                                               String dataDate,
+                                                               LocalDate dataDate,
                                                                Map<String, String> effectiveSetByInstrument,
                                                                Set<String> effectiveNettingSetIds) {
         List<String> instrumentIds = new ArrayList<>(effectiveSetByInstrument.keySet());
@@ -295,8 +293,8 @@ public class SaccrInputQueryService {
         StringBuilder sql = new StringBuilder()
                 .append("SELECT DATA_DATE, COLLATERAL_ID, COLLATERAL_SCOPE, NETTING_SET_ID, INSTRUMENT_ID, ")
                 .append("COLLATERAL_TYPE, DIRECTION, COLLATERAL_CCY, MARKET_VALUE, FX_RATE_TO_CNY, ")
-                .append("HAIRCUT_RATE, ELIGIBLE_FLAG FROM SACCR_COLLATERAL_DETAIL WHERE DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND (");
-        params.add(dataDate);
+                .append("HAIRCUT_RATE, ELIGIBLE_FLAG FROM SACCR_COLLATERAL_DETAIL WHERE DATA_DATE=? AND (");
+        params.add(com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate));
         boolean appended = false;
         if (!nettingSetIds.isEmpty()) {
             sql.append("(COLLATERAL_SCOPE = 'NETTING_SET' AND NETTING_SET_ID IN (")
@@ -413,16 +411,6 @@ public class SaccrInputQueryService {
             builder.append("?");
         }
         return builder.toString();
-    }
-
-    private static String normalizeDataDate(String dataDate) {
-        String value = requireText(dataDate, "data_date");
-        try {
-            return LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE)
-                    .format(DateTimeFormatter.BASIC_ISO_DATE);
-        } catch (DateTimeParseException ex) {
-            throw new IllegalArgumentException("data_date 日期格式必须为 yyyyMMdd: " + dataDate, ex);
-        }
     }
 
     private static BigDecimal requireDecimal(Object value, String field, String ownerId) {

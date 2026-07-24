@@ -12,10 +12,9 @@ import com.zcyh.mr.saccr.model.SaccrResult;
 import com.zcyh.mr.springboot.measurement.saccr.SaccrInputQueryService;
 import com.zcyh.mr.springboot.measurement.saccr.SaccrRunInput;
 import com.zcyh.mr.springboot.output.db.SaccrResultPersistService;
+import com.zcyh.mr.springboot.support.ResultDbDateSupport;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.List;
 
 /**
@@ -54,36 +53,25 @@ public class SaccrExecutionAdapter implements ExecutionAdapter {
         }
 
         String batchId = requireText(req.getString("batch_id"), "batch_id");
-        String dataDateText = normalizeDataDate(req.getString("data_date"));
-        LocalDate dataDate = LocalDate.parse(dataDateText, DateTimeFormatter.BASIC_ISO_DATE);
+        LocalDate dataDate = ResultDbDateSupport.localDate(req.getString("data_date"));
         boolean persistResult = readBoolean(req, false, "persist_result");
 
-        SaccrRunInput input = inputQueryService.build(batchId, dataDateText);
+        SaccrRunInput input = inputQueryService.build(batchId, dataDate);
         List<SaccrResult> results = SaccrCalculator.calculate(input.nettingSets, dataDate);
 
         if (persistResult) {
-            resultPersistService.persist(batchId, dataDateText, results, input.tradeRows, input.collateralRows);
+            resultPersistService.persist(batchId, dataDate, results, input.tradeRows, input.collateralRows);
         }
 
         JSONObject output = new JSONObject();
         output.put("batch_id", batchId);
-        output.put("data_date", dataDateText);
+        output.put("data_date", ResultDbDateSupport.protocolDate(dataDate));
         output.put("persist_result", persistResult);
         output.put("netting_set_count", results.size());
         output.put("trade_count", input.tradeRows.size());
         output.put("collateral_count", input.collateralRows.size());
         output.put("results", JSON.parseArray(JSON.toJSONString(results)));
         return output.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain);
-    }
-
-    private static String normalizeDataDate(String dataDate) {
-        String value = requireText(dataDate, "data_date");
-        try {
-            return LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE)
-                    .format(DateTimeFormatter.BASIC_ISO_DATE);
-        } catch (DateTimeParseException ex) {
-            throw new IllegalArgumentException("data_date 日期格式必须为 yyyyMMdd: " + dataDate, ex);
-        }
     }
 
     private static String requireText(String value, String field) {

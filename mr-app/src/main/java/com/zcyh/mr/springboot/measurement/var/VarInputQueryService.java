@@ -114,11 +114,11 @@ public class VarInputQueryService {
                     .append(" AND p.DATA_DATE = d.DATA_DATE ")
                     .append(" AND p.PORTFOLIO_CODE = r.PORTFOLIO ");
         }
-        sql.append(" WHERE d.BATCH_ID = ? AND d.DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND d.SCENARIO_ID = ?");
+        sql.append(" WHERE d.BATCH_ID = ? AND d.DATA_DATE=? AND d.SCENARIO_ID = ?");
 
         List<Object> params = new ArrayList<Object>();
         params.add(safeBatchId);
-        params.add(safeDataDate);
+        params.add(com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(safeDataDate));
         params.add(safeScenarioId);
 
         AggregationFilterSqlBuilder.appendWhereClause(sql, params, rule, VarInputQueryService::resolveRuleColumn);
@@ -175,7 +175,7 @@ public class VarInputQueryService {
         String sql = "SELECT SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME, "
                 + "SUM(" + pnlColumn + ") AS PNL "
                 + "FROM " + TABLE + " "
-                + "WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') "
+                + "WHERE BATCH_ID=? AND DATA_DATE=? "
                 + "GROUP BY SCENARIO_ID, SUBSCENARIO_ID, SCENARIO_NAME "
                 + "ORDER BY PNL ASC, SCENARIO_ID, SUBSCENARIO_ID";
 
@@ -183,7 +183,7 @@ public class VarInputQueryService {
                 sql,
                 ps -> {
                     ps.setString(1, safeBatchId);
-                    ps.setString(2, safeDataDate);
+                    ps.setDate(2, com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(safeDataDate));
                 },
                 (rs, rowNum) -> new VarScenarioPnl(
                         trimToNull(rs.getString("SCENARIO_ID")),

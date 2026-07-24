@@ -11,7 +11,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
 import com.zcyh.mr.frtbsa.sba.pojo.FrtbInput;
-import com.zcyh.mr.springboot.measurement.frtb.FrtbSbaDbRunnerService;
+import com.zcyh.mr.springboot.support.ResultDbDateSupport;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -83,7 +83,8 @@ public class FrtbSaExecutionAdapter implements ExecutionAdapter {
         input.setRiskFactorType(trimToNull(obj.getString("risk_factor_type")));
         input.setSensitivityType(requireString(obj, "sensitivity_type", path, index));
         input.setSensitivityValRptCurrCny(requireBigDecimal(obj, "sensitivity_val_rpt_curr_cny", path, index));
-        input.setDataDate(trimToNull(obj.getString("data_date")));
+        String dataDate = trimToNull(obj.getString("data_date"));
+        input.setDataDate(dataDate == null ? null : ResultDbDateSupport.localDate(dataDate));
         input.setModifier(trimToNull(obj.getString("modifier")));
         return input;
     }

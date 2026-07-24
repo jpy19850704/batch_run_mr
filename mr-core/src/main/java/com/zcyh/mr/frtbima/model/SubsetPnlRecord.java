@@ -1,6 +1,7 @@
 package com.zcyh.mr.frtbima.model;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 /**
  * 可建模情景 PnL 记录（对应 TB_OUT_IMA_MODELLABLE_SCENARIO_PNL 一行）。
@@ -9,7 +10,7 @@ import java.math.BigDecimal;
 public class SubsetPnlRecord {
 
     private String batchId;
-    private String dataDate;
+    private LocalDate dataDate;
 
     /** 情景集ID */
     private String scenarioId;
@@ -43,8 +44,8 @@ public class SubsetPnlRecord {
     public String getBatchId() { return batchId; }
     public void setBatchId(String batchId) { this.batchId = batchId; }
 
-    public String getDataDate() { return dataDate; }
-    public void setDataDate(String dataDate) { this.dataDate = dataDate; }
+    public LocalDate getDataDate() { return dataDate; }
+    public void setDataDate(LocalDate dataDate) { this.dataDate = dataDate; }
 
     public String getScenarioId() { return scenarioId; }
     public void setScenarioId(String scenarioId) { this.scenarioId = scenarioId; }

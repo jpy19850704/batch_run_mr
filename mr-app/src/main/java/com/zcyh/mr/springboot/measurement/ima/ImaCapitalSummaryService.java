@@ -93,7 +93,7 @@ public class ImaCapitalSummaryService {
                     Collections.emptyMap(),
                     Collections.emptySet(),
                     Collections.emptySet(),
-                    dataDate,
+                    localDataDate,
                     batchId);
             capitalResults.addAll(result.getCapitalResults());
             esResultDetails.addAll(result.getEsResultDetails());

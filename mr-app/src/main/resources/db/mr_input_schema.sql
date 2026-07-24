@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS MR_TRADE_INPUT (
     trader VARCHAR(64),
     rrao_type VARCHAR(64),
     rrao_notional DECIMAL(38, 10),
-    created_at BIGINT NOT NULL,
-    updated_at BIGINT NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
     CONSTRAINT uk_MR_TRADE_INPUT UNIQUE (data_date, instrument_id, product_code)
 );
 
@@ -32,8 +32,8 @@ CREATE TABLE IF NOT EXISTS MR_MARKET_CURVE_INPUT (
     content_format VARCHAR(16) NOT NULL DEFAULT 'JSON',
     version_no INT NOT NULL DEFAULT 1,
     source_system VARCHAR(128),
-    created_at BIGINT NOT NULL,
-    updated_at BIGINT NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
     CONSTRAINT uk_MR_MARKET_CURVE_INPUT UNIQUE (data_date, market_data_type, curve_id, version_no)
 );
 
@@ -55,8 +55,8 @@ CREATE TABLE IF NOT EXISTS MR_MARKET_CURVE_RAW_INPUT (
     content_format VARCHAR(16) NOT NULL DEFAULT 'JSON',
     version_no INT NOT NULL DEFAULT 1,
     source_system VARCHAR(128),
-    created_at BIGINT NOT NULL,
-    updated_at BIGINT NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
     CONSTRAINT uk_MR_MARKET_CURVE_RAW_INPUT UNIQUE (data_date, market_data_type, curve_id, version_no)
 );
 
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS MR_RISKFACTOR_DATA (
     source_system VARCHAR(128),
     version_no INT NOT NULL DEFAULT 1,
     modifier VARCHAR(128),
-    updated_at BIGINT NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
     CONSTRAINT pk_MR_RISKFACTOR_DATA PRIMARY KEY (
         data_date, riskfactor_type, riskfactor_id, obs_date, term_code
     )
@@ -113,8 +113,8 @@ CREATE TABLE IF NOT EXISTS MR_SCENARIO_RULE (
     status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
     remark VARCHAR(512),
     modifier VARCHAR(128),
-    created_at BIGINT NOT NULL,
-    updated_at BIGINT NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
     CONSTRAINT pk_MR_SCENARIO_RULE PRIMARY KEY (scenario_id, line_no)
 );
 
@@ -221,8 +221,8 @@ CREATE TABLE IF NOT EXISTS MR_AGG_RULE (
     rule_name VARCHAR(256),
     rule_json CLOB NOT NULL,
     modifier VARCHAR(128),
-    created_at BIGINT NOT NULL,
-    updated_at BIGINT NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
     PRIMARY KEY (rule_type, rule_id)
 );
 

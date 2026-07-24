@@ -8,7 +8,6 @@ import com.zcyh.mr.springboot.support.ResultPersistTime;
 import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.STATUS_ERROR;
 import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.STATUS_SUCCESS;
 import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.appendLogs;
-import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.normalizeDataDate;
 import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.resolveLogs;
 import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.resolveStatus;
 import static com.zcyh.mr.springboot.output.db.CalcResultPersistSupport.toBigDecimal;
@@ -87,7 +86,7 @@ class ImaScenarioPnlWriter {
             }
             buffer.appendRow(
                     context.batchId,
-                    normalizeDataDate(context.dataDate),
+                    context.dataDate,
                     trimToNull(row.getString("SCENARIO_ID")),
                     trimToNull(row.getString("SUBSCENARIO_ID")),
                     trimToNull(row.getString("SCENARIO_NAME")),
@@ -128,7 +127,7 @@ class ImaScenarioPnlWriter {
             }
             buffer.appendRow(
                     context.batchId,
-                    normalizeDataDate(context.dataDate),
+                    context.dataDate,
                     trimToNull(row.getString("SCENARIO_ID")),
                     trimToNull(row.getString("SUBSCENARIO_ID")),
                     trimToNull(row.getString("SCENARIO_NAME")),

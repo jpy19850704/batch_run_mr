@@ -9,9 +9,10 @@ import com.zcyh.mr.frtbima.validation.model.ExceptionDetail;
 import com.zcyh.mr.springboot.measurement.ima.ImaBacktestCalculationService.GroupResult;
 import com.zcyh.mr.springboot.measurement.ima.ImaValidationInputRepository.GroupKey;
 import com.zcyh.mr.springboot.output.db.ImaValidationResultPersistService;
+import com.zcyh.mr.springboot.support.ResultDbDateSupport;
 import org.springframework.stereotype.Component;
 
-import java.time.format.DateTimeFormatter;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,8 +21,6 @@ import java.util.List;
  */
 @Component
 public class ImaValidationResultAssembler {
-    private static final DateTimeFormatter BASIC_DATE = DateTimeFormatter.BASIC_ISO_DATE;
-
     private final BacktestMultiplierTable multiplierTable = new BacktestMultiplierTable();
 
     public BacktestOutput assembleBacktest(ValidationMetadata metadata, List<GroupResult> groupResults) {
@@ -92,7 +91,7 @@ public class ImaValidationResultAssembler {
         row.dataDate = metadata.dataDate;
         row.startDate = metadata.startDate;
         row.endDate = metadata.endDate;
-        row.exceptionDate = detail.getDate().format(BASIC_DATE);
+        row.exceptionDate = detail.getDate();
         row.ruleId = metadata.ruleId;
         row.groupType = groupKey.groupType;
         row.groupValue = groupKey.groupValue;
@@ -148,9 +147,9 @@ public class ImaValidationResultAssembler {
 
     private JSONObject toBacktestJson(ImaValidationResultPersistService.BacktestRow row) {
         JSONObject json = new JSONObject();
-        json.put("data_date", row.dataDate);
-        json.put("start_date", row.startDate);
-        json.put("end_date", row.endDate);
+        json.put("data_date", ResultDbDateSupport.protocolDate(row.dataDate));
+        json.put("start_date", ResultDbDateSupport.protocolDate(row.startDate));
+        json.put("end_date", ResultDbDateSupport.protocolDate(row.endDate));
         json.put("rule_id", row.ruleId);
         json.put("group_type", row.groupType);
         json.put("group_value", row.groupValue);
@@ -165,10 +164,10 @@ public class ImaValidationResultAssembler {
 
     private JSONObject toExceptionJson(ImaValidationResultPersistService.ExceptionRow row) {
         JSONObject json = new JSONObject();
-        json.put("data_date", row.dataDate);
-        json.put("start_date", row.startDate);
-        json.put("end_date", row.endDate);
-        json.put("exception_date", row.exceptionDate);
+        json.put("data_date", ResultDbDateSupport.protocolDate(row.dataDate));
+        json.put("start_date", ResultDbDateSupport.protocolDate(row.startDate));
+        json.put("end_date", ResultDbDateSupport.protocolDate(row.endDate));
+        json.put("exception_date", ResultDbDateSupport.protocolDate(row.exceptionDate));
         json.put("rule_id", row.ruleId);
         json.put("group_type", row.groupType);
         json.put("group_value", row.groupValue);
@@ -181,9 +180,9 @@ public class ImaValidationResultAssembler {
 
     private JSONObject toKsJson(ImaValidationResultPersistService.KsRow row) {
         JSONObject json = new JSONObject();
-        json.put("data_date", row.dataDate);
-        json.put("start_date", row.startDate);
-        json.put("end_date", row.endDate);
+        json.put("data_date", ResultDbDateSupport.protocolDate(row.dataDate));
+        json.put("start_date", ResultDbDateSupport.protocolDate(row.startDate));
+        json.put("end_date", ResultDbDateSupport.protocolDate(row.endDate));
         json.put("rule_id", row.ruleId);
         json.put("group_type", row.groupType);
         json.put("group_value", row.groupValue);
@@ -196,18 +195,18 @@ public class ImaValidationResultAssembler {
 
     public static final class ValidationMetadata {
         final String batchId;
-        final String dataDate;
-        final String startDate;
-        final String endDate;
+        final LocalDate dataDate;
+        final LocalDate startDate;
+        final LocalDate endDate;
         final String ruleId;
         final String quantile;
         final String varScenarioId;
 
         public ValidationMetadata(
                 String batchId,
-                String dataDate,
-                String startDate,
-                String endDate,
+                LocalDate dataDate,
+                LocalDate startDate,
+                LocalDate endDate,
                 String ruleId,
                 String quantile,
                 String varScenarioId) {

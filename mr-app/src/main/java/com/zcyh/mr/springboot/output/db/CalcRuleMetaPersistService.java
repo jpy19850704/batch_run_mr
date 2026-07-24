@@ -40,8 +40,8 @@ public class CalcRuleMetaPersistService {
      */
     public void deleteByBatchAndCalcType(String batchId, String dataDate, String calcType) {
         int deleted = jdbcTemplate.update(
-                "DELETE FROM TB_OUT_CALC_RULE_META WHERE BATCH_ID=? AND DATA_DATE=STR_TO_DATE(?, '%Y%m%d') AND CALC_TYPE=?",
-                batchId, dataDate, calcType);
+                "DELETE FROM TB_OUT_CALC_RULE_META WHERE BATCH_ID=? AND DATA_DATE=? AND CALC_TYPE=?",
+                batchId, com.zcyh.mr.springboot.support.ResultDbDateSupport.sqlDate(dataDate), calcType);
         if (deleted > 0) {
             log.info("清理规则元数据: batchId={}, dataDate={}, calcType={}, deleted={}",
                     batchId, dataDate, calcType, deleted);

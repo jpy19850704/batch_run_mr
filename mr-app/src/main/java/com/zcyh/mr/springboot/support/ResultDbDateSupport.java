@@ -14,16 +14,27 @@ public final class ResultDbDateSupport {
     private ResultDbDateSupport() {
     }
 
-    public static Date sqlDate(String value) {
+    public static LocalDate localDate(String value) {
         String text = value == null ? null : value.trim();
         if (text == null || text.isEmpty()) {
             throw new IllegalArgumentException("数据日期不能为空");
         }
         try {
-            return Date.valueOf(LocalDate.parse(text, PROTOCOL_DATE_FORMATTER));
+            return LocalDate.parse(text, PROTOCOL_DATE_FORMATTER);
         } catch (DateTimeParseException ex) {
             throw new IllegalArgumentException("数据日期格式必须为yyyyMMdd: " + text, ex);
         }
+    }
+
+    public static Date sqlDate(String value) {
+        return sqlDate(localDate(value));
+    }
+
+    public static Date sqlDate(LocalDate value) {
+        if (value == null) {
+            throw new IllegalArgumentException("数据日期不能为空");
+        }
+        return Date.valueOf(value);
     }
 
     public static String protocolDate(LocalDate value) {

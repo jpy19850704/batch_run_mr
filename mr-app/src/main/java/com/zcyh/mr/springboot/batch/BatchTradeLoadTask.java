@@ -8,8 +8,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Set;
 
@@ -32,13 +30,12 @@ public class BatchTradeLoadTask implements BatchRunTask {
 
     @Override
     public void execute(BatchRunWorkflowContext context) {
-        LocalDate dataDate = LocalDate.parse(context.getDataDate(), DateTimeFormatter.BASIC_ISO_DATE);
         List<TradeInputRow> loadedTrades;
         if (context.isLocalRerun()) {
-            loadedTrades = tradeInputRepository.findByInstrumentIds(dataDate, context.getInstrumentIds());
+            loadedTrades = tradeInputRepository.findByInstrumentIds(context.getDataDate(), context.getInstrumentIds());
             ensureAllInstrumentIdsLoaded(context.getInstrumentIds(), loadedTrades);
         } else {
-            loadedTrades = tradeInputRepository.findByFilter(dataDate, context.getTradeFilter());
+            loadedTrades = tradeInputRepository.findByFilter(context.getDataDate(), context.getTradeFilter());
         }
         if (loadedTrades.isEmpty()) {
             throw new IllegalArgumentException("未查询到交易数据，请检查 dataDate 条件");
@@ -47,7 +44,7 @@ public class BatchTradeLoadTask implements BatchRunTask {
         if (context.isCacheScenarioResult() && !context.isLocalRerun()) {
             tradeInfoCacheService.putBatchTradeInfo(
                     context.getBatchId(),
-                    context.getDataDate(),
+                    com.zcyh.mr.springboot.support.ResultDbDateSupport.protocolDate(context.getDataDate()),
                     loadedTrades,
                     portfolioHierarchyRepository.findByPortfolioCodes(collectPortfolioCodes(loadedTrades)));
         }

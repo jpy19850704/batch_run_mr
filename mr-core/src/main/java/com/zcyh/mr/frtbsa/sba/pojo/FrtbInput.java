@@ -2,6 +2,7 @@ package com.zcyh.mr.frtbsa.sba.pojo;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 /**
  * FRTB SA 输入数据模型
@@ -47,7 +48,7 @@ public class FrtbInput implements Serializable {
     private BigDecimal sensitivityValRptCurrCny;
 
     /** 数据日期 */
-    private String dataDate;
+    private LocalDate dataDate;
 
     /** 修改人 */
     private String modifier;
@@ -142,11 +143,11 @@ public class FrtbInput implements Serializable {
         this.sensitivityValRptCurrCny = v;
     }
 
-    public String getDataDate() {
+    public LocalDate getDataDate() {
         return dataDate;
     }
 
-    public void setDataDate(String d) {
+    public void setDataDate(LocalDate d) {
         this.dataDate = d;
     }
 

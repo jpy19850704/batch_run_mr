@@ -138,7 +138,7 @@ public class ImaCapitalTrialService {
                 saByDesk,
                 amberDesks,
                 greenDesks,
-                dataDate,
+                localDataDate,
                 batchId);
         Map<String, ImaCapitalResult> result = new LinkedHashMap<String, ImaCapitalResult>();
         for (ImaCapitalResult capitalResult : calculationResult.getCapitalResults()) {

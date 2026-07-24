@@ -1,13 +1,14 @@
 package com.zcyh.mr.frtbima.model;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 /**
  * 最终 IMA 资本汇总结果（MAR33.43）。
  */
 public class ImaCapitalResult {
 
-    private String dataDate;
+    private LocalDate dataDate;
     private String batchId;
     private String ruleId;
     private String groupType;
@@ -29,8 +30,8 @@ public class ImaCapitalResult {
     public ImaCapitalResult() {
     }
 
-    public String getDataDate() { return dataDate; }
-    public void setDataDate(String dataDate) { this.dataDate = dataDate; }
+    public LocalDate getDataDate() { return dataDate; }
+    public void setDataDate(LocalDate dataDate) { this.dataDate = dataDate; }
 
     public String getBatchId() { return batchId; }
     public void setBatchId(String batchId) { this.batchId = batchId; }

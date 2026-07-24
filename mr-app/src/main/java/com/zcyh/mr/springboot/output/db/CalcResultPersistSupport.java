@@ -6,9 +6,6 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 
 /**
  * MR_CALC 结果落库公共转换工具。
@@ -17,21 +14,7 @@ final class CalcResultPersistSupport {
     static final int DEFAULT_BATCH_SIZE = 20000;
     static final String STATUS_SUCCESS = "SUCCESS";
     static final String STATUS_ERROR = "ERROR";
-    private static final DateTimeFormatter DATE_8_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
-
     private CalcResultPersistSupport() {
-    }
-
-    static String normalizeDataDate(String dataDateText) {
-        String text = trimToNull(dataDateText);
-        if (text == null) {
-            return null;
-        }
-        try {
-            return LocalDate.parse(text, DATE_8_FORMATTER).format(DATE_8_FORMATTER);
-        } catch (DateTimeParseException ex) {
-            throw new IllegalArgumentException("DATA_DATE格式必须为yyyyMMdd: " + text, ex);
-        }
     }
 
     static BigDecimal toBigDecimal(Object value) {

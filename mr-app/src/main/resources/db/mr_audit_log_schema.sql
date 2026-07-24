@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS MR_AUDIT_LOG (
     request_uri VARCHAR(512),
     http_method VARCHAR(16),
     elapsed_ms BIGINT,
-    created_at BIGINT NOT NULL
+    created_at DATETIME(3) NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_MR_AUDIT_LOG_created_at ON MR_AUDIT_LOG(created_at);
