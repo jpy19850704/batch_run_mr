@@ -275,9 +275,9 @@ public class Bond implements FrtbDrcInterface {
                 null);
         list.addAll(girrDeltaSensitivities);
 
-        // CSR Delta/Curvature：信用点差曲线不可用时使用折现曲线
+        // CSR Delta/Curvature：统一冲击折现曲线，信用点差曲线仅参与估值、不参与 FRTB shock
         map.clear();
-        String csrCurve = resolveCsrCurveForFrtb();
+        String csrCurve = bondInfo.discountCurve;
         List<FrtbDependency> csrDependencies = bondInfo.absFlag
                 ? FrtbSensitivityBuilder.buildCsrSecNonCtpDeltaDependencies(
                         csrCurve,
@@ -526,23 +526,14 @@ public class Bond implements FrtbDrcInterface {
             return;
         }
         if (StringUtils.isBlank(bondInfo.creditSpreadCurve)) {
-            measure.addWarningLog("CREDIT_SPREAD_CURVE为空，CSR敏感性使用折现曲线计算: "
+            measure.addWarningLog("CREDIT_SPREAD_CURVE为空，债券估值仅使用折现曲线: "
                     + bondInfo.discountCurve);
             return;
         }
         if (marketData.irSpot != null && !marketData.irSpot.containsKey(bondInfo.creditSpreadCurve)) {
             measure.addWarningLog("CREDIT_SPREAD_CURVE=" + bondInfo.creditSpreadCurve
-                    + " 在市场数据中不存在，CSR敏感性使用折现曲线计算: " + bondInfo.discountCurve);
+                    + " 在市场数据中不存在，债券估值仅使用折现曲线: " + bondInfo.discountCurve);
         }
-    }
-
-    private String resolveCsrCurveForFrtb() {
-        if (!StringUtils.isBlank(bondInfo.creditSpreadCurve)
-                && marketData.irSpot != null
-                && marketData.irSpot.containsKey(bondInfo.creditSpreadCurve)) {
-            return bondInfo.creditSpreadCurve;
-        }
-        return bondInfo.discountCurve;
     }
 
     /**
