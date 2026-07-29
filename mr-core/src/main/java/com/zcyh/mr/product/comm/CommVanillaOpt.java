@@ -159,12 +159,31 @@ public class CommVanillaOpt {
         } else {
             rf = rd - 1 / t * Math.log(middle.fwdPrice / spotPrice);
         }
+        double americanRd = rd;
+        double americanRf = rf;
+        double physicalDiscountFactor = 1.0;
+        double physicalForwardRatio = 1.0;
+        if (!cash) {
+            americanRd = irSpot.spotRate(commOptInfo.maturityDate);
+            double maturityForwardPrice = commSpot.fwdPrice(commOptInfo.maturityDate);
+            if (maturityT > 0 && spotPrice > 0 && maturityForwardPrice > 0) {
+                americanRf = americanRd - Math.log(maturityForwardPrice / spotPrice) / maturityT;
+            } else {
+                americanRf = americanRd;
+            }
+            physicalDiscountFactor = irSpot.fwdDiscount(
+                    commOptInfo.maturityDate, commOptInfo.settleDate);
+            physicalForwardRatio = middle.fwdPrice / maturityForwardPrice;
+        }
         if (isAmerican) {
             if (middle.newSigma) {
-                amOptUtil = new AmOptUtil(call, cash, spotPrice, k, rd, rf, maturityT, settleT,
+                amOptUtil = new AmOptUtil(call, cash, spotPrice, k, americanRd, americanRf,
+                        maturityT, settleT, physicalDiscountFactor, physicalForwardRatio,
                         commVol.getVolCur(days));
             } else {
-                amOptUtil = new AmOptUtil(call, cash, spotPrice, k, rd, rf, middle.sigma, maturityT, settleT);
+                amOptUtil = new AmOptUtil(call, cash, spotPrice, k, americanRd, americanRf,
+                        middle.sigma, maturityT, settleT,
+                        physicalDiscountFactor, physicalForwardRatio);
             }
             measure.valuationUnit = amOptUtil.getValue();
         } else {
@@ -571,6 +590,11 @@ public class CommVanillaOpt {
         }
         if (commOptInfo.settleDate == null) {
             errors.add("SETTLE_DATE 未设置");
+        } else if (!"Cash".equalsIgnoreCase(commOptInfo.settleType)
+                && commOptInfo.maturityDate != null
+                && commOptInfo.settleDate.isBefore(commOptInfo.maturityDate)) {
+            errors.add("实物交割日早于到期日: "
+                    + commOptInfo.settleDate + " < " + commOptInfo.maturityDate);
         }
         if (!hasText(commOptInfo.discountCurve)) {
             errors.add("DISCOUNT_CURVE 未设置");

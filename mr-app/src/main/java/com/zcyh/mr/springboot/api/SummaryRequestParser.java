@@ -1,6 +1,5 @@
 package com.zcyh.mr.springboot.api;
 
-import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.measurement.frtb.FrtbDrcSummaryRequest;
 import com.zcyh.mr.springboot.measurement.frtb.FrtbSbaSummaryRequest;
@@ -17,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
@@ -192,18 +192,11 @@ final class SummaryRequestParser {
     }
 
     private static List<VarCalculation> parseVarCalculations(JSONObject request) {
-        Object raw = request.get(CALCULATIONS);
-        if (!(raw instanceof JSONArray) || ((JSONArray) raw).isEmpty()) {
-            throw new IllegalArgumentException("calculations 必须为非空数组");
-        }
-        JSONArray array = (JSONArray) raw;
+        List<?> array = readRequiredArray(request, CALCULATIONS);
         List<VarCalculation> calculations = new ArrayList<VarCalculation>();
         Set<String> calculationKeys = new LinkedHashSet<String>();
         for (int i = 0; i < array.size(); i++) {
-            JSONObject item = array.getJSONObject(i);
-            if (item == null) {
-                throw new IllegalArgumentException("calculations[" + i + "] 必须为对象");
-            }
+            JSONObject item = readArrayObject(array, i, CALCULATIONS);
             validateKeys(item, "ruleId", "scenarioId");
             String ruleId = readRequiredString(item, "ruleId");
             String scenarioId = readRequiredString(item, "scenarioId");
@@ -215,5 +208,28 @@ final class SummaryRequestParser {
             calculations.add(new VarCalculation(ruleId, scenarioId, null));
         }
         return calculations;
+    }
+
+    private static List<?> readRequiredArray(JSONObject request, String key) {
+        Object value = request.get(key);
+        if (!(value instanceof List) || ((List<?>) value).isEmpty()) {
+            throw new IllegalArgumentException(key + " 必须为非空数组");
+        }
+        return (List<?>) value;
+    }
+
+    private static JSONObject readArrayObject(List<?> array, int index, String key) {
+        Object value = array.get(index);
+        if (!(value instanceof Map)) {
+            throw new IllegalArgumentException(key + "[" + index + "] 必须为对象");
+        }
+        JSONObject result = new JSONObject();
+        for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+            if (!(entry.getKey() instanceof String)) {
+                throw new IllegalArgumentException(key + "[" + index + "] 包含非字符串字段名");
+            }
+            result.put((String) entry.getKey(), entry.getValue());
+        }
+        return result;
     }
 }

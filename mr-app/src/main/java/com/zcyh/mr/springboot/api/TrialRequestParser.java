@@ -1,7 +1,6 @@
 package com.zcyh.mr.springboot.api;
 
 import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.zcyh.mr.springboot.measurement.aggregation.AggregationRule;
@@ -16,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.zcyh.mr.springboot.support.RequestParseSupport.trimToNull;
@@ -34,7 +34,7 @@ final class TrialRequestParser {
         validateKeys(request, "batch_id", "data_date", RULE_DEFINITION_LIST,
                 "need_decompose", "thread_count");
         List<AggregationRule> ruleDefinitions = new ArrayList<AggregationRule>();
-        JSONArray array = readDefinitionArray(request);
+        List<?> array = readRequiredArray(request, RULE_DEFINITION_LIST);
         for (int i = 0; i < array.size(); i++) {
             JSONObject definition = readDefinition(array, i,
                     "build_order", "filterTree", "virtual_selection_mode", "virtual_trade_ids");
@@ -56,7 +56,7 @@ final class TrialRequestParser {
     static FrtbRuleTrialRequest parseDrc(JSONObject request) {
         validateKeys(request, "batch_id", "data_date", RULE_DEFINITION_LIST);
         List<AggregationRule> ruleDefinitions = new ArrayList<AggregationRule>();
-        JSONArray array = readDefinitionArray(request);
+        List<?> array = readRequiredArray(request, RULE_DEFINITION_LIST);
         for (int i = 0; i < array.size(); i++) {
             JSONObject definition = readDefinition(array, i, "build_order", "filterTree");
             AggregationRule ruleDefinition = JSON.parseObject(
@@ -78,17 +78,10 @@ final class TrialRequestParser {
         validateKeys(request, "batch_id", "data_date", CALCULATIONS,
                 "include_detail", "request_id");
         List<VarCalculation> calculations = new ArrayList<VarCalculation>();
-        Object rawCalculations = request.get(CALCULATIONS);
-        if (!(rawCalculations instanceof JSONArray) || ((JSONArray) rawCalculations).isEmpty()) {
-            throw new IllegalArgumentException("calculations 必须为非空数组");
-        }
-        JSONArray array = (JSONArray) rawCalculations;
+        List<?> array = readRequiredArray(request, CALCULATIONS);
         Set<String> calculationKeys = new LinkedHashSet<String>();
         for (int i = 0; i < array.size(); i++) {
-            JSONObject calculation = array.getJSONObject(i);
-            if (calculation == null) {
-                throw new IllegalArgumentException("calculations[" + i + "] 必须为对象");
-            }
+            JSONObject calculation = readArrayObject(array, i, CALCULATIONS);
             validateKeys(calculation, "ruleId", "scenarioId", "rule");
             String ruleId = readRequiredString(calculation, "ruleId");
             String scenarioId = readRequiredString(calculation, "scenarioId");
@@ -97,10 +90,8 @@ final class TrialRequestParser {
                 throw new IllegalArgumentException("calculations 包含重复计算项: ruleId="
                         + ruleId + ", scenarioId=" + scenarioId);
             }
-            JSONObject rule = calculation.getJSONObject("rule");
-            if (rule == null) {
-                throw new IllegalArgumentException("calculations[" + i + "].rule 必填");
-            }
+            JSONObject rule = readObject(
+                    calculation.get("rule"), "calculations[" + i + "].rule", true);
             JSONObject definition = JSON.parseObject(
                     rule.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
             validateKeys(definition, "build_order", "filterTree", "calc", "enabled", "output_order",
@@ -121,25 +112,40 @@ final class TrialRequestParser {
                 readOptionalString(request, "request_id"));
     }
 
-    private static JSONArray readDefinitionArray(JSONObject request) {
-        Object value = request.get(RULE_DEFINITION_LIST);
-        if (!(value instanceof JSONArray) || ((JSONArray) value).isEmpty()) {
-            throw new IllegalArgumentException(RULE_DEFINITION_LIST + " 必须为非空数组");
-        }
-        return (JSONArray) value;
-    }
-
-    private static JSONObject readDefinition(JSONArray array, int index, String... allowedKeys) {
-        JSONObject definition = array.getJSONObject(index);
-        if (definition == null) {
-            throw new IllegalArgumentException(RULE_DEFINITION_LIST + "[" + index + "] 必须为对象");
-        }
+    private static JSONObject readDefinition(List<?> array, int index, String... allowedKeys) {
+        JSONObject definition = readArrayObject(array, index, RULE_DEFINITION_LIST);
         validateKeys(definition, allowedKeys);
-        if (definition.getJSONArray("build_order") == null
-                || definition.getJSONArray("build_order").isEmpty()) {
+        Object buildOrder = definition.get("build_order");
+        if (!(buildOrder instanceof List) || ((List<?>) buildOrder).isEmpty()) {
             throw new IllegalArgumentException(RULE_DEFINITION_LIST + "[" + index + "].build_order 不能为空");
         }
         return JSON.parseObject(definition.toJSONString(JSONWriter.Feature.WriteBigDecimalAsPlain));
+    }
+
+    private static List<?> readRequiredArray(JSONObject request, String key) {
+        Object value = request.get(key);
+        if (!(value instanceof List) || ((List<?>) value).isEmpty()) {
+            throw new IllegalArgumentException(key + " 必须为非空数组");
+        }
+        return (List<?>) value;
+    }
+
+    private static JSONObject readArrayObject(List<?> array, int index, String key) {
+        return readObject(array.get(index), key + "[" + index + "]", false);
+    }
+
+    private static JSONObject readObject(Object value, String fieldPath, boolean required) {
+        if (!(value instanceof Map)) {
+            throw new IllegalArgumentException(fieldPath + (required ? " 必填且必须为对象" : " 必须为对象"));
+        }
+        JSONObject result = new JSONObject();
+        for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+            if (!(entry.getKey() instanceof String)) {
+                throw new IllegalArgumentException(fieldPath + " 包含非字符串字段名");
+            }
+            result.put((String) entry.getKey(), entry.getValue());
+        }
+        return result;
     }
 
     private static void validateKeys(JSONObject object, String... allowedKeys) {

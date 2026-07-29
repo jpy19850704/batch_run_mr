@@ -13,6 +13,9 @@ import java.util.Map;
  * 支持 CALL 和 PUT，PUT 通过 Put-Call 转换实现
  */
 public class AmOptUtil {
+    private static final double RATE_EPS = 1e-12;
+    private static final double VOL_EPS = 1e-12;
+
     private final boolean call;
     private final boolean cash;
     private final double s;
@@ -22,10 +25,20 @@ public class AmOptUtil {
     private double sigma;
     private final double maturityT;
     private final double settleT;
+    private final double physicalDiscountFactor;
+    private final double physicalForwardRatio;
     private final String volInterpolateType;
 
     public AmOptUtil(boolean call, boolean cash, double s, double k,
             double rd, double rf, double sigma, double maturityT, double settleT) {
+        this(call, cash, s, k, rd, rf, sigma, maturityT, settleT,
+                defaultPhysicalDiscountFactor(cash, rd, maturityT, settleT),
+                defaultPhysicalForwardRatio(cash, rd, rf, maturityT, settleT));
+    }
+
+    public AmOptUtil(boolean call, boolean cash, double s, double k,
+            double rd, double rf, double sigma, double maturityT, double settleT,
+            double physicalDiscountFactor, double physicalForwardRatio) {
         this.call = call;
         this.cash = cash;
         this.s = s;
@@ -35,6 +48,8 @@ public class AmOptUtil {
         this.sigma = sigma;
         this.maturityT = maturityT;
         this.settleT = settleT;
+        this.physicalDiscountFactor = physicalDiscountFactor;
+        this.physicalForwardRatio = physicalForwardRatio;
         this.volInterpolateType = null;
     }
 
@@ -44,12 +59,33 @@ public class AmOptUtil {
     public AmOptUtil(boolean call, boolean cash, double s, double k,
             double rd, double rf, double maturityT, double settleT,
             List<Map<String, Object>> vol) {
-        this(call, cash, s, k, rd, rf, maturityT, settleT, vol,
+        this(call, cash, s, k, rd, rf, maturityT, settleT,
+                defaultPhysicalDiscountFactor(cash, rd, maturityT, settleT),
+                defaultPhysicalForwardRatio(cash, rd, rf, maturityT, settleT), vol,
                 VolUtil.requireAxis2InterpolateType(vol));
     }
 
     public AmOptUtil(boolean call, boolean cash, double s, double k,
             double rd, double rf, double maturityT, double settleT,
+            double physicalDiscountFactor, double physicalForwardRatio,
+            List<Map<String, Object>> vol) {
+        this(call, cash, s, k, rd, rf, maturityT, settleT,
+                physicalDiscountFactor, physicalForwardRatio, vol,
+                VolUtil.requireAxis2InterpolateType(vol));
+    }
+
+    public AmOptUtil(boolean call, boolean cash, double s, double k,
+            double rd, double rf, double maturityT, double settleT,
+            List<Map<String, Object>> vol, String volInterpolateType) {
+        this(call, cash, s, k, rd, rf, maturityT, settleT,
+                defaultPhysicalDiscountFactor(cash, rd, maturityT, settleT),
+                defaultPhysicalForwardRatio(cash, rd, rf, maturityT, settleT),
+                vol, volInterpolateType);
+    }
+
+    public AmOptUtil(boolean call, boolean cash, double s, double k,
+            double rd, double rf, double maturityT, double settleT,
+            double physicalDiscountFactor, double physicalForwardRatio,
             List<Map<String, Object>> vol, String volInterpolateType) {
         this.call = call;
         this.cash = cash;
@@ -59,6 +95,8 @@ public class AmOptUtil {
         this.rf = rf;
         this.maturityT = maturityT;
         this.settleT = settleT;
+        this.physicalDiscountFactor = physicalDiscountFactor;
+        this.physicalForwardRatio = physicalForwardRatio;
         this.volInterpolateType = VolUtil.normalizeAxis2InterpolateType(volInterpolateType);
         this.sigma = goalSeek(vol);
     }
@@ -72,62 +110,123 @@ public class AmOptUtil {
     }
 
     /**
-     * Bjerksund-Stensland CALL 近似
+     * 现金结算美式 CALL 分段定价。
      */
-    private double bsCall(double s, double k, double t, double rd, double rf,
-            double sigma, boolean cash, double t2) {
-        double f;
-        if (cash) {
-            f = s * Math.exp((rd - rf) * t);
-        } else {
-            f = s * Math.exp((rd - rf) * t2);
+    private double americanCallCash(double s, double k, double t, double r, double b, double sigma) {
+        double intrinsic = Math.max(s - k, 0.0);
+        if (t <= 0) {
+            return intrinsic;
         }
-        double b = Math.log(f / s) / t;
-        double beta = (0.5 - b / (sigma * sigma))
-                + Math.sqrt(Math.pow(b / (sigma * sigma) - 0.5, 2) + 2 * rd / (sigma * sigma));
 
-        double b0 = k * Math.max(1, rd / (rd - b));
-        double b00 = beta * k / (beta - 1);
+        double europeanValue = europeanCallCash(s, k, t, r, b, sigma);
+        if (b >= r - RATE_EPS) {
+            return europeanValue;
+        }
+        if (sigma <= VOL_EPS) {
+            return Math.max(intrinsic, europeanValue);
+        }
 
-        double h = -(b * t + 2 * sigma * Math.sqrt(t)) * b0 / (b00 - b0);
-        double x = b0 + (b00 - b0) * (1 - Math.exp(h));
-        double alpha = (x - k) * Math.pow(x, -beta);
+        ExerciseBoundary boundary = calculateExerciseBoundary(k, t, r, b, sigma);
+        if (boundary == null) {
+            return Math.max(intrinsic, europeanValue);
+        }
+        if (s >= boundary.x) {
+            return intrinsic;
+        }
 
-        return alpha * Math.pow(s, beta)
-                - alpha * phi(s, t, beta, x, x, b, sigma, rd)
-                + phi(s, t, 1.0, x, x, b, sigma, rd)
-                - phi(s, t, 1.0, k, x, b, sigma, rd)
-                - k * phi(s, t, 0.0, x, x, b, sigma, rd)
-                + k * phi(s, t, 0.0, k, x, b, sigma, rd);
+        double modelValue = bjerksundStenslandCall(s, k, t, r, b, sigma, boundary);
+        return Double.isFinite(modelValue) ? Math.max(modelValue, intrinsic) : Math.max(intrinsic, europeanValue);
+    }
+
+    private double europeanCallCash(double s, double k, double t, double r, double b, double sigma) {
+        if (t <= 0) {
+            return Math.max(s - k, 0.0);
+        }
+        if (sigma <= VOL_EPS) {
+            return Math.exp(-r * t) * Math.max(s * Math.exp(b * t) - k, 0.0);
+        }
+        double rootT = Math.sqrt(t);
+        double d1 = (Math.log(s / k) + (b + 0.5 * sigma * sigma) * t) / (sigma * rootT);
+        double d2 = d1 - sigma * rootT;
+        return s * Math.exp((b - r) * t) * cdf(d1) - k * Math.exp(-r * t) * cdf(d2);
+    }
+
+    private ExerciseBoundary calculateExerciseBoundary(double k, double t, double r, double b, double sigma) {
+        double sigma2 = sigma * sigma;
+        double beta = (0.5 - b / sigma2)
+                + Math.sqrt(Math.pow(b / sigma2 - 0.5, 2) + 2 * r / sigma2);
+        if (!Double.isFinite(beta) || beta <= 1.0 + RATE_EPS) {
+            return null;
+        }
+
+        double b0 = k * Math.max(1.0, r / (r - b));
+        double bInf = beta * k / (beta - 1.0);
+        double denominator = bInf - b0;
+        if (!Double.isFinite(denominator) || Math.abs(denominator) <= RATE_EPS) {
+            return null;
+        }
+        double h = -(b * t + 2 * sigma * Math.sqrt(t)) * b0 / denominator;
+        double x = b0 + denominator * (1 - Math.exp(h));
+        if (!Double.isFinite(x) || x <= 0) {
+            return null;
+        }
+        return new ExerciseBoundary(beta, x);
+    }
+
+    private double bjerksundStenslandCall(double s, double k, double t, double r, double b,
+            double sigma, ExerciseBoundary boundary) {
+        double alpha = (boundary.x - k) * Math.pow(boundary.x, -boundary.beta);
+        return alpha * Math.pow(s, boundary.beta)
+                - alpha * phi(s, t, boundary.beta, boundary.x, boundary.x, b, sigma, r)
+                + phi(s, t, 1.0, boundary.x, boundary.x, b, sigma, r)
+                - phi(s, t, 1.0, k, boundary.x, b, sigma, r)
+                - k * phi(s, t, 0.0, boundary.x, boundary.x, b, sigma, r)
+                + k * phi(s, t, 0.0, k, boundary.x, b, sigma, r);
     }
 
     /**
-     * 美式期权定价（支持 CALL 和 PUT）
-     * PUT 通过 Put-Call 转换：AmPut = AmCall(K,S,...) - S*exp(-rf*T) + K*exp(-rd*T)
+     * 美式期权定价。实物交割先按远期比率调整执行价，再将结算价值折现回到期日。
      */
     private double americanPrice(double s, double k, double t, double rd, double rf,
             double sigma, boolean call, boolean cash, double t2) {
-        if (t <= 0) {
-            double f;
-            if (cash) {
-                f = s * Math.exp((rd - rf) * t);
-            } else {
-                f = s * Math.exp((rd - rf) * t2);
-            }
+        if (cash) {
             if (call) {
-                return Math.max(f - k, 0) * Math.exp(-rd * t2);
-            } else {
-                return Math.max(k - f, 0) * Math.exp(-rd * t2);
+                return americanCallCash(s, k, t, rd, rd - rf, sigma);
             }
+            return americanCallCash(k, s, t, rf, rf - rd, sigma);
         }
+
+        if (!Double.isFinite(physicalDiscountFactor) || physicalDiscountFactor <= 0.0
+                || !Double.isFinite(physicalForwardRatio) || physicalForwardRatio <= 0.0) {
+            throw new IllegalArgumentException("实物交割折现因子和远期比率必须为正有限数");
+        }
+        double adjustedStrike = k / physicalForwardRatio;
+        double settlementAdjustment = physicalDiscountFactor * physicalForwardRatio;
         if (call) {
-            return bsCall(s, k, t, rd, rf, sigma, cash, t2);
-        } else {
-            // Put-Call 转换：将 PUT 转为等价 CALL 问题
-            // AmPut(S,K,rd,rf) = AmCall(K,S,rf,rd) - S*exp(-rf*T) + K*exp(-rd*T)
-            double callVal = bsCall(k, s, t, rf, rd, sigma, cash, t2);
-            double varT = cash ? t : t2;
-            return callVal - s * Math.exp(-rf * varT) + k * Math.exp(-rd * varT);
+            return settlementAdjustment
+                    * americanCallCash(s, adjustedStrike, t, rd, rd - rf, sigma);
+        }
+        return settlementAdjustment
+                * americanCallCash(adjustedStrike, s, t, rf, rf - rd, sigma);
+    }
+
+    private static double defaultPhysicalDiscountFactor(boolean cash, double rd,
+            double maturityT, double settleT) {
+        return cash ? 1.0 : Math.exp(-rd * (settleT - maturityT));
+    }
+
+    private static double defaultPhysicalForwardRatio(boolean cash, double rd, double rf,
+            double maturityT, double settleT) {
+        return cash ? 1.0 : Math.exp((rd - rf) * (settleT - maturityT));
+    }
+
+    private static final class ExerciseBoundary {
+        private final double beta;
+        private final double x;
+
+        private ExerciseBoundary(double beta, double x) {
+            this.beta = beta;
+            this.x = x;
         }
     }
 
@@ -202,12 +301,8 @@ public class AmOptUtil {
         if (volInterpolateType == null || volInterpolateType.trim().isEmpty()) {
             throw new IllegalStateException("美式期权未通过波动率曲线构造，无法执行曲线插值");
         }
-        double f;
-        if (cash) {
-            f = s * Math.exp((rd - rf) * maturityT);
-        } else {
-            f = s * Math.exp((rd - rf) * settleT);
-        }
+        double f = s * Math.exp((rd - rf) * maturityT);
+        double pricingStrike = cash ? k : k / physicalForwardRatio;
         double deltainit = 0.5;
         double epsilon = 0.001;
         Double[] x1 = vol.stream().map(e -> Convert.toDouble(e.get("DELTA"))).toArray(Double[]::new);
@@ -216,13 +311,15 @@ public class AmOptUtil {
         double val = epsilon / (f / s);
 
         // 用欧式 BS delta 迭代（与 EurOptUtil 一致）
-        double delta = calcBsDelta(s, k, maturityT, rd, rf, sig, cash, settleT, val, epsilon, f);
+        double delta = calcBsDelta(s, pricingStrike, maturityT, rd, rf, sig,
+                true, maturityT, val, epsilon, f);
         double diff = Math.abs(delta - deltainit);
         int i = 0;
         while (diff > 0.0001 && i < 50) {
             deltainit = delta;
             sig = Interpolation.interpolate(x1, y1, deltainit, volInterpolateType);
-            delta = calcBsDelta(s, k, maturityT, rd, rf, sig, cash, settleT, val, epsilon, f);
+            delta = calcBsDelta(s, pricingStrike, maturityT, rd, rf, sig,
+                    true, maturityT, val, epsilon, f);
             diff = Math.abs(delta - deltainit);
             i++;
         }

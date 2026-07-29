@@ -132,15 +132,28 @@ public class FxVanillaOpt {
         boolean cash = "CASH".equalsIgnoreCase(info.settleType);
         double maturityT = days / 365.0;
         double settleT = days2 / 365.0;
+        double americanRd = cash ? rd : bIrSpot.spotRate(info.maturityDate);
+        double americanRf = cash ? rf : uIrSpot.spotRate(info.maturityDate);
+        double physicalDiscountFactor = 1.0;
+        double physicalForwardRatio = 1.0;
+        if (!cash) {
+            physicalDiscountFactor = bIrSpot.fwdDiscount(info.maturityDate, info.settleDate);
+            double underlyingForwardDiscount = uIrSpot.fwdDiscount(info.maturityDate, info.settleDate);
+            physicalForwardRatio = underlyingForwardDiscount / physicalDiscountFactor;
+        }
         // 获取波动率
         FxVol fxVol = new FxVol(md.fxVol.get(info.volatilitySurface));
 
         // 根据期权类型选择定价模型
         if (isAmerican) {
             if (middle.newSigma) {
-                amUtil = new AmOptUtil(call, cash, s, k, rd, rf, maturityT, settleT, fxVol.getVolCur(days));
+                amUtil = new AmOptUtil(call, cash, s, k, americanRd, americanRf,
+                        maturityT, settleT, physicalDiscountFactor, physicalForwardRatio,
+                        fxVol.getVolCur(days));
             } else {
-                amUtil = new AmOptUtil(call, cash, s, k, rd, rf, middle.sigma, maturityT, settleT);
+                amUtil = new AmOptUtil(call, cash, s, k, americanRd, americanRf,
+                        middle.sigma, maturityT, settleT,
+                        physicalDiscountFactor, physicalForwardRatio);
             }
             m.valuationUnit = amUtil.getValue();
         } else {
@@ -182,6 +195,9 @@ public class FxVanillaOpt {
             errors.add("MATURITY_DATE 已过期: " + info.maturityDate + " <= " + dataDate);
         if (info.settleDate == null)
             errors.add("SETTLE_DATE 未设置");
+        else if (!"Cash".equalsIgnoreCase(info.settleType)
+                && info.maturityDate != null && info.settleDate.isBefore(info.maturityDate))
+            errors.add("实物交割日早于到期日: " + info.settleDate + " < " + info.maturityDate);
         if (info.baseCurrencyCode == null || info.baseCurrencyCode.isEmpty())
             errors.add("BASE_CURRENCY_CODE 未设置");
         if (info.underlyingCurrencyCode == null || info.underlyingCurrencyCode.isEmpty())
