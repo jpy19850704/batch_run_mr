@@ -368,7 +368,7 @@ public class BatchRunService {
 
     private static String buildGeneratedBatchId(LocalDate dataDate) {
         String random = Long.toUnsignedString(ThreadLocalRandom.current().nextLong(), 36);
-        return "batch_" + ResultDbDateSupport.protocolDate(dataDate) + "_"
+        return "batch_" + dataDate.format(DateTimeFormatter.BASIC_ISO_DATE) + "_"
                 + LocalDateTime.now().format(GENERATED_BATCH_TIME_FORMATTER) + "_" + random;
     }
 

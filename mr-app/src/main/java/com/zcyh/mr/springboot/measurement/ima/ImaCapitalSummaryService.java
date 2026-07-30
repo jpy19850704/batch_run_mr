@@ -80,7 +80,7 @@ public class ImaCapitalSummaryService {
         List<ImaNmrfResult> nmrfResults = new ArrayList<ImaNmrfResult>();
         List<ImaCapitalRuleResolver.LoadedRule> loadedRules =
                 new ArrayList<ImaCapitalRuleResolver.LoadedRule>();
-        LocalDate localDataDate = LocalDate.parse(dataDate, DateTimeFormatter.BASIC_ISO_DATE);
+        LocalDate localDataDate = LocalDate.parse(dataDate, DateTimeFormatter.ISO_LOCAL_DATE);
         for (String ruleId : request.getRuleIds()) {
             ImaCapitalRuleResolver.LoadedRule loadedRule = ruleRepository.loadImaRule(ruleId);
             calculationService.validateImaRule(loadedRule.getRule());

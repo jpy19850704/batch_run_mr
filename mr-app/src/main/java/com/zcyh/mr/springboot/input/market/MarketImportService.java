@@ -217,11 +217,9 @@ public class MarketImportService {
     private static LocalDate parseDate(String dataDate) {
         String value = dataDate == null ? "" : dataDate.trim();
         try {
-            return value.matches("\\d{8}")
-                    ? LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE)
-                    : LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE);
+            return LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE);
         } catch (Exception e) {
-            throw new IllegalArgumentException("dataDate格式错误: " + dataDate);
+            throw new IllegalArgumentException("dataDate格式必须为yyyy-MM-dd: " + dataDate);
         }
     }
 

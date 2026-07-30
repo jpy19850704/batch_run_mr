@@ -52,7 +52,7 @@ class CalcScenarioInputResolverTest {
 
     private static JSONObject imaNmrfPayload() {
         JSONObject payload = new JSONObject();
-        payload.put("data_date", "20260331");
+        payload.put("data_date", "2026-03-31");
         payload.put("trade_data", new JSONArray());
         payload.put("market_data", new JSONArray());
         JSONObject ref = new JSONObject();

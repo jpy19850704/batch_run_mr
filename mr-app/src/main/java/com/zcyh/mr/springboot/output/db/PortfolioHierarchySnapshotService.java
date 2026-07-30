@@ -34,7 +34,7 @@ public class PortfolioHierarchySnapshotService {
         if (dataDate == null) {
             throw new IllegalArgumentException("dataDate 不能为空");
         }
-        String normalizedDataDate = dataDate.format(DateTimeFormatter.BASIC_ISO_DATE);
+        String normalizedDataDate = dataDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
         List<Map<String, Object>> hierarchyRows = engineDbJdbcTemplate.queryForList(
                 "SELECT PORTFOLIO_CODE, PORTFOLIO_NAME, UPPER_LEVEL_PORTFOLIO, LEVEL_CODE FROM V_PORTFOLIO_HIERARCHY");
         if (hierarchyRows.isEmpty()) {

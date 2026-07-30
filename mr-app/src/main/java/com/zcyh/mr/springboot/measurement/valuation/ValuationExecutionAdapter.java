@@ -113,7 +113,7 @@ public class ValuationExecutionAdapter implements ExecutionAdapter {
         }
         String dataDate = requiredPayloadField(payload, "data_date");
         return imaRiskFactorConfigService.loadImaRiskFactorConfig(
-                LocalDate.parse(dataDate, DateTimeFormatter.BASIC_ISO_DATE));
+                LocalDate.parse(dataDate, DateTimeFormatter.ISO_LOCAL_DATE));
     }
 
     private JSONObject validateScenarioInputCacheReferences(JSONObject payload) {

@@ -39,7 +39,7 @@ public class FrtbDrcDbRunnerService {
 
     /**
      * 入口参数 JSON 示例：
-     * {"batch_id":"...","data_date":"yyyyMMdd"}
+     * {"batch_id":"...","data_date":"yyyy-MM-dd"}
      */
     public String calculateByBatch(String payloadJson) {
         JSONObject req = JSON.parseObject(payloadJson);
@@ -210,9 +210,9 @@ public class FrtbDrcDbRunnerService {
             throw new IllegalArgumentException("data_date 必填");
         }
         try {
-            return LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE);
+            return LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE);
         } catch (Exception ex) {
-            throw new IllegalArgumentException("data_date 格式必须为 yyyyMMdd", ex);
+            throw new IllegalArgumentException("data_date 格式必须为 yyyy-MM-dd", ex);
         }
     }
 

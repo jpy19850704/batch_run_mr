@@ -8,7 +8,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -182,13 +181,6 @@ public class MrCalcDetailCleanupService {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Doris明细清理重试被中断", ex);
         }
-    }
-
-    private static String formatDataDate(LocalDate dataDate) {
-        if (dataDate == null) {
-            throw new IllegalArgumentException("dataDate 不能为空");
-        }
-        return dataDate.format(DateTimeFormatter.BASIC_ISO_DATE);
     }
 
     private static String requireText(String value, String message) {

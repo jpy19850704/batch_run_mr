@@ -42,7 +42,7 @@ class CalcTradeErrorResultTest {
     private static JSONObject run(JSONObject trade) {
         JSONObject payload = new JSONObject();
         payload.put("calc_mode", "PRICING");
-        payload.put("data_date", "20251231");
+        payload.put("data_date", "2025-12-31");
         payload.put("trade_data", new JSONArray().fluentAdd(trade));
         payload.put("market_data", new JSONArray());
         return JSONObject.parseObject(new Calc(payload.toJSONString(), null).run());

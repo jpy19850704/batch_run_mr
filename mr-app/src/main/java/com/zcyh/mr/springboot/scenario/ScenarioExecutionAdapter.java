@@ -99,7 +99,7 @@ public class ScenarioExecutionAdapter implements ExecutionAdapter {
         try {
             ScenarioGenerationRequest request = scenarioRequestAssembler.build(
                     scenarioIdList,
-                    LocalDate.parse(dataDate, DateTimeFormatter.BASIC_ISO_DATE),
+                    LocalDate.parse(dataDate, DateTimeFormatter.ISO_LOCAL_DATE),
                     user,
                     "mr-app");
             List<ScenarioGeneratedRecord> result = scenarioGenerationEngine.generate(request);

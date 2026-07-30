@@ -15,7 +15,7 @@ import java.util.Set;
  * 用于在内存中按固定行数聚合 CSV 内容，再统一推送到 Doris。
  */
 public class DorisCsvStreamLoadBuffer implements CsvRowWriter {
-    private static final DateTimeFormatter PROTOCOL_DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final DateTimeFormatter PROTOCOL_DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter DATABASE_DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     private static final Set<String> DATE_COLUMNS = Set.of(
@@ -155,7 +155,7 @@ public class DorisCsvStreamLoadBuffer implements CsvRowWriter {
         try {
             return LocalDate.parse(text, PROTOCOL_DATE_FORMATTER).toString();
         } catch (DateTimeParseException ex) {
-            throw new IllegalArgumentException(column + "格式必须为yyyyMMdd: " + text, ex);
+            throw new IllegalArgumentException(column + "格式必须为yyyy-MM-dd: " + text, ex);
         }
     }
 

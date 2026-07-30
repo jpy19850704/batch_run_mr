@@ -120,7 +120,7 @@ public class JobPayloadBuilder {
 
         JSONObject payload = new JSONObject();
         payload.put("calc_mode", calcMode);
-        payload.put("data_date", dataDate.format(DateTimeFormatter.BASIC_ISO_DATE));
+        payload.put("data_date", dataDate.format(DateTimeFormatter.ISO_LOCAL_DATE));
         payload.put("trade_data", tradeData);
         payload.put("market_data", marketData);
         payload.put("persist_result", persistResult);

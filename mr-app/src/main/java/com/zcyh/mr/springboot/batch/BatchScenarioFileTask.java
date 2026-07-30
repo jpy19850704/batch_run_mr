@@ -6,7 +6,6 @@ import com.zcyh.mr.springboot.batch.BatchRunTask;
 import com.zcyh.mr.springboot.batch.BatchRunWorkflowContext;
 
 import com.zcyh.mr.scenario.model.ScenarioGeneratedRecord;
-import com.zcyh.mr.springboot.support.ResultDbDateSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -74,7 +73,7 @@ public class BatchScenarioFileTask implements BatchRunTask {
         }
 
         try {
-            String dataDate = ResultDbDateSupport.protocolDate(context.getDataDate());
+            String dataDate = context.getDataDate().format(DATE_8_FORMATTER);
             Path batchDir = prepareBatchDirectory(dataDate, context.getBatchId());
 
             Set<String> requestedScenarioIds = mergeScenarioIds(

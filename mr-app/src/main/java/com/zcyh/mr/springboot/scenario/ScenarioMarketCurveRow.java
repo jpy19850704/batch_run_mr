@@ -125,12 +125,9 @@ final class ScenarioMarketCurveRow {
             return null;
         }
         try {
-            if (text.length() == 8 && text.chars().allMatch(Character::isDigit)) {
-                return LocalDate.parse(text, java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
-            }
-            return LocalDate.parse(text);
+            return LocalDate.parse(text, java.time.format.DateTimeFormatter.ISO_LOCAL_DATE);
         } catch (Exception ex) {
-            return null;
+            throw new IllegalArgumentException("市场数据日期格式必须为yyyy-MM-dd: " + text, ex);
         }
     }
 

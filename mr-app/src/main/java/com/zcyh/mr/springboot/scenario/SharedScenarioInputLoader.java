@@ -50,7 +50,7 @@ public class SharedScenarioInputLoader {
             }
             if (dataDate == null) {
                 dataDate = LocalDate.parse(requireText(payload.getString("data_date"), "data_date 必填"),
-                        DateTimeFormatter.BASIC_ISO_DATE);
+                        DateTimeFormatter.ISO_LOCAL_DATE);
                 JSONObject batchMeta = payload.getJSONObject("batch_meta");
                 batchId = requireText(batchMeta == null ? null : batchMeta.getString("batch_id"),
                         "batch_meta.batch_id 必填");

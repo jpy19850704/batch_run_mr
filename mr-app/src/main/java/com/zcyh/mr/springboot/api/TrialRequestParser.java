@@ -166,10 +166,10 @@ final class TrialRequestParser {
 
     private static String readDataDate(JSONObject request) {
         String dataDate = readRequiredString(request, "data_date");
-        if (!dataDate.matches("\\d{8}")) {
-            throw new IllegalArgumentException("data_date 格式必须为 yyyyMMdd");
+        if (!dataDate.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            throw new IllegalArgumentException("data_date 格式必须为 yyyy-MM-dd");
         }
-        LocalDate.parse(dataDate, DateTimeFormatter.BASIC_ISO_DATE);
+        LocalDate.parse(dataDate, DateTimeFormatter.ISO_LOCAL_DATE);
         return dataDate;
     }
 

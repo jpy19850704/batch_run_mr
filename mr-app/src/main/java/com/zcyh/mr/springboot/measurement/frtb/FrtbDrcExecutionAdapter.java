@@ -48,7 +48,7 @@ public class FrtbDrcExecutionAdapter implements ExecutionAdapter {
 
         String dataDateRaw = req.getString("data_date");
         if (dataDateRaw == null || dataDateRaw.trim().isEmpty()) {
-            throw new IllegalArgumentException("data_date 必填，格式 yyyyMMdd");
+            throw new IllegalArgumentException("data_date 必填，格式 yyyy-MM-dd");
         }
         LocalDate dataDate = parseDate(dataDateRaw.trim());
 
@@ -57,10 +57,11 @@ public class FrtbDrcExecutionAdapter implements ExecutionAdapter {
     }
 
     private static LocalDate parseDate(String raw) {
-        if (raw.length() == 8 && raw.chars().allMatch(Character::isDigit)) {
-            return LocalDate.parse(raw, DateTimeFormatter.BASIC_ISO_DATE);
+        try {
+            return LocalDate.parse(raw, DateTimeFormatter.ISO_LOCAL_DATE);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("data_date 格式必须为 yyyy-MM-dd", ex);
         }
-        throw new IllegalArgumentException("data_date 格式必须为 yyyyMMdd");
     }
 
     private static List<DrcDetail> parseDrcDetailList(JSONArray array, String path) {

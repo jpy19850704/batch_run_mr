@@ -301,7 +301,7 @@ public class MarketDataValidationTest {
 
         JSONObject jo = new JSONObject();
         jo.put("oper_code", "PRICING");
-        jo.put("data_date", "20240329");
+        jo.put("data_date", "2024-03-29");
         jo.put("trade_data", new JSONArray().fluentAdd(trade1).fluentAdd(trade2));
         jo.put("market_data", new JSONArray());
 
@@ -336,7 +336,7 @@ public class MarketDataValidationTest {
 
         JSONObject jo = new JSONObject();
         jo.put("oper_code", "PRICING");
-        jo.put("data_date", "20240329");
+        jo.put("data_date", "2024-03-29");
         jo.put("trade_data", new JSONArray().fluentAdd(trade));
         jo.put("market_data", new JSONArray());
 
@@ -355,7 +355,7 @@ public class MarketDataValidationTest {
     static String buildJson(JSONObject marketDataItem) {
         JSONObject jo = new JSONObject();
         jo.put("oper_code", "PRICING");
-        jo.put("data_date", "20240329");
+        jo.put("data_date", "2024-03-29");
         jo.put("trade_data", new JSONArray());
         jo.put("market_data", new JSONArray().fluentAdd(marketDataItem));
         return jo.toJSONString();

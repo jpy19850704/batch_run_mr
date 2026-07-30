@@ -129,7 +129,7 @@ public class ImaCapitalTrialService {
             Set<String> greenDesks) {
         ImaCapitalRuleResolver.LoadedRule loadedRule = ruleRepository.loadImaRule(imaRuleId);
         AggregationRule trialRule = buildTrialImaRule(loadedRule.getRule(), filterTree);
-        LocalDate localDataDate = LocalDate.parse(dataDate, DateTimeFormatter.BASIC_ISO_DATE);
+        LocalDate localDataDate = LocalDate.parse(dataDate, DateTimeFormatter.ISO_LOCAL_DATE);
         ImaCapitalCalculationResult calculationResult = calculationService.calculateRule(
                 trialRule,
                 capitalDimensionService.buildDimensionRows(localDataDate, trialRule),

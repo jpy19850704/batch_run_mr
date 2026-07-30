@@ -103,10 +103,10 @@ public class MeasurementInputQueryService {
             throw new IllegalArgumentException("缺少必选参数: data_date");
         }
         try {
-            java.time.LocalDate.parse(text, java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+            java.time.LocalDate.parse(text, java.time.format.DateTimeFormatter.ISO_LOCAL_DATE);
             return text;
         } catch (java.time.format.DateTimeParseException ex) {
-            throw new IllegalArgumentException("data_date 格式必须为 yyyyMMdd: " + text, ex);
+            throw new IllegalArgumentException("data_date 格式必须为 yyyy-MM-dd: " + text, ex);
         }
     }
 }

@@ -9,7 +9,7 @@ import java.time.format.DateTimeParseException;
  * 结果库日期与接口日期的唯一转换入口。
  */
 public final class ResultDbDateSupport {
-    private static final DateTimeFormatter PROTOCOL_DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final DateTimeFormatter PROTOCOL_DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 
     private ResultDbDateSupport() {
     }
@@ -22,7 +22,7 @@ public final class ResultDbDateSupport {
         try {
             return LocalDate.parse(text, PROTOCOL_DATE_FORMATTER);
         } catch (DateTimeParseException ex) {
-            throw new IllegalArgumentException("数据日期格式必须为yyyyMMdd: " + text, ex);
+            throw new IllegalArgumentException("数据日期格式必须为yyyy-MM-dd: " + text, ex);
         }
     }
 

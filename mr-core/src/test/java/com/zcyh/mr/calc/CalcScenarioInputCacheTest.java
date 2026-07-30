@@ -39,7 +39,7 @@ class CalcScenarioInputCacheTest {
                 Set.of("IR_SPOT:CNY_IR"))));
 
         JSONObject payload = new JSONObject();
-        payload.put("data_date", "20260331");
+        payload.put("data_date", "2026-03-31");
         payload.put("calc_mode", "PRICING");
         payload.put("trade_data", new JSONArray());
         payload.put("market_data", new JSONArray());

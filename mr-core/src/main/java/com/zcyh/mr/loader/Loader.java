@@ -158,9 +158,9 @@ public class Loader {
             throw new IllegalArgumentException("缺少必填字段: data_date");
         }
         try {
-            return LocalDate.parse(dateStr, DateTimeFormatter.ofPattern("yyyyMMdd"));
+            return LocalDate.parse(dateStr, DateTimeFormatter.ISO_LOCAL_DATE);
         } catch (DateTimeParseException e) {
-            throw new IllegalArgumentException("data_date 格式错误（应为 yyyyMMdd）: " + dateStr, e);
+            throw new IllegalArgumentException("data_date 格式错误（应为 yyyy-MM-dd）: " + dateStr, e);
         }
     }
 

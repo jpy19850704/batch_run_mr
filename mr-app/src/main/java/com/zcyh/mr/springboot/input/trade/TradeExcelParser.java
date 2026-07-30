@@ -210,14 +210,11 @@ public class TradeExcelParser {
     }
 
     private static LocalDate parseDate(Object value, int rowNumber) {
-        String text = text(value).replace("/", "-");
+        String text = text(value);
         try {
-            if (text.matches("\\d{8}")) {
-                return LocalDate.parse(text, DateTimeFormatter.BASIC_ISO_DATE);
-            }
             return LocalDate.parse(text, DateTimeFormatter.ISO_LOCAL_DATE);
         } catch (Exception e) {
-            throw rowError(rowNumber, "DATA_DATE日期格式错误: " + text);
+            throw rowError(rowNumber, "DATA_DATE日期格式必须为yyyy-MM-dd: " + text);
         }
     }
 
