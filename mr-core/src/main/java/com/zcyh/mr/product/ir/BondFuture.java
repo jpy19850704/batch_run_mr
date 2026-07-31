@@ -147,6 +147,7 @@ public class BondFuture implements FrtbDrcInterface {
 
         // PV01统一按估值币种口径计算，不按CNY差分
         bondFutureMeasure.pv01 = measure2.valuation - bondFutureMeasure.valuation;
+        bondFutureMeasure.logs = new ArrayList<>();
         bondFutureMeasure.sensitivityList = FrtbCalcControl.isSensitivityEnabled()
                 ? getFrtbSensitivity()
                 : new ArrayList<>();
@@ -155,7 +156,6 @@ public class BondFuture implements FrtbDrcInterface {
         bondFutureMeasure.dataDate = dataDate;
         bondFutureMeasure.cashFlowList = this.result.cashFlowList;
         bondFutureMeasure.status = "SUCCESS";
-        bondFutureMeasure.logs = new ArrayList<>();
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("标的远期价格", this.result.bondForwardPrice);
         detail.put("转换因子", this.result.convertFactor);
@@ -353,7 +353,11 @@ public class BondFuture implements FrtbDrcInterface {
                 null);
         list.addAll(girrSensitivities);
         /* CSR 信用利差风险 */
-        if (this.result.undBondInfo.creditSpreadCurve != null && bondFutureInfo.frtbCsrBucket != null) {
+        if (!hasText(bondFutureInfo.frtbCsrBucket)) {
+            bondFutureMeasure.addWarningLog("FRTB_CSR_BUCKET为空，跳过CSR敏感性计算");
+        } else if (!hasText(bondFutureInfo.issuer)) {
+            bondFutureMeasure.addWarningLog("ISSUER为空，跳过CSR敏感性计算");
+        } else if (this.result.undBondInfo.creditSpreadCurve != null) {
             List<FrtbDependency> csrDependencies = bondFutureInfo.absFlag
                     ? FrtbSensitivityBuilder.buildCsrSecNonCtpDeltaDependencies(
                             this.result.undBondInfo.creditSpreadCurve,
@@ -384,6 +388,10 @@ public class BondFuture implements FrtbDrcInterface {
         list.removeIf(item -> Math.abs(item.sensitivityValInstCurr) < 1e-12
                 && Math.abs(item.sensitivityValInstCurrCny) < 1e-12);/* 移除敏度结果为0的元素 */
         return list;
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     public DrcDetail getDrc() {

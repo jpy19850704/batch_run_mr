@@ -112,6 +112,13 @@ public class BondInputValidationTest {
         Assertions.assertEquals(LocalDate.of(2026, 3, 31), info.maturityDate);
     }
 
+    @Test
+    public void testBondFutureAbsFlagDefaultsToFalse() {
+        BondFuture.BondFutureTradeInfo info = new BondFuture.BondFutureTradeInfo();
+
+        Assertions.assertFalse(info.absFlag);
+    }
+
     private Bond.BondTradeInfo buildBondInfo() {
         Bond.BondTradeInfo info = new Bond.BondTradeInfo();
         info.productCode = EngineConstants.PRODUCT_CODE.BOND;

@@ -62,6 +62,7 @@ public class StdIrs {
         measure.pv01 = shiftedMeasure.valuation - measure.valuation;
 
         // FRTB GIRR Delta 敏感度
+        measure.logs = new ArrayList<>();
         measure.sensitivityList = calcFrtbSens(measure);
 
 
@@ -72,7 +73,6 @@ public class StdIrs {
         measure.valuationCcy = tradeInfo.currencyCode;
         measure.valuationUnit = measure.position == 0.0 ? 0.0 : measure.valuation / measure.position;
         measure.status = "SUCCESS";
-        measure.logs = new ArrayList<>();
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("valuation_marity_date", tradeInfo.maturityDate.toString());
         measure.detail = detail;
