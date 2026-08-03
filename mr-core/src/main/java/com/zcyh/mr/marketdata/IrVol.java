@@ -142,9 +142,9 @@ public class IrVol implements Serializable {
         public String axis2Type;
         @JSONField(name = "AXIS2_INTERPOLATE_TYPE")
         public String axis2InterpolateType;
-        @JSONField(name = "DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate dataDate;
-        @JSONField(name = "P_DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "P_DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate pDataDate;
         // TERM_DAYS,VERTEX2,VOLATILITY_RATE
         @JSONField(name = "CURVE_DATA")

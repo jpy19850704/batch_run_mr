@@ -25,14 +25,14 @@ public class CreditInputValidationTest {
     @Test
     public void testCreditAndIrInputDatesUseFieldFormats() {
         Cds.CdsTradeInfo cds = JSON.parseObject(
-                "{\"START_DATE\":\"20260101\",\"MATURITY_DATE\":\"20261231\"}", Cds.CdsTradeInfo.class);
+                "{\"START_DATE\":\"2026-01-01\",\"MATURITY_DATE\":\"2026-12-31\"}", Cds.CdsTradeInfo.class);
         Trs.TrsTradeInfo trs = JSON.parseObject(
-                "{\"START_DATE\":\"20260101\",\"MATURITY_DATE\":\"20261231\"}", Trs.TrsTradeInfo.class);
+                "{\"START_DATE\":\"2026-01-01\",\"MATURITY_DATE\":\"2026-12-31\"}", Trs.TrsTradeInfo.class);
         IrsCcs.IrsCcsTradeInfo irsCcs = JSON.parseObject(
-                "{\"START_DATE\":\"20260101\",\"MATURITY_DATE\":\"20261231\"}", IrsCcs.IrsCcsTradeInfo.class);
+                "{\"START_DATE\":\"2026-01-01\",\"MATURITY_DATE\":\"2026-12-31\"}", IrsCcs.IrsCcsTradeInfo.class);
         Swaption.SwaptionTradeInfo swaption = JSON.parseObject(
-                "{\"MATURITY_DATE\":\"20260331\",\"UNDERLYING_START_DATE\":\"20260401\","
-                        + "\"UNDERLYING_MATURITY_DATE\":\"20270401\"}", Swaption.SwaptionTradeInfo.class);
+                "{\"MATURITY_DATE\":\"2026-03-31\",\"UNDERLYING_START_DATE\":\"2026-04-01\","
+                        + "\"UNDERLYING_MATURITY_DATE\":\"2027-04-01\"}", Swaption.SwaptionTradeInfo.class);
 
         Assertions.assertEquals(LocalDate.of(2026, 1, 1), cds.startDate);
         Assertions.assertEquals(LocalDate.of(2026, 12, 31), cds.maturityDate);

@@ -90,7 +90,7 @@ public class MarketDataValidationTest {
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "IR_SPOT")
                 .fluentPut("CURVE_ID", "TEST_CURVE")
-                .fluentPut("DATA_DATE", "20240329")
+                .fluentPut("DATA_DATE", "2024-03-29")
                 .fluentPut("FREQ", "cont")
                 .fluentPut("DAYCOUNT", "actual/365")
                 .fluentPut("CURVE_DATA", new JSONArray()
@@ -109,7 +109,7 @@ public class MarketDataValidationTest {
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "IR_SPOT")
                 .fluentPut("CURVE_ID", "TEST_CURVE")
-                .fluentPut("DATA_DATE", "20240329")
+                .fluentPut("DATA_DATE", "2024-03-29")
                 .fluentPut("FREQ", "cont")
                 .fluentPut("DAYCOUNT", "actual/365")
                 .fluentPut("CURVE_DATA", new JSONArray()
@@ -128,7 +128,7 @@ public class MarketDataValidationTest {
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "IR_SPOT")
                 .fluentPut("CURVE_ID", "MIXED_CURVE")
-                .fluentPut("DATA_DATE", "20240329")
+                .fluentPut("DATA_DATE", "2024-03-29")
                 .fluentPut("FREQ", "cont")
                 .fluentPut("DAYCOUNT", "actual/365")
                 .fluentPut("CURVE_DATA", new JSONArray()
@@ -151,18 +151,18 @@ public class MarketDataValidationTest {
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "FIXING")
                 .fluentPut("FIXING_ID", "TEST_FIX")
-                .fluentPut("DATA_DATE", "20240329")
+                .fluentPut("DATA_DATE", "2024-03-29")
                 .fluentPut("CURVE_DATA", new JSONArray()
                         .fluentAdd(
-                                new JSONObject().fluentPut("TRADE_DATE", "2024-03-29").fluentPut("FIXING_VALUE", 0.025)) // 格式错
+                                new JSONObject().fluentPut("TRADE_DATE", "20240329").fluentPut("FIXING_VALUE", 0.025)) // 格式错
                         .fluentAdd(
-                                new JSONObject().fluentPut("TRADE_DATE", "20240329").fluentPut("FIXING_VALUE", 0.026)) // 正常
+                                new JSONObject().fluentPut("TRADE_DATE", "2024-03-29").fluentPut("FIXING_VALUE", 0.026)) // 正常
                         .fluentAdd(new JSONObject().fluentPut("TRADE_DATE", "").fluentPut("FIXING_VALUE", 0.027)) // 空日期
                 ));
         Loader loader = new Loader(json);
         int size = loader.getMarketData().fixingRate.get("TEST_FIX").curveData.size();
         boolean ok = (size == 1);
-        report(ok, "应只剩 1 个正常点位（yyyyMMdd 格式），实际: " + size);
+        report(ok, "应只剩 1 个正常点位（yyyy-MM-dd 格式），实际: " + size);
         printLogs(loader);
     }
 
@@ -172,11 +172,11 @@ public class MarketDataValidationTest {
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "FIXING")
                 .fluentPut("FIXING_ID", "TEST_FIX2")
-                .fluentPut("DATA_DATE", "20240329")
+                .fluentPut("DATA_DATE", "2024-03-29")
                 .fluentPut("CURVE_DATA", new JSONArray()
-                        .fluentAdd(new JSONObject().fluentPut("TRADE_DATE", "20240329").fluentPut("FIXING_VALUE", null)) // null
+                        .fluentAdd(new JSONObject().fluentPut("TRADE_DATE", "2024-03-29").fluentPut("FIXING_VALUE", null)) // null
                         .fluentAdd(
-                                new JSONObject().fluentPut("TRADE_DATE", "20240328").fluentPut("FIXING_VALUE", "0.025")) // 正常字符串数字
+                                new JSONObject().fluentPut("TRADE_DATE", "2024-03-28").fluentPut("FIXING_VALUE", "0.025")) // 正常字符串数字
                 ));
         Loader loader = new Loader(json);
         int size = loader.getMarketData().fixingRate.get("TEST_FIX2").curveData.size();
@@ -191,10 +191,10 @@ public class MarketDataValidationTest {
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "FIXING")
                 .fluentPut("FIXING_ID", "TEST_FIX_ALIAS")
-                .fluentPut("DATA_DATE", "20240329")
+                .fluentPut("DATA_DATE", "2024-03-29")
                 .fluentPut("CURVE_DATA", new JSONArray()
-                        .fluentAdd(new JSONObject().fluentPut("TRADE_DATE", "20240328").fluentPut("FIXING_VALUE", 0.025))
-                        .fluentAdd(new JSONObject().fluentPut("TRADE_DATE", "20240329").fluentPut("FIXING_VALUE", 0.026))));
+                        .fluentAdd(new JSONObject().fluentPut("TRADE_DATE", "2024-03-28").fluentPut("FIXING_VALUE", 0.025))
+                        .fluentAdd(new JSONObject().fluentPut("TRADE_DATE", "2024-03-29").fluentPut("FIXING_VALUE", 0.026))));
         Loader loader = new Loader(json);
         int size = loader.getMarketData().fixingRate.get("TEST_FIX_ALIAS").curveData.size();
         boolean ok = (size == 2);
@@ -208,13 +208,13 @@ public class MarketDataValidationTest {
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "FIXING")
                 .fluentPut("FIXING_ID", "TEST_FIX_DEFAULT_FORWARD")
-                .fluentPut("DATA_DATE", "20240329")
+                .fluentPut("DATA_DATE", "2024-03-29")
                 .fluentPut("CURVE_DATA", new JSONArray()
-                        .fluentAdd(new JSONObject().fluentPut("TRADE_DATE", "20240328").fluentPut("FIXING_VALUE", 0.02))
-                        .fluentAdd(new JSONObject().fluentPut("TRADE_DATE", "20240330").fluentPut("FIXING_VALUE", 0.04))));
+                        .fluentAdd(new JSONObject().fluentPut("TRADE_DATE", "2024-03-28").fluentPut("FIXING_VALUE", 0.02))
+                        .fluentAdd(new JSONObject().fluentPut("TRADE_DATE", "2024-03-30").fluentPut("FIXING_VALUE", 0.04))));
         Loader loader = new Loader(json);
         Fixing fixing = new Fixing(loader.getMarketData().fixingRate.get("TEST_FIX_DEFAULT_FORWARD"));
-        double rate = fixing.getRate(LocalDate.parse("20240329", java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd")));
+        double rate = fixing.getRate(LocalDate.parse("2024-03-29"));
         boolean ok = Math.abs(rate - 0.02) < 1e-12;
         report(ok, "默认应向前取值为 0.02（非线性 0.03），实际: " + rate);
         printLogs(loader);
@@ -225,7 +225,7 @@ public class MarketDataValidationTest {
         System.out.println("[测试9] FX_SPOT CURRENCY 为空 → 该点位剔除");
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "FX_SPOT")
-                .fluentPut("DATA_DATE", "20240329")
+                .fluentPut("DATA_DATE", "2024-03-29")
                 .fluentPut("CURVE_DATA", new JSONArray()
                         .fluentAdd(new JSONObject().fluentPut("CURRENCY", "").fluentPut("RATE", 7.2))
                         .fluentAdd(new JSONObject().fluentPut("CURRENCY", "CNY/USD").fluentPut("RATE", 7.2))));
@@ -241,7 +241,7 @@ public class MarketDataValidationTest {
         System.out.println("[测试10] FX_SPOT RATE 不是数字 → 该点位剔除");
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "FX_SPOT")
-                .fluentPut("DATA_DATE", "20240329")
+                .fluentPut("DATA_DATE", "2024-03-29")
                 .fluentPut("CURVE_DATA", new JSONArray()
                         .fluentAdd(new JSONObject().fluentPut("CURRENCY", "CNY/USD").fluentPut("RATE", "bad"))
                         .fluentAdd(new JSONObject().fluentPut("CURRENCY", "EUR/USD").fluentPut("RATE", 1.08))));
@@ -257,7 +257,7 @@ public class MarketDataValidationTest {
         System.out.println("[测试11] FX_SPOT 混合正常/异常 → 保留正常");
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "FX_SPOT")
-                .fluentPut("DATA_DATE", "20240329")
+                .fluentPut("DATA_DATE", "2024-03-29")
                 .fluentPut("CURVE_DATA", new JSONArray()
                         .fluentAdd(new JSONObject().fluentPut("CURRENCY", "CNY/USD").fluentPut("RATE", 7.2)) // 正常
                         .fluentAdd(new JSONObject().fluentPut("CURRENCY", null).fluentPut("RATE", 1.5)) // null
@@ -282,8 +282,8 @@ public class MarketDataValidationTest {
                 .fluentPut("REC_CURRENCY_CODE", "USD")
                 .fluentPut("PAY_INTEREST_TYPE", "Fixed")
                 .fluentPut("REC_INTEREST_TYPE", "Fixed")
-                .fluentPut("START_DATE", "20240329")
-                .fluentPut("MATURITY_DATE", "20250329")
+                .fluentPut("START_DATE", "2024-03-29")
+                .fluentPut("MATURITY_DATE", "2025-03-29")
                 .fluentPut("PAY_FREQ", "3M")
                 .fluentPut("REC_FREQ", "3M")
                 .fluentPut("PAY_NOTIONAL", 1000000)
@@ -295,8 +295,8 @@ public class MarketDataValidationTest {
                 .fluentPut("INSTRUMENT_ID", "BAD_TRADE")
                 .fluentPut("PRODUCT_CODE", "IRSCCS")
                 .fluentPut("PAY_CURRENCY_CODE", "") // 空
-                .fluentPut("START_DATE", "20240329")
-                .fluentPut("MATURITY_DATE", "20250329");
+                .fluentPut("START_DATE", "2024-03-29")
+                .fluentPut("MATURITY_DATE", "2025-03-29");
         // 缺少 REC_CURRENCY_CODE, PAY_INTEREST_TYPE 等
 
         JSONObject jo = new JSONObject();
@@ -325,8 +325,8 @@ public class MarketDataValidationTest {
                 .fluentPut("REC_CURRENCY_CODE", "USD")
                 .fluentPut("PAY_INTEREST_TYPE", "InvalidType") // domain 不合法
                 .fluentPut("REC_INTEREST_TYPE", "Fixed")
-                .fluentPut("START_DATE", "20240329")
-                .fluentPut("MATURITY_DATE", "20250329")
+                .fluentPut("START_DATE", "2024-03-29")
+                .fluentPut("MATURITY_DATE", "2025-03-29")
                 .fluentPut("PAY_FREQ", "3M")
                 .fluentPut("REC_FREQ", "3M")
                 .fluentPut("PAY_NOTIONAL", 1000000)

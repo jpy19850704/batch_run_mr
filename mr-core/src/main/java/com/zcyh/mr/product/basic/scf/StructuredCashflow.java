@@ -8,6 +8,7 @@ import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.validation.ProductInputField;
+import com.zcyh.mr.product.basic.validation.BooleanInputReader;
 import com.zcyh.mr.support.CommUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -370,34 +371,21 @@ public class StructuredCashflow {
                 r = r0;
             }
 
+            boolean spreadIncluded = false;
+
             // 重定价频率高于付息频率
             if (CommUtils.periodCompare(resetFreq, payFreq) < 0) {
                 if (resetdays == null || resetdays.isEmpty()) {
                     throw new IllegalArgumentException("重置日期数据缺失: paymentDay=" + paymentDay);
                 }
-                LocalDate start = resetdays.getFirst().fwdStart;
-                LocalDate end = resetdays.getFirst().fwdEnd;
-
-                if (blankReferenceCurve) {
-                    r = 0.0;
-                } else if (start.isAfter(simDate)) {
-                    // 完全未来开始的付息区间，直接按整个付息期计算远期利率
-                    if (missingReferenceCurve) {
-                        r = 0.0;
-                    } else {
-                        r = refCurve.fwdRate(start, end);
-                        // 浮动端目标计息口径统一为单利，按当前腿的 dayCountBasis 计息
-                        r = CurveFunc.convertIrRate(r, start, end, refCurve.getIrSpotInfo().freq,
-                                refCurve.getIrSpotInfo().dayCount, frq, dcb);
-                    }
-                } else {
-                    r = calcResetShorterThanPayRate(simDate, paymentDay, resetdays, refCurve, frq, dcb,
-                            missingReferenceCurve);
-                }
-
+                r = calcResetShorterThanPayRate(simDate, resetdays, refCurve, frq, dcb,
+                        blankReferenceCurve, missingReferenceCurve);
+                spreadIncluded = true;
             }
 
-            r = r + (scfInfo.spread != null ? scfInfo.spread : 0.0);
+            if (!spreadIncluded) {
+                r = r + (scfInfo.spread != null ? scfInfo.spread : 0.0);
+            }
 
         }
 
@@ -423,11 +411,11 @@ public class StructuredCashflow {
     }
 
     private double calcResetShorterThanPayRate(LocalDate simDate,
-            LocalDate paymentDay,
             LinkedList<ResetDateInfo> resetdays,
             IrSpot refCurve,
             String frq,
             String dcb,
+            boolean blankReferenceCurve,
             boolean missingReferenceCurve) {
         LocalDate start = resetdays.getFirst().fwdStart;
         LocalDate end = resetdays.getFirst().fwdEnd;
@@ -436,8 +424,8 @@ public class StructuredCashflow {
             throw new ArithmeticException("付息期计息因子异常: start=" + start + ", end=" + end);
         }
 
-        double interestFactor = 0.0;
-        LocalDate forwardStart = null;
+        double accumulationFactor = 1.0;
+        double spread = scfInfo.spread != null ? scfInfo.spread : 0.0;
         for (ResetDateInfo resetDateInfo : resetdays) {
             LocalDate fixingStart = resetDateInfo.fixingStart;
             LocalDate fixingEnd = resetDateInfo.fixingEnd;
@@ -445,27 +433,27 @@ public class StructuredCashflow {
                 continue;
             }
 
-            if (paymentDay.isAfter(simDate) && fixingEnd.isAfter(simDate)) {
-                forwardStart = fixingEnd;
-                double fixingRate = findFixingRate(fixingStart);
-                interestFactor += fixingRate * CurveFunc.timeFactor(fixingStart, fixingEnd, dcb);
-                break;
+            double timeFactor = CurveFunc.timeFactor(fixingStart, fixingEnd, dcb);
+            if (timeFactor <= 0.0) {
+                throw new ArithmeticException(
+                        "重置期计息因子异常: start=" + fixingStart + ", end=" + fixingEnd);
             }
 
-            double fixingRate = findFixingRate(fixingStart);
-            interestFactor += fixingRate * CurveFunc.timeFactor(fixingStart, fixingEnd, dcb);
-        }
-
-        if (forwardStart != null && forwardStart.isBefore(end)) {
-            double forwardRate = 0.0;
-            if (!missingReferenceCurve) {
-                forwardRate = refCurve.fwdRate(forwardStart, end);
-                forwardRate = CurveFunc.convertIrRate(forwardRate, forwardStart, end,
-                        refCurve.getIrSpotInfo().freq, refCurve.getIrSpotInfo().dayCount, frq, dcb);
+            double baseRate = 0.0;
+            if (!blankReferenceCurve) {
+                if (!fixingStart.isAfter(simDate)) {
+                    baseRate = findFixingRate(fixingStart);
+                } else if (!missingReferenceCurve) {
+                    baseRate = refCurve.fwdRate(fixingStart, fixingEnd);
+                    baseRate = CurveFunc.convertIrRate(baseRate, fixingStart, fixingEnd,
+                            refCurve.getIrSpotInfo().freq, refCurve.getIrSpotInfo().dayCount, frq, dcb);
+                }
             }
-            interestFactor += forwardRate * CurveFunc.timeFactor(forwardStart, end, dcb);
+
+            accumulationFactor *= 1.0 + (baseRate + spread) * timeFactor;
         }
 
+        double interestFactor = accumulationFactor - 1.0;
         if (Double.isNaN(interestFactor) || Double.isInfinite(interestFactor)) {
             throw new ArithmeticException("浮息分段计息因子计算异常: interestFactor=" + interestFactor);
         }
@@ -741,13 +729,13 @@ public class StructuredCashflow {
     }
 
     static public class Cashflow implements Serializable {
-        @JSONField(name = "PREPAYMENT_DATE", format = "yyyyMMdd", ordinal = 1)
+        @JSONField(name = "PREPAYMENT_DATE", format = "yyyy-MM-dd", ordinal = 1)
         public LocalDate prePaymentDate;
-        @JSONField(name = "PAYMENT_DATE", format = "yyyyMMdd", ordinal = 2)
+        @JSONField(name = "PAYMENT_DATE", format = "yyyy-MM-dd", ordinal = 2)
         public LocalDate paymentDate;
-        @JSONField(name = "FWDSTART_DATE", format = "yyyyMMdd", ordinal = 3)
+        @JSONField(name = "FWDSTART_DATE", format = "yyyy-MM-dd", ordinal = 3)
         public LocalDate fwdStartDate;
-        @JSONField(name = "FWDEND_DATE", format = "yyyyMMdd", ordinal = 4)
+        @JSONField(name = "FWDEND_DATE", format = "yyyy-MM-dd", ordinal = 4)
         public LocalDate fwdEndDate;
         @JSONField(name = "CASHFLOW_TYPE", ordinal = 5)
         public String cashType;
@@ -761,9 +749,9 @@ public class StructuredCashflow {
         public double timeFactor;
         @JSONField(name = "PAYMENT_TYPE", ordinal = 10)
         public String paymentType;
-        @JSONField(name = "THEO_PAYMENT_DATE", format = "yyyyMMdd", ordinal = 11)
+        @JSONField(name = "THEO_PAYMENT_DATE", format = "yyyy-MM-dd", ordinal = 11)
         public LocalDate theoPaymentDate;
-        @JSONField(name = "THEO_PRE_PAYMENT_DATE", format = "yyyyMMdd", ordinal = 12)
+        @JSONField(name = "THEO_PRE_PAYMENT_DATE", format = "yyyy-MM-dd", ordinal = 12)
         public LocalDate theoPrePaymentDate;
         public Double startNotional;
         public Double endNotional;
@@ -791,13 +779,13 @@ public class StructuredCashflow {
 
     // 债券内部类，封装基本信息
     static public class ScfInfo {
-        @JSONField(name = "DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate dataDate;
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
-        @JSONField(name = "ISSUE_DATE", format = "yyyyMMdd")
+        @JSONField(name = "ISSUE_DATE", format = "yyyy-MM-dd")
         public LocalDate issueDate;
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
         @JSONField(name = "INTEREST_STUB")
         public String interestStub;
@@ -839,11 +827,11 @@ public class StructuredCashflow {
         public Double lastResetRate;
         @JSONField(name = "NOTIONAL_FLAG")
         public String notionalFlag;
-        @JSONField(name = "INCLUDE_TODAY_CASHFLOW")
+        @JSONField(name = "INCLUDE_TODAY_CASHFLOW", deserializeUsing = BooleanInputReader.class)
         public Boolean includeTodayCashflow = true;
-        @JSONField(name = "COUPON_PRORATED")
+        @JSONField(name = "COUPON_PRORATED", deserializeUsing = BooleanInputReader.class)
         public Boolean couponProrated = true;
-        @JSONField(name = "ALLOW_MISSING_REFERENCE_CURVE_AS_ZERO_FORWARD")
+        @JSONField(name = "ALLOW_MISSING_REFERENCE_CURVE_AS_ZERO_FORWARD", deserializeUsing = BooleanInputReader.class)
         public Boolean allowMissingReferenceCurveAsZeroForward = true;
 
         @JSONField(name = "PAYMENT_TIMING")
@@ -858,7 +846,7 @@ public class StructuredCashflow {
      */
     public static class AmortizationEntry {
         @ProductInputField(required = true)
-        @JSONField(name = "DATE", format = "yyyyMMdd")
+        @JSONField(name = "DATE", format = "yyyy-MM-dd")
         public LocalDate date;
         @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "AMOUNT")

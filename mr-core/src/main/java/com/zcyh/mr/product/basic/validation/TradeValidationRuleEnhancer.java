@@ -19,7 +19,7 @@ import java.util.Set;
 public final class TradeValidationRuleEnhancer {
     private static final Logger log = LoggerFactory.getLogger(TradeValidationRuleEnhancer.class);
     private static final String RESOURCE = "data/model/validationRules.json";
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final JSONObject RULES = loadRules();
 
     private TradeValidationRuleEnhancer() {
@@ -101,7 +101,7 @@ public final class TradeValidationRuleEnhancer {
             try {
                 LocalDate.parse(value.toString(), DATE_FORMAT);
             } catch (DateTimeParseException ex) {
-                errors.add(field, "日期格式错误，应为yyyyMMdd: " + value);
+                errors.add(field, "日期格式错误，应为yyyy-MM-dd: " + value);
             }
             return;
         }

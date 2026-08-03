@@ -66,7 +66,7 @@ public interface FrtbDrcInterface {
         public String bondId;
         @JSONField(name = "ISSUER")
         public String issuer;
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
         @JSONField(name = "ABS_FLAG")
         public boolean absFlag;

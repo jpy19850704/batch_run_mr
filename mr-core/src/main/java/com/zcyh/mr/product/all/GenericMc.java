@@ -2,6 +2,7 @@ package com.zcyh.mr.product.all;
 
 import com.zcyh.mr.product.basic.validation.TradeInfo;
 import com.zcyh.mr.product.basic.validation.TradeValidationCollector;
+import com.zcyh.mr.product.basic.validation.BooleanInputReader;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
@@ -162,7 +163,7 @@ public final class GenericMc {
             input.settleDate = parseDate(trade.get("SETTLE_DATE"));
             input.maturityDate = parseDate(trade.get("MATURITY_DATE"));
             input.pathNb = toInteger(trade.get("PATH_NB"));
-            input.pathFlag = toBoolean(trade.get("PATH_FLAG"));
+            input.pathFlag = BooleanInputReader.parse(trade.get("PATH_FLAG"), "PATH_FLAG");
             input.notional = toDoubleObject(trade.get("NOTIONAL"));
             input.barrier = toDoubleObject(trade.get("BARRIER"));
             input.barrierDirection = text(trade.get("BARRIER_DIRECTION"));
@@ -373,10 +374,7 @@ public final class GenericMc {
         if (text.isEmpty()) {
             return null;
         }
-        if (text.contains("-")) {
-            return LocalDate.parse(text);
-        }
-        return LocalDate.parse(text, DateTimeFormatter.ofPattern("yyyyMMdd"));
+        return LocalDate.parse(text);
     }
 
     private static Integer toInteger(Object value) {
@@ -401,20 +399,4 @@ public final class GenericMc {
         return text.isEmpty() ? null : Double.valueOf(text);
     }
 
-    private static Boolean toBoolean(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Boolean) {
-            return (Boolean) value;
-        }
-        if (value instanceof Number) {
-            return ((Number) value).intValue() != 0;
-        }
-        String text = String.valueOf(value).trim();
-        if (text.isEmpty()) {
-            return null;
-        }
-        return "TRUE".equalsIgnoreCase(text) || "Y".equalsIgnoreCase(text) || "1".equals(text);
-    }
 }

@@ -5,7 +5,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,7 +14,6 @@ import java.util.Map;
  * 通用 MC 估值流程骨架。
  */
 public final class GenericMcEngine {
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final String MC_PATH_DIR = System.getProperty("mr.mc.path.dir",
             Paths.get(".", "data", "mc_path").toString());
 
@@ -101,7 +99,7 @@ public final class GenericMcEngine {
             String fileName = resolvePathFileName(ctx) + "_path.csv";
             Path filePath = dir.resolve(fileName);
             StringBuilder sb = new StringBuilder();
-            sb.append("# DATA_DATE=").append(ctx.dataDate == null ? "" : ctx.dataDate.format(DATE_FMT)).append('\n');
+            sb.append("# DATA_DATE=").append(ctx.dataDate == null ? "" : ctx.dataDate).append('\n');
             sb.append("# UNDERLYING_TYPE=").append(ctx.underlyingType).append('\n');
             sb.append("# MODEL_TYPE=").append(ctx.modelType).append('\n');
             sb.append("# PAYOFF_TYPE=").append(ctx.payoffType).append('\n');
@@ -146,7 +144,7 @@ public final class GenericMcEngine {
                 if (i > 0) {
                     sb.append(',');
                 }
-                sb.append(dates[i].format(DATE_FMT));
+                sb.append(dates[i]);
             }
         }
         sb.append('\n');

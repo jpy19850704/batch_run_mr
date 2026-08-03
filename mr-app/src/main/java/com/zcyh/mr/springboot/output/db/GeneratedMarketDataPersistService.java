@@ -15,7 +15,6 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 /**
  * 曲线生成结果写入有效市场数据表。
@@ -23,7 +22,6 @@ import java.time.format.DateTimeFormatter;
 @Service
 public class GeneratedMarketDataPersistService {
     private static final Logger log = LoggerFactory.getLogger(GeneratedMarketDataPersistService.class);
-    private static final DateTimeFormatter BASIC_DATE = DateTimeFormatter.BASIC_ISO_DATE;
     private static final String INSERT_SQL = ""
             + "INSERT INTO MR_MARKET_CURVE_INPUT "
             + "(data_date, market_data_type, curve_id, curve_content_text, content_format, version_no, source_system, created_at, updated_at) "
@@ -85,9 +83,9 @@ public class GeneratedMarketDataPersistService {
 
     private static LocalDate parseDataDate(String value) {
         try {
-            return LocalDate.parse(value, BASIC_DATE);
+            return LocalDate.parse(value);
         } catch (Exception ex) {
-            throw new IllegalArgumentException("generated_market_data.DATA_DATE格式必须为yyyyMMdd: " + value, ex);
+            throw new IllegalArgumentException("generated_market_data.DATA_DATE格式必须为yyyy-MM-dd: " + value, ex);
         }
     }
 

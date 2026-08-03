@@ -491,10 +491,10 @@ public class CapFloor {
         @JSONField(name = "NOTIONAL")
         public Double notional;
         @ProductInputField(required = true)
-        @JSONField(name = "START_DATE", format = "yyyyMMdd")
+        @JSONField(name = "START_DATE", format = "yyyy-MM-dd")
         public LocalDate startDate;
         @ProductInputField(required = true)
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
         @ProductInputField(required = true, finite = true)
         @JSONField(name = "STRIKE_RATE")
@@ -522,7 +522,7 @@ public class CapFloor {
         @ProductInputField(required = true)
         @JSONField(name = "DISCOUNT_CURVE")
         public String discountCurve;
-        @JSONField(name = "DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate dataDate;
 
         @ProductInputField(required = true)
@@ -542,7 +542,7 @@ public class CapFloor {
     }
 
     private static class CashFlowCapFloor extends StructuredCashflow.Cashflow {
-        @JSONField(name = "DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate dataDate;
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;

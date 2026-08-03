@@ -4,8 +4,6 @@ import com.alibaba.fastjson2.annotation.JSONField;
 
 import java.lang.reflect.Field;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Objects;
@@ -31,11 +29,6 @@ public class ReflectionUtils {
      */
     public static <T> T map2Bean(HashMap<String, Object> map, Class<T> c) {
 
-        //由于多场景可用该函数，因此添加多种日期格式，实现多可用，并不影响原功能
-        DateTimeFormatter formatter = new DateTimeFormatterBuilder()
-                .appendOptional(DateTimeFormatter.BASIC_ISO_DATE)
-                .appendOptional(DateTimeFormatter.ISO_LOCAL_DATE)
-                .toFormatter();
         try {
             T t = c.getDeclaredConstructor()
                     .newInstance();
@@ -52,7 +45,7 @@ public class ReflectionUtils {
                         } else {
                             String date = (String) map.get(name);
                             if (date != null) {
-                                field.set(t, LocalDate.parse(date, formatter));
+                                field.set(t, LocalDate.parse(date));
                             }
                         }
                     } else if (field.getType() == Double.class && map.get(name) != null) {

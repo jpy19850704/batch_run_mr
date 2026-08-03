@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -33,7 +32,6 @@ public class ScenarioDetailCacheService {
     private static final Logger log = LoggerFactory.getLogger(ScenarioDetailCacheService.class);
     private static final String KEY_PREFIX = "SCENARIO:DETAIL";
     private static final String NULL_TOKEN = "__NULL__";
-    private static final DateTimeFormatter DATE_8_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
     private static final int SUBSCENARIO_GROUP_SIZE = 20;
 
     private final StringRedisTemplate redisTemplate;
@@ -284,7 +282,7 @@ public class ScenarioDetailCacheService {
         item.put("risk_group_id", trimToNull(record.getRiskGroupId()));
         item.put("curve_type", trimToNull(record.getCurveType()));
         item.put("curve_id", trimToNull(record.getCurveCode()));
-        item.put("data_date", record.getDataDate() == null ? null : record.getDataDate().format(DATE_8_FORMATTER));
+        item.put("data_date", record.getDataDate() == null ? null : record.getDataDate().toString());
         item.put("term_code", trimToNull(record.getTermCode()));
         item.put("term_days", record.getTermDays());
         item.put("dimension2", trimToNull(record.getDimension2()));

@@ -301,7 +301,7 @@ public class FxFwd {
         @JSONField(name = "BASE_CURRENCY_NOTIONAL")
         public Double baseCurrencyNotional;
         @ProductInputField(required = true)
-        @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
+        @JSONField(name = "SETTLE_DATE", format = "yyyy-MM-dd")
         public LocalDate settleDate;
         @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_DISCOUNT_CURVE")

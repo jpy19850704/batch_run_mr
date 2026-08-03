@@ -99,9 +99,9 @@ public class EqVol implements Serializable {
         public String axis2Type;
         @JSONField(name = "AXIS2_INTERPOLATE_TYPE")
         public String axis2InterpolateType;
-        @JSONField(name = "DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate dataDate;
-        @JSONField(name = "P_DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "P_DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate pDataDate;
         @JSONField(name = "CURVE_DATA")
         public List<Map<String, Object>> curveData = new ArrayList<>();

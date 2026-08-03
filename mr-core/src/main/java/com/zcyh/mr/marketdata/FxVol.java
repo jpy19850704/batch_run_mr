@@ -121,7 +121,7 @@ public class FxVol implements Serializable {
         public String axis2Type;
         @JSONField(name = "AXIS2_INTERPOLATE_TYPE")
         public String axis2InterpolateType;
-        @JSONField(name = "DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate dataDate;
         @JSONField(name = "CURVE_DATA")
         public List<Map<String, Object>> curveData = new ArrayList<>();
@@ -130,7 +130,7 @@ public class FxVol implements Serializable {
          * 基础波动率曲面仍保留在 curveData 中。
          */
         public List<Map<String, Object>> shockCurveData = new ArrayList<>();
-        @JSONField(name = "P_DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "P_DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate pDataDate;
     }
 }

@@ -22,6 +22,7 @@ import com.zcyh.mr.math.Newton;
 import com.zcyh.mr.math.Ops;
 import com.zcyh.mr.math.Interpolation;
 import com.zcyh.mr.product.basic.validation.ProductInputField;
+import com.zcyh.mr.product.basic.validation.BooleanInputReader;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.ScfCashFlow;
@@ -843,7 +844,7 @@ public class Bond implements FrtbDrcInterface {
         @ProductInputField(required = true)
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
-        @JSONField(name = "DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate dataDate;
         @ProductInputField(required = true)
         @JSONField(name = "BOND_ID")
@@ -854,10 +855,10 @@ public class Bond implements FrtbDrcInterface {
         @JSONField(name = "ISSUER")
         public String issuer;
         @ProductInputField(required = true)
-        @JSONField(name = "ISSUE_DATE", format = "yyyyMMdd")
+        @JSONField(name = "ISSUE_DATE", format = "yyyy-MM-dd")
         public LocalDate issueDate;
         @ProductInputField(required = true)
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
         @ProductInputField(required = true)
         @JSONField(name = "INTEREST_STUB")
@@ -900,7 +901,7 @@ public class Bond implements FrtbDrcInterface {
         public String discountCurve;
         @JSONField(name = "CREDIT_SPREAD_CURVE")
         public String creditSpreadCurve;
-        @JSONField(name = "ABS_FLAG")
+        @JSONField(name = "ABS_FLAG", deserializeUsing = BooleanInputReader.class)
         public boolean absFlag = false;
         @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "NOTIONAL")
@@ -919,10 +920,8 @@ public class Bond implements FrtbDrcInterface {
         @ProductInputField(required = true, finite = true, min = "0", max = "1")
         @JSONField(name = "DRC_LGD")
         public Double lgd = 0.75;
-        @ProductInputField(required = true,
-                allowedValues = {"1", "Y", "YES", "TRUE", "0", "N", "NO", "FALSE"}, ignoreCase = true)
-        @JSONField(name = "DRC_FLAG")
-        public String drcFlag = "Y";
+        @JSONField(name = "DRC_FLAG", deserializeUsing = BooleanInputReader.class)
+        public Boolean drcFlag = true;
 
         @ProductInputField(finite = true)
         @JSONField(name = "LAST_RESET_RATE")
@@ -937,11 +936,11 @@ public class Bond implements FrtbDrcInterface {
         @JSONField(name = "FRTB_NSEC_DRC_BUCKET")
         public String frtbNsecDrcBucket;
 
-        @JSONField(name = "INCLUDE_TODAY_CASHFLOW")
+        @JSONField(name = "INCLUDE_TODAY_CASHFLOW", deserializeUsing = BooleanInputReader.class)
         public Boolean includeTodayCashflow = true;
-        @JSONField(name = "COUPON_PRORATED")
+        @JSONField(name = "COUPON_PRORATED", deserializeUsing = BooleanInputReader.class)
         public Boolean couponProrated = true;
-        @JSONField(name = "OPTION_BOND_FLAG")
+        @JSONField(name = "OPTION_BOND_FLAG", deserializeUsing = BooleanInputReader.class)
         public boolean optionBondFlag = false;
 
         @ProductInputField
@@ -953,15 +952,7 @@ public class Bond implements FrtbDrcInterface {
         public List<StructuredCashflow.AmortizationEntry> amortizationSchedule;
 
         public boolean isDrcEnabled() {
-            if ("1".equalsIgnoreCase(drcFlag) || "Y".equalsIgnoreCase(drcFlag)
-                    || "YES".equalsIgnoreCase(drcFlag) || "TRUE".equalsIgnoreCase(drcFlag)) {
-                return true;
-            }
-            if ("0".equalsIgnoreCase(drcFlag) || "N".equalsIgnoreCase(drcFlag)
-                    || "NO".equalsIgnoreCase(drcFlag) || "FALSE".equalsIgnoreCase(drcFlag)) {
-                return false;
-            }
-            throw new IllegalArgumentException("DRC_FLAG 仅支持 1/Y/YES/TRUE/0/N/NO/FALSE: " + drcFlag);
+            return Boolean.TRUE.equals(drcFlag);
         }
     }
 
@@ -970,7 +961,7 @@ public class Bond implements FrtbDrcInterface {
      */
     public static class CallPutDate {
         @ProductInputField(required = true)
-        @JSONField(name = "DATE", format = "yyyyMMdd")
+        @JSONField(name = "DATE", format = "yyyy-MM-dd")
         public LocalDate date;
         @ProductInputField(required = true, allowedValues = {"CALL", "PUT"}, ignoreCase = true)
         @JSONField(name = "TYPE")

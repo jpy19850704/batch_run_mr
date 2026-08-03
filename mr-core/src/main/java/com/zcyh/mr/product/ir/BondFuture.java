@@ -22,6 +22,7 @@ import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.validation.ProductInputField;
+import com.zcyh.mr.product.basic.validation.BooleanInputReader;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.scf.StructuredCashflow;
@@ -524,7 +525,7 @@ public class BondFuture implements FrtbDrcInterface {
         @JSONField(name = "FUTURE_PRICE")
         public Double futurePrice;
         @ProductInputField(required = true)
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
         @ProductInputField(required = true)
         @JSONField(name = "CONVERT_FACTORS")
@@ -538,7 +539,7 @@ public class BondFuture implements FrtbDrcInterface {
         public String issuer;
         @JSONField(name = "FRTB_CSR_BUCKET")
         public String frtbCsrBucket;
-        @JSONField(name = "ABS_FLAG")
+        @JSONField(name = "ABS_FLAG", deserializeUsing = BooleanInputReader.class)
         public boolean absFlag = false;
     }
 

@@ -1,12 +1,12 @@
 {
   "calc_mode": "PRICING",
-  "data_date": "20260225",
+  "data_date": "2026-02-25",
   "trade_data": [],
   "other_data": {},
   "market_data": [
     {
       "CURVE_TYPE": "IR_SPOT",
-      "DATA_DATE": "20260225",
+      "DATA_DATE": "2026-02-25",
       "CURVE_ID": "IR_CURVE_CNY",
       "CURVE_DATA": [
         { "TERM": 1, "RATE": 0.0131 },
@@ -22,7 +22,7 @@
     },
     {
       "CURVE_TYPE": "IR_SPOT",
-      "DATA_DATE": "20260225",
+      "DATA_DATE": "2026-02-25",
       "CURVE_ID": "IR_CURVE_USD",
       "CURVE_DATA": [
         { "TERM": 1, "RATE": 0.0368 },
@@ -38,7 +38,7 @@
     },
     {
       "CURVE_TYPE": "IR_SPOT",
-      "DATA_DATE": "20260225",
+      "DATA_DATE": "2026-02-25",
       "CURVE_ID": "IR_CURVE_EUR",
       "CURVE_DATA": [
         { "TERM": 1, "RATE": 0.0202 },
@@ -54,7 +54,7 @@
     },
     {
       "CURVE_TYPE": "IR_SPOT",
-      "DATA_DATE": "20260225",
+      "DATA_DATE": "2026-02-25",
       "CURVE_ID": "IR_CURVE_JPY",
       "CURVE_DATA": [
         { "TERM": 1, "RATE": 0.0068 },
@@ -70,7 +70,7 @@
     },
     {
       "CURVE_TYPE": "FX_SPOT",
-      "DATA_DATE": "20260225",
+      "DATA_DATE": "2026-02-25",
       "CURVE_ID": "FX_SPOT_USD_BASE",
       "CURVE_DATA": [
         { "CURRENCY": "USD/CNY", "RATE": 6.9032 },
@@ -80,7 +80,7 @@
     },
     {
       "CURVE_TYPE": "COMM_SPOT",
-      "DATA_DATE": "20260225",
+      "DATA_DATE": "2026-02-25",
       "CURVE_ID": "COMM_SPOT_A99",
       "CURVE_DATA": [
         { "TERM": 1, "COMM_PRICE": 518.31 },
@@ -92,7 +92,7 @@
     },
     {
       "CURVE_TYPE": "EQ_SPOT",
-      "DATA_DATE": "20260225",
+      "DATA_DATE": "2026-02-25",
       "CURVE_ID": "EQ_SPOT_CN_A",
       "CURVE_DATA": [
         { "TERM": 1, "EQ_PRICE": 3490.0 },
@@ -104,16 +104,16 @@
     },
     {
       "CURVE_TYPE": "FIXING",
-      "DATA_DATE": "20260225",
+      "DATA_DATE": "2026-02-25",
             "FIXING_ID": "FIXING_CNY_3M",
       "CURVE_DATA": [
-        { "TRADE_DATE": "20260224", "FIXING_VALUE": 0.0198 },
-        { "TRADE_DATE": "20260225", "FIXING_VALUE": 0.0199 }
+        { "TRADE_DATE": "2026-02-24", "FIXING_VALUE": 0.0198 },
+        { "TRADE_DATE": "2026-02-25", "FIXING_VALUE": 0.0199 }
       ]
     },
     {
       "CURVE_TYPE": "IR_VOL",
-      "DATA_DATE": "20260225",
+      "DATA_DATE": "2026-02-25",
       "CURVE_ID": "IR_VOL_CNY",
       "TERM_INTERPOLATE_TYPE": "LINERVAR",
       "AXIS2_TYPE": "UNDERLYING_TERM",
@@ -131,7 +131,7 @@
     },
     {
       "CURVE_TYPE": "FX_VOL",
-      "DATA_DATE": "20260225",
+      "DATA_DATE": "2026-02-25",
       "CURVE_ID": "FX_VOL_EUR_CNY",
       "TERM_INTERPOLATE_TYPE": "LINERVAR",
       "AXIS2_TYPE": "DELTA",
@@ -153,7 +153,7 @@
     },
     {
       "CURVE_TYPE": "COMM_VOL",
-      "DATA_DATE": "20260225",
+      "DATA_DATE": "2026-02-25",
       "CURVE_ID": "COMM_VOL_A99",
       "TERM_INTERPOLATE_TYPE": "LINERVAR",
       "AXIS2_TYPE": "DELTA",
@@ -175,7 +175,7 @@
     },
     {
       "CURVE_TYPE": "EQ_VOL",
-      "DATA_DATE": "20260225",
+      "DATA_DATE": "2026-02-25",
       "CURVE_ID": "EQ_VOL_CN_A",
       "TERM_INTERPOLATE_TYPE": "LINERVAR",
       "AXIS2_TYPE": "DELTA",

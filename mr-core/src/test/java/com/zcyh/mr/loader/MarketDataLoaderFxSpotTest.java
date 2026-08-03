@@ -46,7 +46,7 @@ class MarketDataLoaderFxSpotTest {
         return new JSONObject()
                 .fluentPut("CURVE_TYPE", "FX_SPOT")
                 .fluentPut("CURVE_ID", "FX_SPOT_USD_BASE")
-                .fluentPut("DATA_DATE", "20251231")
+                .fluentPut("DATA_DATE", "2025-12-31")
                 .fluentPut("CURVE_DATA", new JSONArray(java.util.Arrays.asList(points)));
     }
 

@@ -1,12 +1,12 @@
 {
   "calc_mode": "PRICING",
-  "data_date": "20241231",
+  "data_date": "2024-12-31",
   "trade_data": [],
   "other_data": {},
   "market_data": [
     {
       "CURVE_TYPE": "IR_SPOT",
-      "DATA_DATE": "20241231",
+      "DATA_DATE": "2024-12-31",
       "CURVE_ID": "IR_CURVE_CNY",
       "CURVE_DATA": [
         {
@@ -43,7 +43,7 @@
     },
     {
       "CURVE_TYPE": "IR_SPOT",
-      "DATA_DATE": "20241231",
+      "DATA_DATE": "2024-12-31",
       "CURVE_ID": "IR_CURVE_USD",
       "CURVE_DATA": [
         {
@@ -80,7 +80,7 @@
     },
     {
       "CURVE_TYPE": "IR_SPOT",
-      "DATA_DATE": "20241231",
+      "DATA_DATE": "2024-12-31",
       "CURVE_ID": "IR_CURVE_EUR",
       "CURVE_DATA": [
         {
@@ -117,7 +117,7 @@
     },
     {
       "CURVE_TYPE": "IR_SPOT",
-      "DATA_DATE": "20241231",
+      "DATA_DATE": "2024-12-31",
       "CURVE_ID": "IR_CURVE_JPY",
       "CURVE_DATA": [
         {
@@ -154,7 +154,7 @@
     },
     {
       "CURVE_TYPE": "FX_SPOT",
-      "DATA_DATE": "20241231",
+      "DATA_DATE": "2024-12-31",
       "CURVE_ID": "FX_SPOT_USD_BASE",
       "CURVE_DATA": [
         {
@@ -173,7 +173,7 @@
     },
     {
       "CURVE_TYPE": "COMM_SPOT",
-      "DATA_DATE": "20241231",
+      "DATA_DATE": "2024-12-31",
       "CURVE_ID": "COMM_SPOT_A99",
       "CURVE_DATA": [
         {
@@ -200,7 +200,7 @@
     },
     {
       "CURVE_TYPE": "EQ_SPOT",
-      "DATA_DATE": "20241231",
+      "DATA_DATE": "2024-12-31",
       "CURVE_ID": "EQ_SPOT_CN_A",
       "CURVE_DATA": [
         {
@@ -227,22 +227,22 @@
     },
     {
       "CURVE_TYPE": "FIXING",
-      "DATA_DATE": "20241231",
+      "DATA_DATE": "2024-12-31",
             "FIXING_ID": "FIXING_CNY_3M",
       "CURVE_DATA": [
         {
-          "TRADE_DATE": "20241230",
+          "TRADE_DATE": "2024-12-30",
           "FIXING_VALUE": 0.0201
         },
         {
-          "TRADE_DATE": "20241231",
+          "TRADE_DATE": "2024-12-31",
           "FIXING_VALUE": 0.0202
         }
       ]
     },
     {
       "CURVE_TYPE": "IR_VOL",
-      "DATA_DATE": "20241231",
+      "DATA_DATE": "2024-12-31",
       "CURVE_ID": "IR_VOL_CNY",
       "TERM_INTERPOLATE_TYPE": "LINERVAR",
       "AXIS2_TYPE": "UNDERLYING_TERM",
@@ -292,7 +292,7 @@
     },
     {
       "CURVE_TYPE": "FX_VOL",
-      "DATA_DATE": "20241231",
+      "DATA_DATE": "2024-12-31",
       "CURVE_ID": "FX_VOL_EUR_CNY",
       "TERM_INTERPOLATE_TYPE": "LINERVAR",
       "AXIS2_TYPE": "DELTA",
@@ -362,7 +362,7 @@
     },
     {
       "CURVE_TYPE": "FX_VOL",
-      "DATA_DATE": "20241231",
+      "DATA_DATE": "2024-12-31",
       "CURVE_ID": "FX_VOL_EUR_USD",
       "TERM_INTERPOLATE_TYPE": "LINERVAR",
       "AXIS2_TYPE": "DELTA",
@@ -432,7 +432,7 @@
     },
     {
       "CURVE_TYPE": "COMM_VOL",
-      "DATA_DATE": "20241231",
+      "DATA_DATE": "2024-12-31",
       "CURVE_ID": "COMM_VOL_A99",
       "TERM_INTERPOLATE_TYPE": "LINERVAR",
       "AXIS2_TYPE": "DELTA",
@@ -502,7 +502,7 @@
     },
     {
       "CURVE_TYPE": "COMM_VOL",
-      "DATA_DATE": "20241231",
+      "DATA_DATE": "2024-12-31",
       "CURVE_ID": "COMM_VOL_A99_NEW",
       "TERM_INTERPOLATE_TYPE": "LINERVAR",
       "AXIS2_TYPE": "DELTA",
@@ -532,7 +532,7 @@
     },
     {
       "CURVE_TYPE": "EQ_VOL",
-      "DATA_DATE": "20241231",
+      "DATA_DATE": "2024-12-31",
       "CURVE_ID": "EQ_VOL_CN_A",
       "TERM_INTERPOLATE_TYPE": "LINERVAR",
       "AXIS2_TYPE": "DELTA",

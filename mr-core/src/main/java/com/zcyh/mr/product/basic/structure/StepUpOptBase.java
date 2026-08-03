@@ -5,6 +5,7 @@ import com.zcyh.mr.product.basic.validation.TradeInfo;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.validation.ProductInputField;
+import com.zcyh.mr.product.basic.validation.BooleanInputReader;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.support.Convert;
@@ -803,15 +804,15 @@ public abstract class StepUpOptBase<T, M extends OptionMeasure> {
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
         @ProductInputField(required = true)
-        @JSONField(name = "START_DATE", format = "yyyyMMdd")
+        @JSONField(name = "START_DATE", format = "yyyy-MM-dd")
         public LocalDate startDate;
         @ProductInputField(required = true)
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
-        @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
+        @JSONField(name = "SETTLE_DATE", format = "yyyy-MM-dd")
         public LocalDate settleDate;
         @ProductInputField(required = true)
-        @JSONField(name = "FIXING_DATE", format = "yyyyMMdd")
+        @JSONField(name = "FIXING_DATE", format = "yyyy-MM-dd")
         public LocalDate fixingDate;
         @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "NOTIONAL")
@@ -847,13 +848,13 @@ public abstract class StepUpOptBase<T, M extends OptionMeasure> {
         @ProductInputField(finite = true, min = "0", minInclusive = false)
         @JSONField(name = "EPS")
         public Double eps;
-        @JSONField(name = "ABS_FLAG")
+        @JSONField(name = "ABS_FLAG", deserializeUsing = BooleanInputReader.class)
         public Boolean absFlag;
         @ProductInputField(required = true)
         @JSONField(name = "FIXING_ID")
         public String fixingId;
         /** VV 开关：true 时启用 Vanna-Volga overhedge 调整 */
-        @JSONField(name = "VV_FLAG")
+        @JSONField(name = "VV_FLAG", deserializeUsing = BooleanInputReader.class)
         public Boolean vvFlag;
     }
 }

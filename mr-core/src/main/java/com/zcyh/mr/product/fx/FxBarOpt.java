@@ -136,8 +136,8 @@ public class FxBarOpt extends BarOptBase<FxBarOpt.FxBarOptTradeInfo> {
         } else {
             h = "Down".equalsIgnoreCase(barrierDirection) ? l : u;
         }
-        boolean knockout = "true".equalsIgnoreCase(info.knockOutFlag);
-        boolean barrierHit = "true".equalsIgnoreCase(info.touchBeforeFlag);
+        boolean knockout = Boolean.TRUE.equals(info.knockOutFlag);
+        boolean barrierHit = Boolean.TRUE.equals(info.touchBeforeFlag);
         double t = days / 365.0;
         double rebate = info.payoffLower;
         double settleToCny = fxSpotData.getFxrate(info.currencyCode);

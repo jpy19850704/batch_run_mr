@@ -13,7 +13,6 @@ import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.all.GenericMc.GenericMcTradeInfo;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -24,8 +23,6 @@ import java.util.Map;
  * MC 估值上下文，保存路径生成前已解析好的公共要素。
  */
 public final class McPricingContext {
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
-
     public LocalDate dataDate;
     public LocalDate startDate;
     public MarketData marketData;
@@ -213,7 +210,7 @@ public final class McPricingContext {
         return Arrays.stream(value.split(","))
                 .map(String::trim)
                 .filter(v -> !v.isEmpty())
-                .map(v -> v.contains("-") ? LocalDate.parse(v) : LocalDate.parse(v, DATE_FMT))
+                .map(LocalDate::parse)
                 .sorted()
                 .toArray(LocalDate[]::new);
     }

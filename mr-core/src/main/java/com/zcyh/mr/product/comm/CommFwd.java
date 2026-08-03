@@ -366,7 +366,7 @@ public class CommFwd {
         @JSONField(name = "CONTRACT_SIZE")
         public Double contractSize;
         @ProductInputField(required = true)
-        @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
+        @JSONField(name = "SETTLE_DATE", format = "yyyy-MM-dd")
         public LocalDate settleDate;
         @ProductInputField(required = true)
         @JSONField(name = "STRIKE_PRICE")

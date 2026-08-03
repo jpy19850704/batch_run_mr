@@ -127,7 +127,7 @@ Spring Boot 同步接口输入使用 snake_case：
       "risk_factor_vertex_2": "",
       "sensitivity_type": "Delta",
       "sensitivity_val_rpt_curr_cny": 1000000,
-      "data_date": "20251231"
+      "data_date": "2025-12-31"
     }
   ]
 }
@@ -396,7 +396,7 @@ Spring Boot 同步接口输入：
 
 ```json
 {
-  "data_date": "20251231",
+  "data_date": "2025-12-31",
   "drc_detail_list": [
     {
       "security_type": "JTD (non-sec)",

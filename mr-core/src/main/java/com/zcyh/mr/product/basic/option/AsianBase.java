@@ -382,10 +382,10 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
         @JSONField(name = "STRIKE_PRICE")
         public Double strikePrice;
         @ProductInputField(required = true)
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
         @ProductInputField(required = true)
-        @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
+        @JSONField(name = "SETTLE_DATE", format = "yyyy-MM-dd")
         public LocalDate settleDate;
         @ProductInputField(required = true, allowedValues = {"CASH", "PHYSICAL"}, ignoreCase = true)
         @JSONField(name = "SETTLE_TYPE")
@@ -394,10 +394,10 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
         @JSONField(name = "FIXING_ID")
         public String fixingId;
         @ProductInputField(required = true)
-        @JSONField(name = "OBS_START_DATE", format = "yyyyMMdd")
+        @JSONField(name = "OBS_START_DATE", format = "yyyy-MM-dd")
         public LocalDate obsStartDate;
         @ProductInputField(required = true)
-        @JSONField(name = "OBS_END_DATE", format = "yyyyMMdd")
+        @JSONField(name = "OBS_END_DATE", format = "yyyy-MM-dd")
         public LocalDate obsEndDate;
         @ProductInputField(required = true)
         @JSONField(name = "CURRENCY_CODE")

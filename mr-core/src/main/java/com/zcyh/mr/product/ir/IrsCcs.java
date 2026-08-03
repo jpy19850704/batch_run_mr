@@ -560,10 +560,10 @@ public class IrsCcs {
         @JSONField(name = "SWAP_TYPE")
         public String swapType;
         @ProductInputField(required = true)
-        @JSONField(name = "START_DATE", format = "yyyyMMdd")
+        @JSONField(name = "START_DATE", format = "yyyy-MM-dd")
         public LocalDate startDate;
         @ProductInputField(required = true)
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
         @ProductInputField(required = true, allowedValues = {"START", "END", "START_END", "NONE"},
                 ignoreCase = true)

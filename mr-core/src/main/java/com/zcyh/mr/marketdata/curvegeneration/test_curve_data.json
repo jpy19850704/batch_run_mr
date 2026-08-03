@@ -2,7 +2,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveBootstrap",
     "CURVE_ID": "CNY_ZERO_CONT365",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "CALENDAR": "CNY",
@@ -82,7 +82,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveBootstrap",
     "CURVE_ID": "CNY_ZERO_SEMI365",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "semi",
     "CALENDAR": "CNY",
@@ -162,7 +162,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveBootstrap",
     "CURVE_ID": "CNY_ZERO_CONT360",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/360",
     "CURVE_FREQ": "cont",
     "CALENDAR": "CNY",
@@ -221,7 +221,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveBootstrap",
     "CURVE_ID": "CNY_ZERO_QUART365",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "quart",
     "CALENDAR": "CNY",
@@ -301,7 +301,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveBootstrap",
     "CURVE_ID": "CNY_BOND_ZERO",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "CALENDAR": "CNY",
@@ -367,7 +367,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveBootstrap",
     "CURVE_ID": "USD_ZERO_SMP360",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/360",
     "CURVE_FREQ": "smp",
     "CALENDAR": "USD",
@@ -426,7 +426,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveBootstrap",
     "CURVE_ID": "EUR_ZERO_CONT365",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "CALENDAR": "",
@@ -478,7 +478,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveBootstrap",
     "CURVE_ID": "GBP_ZERO_ANNU365",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "annu",
     "CALENDAR": "",
@@ -523,7 +523,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveBootstrap",
     "CURVE_ID": "JPY_ZERO_CONT365",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "CALENDAR": "",
@@ -582,7 +582,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveBootstrap",
     "CURVE_ID": "HKD_ZERO_CONT365",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "CALENDAR": "",
@@ -634,7 +634,7 @@
   {
     "CONVERSION_TYPE": "FxImpliedCurveConstruct",
     "CURVE_ID": "USD_IMPLIED_FROM_CNY",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "CALENDAR": "CNY",
@@ -672,7 +672,7 @@
   {
     "CONVERSION_TYPE": "FxImpliedCurveConstruct",
     "CURVE_ID": "EUR_IMPLIED_FROM_USD",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "CALENDAR": "",
@@ -706,7 +706,7 @@
   {
     "CONVERSION_TYPE": "FxImpliedCurveConstruct",
     "CURVE_ID": "GBP_IMPLIED_FROM_USD",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "CALENDAR": "",
@@ -740,7 +740,7 @@
   {
     "CONVERSION_TYPE": "FxImpliedCurveConstruct",
     "CURVE_ID": "JPY_IMPLIED_FROM_USD",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "CALENDAR": "",
@@ -774,7 +774,7 @@
   {
     "CONVERSION_TYPE": "FxImpliedCurveConstruct",
     "CURVE_ID": "HKD_IMPLIED_FROM_USD",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "CALENDAR": "",
@@ -808,7 +808,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveSubtract",
     "CURVE_ID": "CNY_CREDIT_SPREAD",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "YC_CURVE_CODE": "CNY_BOND_ZERO",
@@ -817,7 +817,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveSubtract",
     "CURVE_ID": "USD_EUR_SPREAD",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "YC_CURVE_CODE": "USD_IMPLIED_FROM_CNY",
@@ -826,7 +826,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveSubtract",
     "CURVE_ID": "USD_GBP_SPREAD",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "YC_CURVE_CODE": "USD_IMPLIED_FROM_CNY",
@@ -835,7 +835,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveSubtract",
     "CURVE_ID": "USD_JPY_SPREAD_SEMI",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "semi",
     "YC_CURVE_CODE": "USD_IMPLIED_FROM_CNY",
@@ -844,7 +844,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveSubtract",
     "CURVE_ID": "USD_HKD_SPREAD",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "YC_CURVE_CODE": "USD_IMPLIED_FROM_CNY",
@@ -853,7 +853,7 @@
   {
     "CONVERSION_TYPE": "VolRrbf2Delta",
     "CURVE_ID": "VOL_USDCNY_25D",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CALENDAR": "CNY",
     "FX_SPOT": 7.2500,
     "BASE_CURRENCY_CODE": "USD",
@@ -895,7 +895,7 @@
   {
     "CONVERSION_TYPE": "VolRrbf2Delta",
     "CURVE_ID": "VOL_EURUSD_25D",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CALENDAR": "",
     "FX_SPOT": 1.0850,
     "BASE_CURRENCY_CODE": "EUR",
@@ -937,7 +937,7 @@
   {
     "CONVERSION_TYPE": "VolRrbf2Delta",
     "CURVE_ID": "VOL_GBPUSD_25D",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CALENDAR": "",
     "FX_SPOT": 1.2650,
     "BASE_CURRENCY_CODE": "GBP",
@@ -979,7 +979,7 @@
   {
     "CONVERSION_TYPE": "VolRrbf2Delta",
     "CURVE_ID": "VOL_USDJPY_25D",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CALENDAR": "",
     "FX_SPOT": 150.50,
     "BASE_CURRENCY_CODE": "USD",
@@ -1021,7 +1021,7 @@
   {
     "CONVERSION_TYPE": "VolRrbf2Delta",
     "CURVE_ID": "VOL_USDHKD_25D",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CALENDAR": "",
     "FX_SPOT": 7.8100,
     "BASE_CURRENCY_CODE": "USD",
@@ -1063,7 +1063,7 @@
   {
     "CONVERSION_TYPE": "ZeroCurveBootstrap",
     "CURVE_ID": "CNY_FWD_ONLY",
-    "DATA_DATE": "20260218",
+    "DATA_DATE": "2026-02-18",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "CALENDAR": "CNY",

@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -50,7 +49,7 @@ public class BatchStartupResetService {
             batchResultStageService.resetBatch(batch.batchId);
             if (batch.dataDate != null) {
                 scenarioSetPathResolver.resetBatchDirectory(
-                        batch.dataDate.format(DateTimeFormatter.BASIC_ISO_DATE), batch.batchId);
+                        batch.dataDate.toString(), batch.batchId);
             }
             CalcScenarioInputCache.evictByBatchId(batch.batchId);
             batchJobStateRepository.clearExistingBatchData(batch.batchId);

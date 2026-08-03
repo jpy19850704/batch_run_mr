@@ -5,6 +5,7 @@ import com.zcyh.mr.product.basic.validation.TradeInfo;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.validation.ProductInputField;
+import com.zcyh.mr.product.basic.validation.BooleanInputReader;
 import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.common.Measure;
@@ -676,13 +677,13 @@ public abstract class WeddingCakeBase<T extends WeddingCakeBase.WeddingCakeBaseT
         @JSONField(name = "NOTIONAL")
         public Double notional;
         @ProductInputField(required = true)
-        @JSONField(name = "START_DATE", format = "yyyyMMdd")
+        @JSONField(name = "START_DATE", format = "yyyy-MM-dd")
         public LocalDate startDate;
         @ProductInputField(required = true)
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
         @ProductInputField(required = true)
-        @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
+        @JSONField(name = "SETTLE_DATE", format = "yyyy-MM-dd")
         public LocalDate settleDate;
 
         @ProductInputField(required = true)
@@ -721,10 +722,10 @@ public abstract class WeddingCakeBase<T extends WeddingCakeBase.WeddingCakeBaseT
         @ProductInputField(finite = true, min = "0", minInclusive = false)
         @JSONField(name = "EPS")
         public Double eps;
-        @JSONField(name = "ABS_FLAG")
+        @JSONField(name = "ABS_FLAG", deserializeUsing = BooleanInputReader.class)
         public Boolean absFlag;
         /** VV 开关：true 时启用 Vanna-Volga overhedge 调整 */
-        @JSONField(name = "VV_FLAG")
+        @JSONField(name = "VV_FLAG", deserializeUsing = BooleanInputReader.class)
         public Boolean vvFlag;
     }
 }

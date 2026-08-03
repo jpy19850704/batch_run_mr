@@ -262,13 +262,13 @@ public class IrSpot implements Serializable {
         public String curveType;
         @JSONField(name = "CURVE_ID")
         public String curveCode;
-        @JSONField(name = "DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate dataDate;
         @JSONField(name = "DAYCOUNT")
         public String dayCount;
         @JSONField(name = "FREQ")
         public String freq;
-        @JSONField(name = "P_DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "P_DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate pDataDate;
         @JSONField(name = "INTERPOLATE_TYPE")
         public String interpolateType;

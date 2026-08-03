@@ -5,7 +5,6 @@ import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.support.JsonNumberUtils;
 
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,8 +14,6 @@ import java.util.Map;
  * 将曲线生成结果转换为标准 market_data JSON 数组。
  */
 public final class CurveGenerationExport {
-
-    private static final DateTimeFormatter BASIC_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private CurveGenerationExport() {
     }
@@ -48,7 +45,7 @@ public final class CurveGenerationExport {
             curve.put("CURVE_TYPE", EngineConstants.RF_TYPE.IR_SPOT);
             curve.put("CURVE_ID", first.curveId);
             if (first.dataDate != null) {
-                curve.put("DATA_DATE", first.dataDate.format(BASIC_DATE));
+                curve.put("DATA_DATE", first.dataDate.toString());
             }
             curve.put("CURVE_DAYCOUNT", first.curveDaycount);
             curve.put("CURVE_FREQ", first.curveFreq);
@@ -84,7 +81,7 @@ public final class CurveGenerationExport {
             curve.put("CURVE_TYPE", EngineConstants.RF_TYPE.FX_VOL);
             curve.put("CURVE_ID", first.curveId);
             if (first.dataDate != null) {
-                curve.put("DATA_DATE", first.dataDate.format(BASIC_DATE));
+                curve.put("DATA_DATE", first.dataDate.toString());
             }
 
             JSONArray curveData = new JSONArray();

@@ -4,7 +4,6 @@ import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.saccr.model.SaccrTrade;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 
 /**
  * 标准字段 SACCR 交易输入转换器。
@@ -145,9 +144,11 @@ class StandardSaccrTradeConverter implements SaccrTradeInputConverter {
 
     private static LocalDate requireDate(JSONObject input, String field, String instrumentId) {
         String value = requireText(input, field, instrumentId);
-        if (value.length() == 8 && value.chars().allMatch(Character::isDigit)) {
-            return LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE);
+        try {
+            return LocalDate.parse(value);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("交易 " + instrumentId + " 字段 " + field
+                    + " 日期格式必须为 yyyy-MM-dd");
         }
-        throw new IllegalArgumentException("交易 " + instrumentId + " 字段 " + field + " 日期格式必须为 yyyyMMdd");
     }
 }

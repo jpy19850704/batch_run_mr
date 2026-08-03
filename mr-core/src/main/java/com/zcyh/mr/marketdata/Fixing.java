@@ -55,9 +55,9 @@ public class Fixing implements Serializable {
         public String curveType;
         @JSONField(name = "FIXING_ID")
         public String fixingId;
-        @JSONField(name = "DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate dataDate;
-        @JSONField(name = "P_DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "P_DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate pDataDate;
         @JSONField(name = "INTERPOLATE_TYPE")
         public String interpolateType;

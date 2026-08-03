@@ -96,7 +96,7 @@ public class SharedScenarioInputLoader {
         }
         for (String scenarioId : scenarioIds) {
             Path path = pathResolver.resolveScenarioFile(
-                    dataDate.format(DateTimeFormatter.BASIC_ISO_DATE), batchId, scenarioId);
+                    dataDate.toString(), batchId, scenarioId);
             if (!Files.isRegularFile(path)) {
                 throw new IllegalArgumentException("共享scenario文件不存在: " + path);
             }

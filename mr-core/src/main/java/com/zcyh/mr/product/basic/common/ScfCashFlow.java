@@ -18,18 +18,18 @@ public class ScfCashFlow extends BaseCashFlow {
     @JSONField(name = "END_NOTIONAL", ordinal = 11)
     public Double endNotional;
 
-    @JSONField(name = "FWDSTART_DATE", format = "yyyyMMdd", ordinal = 12)
+    @JSONField(name = "FWDSTART_DATE", format = "yyyy-MM-dd", ordinal = 12)
     public LocalDate fwdStartDat;
 
-    @JSONField(name = "FWDEND_DATE", format = "yyyyMMdd", ordinal = 13)
+    @JSONField(name = "FWDEND_DATE", format = "yyyy-MM-dd", ordinal = 13)
     public LocalDate fwdEndDate;
 
     @JSONField(name = "VOLATILITY_RATE", ordinal = 14)
     public Double volatilityRate;
 
-    @JSONField(name = "THEO_PAYMENT_DATE", format = "yyyyMMdd", ordinal = 15)
+    @JSONField(name = "THEO_PAYMENT_DATE", format = "yyyy-MM-dd", ordinal = 15)
     public LocalDate theoPaymentDate;
 
-    @JSONField(name = "PREPAYMENT_DATE", format = "yyyyMMdd", ordinal = 16)
+    @JSONField(name = "PREPAYMENT_DATE", format = "yyyy-MM-dd", ordinal = 16)
     public LocalDate prepaymentDate;
 }

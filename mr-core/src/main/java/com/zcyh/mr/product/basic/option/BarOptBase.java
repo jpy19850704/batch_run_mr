@@ -3,6 +3,7 @@ package com.zcyh.mr.product.basic.option;
 import com.zcyh.mr.product.basic.validation.TradeInfo;
 
 import com.alibaba.fastjson2.annotation.JSONField;
+import com.zcyh.mr.product.basic.validation.BooleanInputReader;
 import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
@@ -117,8 +118,8 @@ public abstract class BarOptBase<I extends BarOptBase.BarOptBaseTradeInfo> {
         } else {
             h = "Down".equalsIgnoreCase(barrierDirection) ? l : u;
         }
-        boolean knockout = "true".equalsIgnoreCase(info.knockOutFlag);
-        boolean barrierHit = "true".equalsIgnoreCase(info.touchBeforeFlag);
+        boolean knockout = Boolean.TRUE.equals(info.knockOutFlag);
+        boolean barrierHit = Boolean.TRUE.equals(info.touchBeforeFlag);
         double rebate = info.payoffLower;
         String type = resolveBarrierType();
         double k = "Single_Barrier".equalsIgnoreCase(type) ? h : fwd;
@@ -629,10 +630,10 @@ public abstract class BarOptBase<I extends BarOptBase.BarOptBaseTradeInfo> {
         @JSONField(name = "CONTRACT_SIZE", defaultValue = "1")
         public Double contractSize;
         @ProductInputField(required = true)
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
         @ProductInputField(required = true)
-        @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
+        @JSONField(name = "SETTLE_DATE", format = "yyyy-MM-dd")
         public LocalDate settleDate;
         @JSONField(name = "BASE_PAYOFF")
         public Double basePayoff;
@@ -644,16 +645,16 @@ public abstract class BarOptBase<I extends BarOptBase.BarOptBaseTradeInfo> {
         @ProductInputField(required = true)
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
-        @JSONField(name = "KNOCK_OUT_FLAG")
-        public String knockOutFlag;
+        @JSONField(name = "KNOCK_OUT_FLAG", deserializeUsing = BooleanInputReader.class)
+        public Boolean knockOutFlag;
         @JSONField(name = "DOWN_BARRIER")
         public Double downBarrierPrice;
         @JSONField(name = "UPPER_BARRIER")
         public Double upBarrierPrice;
-        @JSONField(name = "TOUCH_BEFORE_FLAG")
-        public String touchBeforeFlag;
+        @JSONField(name = "TOUCH_BEFORE_FLAG", deserializeUsing = BooleanInputReader.class)
+        public Boolean touchBeforeFlag;
         /** VV 开关：true 时启用 Vanna-Volga overhedge 调整 */
-        @JSONField(name = "VV_FLAG")
+        @JSONField(name = "VV_FLAG", deserializeUsing = BooleanInputReader.class)
         public Boolean vvFlag;
     }
 }

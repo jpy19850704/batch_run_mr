@@ -617,10 +617,10 @@ public class Trs implements FrtbDrcInterface {
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
         @ProductInputField(required = true)
-        @JSONField(name = "START_DATE", format = "yyyyMMdd")
+        @JSONField(name = "START_DATE", format = "yyyy-MM-dd")
         public LocalDate startDate;
         @ProductInputField(required = true)
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
         @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "NOTIONAL")

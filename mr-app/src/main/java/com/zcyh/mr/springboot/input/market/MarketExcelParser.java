@@ -14,7 +14,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -147,7 +146,7 @@ public class MarketExcelParser {
             row.marketDataType = marketDataType;
             row.curveId = curveId;
             row.curveContent.put("CURVE_TYPE", marketDataType);
-            row.curveContent.put("DATA_DATE", dataDate.format(DateTimeFormatter.BASIC_ISO_DATE));
+            row.curveContent.put("DATA_DATE", dataDate.toString());
             if ("FIXING".equals(marketDataType)) {
                 row.curveContent.put("FIXING_ID", curveId);
             } else {
@@ -259,8 +258,7 @@ public class MarketExcelParser {
         }
         if (cell.getCellType() == CellType.NUMERIC) {
             if (DateUtil.isCellDateFormatted(cell)) {
-                return cell.getLocalDateTimeCellValue().toLocalDate()
-                        .format(DateTimeFormatter.BASIC_ISO_DATE);
+                return cell.getLocalDateTimeCellValue().toLocalDate().toString();
             }
             return BigDecimal.valueOf(cell.getNumericCellValue()).stripTrailingZeros();
         }

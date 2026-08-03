@@ -37,7 +37,7 @@ public class CurveGeneration {
         @JSONField(name = "CURVE_ID")
         public String curveId;
 
-        @JSONField(name = "DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate dataDate;
 
         /** 输出目标日算规则，默认 actual/365 */

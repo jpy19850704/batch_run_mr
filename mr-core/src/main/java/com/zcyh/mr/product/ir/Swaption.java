@@ -541,7 +541,7 @@ public class Swaption {
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
         @ProductInputField(required = true)
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
         @ProductInputField(required = true, finite = true, min = "0")
         @JSONField(name = "NOTIONAL")
@@ -550,10 +550,10 @@ public class Swaption {
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
         @ProductInputField(required = true)
-        @JSONField(name = "UNDERLYING_START_DATE", format = "yyyyMMdd")
+        @JSONField(name = "UNDERLYING_START_DATE", format = "yyyy-MM-dd")
         public LocalDate underlyingStartDate;
         @ProductInputField(required = true)
-        @JSONField(name = "UNDERLYING_MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "UNDERLYING_MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate underlyingMaturityDate;
         @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_FREQ")

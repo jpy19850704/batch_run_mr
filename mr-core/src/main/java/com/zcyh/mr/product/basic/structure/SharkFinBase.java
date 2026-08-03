@@ -4,6 +4,7 @@ import com.zcyh.mr.product.basic.validation.TradeInfo;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.validation.ProductInputField;
+import com.zcyh.mr.product.basic.validation.BooleanInputReader;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.MarketData;
@@ -1094,10 +1095,10 @@ public abstract class SharkFinBase<T extends SharkFinBase.SharkFinBaseTradeInfo,
         @JSONField(name = "NOTIONAL")
         public Double notional;
         @ProductInputField(required = true)
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
         @ProductInputField(required = true)
-        @JSONField(name = "START_DATE", format = "yyyyMMdd")
+        @JSONField(name = "START_DATE", format = "yyyy-MM-dd")
         public LocalDate startDate;
         @JSONField(name = "SETTLE_TYPE")
         public String settleType;
@@ -1111,7 +1112,7 @@ public abstract class SharkFinBase<T extends SharkFinBase.SharkFinBaseTradeInfo,
         @JSONField(name = "UPPER_BARRIER")
         public Double upBarrierPrice;
         @ProductInputField(required = true)
-        @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
+        @JSONField(name = "SETTLE_DATE", format = "yyyy-MM-dd")
         public LocalDate settleDate;
         @ProductInputField(required = true, finite = true, min = "0", minInclusive = false)
         @JSONField(name = "STRIKE_PRICE")
@@ -1122,7 +1123,7 @@ public abstract class SharkFinBase<T extends SharkFinBase.SharkFinBaseTradeInfo,
         @JSONField(name = "FIXING_ID")
         public String fixingId;
         /** VV 开关：true 时启用 Vanna-Volga overhedge 调整 */
-        @JSONField(name = "VV_FLAG")
+        @JSONField(name = "VV_FLAG", deserializeUsing = BooleanInputReader.class)
         public Boolean vvFlag;
     }
 }

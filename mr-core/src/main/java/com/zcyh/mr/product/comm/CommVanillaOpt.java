@@ -419,10 +419,10 @@ public class CommVanillaOpt {
         @JSONField(name = "STRIKE_PRICE")
         public Double strikePrice;
         @ProductInputField(required = true)
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
         @ProductInputField(required = true)
-        @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
+        @JSONField(name = "SETTLE_DATE", format = "yyyy-MM-dd")
         public LocalDate settleDate;
         @JSONField(name = "SETTLE_TYPE")
         public String settleType;

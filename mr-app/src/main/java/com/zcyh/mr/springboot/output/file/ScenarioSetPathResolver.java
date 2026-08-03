@@ -85,9 +85,9 @@ public class ScenarioSetPathResolver {
             throw new IllegalArgumentException("data_date 为空，无法定位情景文件");
         }
         try {
-            return LocalDate.parse(safe, DATE_8_FORMATTER).format(DATE_8_FORMATTER);
+            return LocalDate.parse(safe).format(DATE_8_FORMATTER);
         } catch (DateTimeParseException ex) {
-            throw new IllegalArgumentException("data_date 格式错误，仅支持 yyyyMMdd: " + dataDate);
+            throw new IllegalArgumentException("data_date 格式错误，仅支持 yyyy-MM-dd: " + dataDate);
         }
     }
 

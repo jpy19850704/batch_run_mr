@@ -354,7 +354,7 @@ public class StdIrs {
         public Double notional;
 
         @ProductInputField(required = true)
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
 
         @ProductInputField(required = true)

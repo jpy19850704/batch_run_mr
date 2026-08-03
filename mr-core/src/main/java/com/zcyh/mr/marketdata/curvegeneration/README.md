@@ -116,7 +116,7 @@ converter/
 {
   "CONVERSION_TYPE": "ZeroCurveBootstrap",
   "CURVE_ID": "CNY_SHIBOR",
-  "DATA_DATE": "20241231",
+  "DATA_DATE": "2024-12-31",
   "OUTPUT_TERM_DAYS": "1,7,30,90,180,365,730,1825,3650,7300",
   "CURVE_DATA": [ ... ]
 }
@@ -419,7 +419,7 @@ result.mergeInto(existing);
   {
     "CONVERSION_TYPE": "ZeroCurveBootstrap",
     "CURVE_ID": "CNY_SHIBOR",
-    "DATA_DATE": "20241231",
+    "DATA_DATE": "2024-12-31",
     "CURVE_DAYCOUNT": "actual/365",
     "CURVE_FREQ": "cont",
     "INTERPOLATE_TYPE": "linear",
@@ -434,7 +434,7 @@ result.mergeInto(existing);
   {
     "CONVERSION_TYPE": "FxImpliedCurveConstruct",
     "CURVE_ID": "USD_IMPLIED",
-    "DATA_DATE": "20241231",
+    "DATA_DATE": "2024-12-31",
     "BASE_DISCOUNT_CURVE": "CNY_SHIBOR",
     "BASE_CURRENCY_CODE": "USD",
     "FX_SPOT": 7.2988,
@@ -448,14 +448,14 @@ result.mergeInto(existing);
   {
     "CONVERSION_TYPE": "ZeroCurveSubtract",
     "CURVE_ID": "CNY_CREDIT_SPREAD",
-    "DATA_DATE": "20241231",
+    "DATA_DATE": "2024-12-31",
     "YC_CURVE_CODE": "CNY_CORP_YIELD",
     "RF_CURVE_CODE": "CNY_SHIBOR"
   },
   {
     "CONVERSION_TYPE": "VolRrbf2Delta",
     "CURVE_ID": "EURCNY_VOL",
-    "DATA_DATE": "20241231",
+    "DATA_DATE": "2024-12-31",
     "BASE_DISCOUNT_CURVE": "CNY_SHIBOR",
     "UNDERLYING_DISCOUNT_CURVE": "EUR_CURVE",
     "FX_SPOT": 7.85,

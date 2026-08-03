@@ -30,7 +30,7 @@ public class BondInputValidationTest {
         Assertions.assertEquals(1.0, info.positionTrade);
         Assertions.assertEquals(0.0, info.spread);
         Assertions.assertEquals(0.75, info.lgd);
-        Assertions.assertEquals("Y", info.drcFlag);
+        Assertions.assertEquals(Boolean.TRUE, info.drcFlag);
         Assertions.assertEquals("actual/365", info.dayCountBasis);
     }
 
@@ -107,9 +107,12 @@ public class BondInputValidationTest {
     @Test
     public void testBondFutureParsesMaturityDateByFieldFormat() {
         BondFuture.BondFutureTradeInfo info = JSON.parseObject(
-                "{\"MATURITY_DATE\":\"20260331\"}", BondFuture.BondFutureTradeInfo.class);
+                "{\"MATURITY_DATE\":\"2026-03-31\"}", BondFuture.BondFutureTradeInfo.class);
 
         Assertions.assertEquals(LocalDate.of(2026, 3, 31), info.maturityDate);
+        Assertions.assertTrue(JSON.toJSONString(info).contains("\"MATURITY_DATE\":\"2026-03-31\""));
+        Assertions.assertThrows(RuntimeException.class, () -> JSON.parseObject(
+                "{\"MATURITY_DATE\":\"20260331\"}", BondFuture.BondFutureTradeInfo.class));
     }
 
     @Test
@@ -117,6 +120,20 @@ public class BondInputValidationTest {
         BondFuture.BondFutureTradeInfo info = new BondFuture.BondFutureTradeInfo();
 
         Assertions.assertFalse(info.absFlag);
+    }
+
+    @Test
+    public void testBondBooleanFieldsAcceptExternalRepresentations() {
+        Bond.BondTradeInfo info = JSON.parseObject(
+                "{\"ABS_FLAG\":\"Y\",\"DRC_FLAG\":0,\"INCLUDE_TODAY_CASHFLOW\":\"false\"," +
+                        "\"COUPON_PRORATED\":\"1\",\"OPTION_BOND_FLAG\":\"N\"}",
+                Bond.BondTradeInfo.class);
+
+        Assertions.assertTrue(info.absFlag);
+        Assertions.assertFalse(info.drcFlag);
+        Assertions.assertFalse(info.includeTodayCashflow);
+        Assertions.assertTrue(info.couponProrated);
+        Assertions.assertFalse(info.optionBondFlag);
     }
 
     private Bond.BondTradeInfo buildBondInfo() {

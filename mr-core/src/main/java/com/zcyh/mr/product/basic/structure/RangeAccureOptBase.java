@@ -4,6 +4,7 @@ import com.zcyh.mr.product.basic.validation.TradeInfo;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.validation.ProductInputField;
+import com.zcyh.mr.product.basic.validation.BooleanInputReader;
 import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.support.Convert;
@@ -227,9 +228,9 @@ public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccur
                 continue;
             }
             try {
-                set.add(LocalDate.parse(dateText, DateTimeFormatter.ofPattern("yyyyMMdd")));
+                set.add(LocalDate.parse(dateText));
             } catch (Exception e) {
-                throw new IllegalArgumentException("OBS_DATES 日期格式错误(yyyyMMdd): " + dateText);
+                throw new IllegalArgumentException("OBS_DATES 日期格式错误(yyyy-MM-dd): " + dateText);
             }
         }
         if (set.isEmpty()) {
@@ -635,7 +636,7 @@ public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccur
         onBeforeCalcLoop(marketData, s);
 
         for (LocalDate obsDate : obsDates) {
-            String dateKey = obsDate.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            String dateKey = obsDate.toString();
             if (obsDate.isAfter(this.dataDate)) {
                 double k = rangeAccureInfo.upperBarrier;
                 int days = (int) ChronoUnit.DAYS.between(dataDate, obsDate);
@@ -769,10 +770,10 @@ public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccur
         @JSONField(name = "BUY_OR_SELL")
         public String buyOrSell;
         @ProductInputField(required = true)
-        @JSONField(name = "START_DATE", format = "yyyyMMdd")
+        @JSONField(name = "START_DATE", format = "yyyy-MM-dd")
         public LocalDate startDate;
         @ProductInputField(required = true)
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
         @ProductInputField(required = true)
         @JSONField(name = "OBS_DATES")
@@ -812,7 +813,7 @@ public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccur
         @ProductInputField(finite = true, min = "0", minInclusive = false)
         @JSONField(name = "EPS")
         public Double eps;
-        @JSONField(name = "ABS_FLAG")
+        @JSONField(name = "ABS_FLAG", deserializeUsing = BooleanInputReader.class)
         public Boolean absFlag;
     }
 
@@ -820,7 +821,7 @@ public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccur
      * 区间累计FRTB字段（四类产品通用）。
      */
     public static class RangeAccureFrtbTradeInfo extends RangeAccureBaseTradeInfo {
-        @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
+        @JSONField(name = "SETTLE_DATE", format = "yyyy-MM-dd")
         public LocalDate settleDate;
     }
 

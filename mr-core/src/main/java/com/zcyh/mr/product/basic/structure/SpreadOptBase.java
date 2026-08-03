@@ -4,6 +4,7 @@ import com.zcyh.mr.product.basic.validation.TradeInfo;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.validation.ProductInputField;
+import com.zcyh.mr.product.basic.validation.BooleanInputReader;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
@@ -721,13 +722,13 @@ public abstract class SpreadOptBase<T extends SpreadOptBase.SpreadOptBaseTradeIn
         @JSONField(name = "SETTLE_TYPE")
         public String settleType;
         @ProductInputField(required = true)
-        @JSONField(name = "START_DATE", format = "yyyyMMdd")
+        @JSONField(name = "START_DATE", format = "yyyy-MM-dd")
         public LocalDate startDate;
         @ProductInputField(required = true)
-        @JSONField(name = "MATURITY_DATE", format = "yyyyMMdd")
+        @JSONField(name = "MATURITY_DATE", format = "yyyy-MM-dd")
         public LocalDate maturityDate;
         @ProductInputField(required = true)
-        @JSONField(name = "SETTLE_DATE", format = "yyyyMMdd")
+        @JSONField(name = "SETTLE_DATE", format = "yyyy-MM-dd")
         public LocalDate settleDate;
         @ProductInputField(required = true)
         @JSONField(name = "VOLATILITY_SURFACE")
@@ -758,7 +759,7 @@ public abstract class SpreadOptBase<T extends SpreadOptBase.SpreadOptBaseTradeIn
         @JSONField(name = "FIXING_ID")
         public String fixingId;
         /** VV 开关：true 时启用 Vanna-Volga overhedge 调整 */
-        @JSONField(name = "VV_FLAG")
+        @JSONField(name = "VV_FLAG", deserializeUsing = BooleanInputReader.class)
         public Boolean vvFlag;
     }
 }

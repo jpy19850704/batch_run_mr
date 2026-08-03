@@ -388,10 +388,10 @@ public class FxSwap {
         @JSONField(name = "BASE_CURRENCY_NOTIONAL_FWD")
         public Double baseCurrencyNotionalFwd;
         @ProductInputField(required = true)
-        @JSONField(name = "SPOT_SETTLE_DATE", format = "yyyyMMdd")
+        @JSONField(name = "SPOT_SETTLE_DATE", format = "yyyy-MM-dd")
         public LocalDate spotSettleDate;
         @ProductInputField(required = true)
-        @JSONField(name = "FWD_SETTLE_DATE", format = "yyyyMMdd")
+        @JSONField(name = "FWD_SETTLE_DATE", format = "yyyy-MM-dd")
         public LocalDate fwdSettleDate;
         @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_DISCOUNT_CURVE")

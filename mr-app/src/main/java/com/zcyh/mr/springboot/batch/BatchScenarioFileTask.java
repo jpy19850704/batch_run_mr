@@ -18,7 +18,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -34,7 +33,6 @@ import java.util.zip.GZIPOutputStream;
 @Component
 public class BatchScenarioFileTask implements BatchRunTask {
     private static final Logger log = LoggerFactory.getLogger(BatchScenarioFileTask.class);
-    private static final DateTimeFormatter DATE_8_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
     private static final String[] CSV_HEADERS = new String[]{
             "SCENARIO_ID",
             "SUBSCENARIO_ID",
@@ -73,7 +71,7 @@ public class BatchScenarioFileTask implements BatchRunTask {
         }
 
         try {
-            String dataDate = context.getDataDate().format(DATE_8_FORMATTER);
+            String dataDate = context.getDataDate().toString();
             Path batchDir = prepareBatchDirectory(dataDate, context.getBatchId());
 
             Set<String> requestedScenarioIds = mergeScenarioIds(
@@ -215,7 +213,7 @@ public class BatchScenarioFileTask implements BatchRunTask {
     }
 
     private static String dateText(LocalDate value) {
-        return value == null ? null : value.format(DATE_8_FORMATTER);
+        return value == null ? null : value.toString();
     }
 
     private static String trimToNull(String txt) {

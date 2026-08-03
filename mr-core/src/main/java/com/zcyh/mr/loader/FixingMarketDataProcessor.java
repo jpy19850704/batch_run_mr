@@ -7,14 +7,11 @@ import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.MarketData;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 
 /**
  * 定盘市场数据处理器。
  */
 final class FixingMarketDataProcessor {
-    private static final DateTimeFormatter FIXING_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
-
     private final LocalDate dataDate;
     private final MarketDataValidationCollector validationCollector;
 
@@ -57,7 +54,7 @@ final class FixingMarketDataProcessor {
                 continue;
             }
             try {
-                LocalDate tradeDate = LocalDate.parse(fixDateText, FIXING_DATE_FORMATTER);
+                LocalDate tradeDate = LocalDate.parse(fixDateText);
                 fixingInfo.curveData.put(tradeDate, pointJson.getDoubleValue("FIXING_VALUE"));
             } catch (Exception ex) {
                 validationCollector.error(curveType, fixingId,

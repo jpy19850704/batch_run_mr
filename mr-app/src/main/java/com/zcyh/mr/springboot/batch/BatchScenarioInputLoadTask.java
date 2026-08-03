@@ -92,7 +92,7 @@ public class BatchScenarioInputLoadTask implements BatchRunTask {
         List<String> paths = new ArrayList<String>();
         for (String scenarioId : parseScenarioIds(scenarioIdList)) {
             Path path = pathResolver.resolveScenarioFile(
-                    dataDate.format(DateTimeFormatter.BASIC_ISO_DATE), batchId, scenarioId);
+                    dataDate.toString(), batchId, scenarioId);
             if (!Files.exists(path)) {
                 throw new IllegalArgumentException("scenario 文件不存在: " + path);
             }

@@ -1,9 +1,6 @@
 package com.zcyh.mr.scenario.util;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Calendar;
 import java.util.Date;
@@ -15,12 +12,6 @@ import java.util.List;
  * @author ruoyi
  */
 public class DateUtils{
-    private static final Logger log = LoggerFactory.getLogger(DateUtils.class);
-
-    public static String YYYYMMDD = "yyyyMMdd";
-
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
-
     /**
      * 日期型字符串转化为日期 格式
      */
@@ -29,15 +20,8 @@ public class DateUtils{
             return null;
         }
         try {
-            String dateStr = str.replace("-","");
-            if (dateStr.length() == 8) {
-                LocalDate localDate = LocalDate.parse(dateStr, DATE_FORMAT);
-                return Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
-            } else {
-                log.warn("日期格式错误，应为 YYYYMMDD 或 YYYY-MM-DD: {}", str);
-                return  null;
-            }
-
+            LocalDate localDate = LocalDate.parse(str);
+            return Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
         }
         catch (DateTimeParseException e) {
             return null;

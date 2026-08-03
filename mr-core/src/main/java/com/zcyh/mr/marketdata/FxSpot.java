@@ -213,9 +213,9 @@ public class FxSpot implements Serializable {
     public static class FxSpotInfo implements Serializable {
         @JSONField(name = "CURVE_TYPE")
         public String curveType;
-        @JSONField(name = "DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate dataDate;
-        @JSONField(name = "P_DATA_DATE", format = "yyyyMMdd")
+        @JSONField(name = "P_DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate pDataDate;
         // 中间值
         public HashMap<String, Double> curveData = new HashMap<>();

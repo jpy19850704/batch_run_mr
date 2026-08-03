@@ -12,7 +12,7 @@ import java.time.temporal.ChronoUnit;
  */
 public class BaseCashFlow {
     /** 付款日期 */
-    @JSONField(name = "PAYMENT_DATE", format = "yyyyMMdd", ordinal = 1)
+    @JSONField(name = "PAYMENT_DATE", format = "yyyy-MM-dd", ordinal = 1)
     public LocalDate paymentDate;
 
     /** 币种 */
@@ -54,7 +54,7 @@ public class BaseCashFlow {
     }
 
     /** 数据日期，用于计算剩余天数 */
-    @JSONField(name = "DATA_DATE", format = "yyyyMMdd", ordinal = 99)
+    @JSONField(name = "DATA_DATE", format = "yyyy-MM-dd", ordinal = 99)
     public LocalDate dataDate;
 
 }
