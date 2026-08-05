@@ -26,10 +26,13 @@ import java.util.Set;
 public class MarketImportService {
     private final MarketExcelParser parser;
     private final MarketImportRepository repository;
+    private final MarketTemplateService templateService;
 
-    public MarketImportService(MarketExcelParser parser, MarketImportRepository repository) {
+    public MarketImportService(MarketExcelParser parser, MarketImportRepository repository,
+            MarketTemplateService templateService) {
         this.parser = parser;
         this.repository = repository;
+        this.templateService = templateService;
     }
 
     public JSONObject preview(String dataDate, String marketDataType, MultipartFile file) throws IOException {
@@ -49,6 +52,68 @@ public class MarketImportService {
         repository.insert(plan.insertRows);
         repository.update(plan.updateRows);
         return plan.toResponse(true);
+    }
+
+    @Transactional(transactionManager = "engineDbTransactionManager")
+    public JSONObject edit(MarketEditRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("编辑市场数据不能为空");
+        }
+        LocalDate dataDate = parseDate(request.getDataDate());
+        String marketDataType = normalizeEditType(request.getMarketDataType());
+        String curveId = required(request.getCurveId(), "curveId");
+        if (request.getVersionNo() == null || request.getVersionNo() < 1) {
+            throw new IllegalArgumentException("versionNo必须为正整数");
+        }
+        String dataKind = normalizeDataKind(request.getDataKind());
+        if ("RAW".equals(dataKind) && !"CURVE_GENERATION".equals(marketDataType)) {
+            throw new IllegalArgumentException("RAW数据的marketDataType必须为CURVE_GENERATION");
+        }
+        if ("MARKET".equals(dataKind) && "CURVE_GENERATION".equals(marketDataType)) {
+            throw new IllegalArgumentException("CURVE_GENERATION必须使用RAW数据类型");
+        }
+        if (request.getMarketData() == null) {
+            throw new IllegalArgumentException("marketData不能为空");
+        }
+        JSONObject marketData = JSON.parseObject(request.getMarketData().toJSONString());
+        String identifierField = "FIXING".equals(marketDataType) ? "FIXING_ID" : "CURVE_ID";
+        String contentCurveId = required(marketData.getString(identifierField), "marketData." + identifierField);
+        String conversionType = null;
+        if ("MARKET".equals(dataKind) && !curveId.equals(contentCurveId)) {
+            throw new IllegalArgumentException("曲线ID与marketData." + identifierField + "不一致");
+        }
+        if ("RAW".equals(dataKind)) {
+            conversionType = required(request.getConversionType(), "conversionType");
+            String contentConversionType = required(marketData.getString("CONVERSION_TYPE"),
+                    "marketData.CONVERSION_TYPE");
+            if (!conversionType.equals(contentConversionType)) {
+                throw new IllegalArgumentException("转换类型与marketData.CONVERSION_TYPE不一致");
+            }
+        }
+        List<String> invalidPaths = templateService.invalidFieldPaths(marketDataType, marketData);
+        if (!invalidPaths.isEmpty()) {
+            throw new IllegalArgumentException("存在无效字段: " + String.join(", ", invalidPaths));
+        }
+        List<String> fieldErrors = templateService.validateFieldValues(marketDataType, marketData);
+        if (!fieldErrors.isEmpty()) {
+            throw new IllegalArgumentException(String.join("; ", fieldErrors));
+        }
+        validateContentDate(dataDate, dataKind, marketData);
+        validateEditedMarket(dataDate, dataKind, marketData);
+        String tableName = "RAW".equals(dataKind) ? "MR_MARKET_CURVE_RAW_INPUT" : "MR_MARKET_CURVE_INPUT";
+        int updated = repository.updateEdited(tableName, dataDate, marketDataType, conversionType, curveId,
+                request.getVersionNo(), marketData.toJSONString());
+        if (updated != 1) {
+            throw new IllegalArgumentException("市场数据不存在或已发生变化，保存失败");
+        }
+        JSONObject response = new JSONObject();
+        response.put("updatedCount", updated);
+        response.put("dataDate", dataDate.toString());
+        response.put("marketDataType", marketDataType);
+        response.put("curveId", curveId);
+        response.put("dataKind", dataKind);
+        response.put("versionNo", request.getVersionNo() + 1);
+        return response;
     }
 
     @Transactional(transactionManager = "engineDbTransactionManager")
@@ -151,6 +216,41 @@ public class MarketImportService {
         return result;
     }
 
+    private static void validateEditedMarket(LocalDate dataDate, String dataKind, JSONObject marketData) {
+        if ("RAW".equals(dataKind)) {
+            return;
+        }
+        JSONArray input = new JSONArray();
+        input.add(marketData);
+        JSONArray messages = new JSONArray();
+        try {
+            new MarketDataLoader(dataDate, messages).loadBaseMarketData(input);
+        } catch (Exception e) {
+            throw new IllegalArgumentException(resolveMessage(e), e);
+        }
+        for (Object item : messages) {
+            if (!(item instanceof JSONObject)) {
+                continue;
+            }
+            JSONObject message = (JSONObject) item;
+            if (!"WARNING".equalsIgnoreCase(message.getString("level"))) {
+                throw new IllegalArgumentException(message.getString("info") == null
+                        ? "市场数据校验失败" : message.getString("info"));
+            }
+        }
+    }
+
+    private static void validateContentDate(LocalDate dataDate, String dataKind, JSONObject marketData) {
+        String value = required(marketData.getString("DATA_DATE"), "marketData.DATA_DATE");
+        String expected = "RAW".equals(dataKind)
+                ? dataDate.format(DateTimeFormatter.BASIC_ISO_DATE)
+                : dataDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
+        if (!expected.equals(value)) {
+            throw new IllegalArgumentException("数据日期与marketData.DATA_DATE不一致，要求格式为"
+                    + ("RAW".equals(dataKind) ? "yyyyMMdd" : "yyyy-MM-dd"));
+        }
+    }
+
     private static List<String> messagesFor(Map<String, List<String>> messages, String curveId) {
         List<String> result = new ArrayList<String>();
         List<String> global = messages.get("");
@@ -204,6 +304,22 @@ public class MarketImportService {
         String value = marketDataType == null ? "" : marketDataType.trim().toUpperCase(Locale.ROOT);
         if (!MarketImportSchema.supportedTypes().contains(value)) {
             throw new IllegalArgumentException("不支持的市场数据类型: " + marketDataType);
+        }
+        return value;
+    }
+
+    private static String normalizeEditType(String marketDataType) {
+        String value = marketDataType == null ? "" : marketDataType.trim().toUpperCase(Locale.ROOT);
+        if (!"CURVE_GENERATION".equals(value) && !MarketImportSchema.supportedTypes().contains(value)) {
+            throw new IllegalArgumentException("不支持的市场数据类型: " + marketDataType);
+        }
+        return value;
+    }
+
+    private static String normalizeDataKind(String dataKind) {
+        String value = dataKind == null ? "" : dataKind.trim().toUpperCase(Locale.ROOT);
+        if (!"MARKET".equals(value) && !"RAW".equals(value)) {
+            throw new IllegalArgumentException("dataKind必须为MARKET或RAW");
         }
         return value;
     }

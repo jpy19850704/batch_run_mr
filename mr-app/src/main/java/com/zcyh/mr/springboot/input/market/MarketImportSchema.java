@@ -46,7 +46,7 @@ public final class MarketImportSchema {
         result.put("FX_SPOT", list("CURVE_ID", "CURVE_DATA_START", "CURRENCY", "RATE"));
         result.put("EQ_SPOT", list("CURVE_ID", "CURRENCY_CODE", "CURVE_DATA_START", "TERM", "EQ_PRICE"));
         result.put("COMM_SPOT", list("CURVE_ID", "CURRENCY_CODE", "CURVE_DATA_START", "TERM", "COMM_PRICE"));
-        result.put("FIXING", list("CURVE_ID", "CURVE_DATA_START", "TRADE_DATE", "FIXING_VALUE"));
+        result.put("FIXING", list("FIXING_ID", "CURVE_DATA_START", "TRADE_DATE", "FIXING_VALUE"));
         result.put("IR_VOL", list("CURVE_ID", "AXIS2_TYPE", "CURVE_DATA_START", "OPTION_TERM", "UNDERLYING_TERM", "DELTA", "MONEYNESS", "STRIKE", "VOLATILITY_RATE"));
         result.put("FX_VOL", list("CURVE_ID", "AXIS2_TYPE", "CURVE_DATA_START", "OPTION_TERM", "DELTA", "UNDERLYING_TERM", "MONEYNESS", "STRIKE", "VOLATILITY_RATE"));
         result.put("EQ_VOL", list("CURVE_ID", "AXIS2_TYPE", "CURVE_DATA_START", "OPTION_TERM", "DELTA", "UNDERLYING_TERM", "MONEYNESS", "STRIKE", "VOLATILITY_RATE"));

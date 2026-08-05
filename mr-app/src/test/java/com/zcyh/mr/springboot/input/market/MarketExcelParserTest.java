@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -59,6 +60,19 @@ class MarketExcelParserTest {
                 () -> new MarketExcelParser().parse(file(inconsistent),
                         LocalDate.of(2025, 12, 31), "IR_SPOT"));
         assertTrue(metaError.getMessage().contains("曲线属性不一致"));
+    }
+
+    @Test
+    void importsFixingWithFixingId() throws Exception {
+        byte[] content = workbook(
+                new String[]{"FIXING_ID", "TRADE_DATE", "FIXING_VALUE"},
+                new Object[][]{{"FIXING_IR_USD", "2025-12-30", 0.015}});
+
+        List<MarketImportRow> rows = new MarketExcelParser().parse(file(content),
+                LocalDate.of(2025, 12, 31), "FIXING");
+
+        assertEquals("FIXING_IR_USD", rows.get(0).curveContent.getString("FIXING_ID"));
+        assertNull(rows.get(0).curveContent.get("CURVE_ID"));
     }
 
     private static MockMultipartFile file(byte[] content) {

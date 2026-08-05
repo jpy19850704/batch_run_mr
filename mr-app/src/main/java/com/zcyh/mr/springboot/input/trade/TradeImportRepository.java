@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @Repository
 public class TradeImportRepository {
@@ -75,6 +76,31 @@ public class TradeImportRepository {
             ps.setString(index++, row.instrumentId);
             ps.setString(index, row.productCode);
         });
+    }
+
+    public int updateEdited(LocalDate dataDate, String instrumentId, String productCode,
+            int versionNo, String tradeContentText, Map<String, Object> attributes) {
+        StringBuilder sql = new StringBuilder(
+                "UPDATE MR_TRADE_INPUT SET trade_content_text=?,content_format='JSON',version_no=version_no+1");
+        if (attributes != null) {
+            for (TradeAttributeDefinition definition : TradeAttributeRegistry.definitions()) {
+                sql.append(',').append(definition.getColumnName()).append("=?");
+            }
+        }
+        sql.append(",updated_at=CURRENT_TIMESTAMP(3) WHERE data_date=? AND instrument_id=? AND product_code=? "
+                + "AND version_no=?");
+        List<Object> args = new ArrayList<>();
+        args.add(tradeContentText);
+        if (attributes != null) {
+            for (TradeAttributeDefinition definition : TradeAttributeRegistry.definitions()) {
+                args.add(attributes.get(definition.getFieldName()));
+            }
+        }
+        args.add(Date.valueOf(dataDate));
+        args.add(instrumentId);
+        args.add(productCode);
+        args.add(versionNo);
+        return jdbcTemplate.update(sql.toString(), args.toArray());
     }
 
     public int delete(List<TradeDeleteKey> rows) {

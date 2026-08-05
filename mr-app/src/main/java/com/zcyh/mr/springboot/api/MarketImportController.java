@@ -3,6 +3,7 @@ package com.zcyh.mr.springboot.api;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.input.market.MarketImportService;
 import com.zcyh.mr.springboot.input.market.MarketDeleteKey;
+import com.zcyh.mr.springboot.input.market.MarketEditRequest;
 import com.zcyh.mr.springboot.input.market.MarketTemplateService;
 import com.zcyh.mr.springboot.input.common.ExcelTemplateFile;
 import org.springframework.http.ContentDisposition;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -46,6 +48,18 @@ public class MarketImportController {
             @RequestParam(defaultValue = "false") boolean confirmUpdate,
             @RequestParam MultipartFile file) throws IOException {
         return ApiResponse.ok(marketImportService.commit(dataDate, marketDataType, confirmUpdate, file));
+    }
+
+    @PostMapping("/template-definition")
+    public ApiResponse<JSONObject> templateDefinition(@RequestBody JSONObject request) {
+        return ApiResponse.ok(marketTemplateService.definition(request == null
+                ? null : request.getString("marketDataType"), request == null
+                ? null : request.getString("conversionType")));
+    }
+
+    @PutMapping("/edit")
+    public ApiResponse<JSONObject> edit(@RequestBody MarketEditRequest request) {
+        return ApiResponse.ok(marketImportService.edit(request));
     }
 
     @GetMapping("/template")

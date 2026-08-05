@@ -48,7 +48,7 @@ public class MarketExcelParser {
                 throw new IllegalArgumentException("单次导入不能超过" + MAX_ROWS + "行");
             }
             List<String> headers = readHeaders(sheet.getRow(sheet.getFirstRowNum()));
-            requireHeader(headers, "CURVE_ID");
+            requireHeader(headers, identifierField(marketDataType));
             Map<String, CurveBuilder> builders = new LinkedHashMap<String, CurveBuilder>();
             for (int rowIndex = sheet.getFirstRowNum() + 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
                 Row row = sheet.getRow(rowIndex);
@@ -71,6 +71,7 @@ public class MarketExcelParser {
     private static void parsePointRow(Row row, List<String> headers, LocalDate dataDate,
             String marketDataType, Map<String, CurveBuilder> builders) {
         int rowNumber = row.getRowNum() + 1;
+        String identifierField = identifierField(marketDataType);
         String curveId = null;
         Map<String, Object> meta = new LinkedHashMap<String, Object>();
         JSONObject point = new JSONObject();
@@ -78,7 +79,7 @@ public class MarketExcelParser {
             String header = headers.get(i);
             String normalized = header.toUpperCase(Locale.ROOT);
             Object value = readCell(row.getCell(i));
-            if ("CURVE_ID".equals(normalized)) {
+            if (identifierField.equals(normalized)) {
                 curveId = text(value);
             } else if (SYSTEM_FIELDS.contains(normalized)) {
                 if (value != null) {
@@ -91,7 +92,7 @@ public class MarketExcelParser {
             }
         }
         if (curveId == null || curveId.isEmpty()) {
-            throw rowError(rowNumber, "CURVE_ID不能为空");
+            throw rowError(rowNumber, identifierField + "不能为空");
         }
         if (point.isEmpty()) {
             throw rowError(rowNumber, "曲线点位字段不能为空");
@@ -104,6 +105,10 @@ public class MarketExcelParser {
             builder.requireSameMeta(meta, rowNumber);
         }
         builder.addPoint(point, rowNumber);
+    }
+
+    private static String identifierField(String marketDataType) {
+        return "FIXING".equals(marketDataType) ? "FIXING_ID" : "CURVE_ID";
     }
 
     private static final class CurveBuilder {
@@ -126,7 +131,8 @@ public class MarketExcelParser {
 
         private void requireSameMeta(Map<String, Object> current, int currentRowNumber) {
             if (!equalMaps(meta, current)) {
-                throw rowError(currentRowNumber, "同一CURVE_ID的曲线属性不一致: " + curveId);
+                throw rowError(currentRowNumber,
+                        "同一" + identifierField(marketDataType) + "的曲线属性不一致: " + curveId);
             }
         }
 

@@ -3,6 +3,7 @@ package com.zcyh.mr.springboot.api;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.input.trade.TradeImportService;
 import com.zcyh.mr.springboot.input.trade.TradeDeleteKey;
+import com.zcyh.mr.springboot.input.trade.TradeEditRequest;
 import com.zcyh.mr.springboot.input.trade.TradeTemplateService;
 import com.zcyh.mr.springboot.input.common.ExcelTemplateFile;
 import org.springframework.http.ContentDisposition;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -50,6 +52,16 @@ public class TradeImportController {
     public ResponseEntity<byte[]> template(@RequestParam String productCode) {
         ExcelTemplateFile file = tradeTemplateService.generate(productCode);
         return download(file);
+    }
+
+    @PostMapping("/template-definition")
+    public ApiResponse<JSONObject> templateDefinition(@RequestBody JSONObject request) {
+        return ApiResponse.ok(tradeTemplateService.definition(request == null ? null : request.getString("productCode")));
+    }
+
+    @PutMapping("/edit")
+    public ApiResponse<JSONObject> edit(@RequestBody TradeEditRequest request) {
+        return ApiResponse.ok(tradeImportService.edit(request));
     }
 
     @DeleteMapping

@@ -66,7 +66,7 @@ public class BondFuture implements FrtbDrcInterface {
                 array.add(TradeJsonUtil.mergeTrade(und, EngineConstants.PRODUCT_CODE.BOND_FUTURE, "UNDERLYING_DATA"));
             }
         });
-        bondFutureInfo.bondInfos = JSON.parseArray(array.toString(), Bond.BondTradeInfo.class);
+        bondFutureInfo.underlyingData = JSON.parseArray(array.toString(), Bond.BondTradeInfo.class);
     }
 
     /**
@@ -219,7 +219,7 @@ public class BondFuture implements FrtbDrcInterface {
          * 返回与之对应的bond信息，baseValue，bondid等
          */
         LinkedList<Result> list = new LinkedList<>();
-        for (Bond.BondTradeInfo info : bondFutureInfo.bondInfos) {
+        for (Bond.BondTradeInfo info : bondFutureInfo.underlyingData) {
             Result result = bfPrice(info, this.marketData);
             list.add(result);
         }
@@ -530,8 +530,9 @@ public class BondFuture implements FrtbDrcInterface {
         @ProductInputField(required = true)
         @JSONField(name = "CONVERT_FACTORS")
         public List<ConvertFactor> convertFactors;
-        @JSONField(serialize = false, deserialize = false)
-        public List<Bond.BondTradeInfo> bondInfos;
+        @ProductInputField(required = true)
+        @JSONField(name = "UNDERLYING_DATA")
+        public List<Bond.BondTradeInfo> underlyingData;
         @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;

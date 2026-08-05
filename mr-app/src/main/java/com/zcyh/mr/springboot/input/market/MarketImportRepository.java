@@ -103,6 +103,28 @@ public class MarketImportRepository {
         });
     }
 
+    public int updateEdited(String tableName, LocalDate dataDate, String marketDataType,
+            String conversionType, String curveId, int versionNo, String curveContentText) {
+        if (!"MR_MARKET_CURVE_INPUT".equals(tableName) && !"MR_MARKET_CURVE_RAW_INPUT".equals(tableName)) {
+            throw new IllegalArgumentException("不支持的市场数据表");
+        }
+        StringBuilder sql = new StringBuilder("UPDATE ").append(tableName)
+                .append(" SET curve_content_text=?,content_format='JSON',version_no=version_no+1,")
+                .append("updated_at=CURRENT_TIMESTAMP(3) WHERE data_date=? AND market_data_type=? ")
+                .append("AND curve_id=? AND version_no=?");
+        List<Object> args = new ArrayList<>();
+        args.add(curveContentText);
+        args.add(Date.valueOf(dataDate));
+        args.add(marketDataType);
+        args.add(curveId);
+        args.add(versionNo);
+        if ("MR_MARKET_CURVE_RAW_INPUT".equals(tableName)) {
+            sql.append(" AND conversion_type=?");
+            args.add(conversionType);
+        }
+        return jdbcTemplate.update(sql.toString(), args.toArray());
+    }
+
     public int delete(List<MarketDeleteKey> rows) {
         int[][] counts = jdbcTemplate.batchUpdate(
                 "DELETE FROM MR_MARKET_CURVE_INPUT WHERE data_date=? AND market_data_type=? AND curve_id=? AND version_no=?",

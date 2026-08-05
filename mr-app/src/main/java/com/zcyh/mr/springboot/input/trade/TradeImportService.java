@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -25,10 +26,13 @@ import java.util.Set;
 public class TradeImportService {
     private final TradeExcelParser parser;
     private final TradeImportRepository repository;
+    private final TradeTemplateService templateService;
 
-    public TradeImportService(TradeExcelParser parser, TradeImportRepository repository) {
+    public TradeImportService(TradeExcelParser parser, TradeImportRepository repository,
+            TradeTemplateService templateService) {
         this.parser = parser;
         this.repository = repository;
+        this.templateService = templateService;
     }
 
     public JSONObject preview(String dataDate, String productCode, MultipartFile file) throws IOException {
@@ -72,6 +76,54 @@ public class TradeImportService {
         }
         JSONObject response = new JSONObject();
         response.put("deletedCount", deleted);
+        return response;
+    }
+
+    @Transactional(transactionManager = "engineDbTransactionManager")
+    public JSONObject edit(TradeEditRequest request) {
+        if (request == null) throw new IllegalArgumentException("编辑交易不能为空");
+        LocalDate dataDate = parseDate(request.getDataDate());
+        String instrumentId = required(request.getInstrumentId(), "instrumentId");
+        String productCode = normalizeProductCode(request.getProductCode());
+        if (request.getVersionNo() == null || request.getVersionNo() < 1) {
+            throw new IllegalArgumentException("versionNo必须为正整数");
+        }
+        if (!ProductCalculatorRegistry.supports(productCode)) {
+            throw new IllegalArgumentException("不支持的产品类型: " + productCode);
+        }
+        if (request.getTradeData() == null) {
+            throw new IllegalArgumentException("tradeData不能为空");
+        }
+        JSONObject tradeData = JSON.parseObject(request.getTradeData().toJSONString());
+        String contentInstrumentId = required(tradeData.getString("INSTRUMENT_ID"), "tradeData.INSTRUMENT_ID");
+        String contentProductCode = normalizeProductCode(tradeData.getString("PRODUCT_CODE"));
+        if (!instrumentId.equals(contentInstrumentId)) {
+            throw new IllegalArgumentException("交易ID与tradeData.INSTRUMENT_ID不一致");
+        }
+        if (!productCode.equals(contentProductCode)) {
+            throw new IllegalArgumentException("产品类型与tradeData.PRODUCT_CODE不一致");
+        }
+        List<String> invalidPaths = templateService.invalidFieldPaths(productCode, tradeData);
+        if (!invalidPaths.isEmpty()) {
+            throw new IllegalArgumentException("存在无效字段: " + String.join(", ", invalidPaths));
+        }
+        List<String> fieldErrors = templateService.validateFieldValues(productCode, tradeData);
+        if (!fieldErrors.isEmpty()) {
+            throw new IllegalArgumentException(String.join("; ", fieldErrors));
+        }
+        validateEditedTrade(dataDate, productCode, tradeData);
+        Map<String, Object> attributes = normalizeEditedAttributes(request.getAttributes());
+        int updated = repository.updateEdited(dataDate, instrumentId, productCode,
+                request.getVersionNo(), tradeData.toJSONString(), attributes);
+        if (updated != 1) {
+            throw new IllegalArgumentException("交易不存在或已发生变化，保存失败");
+        }
+        JSONObject response = new JSONObject();
+        response.put("updatedCount", updated);
+        response.put("dataDate", dataDate.toString());
+        response.put("instrumentId", instrumentId);
+        response.put("productCode", productCode);
+        response.put("versionNo", request.getVersionNo() + 1);
         return response;
     }
 
@@ -132,6 +184,48 @@ public class TradeImportService {
         } catch (Exception e) {
             return java.util.Collections.singletonList(resolveMessage(e));
         }
+    }
+
+    private static void validateEditedTrade(LocalDate dataDate, String productCode, JSONObject tradeData) {
+        try {
+            JSONObject normalized = JSON.parseObject(tradeData.toJSONString());
+            TradeJsonUtil.mergeTrade(normalized, productCode, "TRADE");
+            List<String> errors = ProductCalculatorRegistry.validateTradeInput(productCode, dataDate, normalized);
+            if (!errors.isEmpty()) {
+                throw new IllegalArgumentException(String.join("; ", errors));
+            }
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalArgumentException(resolveMessage(e), e);
+        }
+    }
+
+    private static Map<String, Object> normalizeEditedAttributes(Map<String, Object> input) {
+        if (input == null) {
+            return null;
+        }
+        for (String fieldName : input.keySet()) {
+            if (TradeAttributeRegistry.findByField(fieldName) == null) {
+                throw new IllegalArgumentException("不支持的交易辅助字段: " + fieldName);
+            }
+        }
+        Map<String, Object> normalized = new HashMap<>();
+        for (TradeAttributeDefinition definition : TradeAttributeRegistry.definitions()) {
+            Object value = input.get(definition.getFieldName());
+            if (value == null || String.valueOf(value).trim().isEmpty()) {
+                normalized.put(definition.getFieldName(), null);
+            } else if (BigDecimal.class == definition.getValueType()) {
+                try {
+                    normalized.put(definition.getFieldName(), new BigDecimal(String.valueOf(value).trim()));
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(definition.getFieldName() + "必须为数字");
+                }
+            } else {
+                normalized.put(definition.getFieldName(), String.valueOf(value).trim());
+            }
+        }
+        return normalized;
     }
 
     private static List<String> changedFields(TradeInputRow existing, TradeImportRow imported) {
