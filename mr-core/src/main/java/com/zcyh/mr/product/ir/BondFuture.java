@@ -245,29 +245,14 @@ public class BondFuture implements FrtbDrcInterface {
         Bond.BondMeasure measure = bond.calc();
         double baseValue = measure.valuation;
 
-        List<LocalDate> cfDateList = bond.getScf().getCfDatelist();
         LinkedList<StructuredCashflow.Cashflow> cfList = bond.getCashflowList();
         cfList.removeIf(i -> i.cashType.equalsIgnoreCase("notional"));
-        List<LocalDate> dates = cfDateList.subList(1, cfDateList.size());
-        dates = dates.stream().filter(date -> date.isAfter(dataDate))
-                .collect(Collectors.toList());
-
-        List<StructuredCashflow.Cashflow> cashflowList = cfList.stream().filter(i -> i.paymentDate.isAfter(dataDate))
-                .collect(Collectors.toList());
-        List<Double> cfall = cashflowList.stream().map(i -> i.cf).collect(Collectors.toList());
 
         LinkedList<StructuredCashflow.Cashflow> cfq = new LinkedList<>(cfList);
         cfq.removeIf(cf -> cf.paymentDate.isAfter(bondFutureInfo.maturityDate));
         double q = cfq.stream().map(cf -> cf.cf * cf.discoutFactor).reduce(0.0, Double::sum);
-        List<LocalDate> qDates = dates.stream().filter(date -> (date.isBefore(bondFutureInfo.maturityDate)
-                || date.isEqual(bondFutureInfo.maturityDate))).collect(Collectors.toList());
-        double ai = 0.0;
-        if (qDates.size() == 0) {
-            LocalDate a = cfDateList.get(cfDateList.size() - dates.size() - 1);
-            double dt2 = CurveFunc.daysBetweenDCB(a, dates.get(0), bondInfo.dayCountBasis);
-            double dt0 = CurveFunc.daysBetweenDCB(a, bondFutureInfo.maturityDate, bondInfo.dayCountBasis);
-            ai = cfall.get(0) * dt0 / dt2;
-        }
+        double ai = calculateDeliveryAccruedInterest(
+                cfList, bondFutureInfo.maturityDate, bondInfo.dayCountBasis);
 
         IrSpot irSpot = new IrSpot(marketData.irSpot.get(bondFutureInfo.discountCurve));
         double df = irSpot.discount(bondFutureInfo.maturityDate);
@@ -283,6 +268,34 @@ public class BondFuture implements FrtbDrcInterface {
         s.convertFactor = cf;
         s.price = price / cf;
         return s;
+    }
+
+    static double calculateDeliveryAccruedInterest(
+            List<StructuredCashflow.Cashflow> cashflows,
+            LocalDate deliveryDate,
+            String dayCountBasis) {
+        if (cashflows == null || deliveryDate == null) {
+            return 0.0;
+        }
+        StructuredCashflow.Cashflow nextCoupon = cashflows.stream()
+                .filter(cf -> "interest".equalsIgnoreCase(cf.cashType))
+                .filter(cf -> cf.prePaymentDate != null && cf.paymentDate != null)
+                .filter(cf -> cf.paymentDate.isAfter(deliveryDate))
+                .min(Comparator.comparing(cf -> cf.paymentDate))
+                .orElse(null);
+        if (nextCoupon == null || !deliveryDate.isAfter(nextCoupon.prePaymentDate)) {
+            return 0.0;
+        }
+
+        double fullPeriodDays = CurveFunc.daysBetweenDCB(
+                nextCoupon.prePaymentDate, nextCoupon.paymentDate, dayCountBasis);
+        if (fullPeriodDays <= 0.0) {
+            throw new IllegalArgumentException("债券付息区间天数必须为正: prePaymentDate="
+                    + nextCoupon.prePaymentDate + ", paymentDate=" + nextCoupon.paymentDate);
+        }
+        double accruedDays = CurveFunc.daysBetweenDCB(
+                nextCoupon.prePaymentDate, deliveryDate, dayCountBasis);
+        return nextCoupon.cf * accruedDays / fullPeriodDays;
     }
 
     /**
