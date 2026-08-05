@@ -8,7 +8,6 @@ import com.zcyh.mr.support.Series;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
-import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.ir.Bond;
 import com.zcyh.mr.product.ir.BondFuture;
 import org.junit.jupiter.api.Assertions;
@@ -32,15 +31,6 @@ public class BondInputValidationTest {
         Assertions.assertEquals(0.75, info.lgd);
         Assertions.assertEquals(Boolean.TRUE, info.drcFlag);
         Assertions.assertEquals("actual/365", info.dayCountBasis);
-    }
-
-    @Test
-    public void testLastResetRateMetadataRequiresFiniteValue() throws NoSuchFieldException {
-        ProductInputField metadata = Bond.BondTradeInfo.class.getField("lastResetRate")
-                .getAnnotation(ProductInputField.class);
-
-        Assertions.assertNotNull(metadata);
-        Assertions.assertTrue(metadata.finite());
     }
 
     @Test

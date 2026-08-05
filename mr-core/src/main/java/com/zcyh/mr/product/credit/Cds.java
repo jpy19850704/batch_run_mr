@@ -528,7 +528,6 @@ public class Cds implements FrtbDrcInterface {
         bondInfo.resetRule = null;
         bondInfo.resetDayoff = null;
         bondInfo.resetFreq = null;
-        bondInfo.lastResetRate = null;
         bondInfo.discountCurve = cdsInfo.discountCurve;
         bondInfo.notional = cdsInfo.notional;
         bondInfo.includeTodayCashflow = true;

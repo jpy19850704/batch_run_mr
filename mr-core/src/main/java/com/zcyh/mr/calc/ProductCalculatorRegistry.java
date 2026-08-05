@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.calendar.Calendar;
 import com.zcyh.mr.calc.product.*;
 import com.zcyh.mr.support.EngineConstants;
+import com.zcyh.mr.support.TradeJsonUtil;
 import com.zcyh.mr.marketdata.MarketData;
 
 import java.time.LocalDate;
@@ -52,11 +53,13 @@ public final class ProductCalculatorRegistry {
     }
 
     public static List<String> validateTradeInput(String productCode, LocalDate dataDate, JSONObject tradeData) {
+        JSONObject normalizedTrade = TradeJsonUtil.normalizeMissingFields(
+                JSONObject.parseObject(tradeData.toJSONString()));
         HashMap<String, Object> trade = new HashMap<>();
-        trade.putAll(tradeData);
+        trade.putAll(normalizedTrade);
         ProductCalculator calculator = create(productCode, EngineConstants.CALC_MODE.PRICING, dataDate,
                 Collections.singletonList(trade), new MarketData(), null, new JSONObject());
-        return calculator.validateTradeInput(tradeData);
+        return calculator.validateTradeInput(normalizedTrade);
     }
 
     public static Class<?> tradeInputType(String productCode) {

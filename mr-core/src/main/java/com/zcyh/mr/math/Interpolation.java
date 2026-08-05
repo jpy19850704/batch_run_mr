@@ -3,6 +3,7 @@ package com.zcyh.mr.math;
 import com.zcyh.mr.support.Series;
 import org.apache.commons.math3.analysis.interpolation.SplineInterpolator;
 import org.apache.commons.math3.analysis.polynomials.PolynomialSplineFunction;
+import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.TreeMap;
@@ -38,6 +39,156 @@ public class Interpolation {
         return isType(type);
     }
 
+    public static PreparedInterpolator prepare(Series<Integer, Double> data, String type) {
+        if (data == null || data.isEmpty()) {
+            return null;
+        }
+        return new PreparedInterpolator(data, resolveType(type));
+    }
+
+    private static Type resolveType(String type) {
+        return isType(type) ? Type.valueOf(type.toUpperCase()) : Type.LINEAR;
+    }
+
+    public static final class PreparedInterpolator implements Serializable {
+        private final double[] x;
+        private final double[] y;
+        private final double[] variance;
+        private final Type type;
+        private transient volatile PolynomialSplineFunction splineFunction;
+
+        private PreparedInterpolator(Series<Integer, Double> data, Type type) {
+            this.x = new double[data.size()];
+            this.y = new double[data.size()];
+            int index = 0;
+            for (Map.Entry<Integer, Double> entry : data.entrySet()) {
+                x[index] = entry.getKey();
+                y[index] = entry.getValue();
+                index++;
+            }
+            this.type = type;
+            if (type == Type.LINERVAR) {
+                this.variance = new double[y.length];
+                for (int i = 0; i < y.length; i++) {
+                    variance[i] = y[i] * y[i];
+                }
+            } else {
+                this.variance = null;
+            }
+            if (type == Type.CUBICSPLINE) {
+                this.splineFunction = buildSpline();
+            }
+        }
+
+        public double interpolate(int point) {
+            switch (type) {
+                case LINERVAR:
+                    return Math.sqrt(linear(point, variance));
+                case CUBICSPLINE:
+                    return cubicSpline(point);
+                case FORWARD:
+                    return forward(point);
+                case LOG:
+                    return log(point);
+                default:
+                    return linear(point, y);
+            }
+        }
+
+        private double linear(double point, double[] values) {
+            if (point <= x[0]) {
+                return values[0];
+            }
+            int last = x.length - 1;
+            if (point >= x[last]) {
+                return values[last];
+            }
+            int left = floorIndex(point);
+            return interpolation(x[left], values[left], x[left + 1], values[left + 1], point);
+        }
+
+        private double forward(double point) {
+            if (point <= x[0]) {
+                return y[0];
+            }
+            int last = x.length - 1;
+            if (point >= x[last]) {
+                return y[last];
+            }
+            return y[floorIndex(point)];
+        }
+
+        private double log(double point) {
+            if (point <= x[0]) {
+                return y[0];
+            }
+            int last = x.length - 1;
+            if (point >= x[last]) {
+                return y[last];
+            }
+            int left = floorIndex(point);
+            double yLeft = y[left];
+            double yRight = y[left + 1];
+            if (yLeft <= 0.0 || yRight <= 0.0) {
+                return interpolation(x[left], yLeft, x[left + 1], yRight, point);
+            }
+            double ratio = (point - x[left]) / (x[left + 1] - x[left]);
+            return Math.exp(Math.log(yLeft) + ratio * (Math.log(yRight) - Math.log(yLeft)));
+        }
+
+        private double cubicSpline(double point) {
+            if (x.length < 3 || point <= x[0] || point >= x[x.length - 1]) {
+                return linear(point, y);
+            }
+            PolynomialSplineFunction spline = splineFunction;
+            if (spline == null) {
+                synchronized (this) {
+                    if (splineFunction == null) {
+                        splineFunction = buildSpline();
+                    }
+                    spline = splineFunction;
+                }
+            }
+            if (spline == null) {
+                return linear(point, y);
+            }
+            try {
+                double value = spline.value(point);
+                return Double.isFinite(value) ? value : linear(point, y);
+            } catch (RuntimeException e) {
+                return linear(point, y);
+            }
+        }
+
+        private PolynomialSplineFunction buildSpline() {
+            if (x.length < 3) {
+                return null;
+            }
+            try {
+                return new SplineInterpolator().interpolate(x, y);
+            } catch (RuntimeException e) {
+                return null;
+            }
+        }
+
+        private int floorIndex(double point) {
+            int left = 0;
+            int right = x.length - 1;
+            while (left <= right) {
+                int mid = left + (right - left) / 2;
+                if (x[mid] == point) {
+                    return mid;
+                }
+                if (x[mid] < point) {
+                    left = mid + 1;
+                } else {
+                    right = mid - 1;
+                }
+            }
+            return right;
+        }
+    }
+
     /**
      * 根据插值类型返回对应的插值结果
      * 
@@ -48,7 +199,7 @@ public class Interpolation {
      */
     public static double interpolate(Series<Integer, Double> data, Integer dx, String type) {
         /* 传入字符串是为了方便不同类型的曲线类中参数获取, 先判断是否在类型枚举列表中, 若不在列表中默认线性插值 */
-        Type t = isType(type) ? Type.valueOf(type.toUpperCase()) : Type.LINEAR;
+        Type t = resolveType(type);
         switch (t) {
             case LINERVAR: {
                 Double[] xArr = data.keySet().stream()
@@ -90,7 +241,7 @@ public class Interpolation {
      * 数组序列插值重载：根据插值类型返回对应结果。
      */
     public static double interpolate(Double[] x1, Double[] y1, Double x, String type) {
-        Type t = isType(type) ? Type.valueOf(type.toUpperCase()) : Type.LINEAR;
+        Type t = resolveType(type);
         switch (t) {
             case LINERVAR:
                 return linearVarianceInterpolation(x1, y1, x);

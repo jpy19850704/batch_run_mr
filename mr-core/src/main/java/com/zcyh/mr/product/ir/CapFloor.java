@@ -54,11 +54,12 @@ public class CapFloor {
         StructuredCashflow.ScfInfo scfInfo = ReflectionUtils.bean2Bean(capFloorInfo, StructuredCashflow.ScfInfo.class);
         scfInfo.interestType = "Floating";
         scfInfo.notionalFlag = "NONE";
-        scfInfo.resetFreq = StringUtils.isBlank(capFloorInfo.resetFreq) ? capFloorInfo.payFreq : capFloorInfo.resetFreq;
+        scfInfo.resetFreq = resolveFrequency(capFloorInfo.resetFreq, capFloorInfo.payFreq);
         scfInfo.resetRule = capFloorInfo.fixingRule;
         scfInfo.resetDayoff = capFloorInfo.fixingDayoff;
         scfInfo.issueDate = capFloorInfo.startDate;
-		scfInfo.fixingFreq = StringUtils.isBlank(capFloorInfo.fixingFreq) ? capFloorInfo.resetFreq : capFloorInfo.fixingFreq;
+        // RESET_FREQ 可选，默认取 PAY_FREQ；FIXING_FREQ 可选，默认取最终生效的 RESET_FREQ。
+        scfInfo.fixingFreq = resolveFrequency(capFloorInfo.fixingFreq, scfInfo.resetFreq);
         /*判断买卖方向，如果为S则 *-1*/
         scfInfo.notional = getSignedNotional();
         scf = new StructuredCashflow(dataDate,scfInfo,marketData,calendar);
@@ -83,6 +84,10 @@ public class CapFloor {
         measure.detail = buildDetail(measure);
         getFrtbSensList();          /*敏度部分同样指向全局变量返回类*/
         return measure;
+    }
+
+    static String resolveFrequency(String configuredFrequency, String defaultFrequency) {
+        return StringUtils.isBlank(configuredFrequency) ? defaultFrequency : configuredFrequency;
     }
 
     /**
@@ -530,6 +535,9 @@ public class CapFloor {
         public String referenceCurve;
         @JSONField(name = "RESET_FREQ")
         public String resetFreq;
+        @ProductInputField(allowedValues = {"AVERAGE", "COMPOUNDING"}, ignoreCase = true)
+        @JSONField(name = "INTEREST_AGGREGATION_METHOD")
+        public String interestAggregationMethod = "COMPOUNDING";
         @JSONField(name = "FIXING_ID")
         public String fixingId;
         @ProductInputField(required = true)

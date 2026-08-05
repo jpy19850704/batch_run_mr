@@ -141,10 +141,10 @@ public class IrsCcs {
         scfInfo.settleRule = irsCcsInfo.paySettleRule;
         scfInfo.interestRate = irsCcsInfo.payInterest;
         scfInfo.spread = irsCcsInfo.paySpread;
+        scfInfo.interestAggregationMethod = irsCcsInfo.payInterestAggregationMethod;
         scfInfo.fixingId = irsCcsInfo.payFixingId;
         scfInfo.referenceCurve = irsCcsInfo.payReferenceCurve;
         scfInfo.fixingCalendar = irsCcsInfo.payFixingCalendar;
-        scfInfo.lastResetRate = irsCcsInfo.payLastFixingRate;
         scfInfo.allowMissingReferenceCurveAsZeroForward = false;
 
         if ("fixed".equalsIgnoreCase(irsCcsInfo.payInterestType)) {
@@ -181,10 +181,10 @@ public class IrsCcs {
         recScf.settleRule = irsCcsInfo.recSettleRule;
         recScf.interestRate = irsCcsInfo.recInterest;
         recScf.spread = irsCcsInfo.recSpread;
+        recScf.interestAggregationMethod = irsCcsInfo.recInterestAggregationMethod;
         recScf.fixingId = irsCcsInfo.recFixingId;
         recScf.referenceCurve = irsCcsInfo.recReferenceCurve;
         recScf.fixingCalendar = irsCcsInfo.recFixingCalendar;
-        recScf.lastResetRate = irsCcsInfo.recLastFixingRate;
         recScf.allowMissingReferenceCurveAsZeroForward = false;
 
         if ("fixed".equalsIgnoreCase(irsCcsInfo.recInterestType)) {
@@ -471,13 +471,11 @@ public class IrsCcs {
         validateLeg(md, "PAY", irsCcsInfo.payNotional, irsCcsInfo.payCurrencyCode,
                 irsCcsInfo.payInterestType, irsCcsInfo.payInterest, irsCcsInfo.payReferenceCurve,
                 irsCcsInfo.paySpread, irsCcsInfo.payFreq, irsCcsInfo.payDayCountBasis,
-                irsCcsInfo.payDiscountCurve, irsCcsInfo.payResetFreq, irsCcsInfo.payFixingFreq,
-                irsCcsInfo.payLastFixingRate);
+                irsCcsInfo.payDiscountCurve, irsCcsInfo.payResetFreq, irsCcsInfo.payFixingFreq);
         validateLeg(md, "REC", irsCcsInfo.recNotional, irsCcsInfo.recCurrencyCode,
                 irsCcsInfo.recInterestType, irsCcsInfo.recInterest, irsCcsInfo.recReferenceCurve,
                 irsCcsInfo.recSpread, irsCcsInfo.recFreq, irsCcsInfo.recDayCountBasis,
-                irsCcsInfo.recDiscountCurve, irsCcsInfo.recResetFreq, irsCcsInfo.recFixingFreq,
-                irsCcsInfo.recLastFixingRate);
+                irsCcsInfo.recDiscountCurve, irsCcsInfo.recResetFreq, irsCcsInfo.recFixingFreq);
         if (md.fxSpot == null || md.fxSpot.curveData == null || md.fxSpot.curveData.isEmpty()) {
             throw new IllegalArgumentException("市场数据缺少外汇即期曲线");
         }
@@ -485,8 +483,7 @@ public class IrsCcs {
 
     private void validateLeg(MarketData md, String leg, Double notional, String currencyCode,
             String interestType, Double interest, String referenceCurve, Double spread, String payFreq,
-            String dayCountBasis, String discountCurve, String resetFreq, String fixingFreq,
-            Double lastFixingRate) {
+            String dayCountBasis, String discountCurve, String resetFreq, String fixingFreq) {
         requireNonNegativeFinite(notional, leg + "_NOTIONAL");
         requireCurrencyCode(currencyCode, leg + "_CURRENCY_CODE");
         if (!"FIXED".equalsIgnoreCase(interestType) && !"FLOATING".equalsIgnoreCase(interestType)) {
@@ -496,7 +493,6 @@ public class IrsCcs {
         requireText(dayCountBasis, leg + "_DAY_COUNT_BASIS");
         requireText(discountCurve, leg + "_DISCOUNT_CURVE");
         requireFiniteIfPresent(spread, leg + "_SPREAD");
-        requireFiniteIfPresent(lastFixingRate, leg + "_LAST_FIXING_RATE");
         if (md.irSpot == null || md.irSpot.get(discountCurve) == null) {
             throw new IllegalArgumentException("未找到" + leg + "折现曲线: " + discountCurve);
         }
@@ -591,6 +587,9 @@ public class IrsCcs {
         @ProductInputField(finite = true)
         @JSONField(name = "PAY_SPREAD")
         public Double paySpread = 0.0;
+        @ProductInputField(allowedValues = {"AVERAGE", "COMPOUNDING"}, ignoreCase = true)
+        @JSONField(name = "PAY_INTEREST_AGGREGATION_METHOD")
+        public String payInterestAggregationMethod = "COMPOUNDING";
         @ProductInputField(required = true)
         @JSONField(name = "PAY_FREQ")
         public String payFreq;
@@ -607,9 +606,6 @@ public class IrsCcs {
         public String payFixingRule;
         @JSONField(name = "PAY_FIXING_DAYOFF")
         public Integer payFixingDayoff;
-        @ProductInputField(finite = true)
-        @JSONField(name = "PAY_LAST_FIXING_RATE")
-        public Double payLastFixingRate;
         @ProductInputField(required = true)
         @JSONField(name = "PAY_DISCOUNT_CURVE")
         public String payDiscountCurve;
@@ -641,6 +637,9 @@ public class IrsCcs {
         @ProductInputField(finite = true)
         @JSONField(name = "REC_SPREAD")
         public Double recSpread = 0.0;
+        @ProductInputField(allowedValues = {"AVERAGE", "COMPOUNDING"}, ignoreCase = true)
+        @JSONField(name = "REC_INTEREST_AGGREGATION_METHOD")
+        public String recInterestAggregationMethod = "COMPOUNDING";
         @ProductInputField(required = true)
         @JSONField(name = "REC_FREQ")
         public String recFreq;
@@ -663,9 +662,6 @@ public class IrsCcs {
         public String recFixingRule;
         @JSONField(name = "REC_FIXING_DAYOFF")
         public Integer recFixingDayoff;
-        @ProductInputField(finite = true)
-        @JSONField(name = "REC_LAST_FIXING_RATE")
-        public Double recLastFixingRate;
         @ProductInputField(required = true)
         @JSONField(name = "REC_DISCOUNT_CURVE")
         public String recDiscountCurve;

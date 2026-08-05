@@ -1,5 +1,6 @@
 package com.zcyh.mr.product;
 
+import com.alibaba.fastjson2.JSON;
 import com.zcyh.mr.calendar.Calendar;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.support.Series;
@@ -125,6 +126,17 @@ public class IrSwapInputValidationTest {
                 () -> new IrsCcs(DATA_DATE, info, buildMarketData(), new Calendar()).calc(buildMarketData()));
 
         Assertions.assertTrue(exception.getMessage().contains("REC_REFERENCE_CURVE"));
+    }
+
+    @Test
+    public void testIrsCcsInterestAggregationMethodIsConfiguredPerLeg() {
+        IrsCcs.IrsCcsTradeInfo info = JSON.parseObject("{"
+                + "\"PAY_INTEREST_AGGREGATION_METHOD\":\"AVERAGE\","
+                + "\"REC_INTEREST_AGGREGATION_METHOD\":\"COMPOUNDING\"}",
+                IrsCcs.IrsCcsTradeInfo.class);
+
+        Assertions.assertEquals("AVERAGE", info.payInterestAggregationMethod);
+        Assertions.assertEquals("COMPOUNDING", info.recInterestAggregationMethod);
     }
 
     private StdIrs.StdIrsTradeInfo buildStdIrsInfo() {

@@ -755,7 +755,6 @@ public class Bond implements FrtbDrcInterface {
         requireFinite(bondInfo.positionTrade, "POSITION_TRADE");
         requireFinite(bondInfo.spread, "SPREAD");
         requireFiniteIfPresent(bondInfo.dirtyPrice, "DIRTY_PRICE");
-        requireFiniteIfPresent(bondInfo.lastResetRate, "LAST_RESET_RATE");
         requireRange(bondInfo.lgd, "DRC_LGD", 0.0, 1.0);
         bondInfo.isDrcEnabled();
         if ("FIXED".equalsIgnoreCase(bondInfo.interestType)) {
@@ -880,6 +879,9 @@ public class Bond implements FrtbDrcInterface {
         @ProductInputField(finite = true)
         @JSONField(name = "SPREAD")
         public Double spread = 0.0;
+        @ProductInputField(allowedValues = {"AVERAGE", "COMPOUNDING"}, ignoreCase = true)
+        @JSONField(name = "INTEREST_AGGREGATION_METHOD")
+        public String interestAggregationMethod = "COMPOUNDING";
         @ProductInputField
         @JSONField(name = "FIXING_FREQ")
         public String fixingFreq;
@@ -922,10 +924,6 @@ public class Bond implements FrtbDrcInterface {
         public Double lgd = 0.75;
         @JSONField(name = "DRC_FLAG", deserializeUsing = BooleanInputReader.class)
         public Boolean drcFlag = true;
-
-        @ProductInputField(finite = true)
-        @JSONField(name = "LAST_RESET_RATE")
-        public Double lastResetRate;
 
         @JSONField(name = "FRTB_CSR_BUCKET")
         public String frtbCsrBucket;

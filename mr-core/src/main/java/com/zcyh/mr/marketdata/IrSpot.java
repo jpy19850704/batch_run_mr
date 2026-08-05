@@ -21,10 +21,16 @@ import java.util.Map;
  */
 public class IrSpot implements Serializable {
 
-    private IrSpotInfo irSpotInfo;
+    private final IrSpotInfo irSpotInfo;
+    private final Interpolation.PreparedInterpolator curveInterpolator;
+    private final Interpolation.PreparedInterpolator shockInterpolator;
 
     public IrSpot(IrSpotInfo irSpotInfo) {
         this.irSpotInfo = irSpotInfo;
+        this.curveInterpolator = irSpotInfo == null
+                ? null : Interpolation.prepare(irSpotInfo.curveData, irSpotInfo.interpolateType);
+        this.shockInterpolator = irSpotInfo == null
+                ? null : Interpolation.prepare(irSpotInfo.shockCurveData, "linear");
     }
 
     public IrSpotInfo getIrSpotInfo() {
@@ -166,9 +172,14 @@ public class IrSpot implements Serializable {
     }
 
     private double rateWithShock(Series<Integer, Double> curveData, int days) {
-        double rate = Interpolation.interpolate(curveData, days, this.irSpotInfo.interpolateType);
-        if (this.irSpotInfo.shockCurveData != null && !this.irSpotInfo.shockCurveData.isEmpty()) {
-            rate += Interpolation.interpolate(this.irSpotInfo.shockCurveData, days, "linear");
+        double rate;
+        if (curveData == this.irSpotInfo.curveData && curveInterpolator != null) {
+            rate = curveInterpolator.interpolate(days);
+        } else {
+            rate = Interpolation.interpolate(curveData, days, this.irSpotInfo.interpolateType);
+        }
+        if (shockInterpolator != null) {
+            rate += shockInterpolator.interpolate(days);
         }
         return rate;
     }
