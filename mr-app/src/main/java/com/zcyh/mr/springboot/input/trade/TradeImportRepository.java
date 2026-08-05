@@ -2,6 +2,7 @@ package com.zcyh.mr.springboot.input.trade;
 
 import com.zcyh.mr.springboot.input.db.TradeInputRepository;
 import com.zcyh.mr.springboot.input.db.TradeInputRow;
+import com.alibaba.fastjson2.JSONObject;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -35,6 +36,19 @@ public class TradeImportRepository {
                     instrumentIds.subList(start, end)));
         }
         return result;
+    }
+
+    public JSONObject findDetail(LocalDate dataDate, String instrumentId, String productCode, int versionNo) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT data_date,instrument_id,product_code,trade_content_text,content_format,version_no");
+        for (TradeAttributeDefinition definition : TradeAttributeRegistry.definitions()) {
+            sql.append(',').append(definition.getColumnName());
+        }
+        sql.append(",created_at,updated_at FROM MR_TRADE_INPUT ")
+                .append("WHERE data_date=? AND instrument_id=? AND product_code=? AND version_no=?");
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql.toString(), Date.valueOf(dataDate),
+                instrumentId, productCode, versionNo);
+        return rows.isEmpty() ? null : new JSONObject(rows.get(0));
     }
 
     public void insert(List<TradeImportRow> rows) {

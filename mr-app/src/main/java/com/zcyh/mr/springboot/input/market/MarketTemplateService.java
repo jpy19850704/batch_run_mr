@@ -3,6 +3,7 @@ package com.zcyh.mr.springboot.input.market;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.springboot.input.common.ExcelTemplateFile;
+import com.zcyh.mr.springboot.input.common.InputJsonSupport;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -11,12 +12,10 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 @Service
 public class MarketTemplateService {
@@ -71,9 +70,7 @@ public class MarketTemplateService {
         String conversionType = marketData == null ? null : marketData.getString("CONVERSION_TYPE");
         String normalizedConversionType = normalizeConversionType(normalized, conversionType);
         Map<String, FieldDescriptor> fields = collectFieldDescriptors(normalized, normalizedConversionType);
-        Set<String> invalidPaths = new LinkedHashSet<>();
-        collectInvalidPaths(marketData, "", fields, invalidPaths);
-        return new ArrayList<>(invalidPaths);
+        return InputJsonSupport.invalidFieldPaths(marketData, fields.keySet());
     }
 
     public List<String> validateFieldValues(String marketDataType, JSONObject marketData) {
@@ -309,74 +306,6 @@ public class MarketTemplateService {
 
     private static boolean isBlank(Object value) {
         return value == null || value.toString().trim().isEmpty();
-    }
-
-    private static void collectInvalidPaths(Object value, String path,
-            Map<String, FieldDescriptor> fields, Set<String> invalidPaths) {
-        if (value == null) {
-            if (!path.isEmpty() && !isKnownPath(path, fields)) {
-                invalidPaths.add(path);
-            }
-            return;
-        }
-        if (value instanceof JSONObject) {
-            JSONObject object = (JSONObject) value;
-            if (object.isEmpty()) {
-                if (!path.isEmpty() && !isKnownPath(path, fields)) {
-                    invalidPaths.add(path);
-                }
-                return;
-            }
-            if (!path.isEmpty() && !hasKnownDescendant(path, fields)) {
-                invalidPaths.add(path);
-                return;
-            }
-            for (Map.Entry<String, Object> entry : object.entrySet()) {
-                String childPath = path.isEmpty() ? entry.getKey() : path + "." + entry.getKey();
-                collectInvalidPaths(entry.getValue(), childPath, fields, invalidPaths);
-            }
-            return;
-        }
-        if (value instanceof JSONArray) {
-            JSONArray array = (JSONArray) value;
-            if (array.isEmpty()) {
-                if (!path.isEmpty() && !hasKnownDescendant(path, fields) && !isKnownPath(path, fields)) {
-                    invalidPaths.add(path);
-                }
-                return;
-            }
-            for (int i = 0; i < array.size(); i++) {
-                collectInvalidPaths(array.get(i), path + "[" + i + "]", fields, invalidPaths);
-            }
-            return;
-        }
-        if (!path.isEmpty() && !isKnownPath(path, fields)) {
-            invalidPaths.add(path);
-        }
-    }
-
-    private static boolean isKnownPath(String path, Map<String, FieldDescriptor> fields) {
-        return findField(path, fields) != null;
-    }
-
-    private static FieldDescriptor findField(String path, Map<String, FieldDescriptor> fields) {
-        FieldDescriptor exact = fields.get(path);
-        return exact != null ? exact : fields.get(normalizeArrayPath(path));
-    }
-
-    private static boolean hasKnownDescendant(String path, Map<String, FieldDescriptor> fields) {
-        String normalizedPath = normalizeArrayPath(path);
-        String prefix = normalizedPath + ".";
-        for (String fieldPath : fields.keySet()) {
-            if (normalizeArrayPath(fieldPath).startsWith(prefix)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static String normalizeArrayPath(String path) {
-        return Pattern.compile("\\[\\d+\\]").matcher(path).replaceAll("[0]");
     }
 
     private static String normalize(String marketDataType) {

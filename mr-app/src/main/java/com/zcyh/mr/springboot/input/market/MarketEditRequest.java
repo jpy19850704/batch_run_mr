@@ -9,7 +9,7 @@ public class MarketEditRequest {
     private String curveId;
     private Integer versionNo;
     private String dataKind;
-    private JSONObject marketData;
+    private JSONObject content;
 
     public String getDataDate() {
         return dataDate;
@@ -59,11 +59,11 @@ public class MarketEditRequest {
         this.dataKind = dataKind;
     }
 
-    public JSONObject getMarketData() {
-        return marketData;
+    public JSONObject getContent() {
+        return content;
     }
 
-    public void setMarketData(JSONObject marketData) {
-        this.marketData = marketData;
+    public void setContent(JSONObject content) {
+        this.content = content;
     }
 }

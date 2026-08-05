@@ -1,16 +1,10 @@
 package com.zcyh.mr.springboot.input.trade;
 
-import com.alibaba.fastjson2.JSONObject;
-
-import java.util.Map;
-
-public class TradeEditRequest {
+public class TradeDetailRequest {
     private String dataDate;
     private String instrumentId;
     private String productCode;
     private Integer versionNo;
-    private JSONObject content;
-    private Map<String, Object> attributes;
 
     public String getDataDate() {
         return dataDate;
@@ -42,21 +36,5 @@ public class TradeEditRequest {
 
     public void setVersionNo(Integer versionNo) {
         this.versionNo = versionNo;
-    }
-
-    public JSONObject getContent() {
-        return content;
-    }
-
-    public void setContent(JSONObject content) {
-        this.content = content;
-    }
-
-    public Map<String, Object> getAttributes() {
-        return attributes;
-    }
-
-    public void setAttributes(Map<String, Object> attributes) {
-        this.attributes = attributes;
     }
 }

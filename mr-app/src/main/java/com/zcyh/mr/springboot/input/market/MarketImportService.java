@@ -4,12 +4,12 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.loader.MarketDataLoader;
+import com.zcyh.mr.springboot.input.common.InputJsonSupport;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -72,22 +72,22 @@ public class MarketImportService {
         if ("MARKET".equals(dataKind) && "CURVE_GENERATION".equals(marketDataType)) {
             throw new IllegalArgumentException("CURVE_GENERATION必须使用RAW数据类型");
         }
-        if (request.getMarketData() == null) {
-            throw new IllegalArgumentException("marketData不能为空");
+        if (request.getContent() == null) {
+            throw new IllegalArgumentException("content不能为空");
         }
-        JSONObject marketData = JSON.parseObject(request.getMarketData().toJSONString());
+        JSONObject marketData = JSON.parseObject(request.getContent().toJSONString());
         String identifierField = "FIXING".equals(marketDataType) ? "FIXING_ID" : "CURVE_ID";
-        String contentCurveId = required(marketData.getString(identifierField), "marketData." + identifierField);
+        String contentCurveId = required(marketData.getString(identifierField), "content." + identifierField);
         String conversionType = null;
         if ("MARKET".equals(dataKind) && !curveId.equals(contentCurveId)) {
-            throw new IllegalArgumentException("曲线ID与marketData." + identifierField + "不一致");
+            throw new IllegalArgumentException("曲线ID与content." + identifierField + "不一致");
         }
         if ("RAW".equals(dataKind)) {
             conversionType = required(request.getConversionType(), "conversionType");
             String contentConversionType = required(marketData.getString("CONVERSION_TYPE"),
-                    "marketData.CONVERSION_TYPE");
+                    "content.CONVERSION_TYPE");
             if (!conversionType.equals(contentConversionType)) {
-                throw new IllegalArgumentException("转换类型与marketData.CONVERSION_TYPE不一致");
+                throw new IllegalArgumentException("转换类型与content.CONVERSION_TYPE不一致");
             }
         }
         List<String> invalidPaths = templateService.invalidFieldPaths(marketDataType, marketData);
@@ -100,9 +100,11 @@ public class MarketImportService {
         }
         validateContentDate(dataDate, dataKind, marketData);
         validateEditedMarket(dataDate, dataKind, marketData);
-        String tableName = "RAW".equals(dataKind) ? "MR_MARKET_CURVE_RAW_INPUT" : "MR_MARKET_CURVE_INPUT";
-        int updated = repository.updateEdited(tableName, dataDate, marketDataType, conversionType, curveId,
-                request.getVersionNo(), marketData.toJSONString());
+        int updated = "RAW".equals(dataKind)
+                ? repository.updateEditedRaw(dataDate, marketDataType, conversionType, curveId,
+                        request.getVersionNo(), marketData.toJSONString())
+                : repository.updateEditedMarket(dataDate, marketDataType, curveId,
+                        request.getVersionNo(), marketData.toJSONString());
         if (updated != 1) {
             throw new IllegalArgumentException("市场数据不存在或已发生变化，保存失败");
         }
@@ -176,7 +178,7 @@ public class MarketImportService {
                 plan.add(row, "CONFLICT", "数据库现有曲线JSON格式错误", null, warnings);
                 continue;
             }
-            if (deepEquals(oldJson, row.curveContent)) {
+            if (InputJsonSupport.deepEquals(oldJson, row.curveContent)) {
                 plan.add(row, "UNCHANGED", null, new ArrayList<String>(), warnings);
             } else {
                 plan.updateRows.add(row);
@@ -241,12 +243,12 @@ public class MarketImportService {
     }
 
     private static void validateContentDate(LocalDate dataDate, String dataKind, JSONObject marketData) {
-        String value = required(marketData.getString("DATA_DATE"), "marketData.DATA_DATE");
+        String value = required(marketData.getString("DATA_DATE"), "content.DATA_DATE");
         String expected = "RAW".equals(dataKind)
                 ? dataDate.format(DateTimeFormatter.BASIC_ISO_DATE)
                 : dataDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
         if (!expected.equals(value)) {
-            throw new IllegalArgumentException("数据日期与marketData.DATA_DATE不一致，要求格式为"
+            throw new IllegalArgumentException("数据日期与content.DATA_DATE不一致，要求格式为"
                     + ("RAW".equals(dataKind) ? "yyyyMMdd" : "yyyy-MM-dd"));
         }
     }
@@ -262,42 +264,6 @@ public class MarketImportService {
             result.addAll(specific);
         }
         return result;
-    }
-
-    private static boolean deepEquals(Object left, Object right) {
-        if (left == null || right == null) {
-            return left == right;
-        }
-        if (left instanceof Number && right instanceof Number) {
-            return new BigDecimal(left.toString()).compareTo(new BigDecimal(right.toString())) == 0;
-        }
-        if (left instanceof Map && right instanceof Map) {
-            Map<?, ?> leftMap = (Map<?, ?>) left;
-            Map<?, ?> rightMap = (Map<?, ?>) right;
-            if (!leftMap.keySet().equals(rightMap.keySet())) {
-                return false;
-            }
-            for (Object key : leftMap.keySet()) {
-                if (!deepEquals(leftMap.get(key), rightMap.get(key))) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        if (left instanceof List && right instanceof List) {
-            List<?> leftList = (List<?>) left;
-            List<?> rightList = (List<?>) right;
-            if (leftList.size() != rightList.size()) {
-                return false;
-            }
-            for (int i = 0; i < leftList.size(); i++) {
-                if (!deepEquals(leftList.get(i), rightList.get(i))) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        return Objects.equals(left, right);
     }
 
     private static String normalizeType(String marketDataType) {

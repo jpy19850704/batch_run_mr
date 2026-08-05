@@ -5,6 +5,7 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.calc.ProductCalculatorRegistry;
 import com.zcyh.mr.springboot.input.db.TradeInputRow;
+import com.zcyh.mr.springboot.input.common.InputJsonSupport;
 import com.zcyh.mr.support.TradeJsonUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -91,17 +92,17 @@ public class TradeImportService {
         if (!ProductCalculatorRegistry.supports(productCode)) {
             throw new IllegalArgumentException("不支持的产品类型: " + productCode);
         }
-        if (request.getTradeData() == null) {
-            throw new IllegalArgumentException("tradeData不能为空");
+        if (request.getContent() == null) {
+            throw new IllegalArgumentException("content不能为空");
         }
-        JSONObject tradeData = JSON.parseObject(request.getTradeData().toJSONString());
-        String contentInstrumentId = required(tradeData.getString("INSTRUMENT_ID"), "tradeData.INSTRUMENT_ID");
+        JSONObject tradeData = JSON.parseObject(request.getContent().toJSONString());
+        String contentInstrumentId = required(tradeData.getString("INSTRUMENT_ID"), "content.INSTRUMENT_ID");
         String contentProductCode = normalizeProductCode(tradeData.getString("PRODUCT_CODE"));
         if (!instrumentId.equals(contentInstrumentId)) {
-            throw new IllegalArgumentException("交易ID与tradeData.INSTRUMENT_ID不一致");
+            throw new IllegalArgumentException("交易ID与content.INSTRUMENT_ID不一致");
         }
         if (!productCode.equals(contentProductCode)) {
-            throw new IllegalArgumentException("产品类型与tradeData.PRODUCT_CODE不一致");
+            throw new IllegalArgumentException("产品类型与content.PRODUCT_CODE不一致");
         }
         List<String> invalidPaths = templateService.invalidFieldPaths(productCode, tradeData);
         if (!invalidPaths.isEmpty()) {
@@ -231,7 +232,7 @@ public class TradeImportService {
     private static List<String> changedFields(TradeInputRow existing, TradeImportRow imported) {
         List<String> changed = new ArrayList<>();
         JSONObject oldTrade = JSON.parseObject(existing.tradeContentText);
-        if (!deepEquals(oldTrade, imported.tradeData)) {
+        if (!InputJsonSupport.deepEquals(oldTrade, imported.tradeData)) {
             changed.add("TRADE_DATA");
         }
         for (TradeAttributeDefinition definition : TradeAttributeRegistry.definitions()) {
@@ -252,42 +253,6 @@ public class TradeImportService {
             return new java.math.BigDecimal(left.toString()).compareTo(new java.math.BigDecimal(right.toString())) == 0;
         }
         return Objects.equals(left.toString(), right.toString());
-    }
-
-    private static boolean deepEquals(Object left, Object right) {
-        if (left == null || right == null) {
-            return left == right;
-        }
-        if (left instanceof Number && right instanceof Number) {
-            return equalValue(left, right);
-        }
-        if (left instanceof Map && right instanceof Map) {
-            Map<?, ?> leftMap = (Map<?, ?>) left;
-            Map<?, ?> rightMap = (Map<?, ?>) right;
-            if (!leftMap.keySet().equals(rightMap.keySet())) {
-                return false;
-            }
-            for (Object key : leftMap.keySet()) {
-                if (!deepEquals(leftMap.get(key), rightMap.get(key))) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        if (left instanceof List && right instanceof List) {
-            List<?> leftList = (List<?>) left;
-            List<?> rightList = (List<?>) right;
-            if (leftList.size() != rightList.size()) {
-                return false;
-            }
-            for (int i = 0; i < leftList.size(); i++) {
-                if (!deepEquals(leftList.get(i), rightList.get(i))) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        return Objects.equals(left, right);
     }
 
     private static String normalizeProductCode(String productCode) {

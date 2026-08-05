@@ -6,6 +6,7 @@ import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.calc.ProductCalculatorRegistry;
 import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.springboot.input.common.ExcelTemplateFile;
+import com.zcyh.mr.springboot.input.common.InputJsonSupport;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -20,12 +21,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 @Service
@@ -68,9 +67,7 @@ public class TradeTemplateService {
     public List<String> invalidFieldPaths(String productCode, JSONObject tradeData) {
         String normalized = normalizeProductCode(productCode);
         LinkedHashMap<String, FieldDescriptor> fields = collectFieldDescriptors(normalized);
-        Set<String> invalidPaths = new LinkedHashSet<>();
-        collectInvalidPaths(tradeData, "", fields, invalidPaths);
-        return new ArrayList<>(invalidPaths);
+        return InputJsonSupport.invalidFieldPaths(tradeData, fields.keySet());
     }
 
     public List<String> validateFieldValues(String productCode, JSONObject tradeData) {
@@ -272,86 +269,6 @@ public class TradeTemplateService {
 
     private static boolean isDynamic(Class<?> type) {
         return Map.class.isAssignableFrom(type) || JSONObject.class.isAssignableFrom(type);
-    }
-
-    private static void collectInvalidPaths(Object value, String path,
-            Map<String, FieldDescriptor> fields, Set<String> invalidPaths) {
-        if (value == null) {
-            if (!path.isEmpty() && !isKnownPath(path, fields)) {
-                invalidPaths.add(path);
-            }
-            return;
-        }
-        if (!path.isEmpty() && isKnownJsonField(path, fields)) {
-            return;
-        }
-        if (value instanceof JSONObject) {
-            JSONObject object = (JSONObject) value;
-            if (object.isEmpty()) {
-                if (!path.isEmpty() && !isKnownPath(path, fields)) {
-                    invalidPaths.add(path);
-                }
-                return;
-            }
-            if (!path.isEmpty() && !hasKnownDescendant(path, fields)) {
-                invalidPaths.add(path);
-                return;
-            }
-            for (Map.Entry<String, Object> entry : object.entrySet()) {
-                String childPath = path.isEmpty() ? entry.getKey() : path + "." + entry.getKey();
-                collectInvalidPaths(entry.getValue(), childPath, fields, invalidPaths);
-            }
-            return;
-        }
-        if (value instanceof JSONArray) {
-            JSONArray array = (JSONArray) value;
-            if (array.isEmpty()) {
-                if (!path.isEmpty() && !hasKnownDescendant(path, fields) && !isKnownPath(path, fields)) {
-                    invalidPaths.add(path);
-                }
-                return;
-            }
-            for (int i = 0; i < array.size(); i++) {
-                String childPath = path + "[" + i + "]";
-                collectInvalidPaths(array.get(i), childPath, fields, invalidPaths);
-            }
-            return;
-        }
-        if (!path.isEmpty() && !isKnownPath(path, fields)) {
-            invalidPaths.add(path);
-        }
-    }
-
-    private static boolean isKnownJsonField(String path, Map<String, FieldDescriptor> fields) {
-        FieldDescriptor field = findField(path, fields);
-        return field != null && "JSON".equals(field.type);
-    }
-
-    private static boolean isKnownPath(String path, Map<String, FieldDescriptor> fields) {
-        return findField(path, fields) != null;
-    }
-
-    private static FieldDescriptor findField(String path, Map<String, FieldDescriptor> fields) {
-        FieldDescriptor exact = fields.get(path);
-        if (exact != null) {
-            return exact;
-        }
-        return fields.get(normalizeArrayPath(path));
-    }
-
-    private static boolean hasKnownDescendant(String path, Map<String, FieldDescriptor> fields) {
-        String normalizedPath = normalizeArrayPath(path);
-        String prefix = normalizedPath + ".";
-        for (String fieldPath : fields.keySet()) {
-            if (normalizeArrayPath(fieldPath).startsWith(prefix)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static String normalizeArrayPath(String path) {
-        return Pattern.compile("\\[\\d+\\]").matcher(path).replaceAll("[0]");
     }
 
     private static List<PathValue> readPathValues(Object root, String path) {

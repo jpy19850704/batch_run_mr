@@ -3,6 +3,7 @@ package com.zcyh.mr.springboot.input.market;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import com.alibaba.fastjson2.JSONObject;
 
 import java.sql.Date;
 import java.time.LocalDate;
@@ -46,6 +47,15 @@ public class MarketImportRepository {
             }
         }
         return result;
+    }
+
+    public JSONObject findMarketDetail(LocalDate dataDate, String marketDataType, String curveId, int versionNo) {
+        return findDetail("MR_MARKET_CURVE_INPUT", dataDate, marketDataType, curveId, versionNo, null);
+    }
+
+    public JSONObject findRawDetail(LocalDate dataDate, String marketDataType, String curveId,
+            int versionNo, String conversionType) {
+        return findDetail("MR_MARKET_CURVE_RAW_INPUT", dataDate, marketDataType, curveId, versionNo, conversionType);
     }
 
     public Set<String> findNonPrimaryVersionCurveIds(
@@ -103,26 +113,21 @@ public class MarketImportRepository {
         });
     }
 
-    public int updateEdited(String tableName, LocalDate dataDate, String marketDataType,
-            String conversionType, String curveId, int versionNo, String curveContentText) {
-        if (!"MR_MARKET_CURVE_INPUT".equals(tableName) && !"MR_MARKET_CURVE_RAW_INPUT".equals(tableName)) {
-            throw new IllegalArgumentException("不支持的市场数据表");
-        }
-        StringBuilder sql = new StringBuilder("UPDATE ").append(tableName)
-                .append(" SET curve_content_text=?,content_format='JSON',version_no=version_no+1,")
-                .append("updated_at=CURRENT_TIMESTAMP(3) WHERE data_date=? AND market_data_type=? ")
-                .append("AND curve_id=? AND version_no=?");
-        List<Object> args = new ArrayList<>();
-        args.add(curveContentText);
-        args.add(Date.valueOf(dataDate));
-        args.add(marketDataType);
-        args.add(curveId);
-        args.add(versionNo);
-        if ("MR_MARKET_CURVE_RAW_INPUT".equals(tableName)) {
-            sql.append(" AND conversion_type=?");
-            args.add(conversionType);
-        }
-        return jdbcTemplate.update(sql.toString(), args.toArray());
+    public int updateEditedMarket(LocalDate dataDate, String marketDataType,
+            String curveId, int versionNo, String curveContentText) {
+        return jdbcTemplate.update("UPDATE MR_MARKET_CURVE_INPUT SET curve_content_text=?,"
+                        + "content_format='JSON',version_no=version_no+1,updated_at=CURRENT_TIMESTAMP(3) "
+                        + "WHERE data_date=? AND market_data_type=? AND curve_id=? AND version_no=?",
+                curveContentText, Date.valueOf(dataDate), marketDataType, curveId, versionNo);
+    }
+
+    public int updateEditedRaw(LocalDate dataDate, String marketDataType, String conversionType,
+            String curveId, int versionNo, String curveContentText) {
+        return jdbcTemplate.update("UPDATE MR_MARKET_CURVE_RAW_INPUT SET curve_content_text=?,"
+                        + "content_format='JSON',version_no=version_no+1,updated_at=CURRENT_TIMESTAMP(3) "
+                        + "WHERE data_date=? AND market_data_type=? AND curve_id=? AND version_no=? "
+                        + "AND conversion_type=?",
+                curveContentText, Date.valueOf(dataDate), marketDataType, curveId, versionNo, conversionType);
     }
 
     public int delete(List<MarketDeleteKey> rows) {
@@ -138,5 +143,27 @@ public class MarketImportRepository {
                 });
         return java.util.Arrays.stream(counts).flatMapToInt(java.util.Arrays::stream)
                 .map(value -> value == java.sql.Statement.SUCCESS_NO_INFO ? 1 : Math.max(value, 0)).sum();
+    }
+
+    private JSONObject findDetail(String tableName, LocalDate dataDate, String marketDataType,
+            String curveId, int versionNo, String conversionType) {
+        StringBuilder sql = new StringBuilder("SELECT data_date,market_data_type,curve_id,curve_content_text,")
+                .append("content_format,version_no,source_system,created_at,updated_at");
+        if ("MR_MARKET_CURVE_RAW_INPUT".equals(tableName)) {
+            sql.append(",conversion_type");
+        }
+        sql.append(" FROM ").append(tableName)
+                .append(" WHERE data_date=? AND market_data_type=? AND curve_id=? AND version_no=?");
+        List<Object> args = new ArrayList<>();
+        args.add(Date.valueOf(dataDate));
+        args.add(marketDataType);
+        args.add(curveId);
+        args.add(versionNo);
+        if ("MR_MARKET_CURVE_RAW_INPUT".equals(tableName)) {
+            sql.append(" AND conversion_type=?");
+            args.add(conversionType);
+        }
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql.toString(), args.toArray());
+        return rows.isEmpty() ? null : new JSONObject(rows.get(0));
     }
 }
