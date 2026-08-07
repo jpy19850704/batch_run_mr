@@ -6,6 +6,7 @@ import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 
@@ -26,6 +27,7 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
     protected final MarketData marketData;
     protected final double pos;
     protected M measure;
+    private List<LocalDate> observationDates;
 
     protected final Middle middle = new Middle();
 
@@ -92,36 +94,40 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
         int maturityDays = (int) ChronoUnit.DAYS.between(dataDate, info.maturityDate);
         int settleDays = (int) ChronoUnit.DAYS.between(dataDate, info.settleDate);
         double maturityT = maturityDays / 365.0;
-        double settleT = settleDays / 365.0;
 
         MarketFactors factors = resolveMarketFactors(
-                md, call, cash, maturityDays, settleDays, maturityT, settleT);
+                md, call, cash, maturityDays, settleDays, maturityT, settleDays / 365.0);
         ObservationStat stat = buildObservationStat(md);
-        double obsStartT = ChronoUnit.DAYS.between(dataDate, info.obsStartDate) / 365.0;
-        double obsEndT = ChronoUnit.DAYS.between(dataDate, info.obsEndDate) / 365.0;
+        double physicalForwardRatio = cash ? 1.0 : factors.physicalForwardRatio;
+        if (!Double.isFinite(physicalForwardRatio) || physicalForwardRatio <= 0.0) {
+            throw new IllegalArgumentException("实物交割远期比率必须为正有限数");
+        }
+        double pricingStrike = info.strikePrice / physicalForwardRatio;
+        double presentValueFactor = factors.paymentDiscountFactor * physicalForwardRatio;
 
-        AsianUtil asianUtil = new AsianUtil(call, info.strikePrice, factors.rd, factors.rf);
+        AsianUtil asianUtil = new AsianUtil(call, pricingStrike, factors.rd, factors.rf);
+        double equivalentStrike = asianUtil.equivalentStrike(
+                stat.totalObsCount, stat.pastObsCount, stat.averagePast);
+        double sigma = resolveMarketSigma(
+                call, factors, equivalentStrike, maturityT, stat.futureObservationTimes);
         AsianUtil.PriceResult priceResult = asianUtil.price(
                 factors.spot,
-                factors.baseSigma,
-                settleT,
-                obsStartT,
-                obsEndT,
-                stat.totalObsCount,
+                sigma,
+                presentValueFactor,
+                stat.futureObservationTimes,
                 stat.pastObsCount,
                 stat.averagePast);
 
         middle.call = call;
         middle.spot = factors.spot;
-        middle.baseSigma = factors.baseSigma;
+        middle.baseSigma = sigma;
         middle.rd = factors.rd;
         middle.rf = factors.rf;
-        middle.settleT = settleT;
-        middle.obsStartT = obsStartT;
-        middle.obsEndT = obsEndT;
-        middle.totalObsCount = stat.totalObsCount;
+        middle.presentValueFactor = presentValueFactor;
+        middle.futureObservationTimes = stat.futureObservationTimes;
         middle.pastObsCount = stat.pastObsCount;
         middle.averagePast = stat.averagePast;
+        middle.pricingStrike = pricingStrike;
         middle.basePrice = priceResult.price;
         middle.forwardEq = priceResult.forwardEq;
         middle.strikeEq = priceResult.strikeEq;
@@ -142,6 +148,29 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
         m.valuationCny = m.valuation * resolveValuationToCnyFx(md, m.valuationCcy);
         m.impliedVol = priceResult.sigmaEq;
         return m;
+    }
+
+    private double resolveMarketSigma(
+            boolean call,
+            MarketFactors factors,
+            double equivalentStrike,
+            double maturityT,
+            List<Double> futureObservationTimes) {
+        if (futureObservationTimes.isEmpty() || equivalentStrike <= 0.0) {
+            return 0.0;
+        }
+        EurOptUtil util = new EurOptUtil(
+                call,
+                true,
+                factors.spot,
+                equivalentStrike,
+                factors.rd,
+                factors.rf,
+                Math.max(maturityT, 1.0 / 365.0),
+                Math.max(maturityT, 1.0 / 365.0),
+                factors.volCurve,
+                "black");
+        return util.getSigma();
     }
 
     /**
@@ -187,15 +216,17 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
         return detail;
     }
 
-    private double reprice(double spot, double sigma, double settleT, double obsStartT, double obsEndT) {
-        AsianUtil asianUtil = new AsianUtil(middle.call, info.strikePrice, middle.rd, middle.rf);
+    private double reprice(
+            double spot,
+            double sigma,
+            double presentValueFactor,
+            List<Double> futureObservationTimes) {
+        AsianUtil asianUtil = new AsianUtil(middle.call, middle.pricingStrike, middle.rd, middle.rf);
         AsianUtil.PriceResult result = asianUtil.price(
                 spot,
                 sigma,
-                settleT,
-                obsStartT,
-                obsEndT,
-                middle.totalObsCount,
+                presentValueFactor,
+                futureObservationTimes,
                 middle.pastObsCount,
                 middle.averagePast);
         return result.price;
@@ -203,25 +234,31 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
 
     private double getDelta() {
         double eps = Math.max(1e-6, Math.abs(middle.spot) * EurOptUtil.GreekEps.delta);
-        double up = reprice(middle.spot + eps, middle.baseSigma, middle.settleT, middle.obsStartT, middle.obsEndT);
+        double up = reprice(middle.spot + eps, middle.baseSigma,
+                middle.presentValueFactor, middle.futureObservationTimes);
         double down = reprice(Math.max(middle.spot - eps, 1e-8), middle.baseSigma,
-                middle.settleT, middle.obsStartT, middle.obsEndT);
+                middle.presentValueFactor, middle.futureObservationTimes);
         return (up - down) / (2.0 * eps);
     }
 
     private double getGamma() {
         double eps = Math.max(1e-6, Math.abs(middle.spot) * EurOptUtil.GreekEps.gamma);
-        double up = reprice(middle.spot + eps, middle.baseSigma, middle.settleT, middle.obsStartT, middle.obsEndT);
+        double up = reprice(middle.spot + eps, middle.baseSigma,
+                middle.presentValueFactor, middle.futureObservationTimes);
         double mid = middle.basePrice;
         double down = reprice(Math.max(middle.spot - eps, 1e-8), middle.baseSigma,
-                middle.settleT, middle.obsStartT, middle.obsEndT);
+                middle.presentValueFactor, middle.futureObservationTimes);
         return (up - 2.0 * mid + down) / (eps * eps);
     }
 
     private double getTheta() {
         double eps = EurOptUtil.GreekEps.theta;
-        double up = reprice(middle.spot, middle.baseSigma,
-                middle.settleT + eps, middle.obsStartT + eps, middle.obsEndT + eps);
+        List<Double> shiftedTimes = new ArrayList<>(middle.futureObservationTimes.size());
+        for (Double time : middle.futureObservationTimes) {
+            shiftedTimes.add(time + eps);
+        }
+        double shiftedPresentValueFactor = middle.presentValueFactor * Math.exp(-middle.rd * eps);
+        double up = reprice(middle.spot, middle.baseSigma, shiftedPresentValueFactor, shiftedTimes);
         return up - middle.basePrice;
     }
 
@@ -229,8 +266,10 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
         double eps = EurOptUtil.GreekEps.vega;
         double sigmaUp = middle.baseSigma + eps;
         double sigmaDown = Math.max(middle.baseSigma - eps, 1e-8);
-        double up = reprice(middle.spot, sigmaUp, middle.settleT, middle.obsStartT, middle.obsEndT);
-        double down = reprice(middle.spot, sigmaDown, middle.settleT, middle.obsStartT, middle.obsEndT);
+        double up = reprice(middle.spot, sigmaUp,
+                middle.presentValueFactor, middle.futureObservationTimes);
+        double down = reprice(middle.spot, sigmaDown,
+                middle.presentValueFactor, middle.futureObservationTimes);
         return (up - down) / (sigmaUp - sigmaDown) / 100.0;
     }
 
@@ -256,27 +295,23 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
         }
         if (info.maturityDate == null) {
             errors.add("MATURITY_DATE 未设置");
-        } else if (!info.maturityDate.isAfter(dataDate)) {
-            errors.add("MATURITY_DATE 已过期: " + info.maturityDate + " <= " + dataDate);
+        } else if (info.maturityDate.isBefore(dataDate)) {
+            errors.add("MATURITY_DATE 已过期: " + info.maturityDate + " < " + dataDate);
         }
         if (info.settleDate == null) {
             errors.add("SETTLE_DATE 未设置");
+        } else if (info.maturityDate != null && info.settleDate.isBefore(info.maturityDate)) {
+            errors.add("SETTLE_DATE 不得早于 MATURITY_DATE");
         }
-        if (info.obsStartDate == null) {
-            errors.add("OBS_START_DATE 未设置");
+        List<LocalDate> dates = Collections.emptyList();
+        try {
+            dates = getObservationDates();
+        } catch (IllegalArgumentException e) {
+            errors.add(e.getMessage());
         }
-        if (info.obsEndDate == null) {
-            errors.add("OBS_END_DATE 未设置");
-        }
-        if (info.obsStartDate != null && info.obsEndDate != null && info.obsStartDate.isAfter(info.obsEndDate)) {
-            errors.add("OBS_START_DATE 大于 OBS_END_DATE");
-        }
-        if (info.maturityDate != null && info.obsEndDate != null && info.obsEndDate.isAfter(info.maturityDate)) {
-            errors.add("OBS_END_DATE 不得晚于 MATURITY_DATE");
-        }
-        int totalObsCount = countObservationDays(info.obsStartDate, info.obsEndDate);
-        if (totalObsCount <= 0) {
-            errors.add("观察区间无有效观察点");
+        if (info.maturityDate != null
+                && dates.stream().anyMatch(date -> date.isAfter(info.maturityDate))) {
+            errors.add("OBS_DATES 不得晚于 MATURITY_DATE");
         }
 
         String settleType = resolveSettleType(info.settleType);
@@ -284,7 +319,7 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
             errors.add("SETTLE_TYPE 非法: " + info.settleType);
         }
 
-        int pastCount = countPastObservationDays(info.obsStartDate, info.obsEndDate, dataDate);
+        long pastCount = dates.stream().filter(date -> !date.isAfter(dataDate)).count();
         if (pastCount > 0) {
             if (!hasText(info.fixingId)) {
                 errors.add("历史观察段存在时 FIXING_ID 必填");
@@ -298,26 +333,32 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
     }
 
     private ObservationStat buildObservationStat(MarketData md) {
-        int totalObsCount = countObservationDays(info.obsStartDate, info.obsEndDate);
-        int pastObsCount = countPastObservationDays(info.obsStartDate, info.obsEndDate, dataDate);
+        List<LocalDate> dates = getObservationDates();
+        int totalObsCount = dates.size();
+        List<LocalDate> pastDates = new ArrayList<>();
+        List<Double> futureTimes = new ArrayList<>();
+        for (LocalDate date : dates) {
+            if (date.isAfter(dataDate)) {
+                futureTimes.add(ChronoUnit.DAYS.between(dataDate, date) / 365.0);
+            } else {
+                pastDates.add(date);
+            }
+        }
+        int pastObsCount = pastDates.size();
         Double averagePast = null;
         if (pastObsCount > 0) {
             Fixing fixing = new Fixing(md.fixingRate.get(info.fixingId));
-            LocalDate pastEnd = info.obsEndDate.isBefore(dataDate) ? info.obsEndDate : dataDate;
             double sum = 0.0;
-            int count = 0;
-            for (LocalDate d = info.obsStartDate; !d.isAfter(pastEnd); d = d.plusDays(1)) {
+            for (LocalDate d : pastDates) {
                 double value = fixing.getRate(d);
                 if (!Double.isFinite(value)) {
                     throw new IllegalArgumentException("FIXING值非法: " + d + "=" + value);
                 }
                 sum += value;
-                count++;
             }
-            pastObsCount = count;
-            averagePast = count == 0 ? null : sum / count;
+            averagePast = sum / pastObsCount;
         }
-        return new ObservationStat(totalObsCount, pastObsCount, averagePast);
+        return new ObservationStat(totalObsCount, pastObsCount, averagePast, futureTimes);
     }
 
     protected static boolean hasText(String value) {
@@ -329,34 +370,37 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
     }
 
     protected static String resolveSettleType(String settleType) {
-        if (!hasText(settleType)) {
-            return "CASH";
-        }
-        return settleType.trim().toUpperCase(Locale.ROOT);
+        return settleType == null ? "" : settleType.trim().toUpperCase(Locale.ROOT);
     }
 
     protected static boolean isCashSettle(String settleType) {
         return "CASH".equalsIgnoreCase(settleType);
     }
 
-    private int countObservationDays(LocalDate startDate, LocalDate endDate) {
-        if (startDate == null || endDate == null || startDate.isAfter(endDate)) {
-            return 0;
+    private List<LocalDate> getObservationDates() {
+        if (observationDates != null) {
+            return observationDates;
         }
-        long days = ChronoUnit.DAYS.between(startDate, endDate) + 1;
-        return (int) Math.max(days, 0);
-    }
-
-    private int countPastObservationDays(LocalDate startDate, LocalDate endDate, LocalDate valuationDate) {
-        if (startDate == null || endDate == null || valuationDate == null || startDate.isAfter(endDate)) {
-            return 0;
+        if (!hasText(info.obsDates)) {
+            throw new IllegalArgumentException("OBS_DATES 不能为空");
         }
-        if (valuationDate.isBefore(startDate)) {
-            return 0;
+        TreeSet<LocalDate> dates = new TreeSet<>();
+        for (String value : info.obsDates.split(",")) {
+            String dateText = safeText(value);
+            if (dateText.isEmpty()) {
+                continue;
+            }
+            try {
+                dates.add(LocalDate.parse(dateText));
+            } catch (Exception e) {
+                throw new IllegalArgumentException("OBS_DATES 日期格式错误(yyyy-MM-dd): " + dateText);
+            }
         }
-        LocalDate pastEnd = endDate.isBefore(valuationDate) ? endDate : valuationDate;
-        long days = ChronoUnit.DAYS.between(startDate, pastEnd) + 1;
-        return (int) Math.max(days, 0);
+        if (dates.isEmpty()) {
+            throw new IllegalArgumentException("OBS_DATES 不能为空");
+        }
+        observationDates = Collections.unmodifiableList(new ArrayList<>(dates));
+        return observationDates;
     }
 
     /**
@@ -390,15 +434,12 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
         @ProductInputField(required = true, allowedValues = {"CASH", "PHYSICAL"}, ignoreCase = true)
         @JSONField(name = "SETTLE_TYPE")
         public String settleType;
-        @ProductInputField(requiredFor = {"EQ_ASIAN", "COMM_ASIAN"})
+        @ProductInputField
         @JSONField(name = "FIXING_ID")
         public String fixingId;
         @ProductInputField(required = true)
-        @JSONField(name = "OBS_START_DATE", format = "yyyy-MM-dd")
-        public LocalDate obsStartDate;
-        @ProductInputField(required = true)
-        @JSONField(name = "OBS_END_DATE", format = "yyyy-MM-dd")
-        public LocalDate obsEndDate;
+        @JSONField(name = "OBS_DATES")
+        public String obsDates;
         @ProductInputField(required = true)
         @JSONField(name = "CURRENCY_CODE")
         public String currencyCode;
@@ -411,13 +452,23 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
         public final double spot;
         public final double rd;
         public final double rf;
-        public final double baseSigma;
+        public final List<VolSurfacePoint> volCurve;
+        public final double paymentDiscountFactor;
+        public final double physicalForwardRatio;
 
-        public MarketFactors(double spot, double rd, double rf, double baseSigma) {
+        public MarketFactors(
+                double spot,
+                double rd,
+                double rf,
+                List<VolSurfacePoint> volCurve,
+                double paymentDiscountFactor,
+                double physicalForwardRatio) {
             this.spot = spot;
             this.rd = rd;
             this.rf = rf;
-            this.baseSigma = baseSigma;
+            this.volCurve = volCurve;
+            this.paymentDiscountFactor = paymentDiscountFactor;
+            this.physicalForwardRatio = physicalForwardRatio;
         }
     }
 
@@ -425,11 +476,17 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
         private final int totalObsCount;
         private final int pastObsCount;
         private final Double averagePast;
+        private final List<Double> futureObservationTimes;
 
-        private ObservationStat(int totalObsCount, int pastObsCount, Double averagePast) {
+        private ObservationStat(
+                int totalObsCount,
+                int pastObsCount,
+                Double averagePast,
+                List<Double> futureObservationTimes) {
             this.totalObsCount = totalObsCount;
             this.pastObsCount = pastObsCount;
             this.averagePast = averagePast;
+            this.futureObservationTimes = Collections.unmodifiableList(new ArrayList<>(futureObservationTimes));
         }
     }
 
@@ -442,12 +499,11 @@ public abstract class AsianBase<I extends AsianBase.AsianBaseTradeInfo, M extend
         private double baseSigma;
         private double rd;
         private double rf;
-        private double settleT;
-        private double obsStartT;
-        private double obsEndT;
-        private int totalObsCount;
+        private double presentValueFactor;
+        private List<Double> futureObservationTimes;
         private int pastObsCount;
         private Double averagePast;
+        private double pricingStrike;
         private double basePrice;
         private double forwardEq;
         private double strikeEq;

@@ -16,8 +16,7 @@ public class CommAsianTest {
     public void testCommAsianCalcAndDetailFields() {
         LocalDate dataDate = LocalDate.of(2026, 1, 10);
         CommAsian.CommAsianTradeInfo info = buildBaseInfo(dataDate);
-        info.obsStartDate = LocalDate.of(2026, 1, 5);
-        info.obsEndDate = LocalDate.of(2026, 1, 20);
+        info.obsDates = dailyDates(LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 20));
         info.fixingId = "COMM_ASIAN_FIX";
 
         MarketData marketData = buildMarketData(dataDate);
@@ -54,6 +53,7 @@ public class CommAsianTest {
         info.strikePrice = 510.0;
         info.maturityDate = dataDate.plusMonths(6);
         info.settleDate = dataDate.plusMonths(6).plusDays(2);
+        info.settleType = "CASH";
         info.currencyCode = "CNY";
         info.discountCurve = "IR_CNY";
         info.referenceCurve = "COMM_OIL";
@@ -120,12 +120,16 @@ public class CommAsianTest {
         return info;
     }
 
-    private Map<String, Object> volPoint(int optionTerm, double delta, double volRate) {
-        Map<String, Object> point = new LinkedHashMap<>();
-        point.put("OPTION_TERM", optionTerm);
-        point.put("DELTA", delta);
-        point.put("VOLATILITY_RATE", volRate);
-        return point;
+    private VolSurfacePoint volPoint(int optionTerm, double delta, double volRate) {
+        return new VolSurfacePoint(optionTerm, delta, volRate);
+    }
+
+    private String dailyDates(LocalDate start, LocalDate end) {
+        List<String> dates = new ArrayList<>();
+        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
+            dates.add(date.toString());
+        }
+        return String.join(",", dates);
     }
 
     private FxSpot.FxSpotInfo buildFxSpot(LocalDate dataDate) {

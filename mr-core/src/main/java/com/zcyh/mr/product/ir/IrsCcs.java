@@ -10,7 +10,6 @@ import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
-import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.validation.ProductInputField;
@@ -25,24 +24,20 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * @author xujg
- * @date 2024-08-20 09:14
+ * IRS/CCS 估值与敏感性计算。
  */
 public class IrsCcs {
 
-    LinkedList<StructuredCashflow.Cashflow> cashflowList;
     private LocalDate dataDate;
     private IrsCcs.IrsCcsTradeInfo irsCcsInfo;
     private MarketData marketData;
     private Calendar calendar;
-    private IrsCcsMeasure irsCcsMeasure = new IrsCcsMeasure();
 
     public IrsCcsMeasure calc() {
-        // 基准估值直接使用传入市场，避免复制整份市场数据
         MarketData baseMarketData = marketData;
         CalcSnapshot base = calcSnapshot(baseMarketData);
-        irsCcsMeasure = base.measure;
-        getFrtbSensList(base, baseMarketData); // 调用函数生成frtb部分
+        IrsCcsMeasure measure = base.measure;
+        measure.sensitivityList = buildFrtbSensList(base, baseMarketData);
 
         // 折现曲线变动1bp后的估值
         /* 四条曲线变动，避免重复变动，放入集合 */
@@ -58,24 +53,20 @@ public class IrsCcs {
         double recPv01 = shocked.recValue - base.recValue;
 
         // 总PV01统一按REC币种汇总：REC腿PV01 + PAY腿PV01折算到REC币种
-        irsCcsMeasure.pv01 = recPv01 + payPv01 * base.spotPay / base.spotRec;
-        irsCcsMeasure.productCode = irsCcsInfo.productCode;
-        irsCcsMeasure.dataDate = dataDate;
-        irsCcsMeasure.status = "SUCCESS";
-        irsCcsMeasure.logs = new ArrayList<>();
-        appendWarnings(irsCcsMeasure, base.warnings);
-
-        if (irsCcsInfo.swapType.equalsIgnoreCase("ccs")) {
-            // CCS Basis 已统一收口到 GIRR builder，在敏感性列表生成阶段统一追加。
-        }
+        measure.pv01 = recPv01 + payPv01 * base.spotPay / base.spotRec;
+        measure.productCode = irsCcsInfo.productCode;
+        measure.dataDate = dataDate;
+        measure.status = "SUCCESS";
+        measure.logs = new ArrayList<>();
+        appendWarnings(measure, base.warnings);
 
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("PAY_VALUATION", base.payValue);
         detail.put("PAY_PV01", payPv01);
         detail.put("REC_VALUATION", base.recValue);
         detail.put("REC_PV01", recPv01);
-        irsCcsMeasure.detail = detail;
-        return irsCcsMeasure;
+        measure.detail = detail;
+        return measure;
     }
 
     /**
@@ -120,16 +111,10 @@ public class IrsCcs {
 
     private CalcSnapshot calcSnapshot(MarketData marketData) {
         validateInputs(marketData);
-        StructuredCashflow.ScfInfo scfInfo = new StructuredCashflow.ScfInfo();
-        scfInfo.issueDate = irsCcsInfo.startDate;
-        scfInfo.maturityDate = irsCcsInfo.maturityDate;
-        scfInfo.couponProrated = true;
-        scfInfo.interestStub = "longEnd";
-        scfInfo.notionalFlag = irsCcsInfo.notionalExchangeType;
         List<String> warnings = new ArrayList<>();
+        StructuredCashflow.ScfInfo scfInfo = createBaseScfInfo();
 
-        double valuePay = 0, valueRec = 0;
-        // 支付端
+        // 支付腿
         scfInfo.interestType = irsCcsInfo.payInterestType;
         scfInfo.discountCurve = irsCcsInfo.payDiscountCurve;
         scfInfo.currencyCode = irsCcsInfo.payCurrencyCode;
@@ -146,30 +131,12 @@ public class IrsCcs {
         scfInfo.referenceCurve = irsCcsInfo.payReferenceCurve;
         scfInfo.fixingCalendar = irsCcsInfo.payFixingCalendar;
         scfInfo.allowMissingReferenceCurveAsZeroForward = false;
+        configureFloatingLeg(scfInfo, irsCcsInfo.payInterestType, irsCcsInfo.payFixingDayoff,
+                irsCcsInfo.payFixingRule, irsCcsInfo.payResetFreq, irsCcsInfo.payFixingFreq);
+        LegCalculation payLeg = calculateLeg(scfInfo, marketData, "PAY", warnings);
 
-        if ("fixed".equalsIgnoreCase(irsCcsInfo.payInterestType)) {
-
-        } else if ("floating".equalsIgnoreCase(irsCcsInfo.payInterestType)) {
-            scfInfo.resetDayoff = irsCcsInfo.payFixingDayoff;
-            scfInfo.resetRule = irsCcsInfo.payFixingRule;
-            scfInfo.resetFreq = irsCcsInfo.payResetFreq;
-            scfInfo.fixingFreq = irsCcsInfo.payFixingFreq;
-        }
-        StructuredCashflow legLeft = new StructuredCashflow(dataDate, scfInfo, marketData, calendar);
-        legLeft.calc();
-        appendScfWarnings(warnings, "PAY", legLeft);
-        LinkedList<StructuredCashflow.Cashflow> cashflowList1 = legLeft.getCashflowList();
-        valuePay = cashflowList1.stream()
-                .map(i -> i.discoutFactor * i.cf)
-                .reduce(0.0, Double::sum);
-
-        // 接收端
-        StructuredCashflow.ScfInfo recScf = new StructuredCashflow.ScfInfo();
-        recScf.issueDate = irsCcsInfo.startDate;
-        recScf.maturityDate = irsCcsInfo.maturityDate;
-        recScf.couponProrated = true;
-        recScf.interestStub = "longEnd";
-        recScf.notionalFlag = irsCcsInfo.notionalExchangeType;
+        // 接收腿
+        StructuredCashflow.ScfInfo recScf = createBaseScfInfo();
         recScf.interestType = irsCcsInfo.recInterestType;
         recScf.discountCurve = irsCcsInfo.recDiscountCurve;
         recScf.currencyCode = irsCcsInfo.recCurrencyCode;
@@ -186,45 +153,64 @@ public class IrsCcs {
         recScf.referenceCurve = irsCcsInfo.recReferenceCurve;
         recScf.fixingCalendar = irsCcsInfo.recFixingCalendar;
         recScf.allowMissingReferenceCurveAsZeroForward = false;
-
-        if ("fixed".equalsIgnoreCase(irsCcsInfo.recInterestType)) {
-
-        } else if ("floating".equalsIgnoreCase(irsCcsInfo.recInterestType)) {
-            recScf.resetDayoff = irsCcsInfo.recFixingDayoff;
-            recScf.resetRule = irsCcsInfo.recFixingRule;
-            recScf.resetFreq = irsCcsInfo.recResetFreq;
-            recScf.fixingFreq = irsCcsInfo.recFixingFreq;
-        }
-        StructuredCashflow legRight = new StructuredCashflow(dataDate, recScf, marketData, calendar);
-        legRight.calc();
-        appendScfWarnings(warnings, "REC", legRight);
-        LinkedList<StructuredCashflow.Cashflow> cashflowList2 = legRight.getCashflowList();
-        valueRec = cashflowList2.stream()
-                .map(i -> i.discoutFactor * i.cf)
-                .reduce(0.0, Double::sum);
+        configureFloatingLeg(recScf, irsCcsInfo.recInterestType, irsCcsInfo.recFixingDayoff,
+                irsCcsInfo.recFixingRule, irsCcsInfo.recResetFreq, irsCcsInfo.recFixingFreq);
+        LegCalculation recLeg = calculateLeg(recScf, marketData, "REC", warnings);
 
         IrsCcsMeasure measure = new IrsCcsMeasure();
         CalcSnapshot snapshot = new CalcSnapshot();
-        snapshot.recValue = valueRec;
-        int units = -1; // pay端-1，rec端1省略
-        snapshot.payValue = valuePay * units;
+        snapshot.recValue = recLeg.value;
+        snapshot.payValue = -payLeg.value;
         FxSpot spot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), marketData.fxSpot);
         snapshot.spotPay = spot.getFxrate(irsCcsInfo.payCurrencyCode);
         snapshot.spotRec = spot.getFxrate(irsCcsInfo.recCurrencyCode);
         measure.instrumentId = irsCcsInfo.instrumentId;
         measure.position = 1.0;
         measure.valuationCcy = irsCcsInfo.recCurrencyCode;
-        measure.valuationCny = valueRec * snapshot.spotRec - valuePay * snapshot.spotPay;
+        measure.valuationCny = recLeg.value * snapshot.spotRec - payLeg.value * snapshot.spotPay;
         /* valuation统一按REC币种 */
-        measure.valuation = valueRec - valuePay * snapshot.spotPay / snapshot.spotRec;
+        measure.valuation = recLeg.value - payLeg.value * snapshot.spotPay / snapshot.spotRec;
         measure.valuationUnit = measure.valuation;
         measure.cashFlowList = new ArrayList<>();
         // 输出口径：先 REC 后 PAY；同时保证 PAY 为负、REC 为正
-        measure.cashFlowList.addAll(buildOutputCashFlowList(cashflowList2, irsCcsInfo.recCurrencyCode, 1.0));
-        measure.cashFlowList.addAll(buildOutputCashFlowList(cashflowList1, irsCcsInfo.payCurrencyCode, -1.0));
+        measure.cashFlowList.addAll(buildOutputCashFlowList(recLeg.cashflows, irsCcsInfo.recCurrencyCode, 1.0));
+        measure.cashFlowList.addAll(buildOutputCashFlowList(payLeg.cashflows, irsCcsInfo.payCurrencyCode, -1.0));
         snapshot.measure = measure;
         snapshot.warnings = warnings;
         return snapshot;
+    }
+
+    private StructuredCashflow.ScfInfo createBaseScfInfo() {
+        StructuredCashflow.ScfInfo scfInfo = new StructuredCashflow.ScfInfo();
+        scfInfo.issueDate = irsCcsInfo.startDate;
+        scfInfo.maturityDate = irsCcsInfo.maturityDate;
+        scfInfo.couponProrated = true;
+        scfInfo.interestStub = "longEnd";
+        scfInfo.notionalFlag = irsCcsInfo.notionalExchangeType;
+        return scfInfo;
+    }
+
+    private void configureFloatingLeg(StructuredCashflow.ScfInfo scfInfo, String interestType,
+            Integer fixingDayoff, String fixingRule, String resetFreq, String fixingFreq) {
+        if (!"floating".equalsIgnoreCase(interestType)) {
+            return;
+        }
+        scfInfo.resetDayoff = fixingDayoff;
+        scfInfo.resetRule = fixingRule;
+        scfInfo.resetFreq = resetFreq;
+        scfInfo.fixingFreq = fixingFreq;
+    }
+
+    private LegCalculation calculateLeg(StructuredCashflow.ScfInfo scfInfo, MarketData marketData,
+            String legName, List<String> warnings) {
+        StructuredCashflow structuredCashflow = new StructuredCashflow(dataDate, scfInfo, marketData, calendar);
+        structuredCashflow.calc();
+        appendScfWarnings(warnings, legName, structuredCashflow);
+        LinkedList<StructuredCashflow.Cashflow> cashflows = structuredCashflow.getCashflowList();
+        double value = cashflows.stream()
+                .mapToDouble(cashflow -> cashflow.discoutFactor * cashflow.cf)
+                .sum();
+        return new LegCalculation(value, cashflows);
     }
 
     private void appendScfWarnings(List<String> warnings, String legName, StructuredCashflow scf) {
@@ -280,7 +266,7 @@ public class IrsCcs {
         return res;
     }
 
-    public void getFrtbSensList(CalcSnapshot base, MarketData baseMarketData) {
+    private List<FrtbSenes> buildFrtbSensList(CalcSnapshot base, MarketData baseMarketData) {
         List<FrtbSenes> list = new ArrayList<>();
         String instrumentCurrency = base.measure.valuationCcy;
         if (StringUtils.isBlank(instrumentCurrency)) {
@@ -333,7 +319,7 @@ public class IrsCcs {
                 Collections.emptyList(),
                 true,
                 false,
-                irsCcsMeasure.instrumentId,
+                base.measure.instrumentId,
                 instrumentCurrency,
                 1e-12,
                 com.zcyh.mr.product.basic.frtb.MeasureValuation.of(base.measure.valuation, base.measure.valuationCny),
@@ -385,7 +371,7 @@ public class IrsCcs {
                                 return a;
                             }).ifPresent(newList::add);
                 });
-        irsCcsMeasure.sensitivityList = newList;
+        return newList;
     }
 
     private void putGirrCurveDependency(HashMap<String, String> curveBucketMap, String curve, String currency,
@@ -409,8 +395,7 @@ public class IrsCcs {
     }
 
     /**
-     * CCS Basis 统一选择每条腿最能代表该币种利率风险的曲线：
-     * 浮动腿只使用 referenceCurve；缺失时由现金流逻辑按0远期处理，不回退 discountCurve。
+     * CCS Basis 统一选择每条腿最能代表该币种利率风险的曲线。
      */
     private String resolveBasisCurve(String interestType, String referenceCurve, String discountCurve) {
         if ("floating".equalsIgnoreCase(interestType)) {
@@ -422,22 +407,11 @@ public class IrsCcs {
         return StringUtils.isBlank(referenceCurve) ? null : referenceCurve.trim();
     }
 
-    /**
-     * 计算两端敏感度后汇总
-     * @date 2024-11-20 13:45:404
-     * @author xujg
-     */
-
     public IrsCcs(LocalDate dataDate, IrsCcs.IrsCcsTradeInfo tradeInfo, MarketData marketData, Calendar calendar) {
         this.dataDate = dataDate;
         this.irsCcsInfo = tradeInfo;
         this.marketData = marketData;
         this.calendar = calendar;
-        this.cashflowList = new LinkedList<>();
-    }
-
-    public LinkedList<StructuredCashflow.Cashflow> getCashflowList() {
-        return cashflowList;
     }
 
     private void validateInputs(MarketData md) {
@@ -461,6 +435,9 @@ public class IrsCcs {
         if (irsCcsInfo.maturityDate == null) {
             throw new IllegalArgumentException("MATURITY_DATE 不能为空");
         }
+        if (!irsCcsInfo.startDate.isBefore(irsCcsInfo.maturityDate)) {
+            throw new IllegalArgumentException("START_DATE 必须早于 MATURITY_DATE");
+        }
         if (!isNotionalExchangeType(irsCcsInfo.notionalExchangeType)) {
             throw new IllegalArgumentException("NOTIONAL_EXCHANGE_TYPE 仅支持 START/END/START_END/NONE: "
                     + irsCcsInfo.notionalExchangeType);
@@ -471,11 +448,13 @@ public class IrsCcs {
         validateLeg(md, "PAY", irsCcsInfo.payNotional, irsCcsInfo.payCurrencyCode,
                 irsCcsInfo.payInterestType, irsCcsInfo.payInterest, irsCcsInfo.payReferenceCurve,
                 irsCcsInfo.paySpread, irsCcsInfo.payFreq, irsCcsInfo.payDayCountBasis,
-                irsCcsInfo.payDiscountCurve, irsCcsInfo.payResetFreq, irsCcsInfo.payFixingFreq);
+                irsCcsInfo.payDiscountCurve, irsCcsInfo.payResetFreq, irsCcsInfo.payFixingFreq,
+                irsCcsInfo.payInterestAggregationMethod);
         validateLeg(md, "REC", irsCcsInfo.recNotional, irsCcsInfo.recCurrencyCode,
                 irsCcsInfo.recInterestType, irsCcsInfo.recInterest, irsCcsInfo.recReferenceCurve,
                 irsCcsInfo.recSpread, irsCcsInfo.recFreq, irsCcsInfo.recDayCountBasis,
-                irsCcsInfo.recDiscountCurve, irsCcsInfo.recResetFreq, irsCcsInfo.recFixingFreq);
+                irsCcsInfo.recDiscountCurve, irsCcsInfo.recResetFreq, irsCcsInfo.recFixingFreq,
+                irsCcsInfo.recInterestAggregationMethod);
         if (md.fxSpot == null || md.fxSpot.curveData == null || md.fxSpot.curveData.isEmpty()) {
             throw new IllegalArgumentException("市场数据缺少外汇即期曲线");
         }
@@ -483,7 +462,8 @@ public class IrsCcs {
 
     private void validateLeg(MarketData md, String leg, Double notional, String currencyCode,
             String interestType, Double interest, String referenceCurve, Double spread, String payFreq,
-            String dayCountBasis, String discountCurve, String resetFreq, String fixingFreq) {
+            String dayCountBasis, String discountCurve, String resetFreq, String fixingFreq,
+            String aggregationMethod) {
         requireNonNegativeFinite(notional, leg + "_NOTIONAL");
         requireCurrencyCode(currencyCode, leg + "_CURRENCY_CODE");
         if (!"FIXED".equalsIgnoreCase(interestType) && !"FLOATING".equalsIgnoreCase(interestType)) {
@@ -492,6 +472,7 @@ public class IrsCcs {
         requireText(payFreq, leg + "_FREQ");
         requireText(dayCountBasis, leg + "_DAY_COUNT_BASIS");
         requireText(discountCurve, leg + "_DISCOUNT_CURVE");
+        requireAggregationMethod(aggregationMethod, leg + "_INTEREST_AGGREGATION_METHOD");
         requireFiniteIfPresent(spread, leg + "_SPREAD");
         if (md.irSpot == null || md.irSpot.get(discountCurve) == null) {
             throw new IllegalArgumentException("未找到" + leg + "折现曲线: " + discountCurve);
@@ -512,6 +493,12 @@ public class IrsCcs {
     private static boolean isNotionalExchangeType(String value) {
         return "START".equalsIgnoreCase(value) || "END".equalsIgnoreCase(value)
                 || "START_END".equalsIgnoreCase(value) || "NONE".equalsIgnoreCase(value);
+    }
+
+    private static void requireAggregationMethod(String value, String field) {
+        if (!"AVERAGE".equalsIgnoreCase(value) && !"COMPOUNDING".equalsIgnoreCase(value)) {
+            throw new IllegalArgumentException(field + " 仅支持 AVERAGE/COMPOUNDING: " + value);
+        }
     }
 
     private static void requireText(String value, String field) {
@@ -681,6 +668,16 @@ public class IrsCcs {
         public double spotPay;
         public double spotRec;
         public List<String> warnings;
+    }
+
+    private static class LegCalculation {
+        private final double value;
+        private final LinkedList<StructuredCashflow.Cashflow> cashflows;
+
+        private LegCalculation(double value, LinkedList<StructuredCashflow.Cashflow> cashflows) {
+            this.value = value;
+            this.cashflows = cashflows;
+        }
     }
 
 }

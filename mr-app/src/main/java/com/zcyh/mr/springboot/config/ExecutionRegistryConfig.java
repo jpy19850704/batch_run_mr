@@ -7,6 +7,7 @@ import com.zcyh.mr.springboot.measurement.frtb.FrtbSaExecutionAdapter;
 import com.zcyh.mr.springboot.measurement.ima.ImaCapitalExecutionAdapter;
 import com.zcyh.mr.springboot.measurement.valuation.ValuationExecutionAdapter;
 import com.zcyh.mr.springboot.measurement.saccr.SaccrExecutionAdapter;
+import com.zcyh.mr.springboot.measurement.cva.CvaExecutionAdapter;
 import com.zcyh.mr.springboot.measurement.ima.ImaCapitalTrialService;
 import com.zcyh.mr.frtbsa.sba.core.FrtbAggregator;
 import com.zcyh.mr.frtbsa.sba.core.FrtbBatchCalculator;
@@ -19,7 +20,9 @@ import com.zcyh.mr.springboot.measurement.ima.ImaRiskFactorConfigService;
 import com.zcyh.mr.springboot.output.db.ScenarioDetailPersistService;
 import com.zcyh.mr.springboot.output.cache.ScenarioDetailCacheService;
 import com.zcyh.mr.springboot.output.db.SaccrResultPersistService;
+import com.zcyh.mr.springboot.output.db.CvaResultPersistService;
 import com.zcyh.mr.springboot.measurement.saccr.SaccrInputQueryService;
+import com.zcyh.mr.springboot.measurement.cva.CvaInputQueryService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -91,6 +94,12 @@ public class ExecutionRegistryConfig {
     public SaccrExecutionAdapter saccrExecutionAdapter(SaccrInputQueryService saccrInputQueryService,
                                                  SaccrResultPersistService saccrResultPersistService) {
         return new SaccrExecutionAdapter(saccrInputQueryService, saccrResultPersistService);
+    }
+
+    @Bean
+    public CvaExecutionAdapter cvaExecutionAdapter(CvaInputQueryService cvaInputQueryService,
+                                                   CvaResultPersistService cvaResultPersistService) {
+        return new CvaExecutionAdapter(cvaInputQueryService, cvaResultPersistService);
     }
 
     @Bean

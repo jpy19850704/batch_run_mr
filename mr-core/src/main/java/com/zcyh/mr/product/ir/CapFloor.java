@@ -24,13 +24,13 @@ import org.apache.commons.lang3.StringUtils;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * @author xujg
  * @date 2024-09-10 09:17
  */
 public class CapFloor {
+    private static final double VEGA_SHIFT = 0.001;
     List<StructuredCashflow.Cashflow> cashflowList;        /*现金流结果 remark:从债券中直接获取，getCashflowList*/
     /*内部公共变量*/
     private final LocalDate dataDate;
@@ -72,8 +72,12 @@ public class CapFloor {
 
         MarketData newMarketData3 = buildShiftedIrMarketData(marketData, -shift);
         CapFloor.CapFloorMeasure downMeasure = calc(newMarketData3);
-        measure.pv01 = (newMeasure.valuation - downMeasure.valuation) / (2 * shift);
+        measure.pv01 = newMeasure.valuation - measure.valuation;
         measure.gamma = (newMeasure.valuation - 2 * measure.valuation + downMeasure.valuation) / (shift * shift);
+        MarketData vegaMarketData = buildShiftedIrVolMarketData(marketData, VEGA_SHIFT);
+        measure.vega = vegaMarketData == null
+                ? 0.0
+                : (calc(vegaMarketData).valuation - measure.valuation) / (VEGA_SHIFT * 100.0);
         measure.productCode = capFloorInfo.productCode;
         measure.dataDate = dataDate;
         measure.position = StringUtils.equalsIgnoreCase("S", capFloorInfo.buyOrSell) ? -1.0 : 1.0;
@@ -121,6 +125,38 @@ public class CapFloor {
         return shockedMarketData;
     }
 
+    private MarketData buildShiftedIrVolMarketData(MarketData baseMarketData, double shift) {
+        if (baseMarketData == null || baseMarketData.irVol == null
+                || StringUtils.isBlank(capFloorInfo.volatilitySurface)) {
+            return null;
+        }
+        IrVol.IrVolInfo baseVolInfo = baseMarketData.irVol.get(capFloorInfo.volatilitySurface);
+        if (baseVolInfo == null || baseVolInfo.curveData == null || baseVolInfo.curveData.isEmpty()) {
+            return null;
+        }
+        MarketData shockedMarketData = new MarketData();
+        shockedMarketData.irSpot = new HashMap<>(baseMarketData.irSpot);
+        shockedMarketData.irVol = new HashMap<>(baseMarketData.irVol);
+        shockedMarketData.eqSpot = new HashMap<>(baseMarketData.eqSpot);
+        shockedMarketData.eqVol = new HashMap<>(baseMarketData.eqVol);
+        shockedMarketData.commSpot = new HashMap<>(baseMarketData.commSpot);
+        shockedMarketData.commVol = new HashMap<>(baseMarketData.commVol);
+        shockedMarketData.fxVol = new HashMap<>(baseMarketData.fxVol);
+        shockedMarketData.fixingRate = new HashMap<>(baseMarketData.fixingRate);
+        shockedMarketData.fxSpot = baseMarketData.fxSpot;
+
+        IrVol.IrVolInfo shockedVolInfo = CommUtils.deepCopy(baseVolInfo);
+        List<VolSurfacePoint> shockCurveData = new ArrayList<>();
+        for (VolSurfacePoint point : baseVolInfo.curveData) {
+            if (point != null) {
+                shockCurveData.add(point.withVolatilityRate(shift));
+            }
+        }
+        shockedVolInfo.shockCurveData = shockCurveData;
+        shockedMarketData.irVol.put(capFloorInfo.volatilitySurface, shockedVolInfo);
+        return shockedMarketData;
+    }
+
     public CapFloorMeasure calc(MarketData marketData){
         validateInputs(marketData);
         List<StructuredCashflow.Cashflow> cashflows = scf.calc(marketData).cashFlowList;
@@ -145,11 +181,7 @@ public class CapFloor {
         EurOptUtil eurOptUtil;
         String valuationModel = resolveValuationModel();
         boolean call = "cap".equalsIgnoreCase(capFloorInfo.capOrFloor);
-        IrVol.IrVolInfo irVolInfo = marketData.irVol == null ? null : marketData.irVol.get(capFloorInfo.volatilitySurface);
-        if (irVolInfo == null) {
-            throw new IllegalArgumentException("波动率曲面不存在: " + capFloorInfo.volatilitySurface);
-        }
-        IrVol irVol = new IrVol(irVolInfo);
+        IrVol irVol = null;
         double k = capFloorInfo.strikeRate;
         double signedNotional = getSignedNotional();
 
@@ -165,7 +197,8 @@ public class CapFloor {
             }
             double r = 0;
             double v = 0;
-            if (cashflow.fwdStartDate.isBefore(dataDate)){
+            double underlyingRate;
+            if (!cashflow.fwdStartDate.isAfter(dataDate)){
                 if (StringUtils.isBlank(capFloorInfo.fixingId)) {
                     throw new IllegalArgumentException("定盘利率标识为空: instrumentId=" + capFloorInfo.instrumentId);
                 }
@@ -175,9 +208,19 @@ public class CapFloor {
                 }
                 Fixing fixing = new Fixing(fixingInfo);
                 double rate = fixing.getRate(cashflow.fwdStartDate);
+                underlyingRate = rate;
                 r = call ? Math.max((rate - k),0) : Math.max((k - rate),0);
             }else {
+                if (irVol == null) {
+                    IrVol.IrVolInfo irVolInfo = marketData.irVol == null
+                            ? null : marketData.irVol.get(capFloorInfo.volatilitySurface);
+                    if (irVolInfo == null) {
+                        throw new IllegalArgumentException("波动率曲面不存在: " + capFloorInfo.volatilitySurface);
+                    }
+                    irVol = new IrVol(irVolInfo);
+                }
                 double s = cashflow.rate;      /* 当期远期利率 */
+                underlyingRate = s;
                 double maturityT = ChronoUnit.DAYS.between(dataDate, cashflow.fwdStartDate) / 365.0;
                 double settleT = ChronoUnit.DAYS.between(dataDate, cashflow.fwdStartDate) / 365.0;
                 int days = (int) ChronoUnit.DAYS.between(dataDate,cashflow.fwdStartDate);
@@ -203,9 +246,9 @@ public class CapFloor {
                     capFloorInfo.dayCountBasis);
             cashflow.cf = fv * signedNotional;
             CashFlowCapFloor cfp = new CashFlowCapFloor(cashflow);
-            cfp.expectedForwardRate = r;
+            cfp.expectedForwardRate = underlyingRate;
             cfp.volatilityRate = v;
-            cfp.dataDate = capFloorInfo.dataDate;
+            cfp.dataDate = dataDate;
             cfp.currencyCode = capFloorInfo.currencyCode;
             cfp.notional = signedNotional;
             res.add(cfp);
@@ -270,6 +313,9 @@ public class CapFloor {
         if (capFloorInfo.maturityDate == null) {
             throw new IllegalArgumentException("MATURITY_DATE 不能为空");
         }
+        if (!capFloorInfo.startDate.isBefore(capFloorInfo.maturityDate)) {
+            throw new IllegalArgumentException("START_DATE 必须早于 MATURITY_DATE");
+        }
         requireFinite(capFloorInfo.strikeRate, "STRIKE_RATE");
         requireText(capFloorInfo.dayCountBasis, "DAY_COUNT_BASIS");
         requireText(capFloorInfo.payFreq, "PAY_FREQ");
@@ -285,9 +331,6 @@ public class CapFloor {
         }
         if (marketData.irSpot == null || marketData.irSpot.get(capFloorInfo.referenceCurve) == null) {
             throw new IllegalArgumentException("参考曲线不存在: " + capFloorInfo.referenceCurve);
-        }
-        if (marketData.irVol == null || marketData.irVol.get(capFloorInfo.volatilitySurface) == null) {
-            throw new IllegalArgumentException("波动率曲面不存在: " + capFloorInfo.volatilitySurface);
         }
     }
 
@@ -320,11 +363,16 @@ public class CapFloor {
         List<FrtbSenes> list = new ArrayList<>();
         HashMap<String,String> map  = new HashMap<>();
         map.put(capFloorInfo.discountCurve, capFloorInfo.currencyCode);
+        map.put(capFloorInfo.referenceCurve, capFloorInfo.currencyCode);
         List<FrtbDependency> girrDeltaDependencies = FrtbSensitivityBuilder.buildGirrDeltaDependencies(map);
-        List<FrtbDependency> girrVegaDependencies = FrtbSensitivityBuilder.buildGirrVegaDependencies(
-                capFloorInfo.volatilitySurface,
-                capFloorInfo.currencyCode,
-                resolveGirrVegaSecondaryVertex());
+        boolean hasFutureOptionCashflow = measure.cashFlow != null && measure.cashFlow.stream()
+                .anyMatch(cf -> cf != null && cf.fwdStartDate != null && cf.fwdStartDate.isAfter(dataDate));
+        List<FrtbDependency> girrVegaDependencies = hasFutureOptionCashflow
+                ? FrtbSensitivityBuilder.buildGirrVegaDependencies(
+                        capFloorInfo.volatilitySurface,
+                        capFloorInfo.currencyCode,
+                        resolveGirrVegaSecondaryVertex())
+                : Collections.emptyList();
         List<FrtbSenes> girrSensitivities = FrtbSensitivityBuilder.buildGirrSensitivities(
                 marketData,
                 dataDate,
@@ -510,18 +558,27 @@ public class CapFloor {
         @ProductInputField(required = true)
         @JSONField(name = "PAY_FREQ")
         public String payFreq;
+        @ProductInputField
         @JSONField(name = "SETTLE_CALENDAR")
         public String settleCalendar;
+        @ProductInputField(allowedValues = {"Regular_Preceding", "Modified_Preceding",
+                "Regular_Following", "Modified_Following"}, ignoreCase = true)
         @JSONField(name = "SETTLE_RULE")
         public String settleRule;
+        @ProductInputField(min = "0")
         @JSONField(name = "SETTLE_DAYOFF")
         public Integer settleDayoff;
+        @ProductInputField
         @JSONField(name = "FIXING_FREQ")
         public String fixingFreq;
+        @ProductInputField
         @JSONField(name = "FIXING_CALENDAR")
         public String fixingCalendar;
+        @ProductInputField(allowedValues = {"Regular_Preceding", "Modified_Preceding",
+                "Regular_Following", "Modified_Following"}, ignoreCase = true)
         @JSONField(name = "FIXING_RULE")
         public String fixingRule;
+        @ProductInputField(min = "0")
         @JSONField(name = "FIXING_DAYOFF")
         public Integer fixingDayoff;
         @ProductInputField(required = true)
@@ -533,11 +590,13 @@ public class CapFloor {
         @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
+        @ProductInputField
         @JSONField(name = "RESET_FREQ")
         public String resetFreq;
         @ProductInputField(allowedValues = {"AVERAGE", "COMPOUNDING"}, ignoreCase = true)
         @JSONField(name = "INTEREST_AGGREGATION_METHOD")
         public String interestAggregationMethod = "COMPOUNDING";
+        @ProductInputField
         @JSONField(name = "FIXING_ID")
         public String fixingId;
         @ProductInputField(required = true)

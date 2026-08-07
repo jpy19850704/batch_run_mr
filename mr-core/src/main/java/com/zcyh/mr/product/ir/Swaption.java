@@ -17,15 +17,12 @@ import com.zcyh.mr.product.basic.common.ScfCashFlow;
 import com.zcyh.mr.product.basic.option.EurOptUtil;
 import com.zcyh.mr.product.basic.scf.StructuredCashflow;
 import com.zcyh.mr.support.CommUtils;
-import com.zcyh.mr.support.Convert;
 import com.zcyh.mr.support.EngineConstants;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * @author xujg
@@ -57,7 +54,7 @@ public class Swaption {
 
     public SwaptionMeasure calc() {
         validateInputs(marketData);
-        if (isMaturedOrExpired()) {
+        if (isExpired()) {
             swaptionMeasure = buildMaturedMeasure();
             return swaptionMeasure;
         }
@@ -70,17 +67,17 @@ public class Swaption {
 
         MarketData downMarketData = buildShiftedIrMarketData(marketData, -shift);
         SwaptionMeasure downMeasure = calc(downMarketData);
-        swaptionMeasure.pv01 = (upMeasure.valuation - downMeasure.valuation) / (2 * shift);
+        swaptionMeasure.pv01 = upMeasure.valuation - swaptionMeasure.valuation;
         swaptionMeasure.gamma = (upMeasure.valuation - 2 * swaptionMeasure.valuation + downMeasure.valuation)
                 / (shift * shift);
 
-        // 波动率情景：Vega
-        MarketData vegaMd = buildShiftedIrVolMarketData(marketData, VEGA_SHIFT);
+        // 波动率绝对上移0.1个百分点，Vega按1个波动率百分点输出
+        MarketData vegaMd = isExerciseDate() ? null : buildShiftedIrVolMarketData(marketData, VEGA_SHIFT);
         if (vegaMd != null) {
             SwaptionMeasure vegaMeasure = calc(vegaMd);
             swaptionMeasure.vega = Math.abs(VEGA_SHIFT) < EPS
                     ? 0.0
-                    : (vegaMeasure.valuation - swaptionMeasure.valuation) / VEGA_SHIFT;
+                    : (vegaMeasure.valuation - swaptionMeasure.valuation) / (VEGA_SHIFT * 100.0);
         } else {
             swaptionMeasure.vega = 0.0;
         }
@@ -93,7 +90,7 @@ public class Swaption {
 
     public SwaptionMeasure calc(MarketData marketData) {
         validateInputs(marketData);
-        if (isMaturedOrExpired()) {
+        if (isExpired()) {
             return buildMaturedMeasure();
         }
         MarketData oldMarketData = this.marketData;
@@ -137,11 +134,6 @@ public class Swaption {
         fixedBond.calc();
         LinkedList<StructuredCashflow.Cashflow> cf = fixedBond.getCashflowList();
 
-        scfInfo.interestType = "Floating";
-        StructuredCashflow floatingBond = new StructuredCashflow(dataDate,scfInfo,marketData,calendar); /*浮动端*/
-        floatingBond.calc();
-        LinkedList<StructuredCashflow.Cashflow> cf2 = floatingBond.getCashflowList();
-
         IrSpot discountSpot = new IrSpot(marketData.irSpot.get(swaptionInfo.discountCurve));
         double dfToSwapStart = discountSpot.fwdDiscount(dataDate, swaptionInfo.underlyingStartDate);
         double annuityAtSwapStart = 0.0;
@@ -151,18 +143,32 @@ public class Swaption {
             annuityAtSwapStart += dfAtSwapStart * cashFlow.timeFactor * signedNotional;
             fixedLegPvAtSwapStart += dfAtSwapStart * cashFlow.cf;
         }
-        double floatingLegPvAtSwapStart = 0.0;
-        for (StructuredCashflow.Cashflow cashFlow : cf2) {
-            double dfAtSwapStart = Math.abs(dfToSwapStart) < EPS ? 0.0 : cashFlow.discoutFactor / dfToSwapStart;
-            floatingLegPvAtSwapStart += dfAtSwapStart * cashFlow.cf;
+        LinkedList<StructuredCashflow.Cashflow> cf2 = new LinkedList<>();
+        double floatingLegPvAtSwapStart;
+        double yu;
+        if (isExerciseDate()) {
+            yu = resolveExerciseFixingRate(marketData);
+            floatingLegPvAtSwapStart = yu * annuityAtSwapStart;
+        } else {
+            scfInfo.interestType = "Floating";
+            StructuredCashflow floatingBond = new StructuredCashflow(dataDate,scfInfo,marketData,calendar); /*浮动端*/
+            floatingBond.calc();
+            cf2 = floatingBond.getCashflowList();
+            floatingLegPvAtSwapStart = 0.0;
+            for (StructuredCashflow.Cashflow cashFlow : cf2) {
+                double dfAtSwapStart = Math.abs(dfToSwapStart) < EPS
+                        ? 0.0 : cashFlow.discoutFactor / dfToSwapStart;
+                floatingLegPvAtSwapStart += dfAtSwapStart * cashFlow.cf;
+            }
+            yu = Math.abs(annuityAtSwapStart) < EPS
+                    ? 0.0 : floatingLegPvAtSwapStart / annuityAtSwapStart;
         }
-        double yu = Math.abs(annuityAtSwapStart) < EPS ? 0.0 : floatingLegPvAtSwapStart / annuityAtSwapStart;
         double timeFactorDCB = CurveFunc.timeFactor(dataDate,swaptionInfo.maturityDate,
                 swaptionInfo.fixedDayCountBasis);   /*python中bondCal.timeFactorDCB函数*/
         int optionDays = Math.max(0, (int) ChronoUnit.DAYS.between(dataDate, swaptionInfo.maturityDate));
         int underlyingDays = Math.max(0,
                 (int) ChronoUnit.DAYS.between(swaptionInfo.underlyingStartDate, swaptionInfo.underlyingMaturityDate));
-        double vol = resolveVolatility(optionDays, underlyingDays);
+        double vol = isExerciseDate() ? 0.0 : resolveVolatility(optionDays, underlyingDays);
         String valuationModel = resolveValuationModel();
 
         double rate = rateFact(yu, swaptionInfo.fixedRate, vol, Math.max(0.0, timeFactorDCB), valuationModel);
@@ -181,6 +187,11 @@ public class Swaption {
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("fixed_pv", fixedLegPvAtSwapStart);
         detail.put("float_pv", floatingLegPvAtSwapStart);
+        detail.put("settle_type", resolveSettleType());
+        if (isExerciseDate()) {
+            detail.put("fixing_rate", yu);
+            detail.put("exercise_date", swaptionInfo.maturityDate);
+        }
         measure.detail = detail;
         return measure;
     }
@@ -215,15 +226,28 @@ public class Swaption {
         throw new IllegalArgumentException("VALUATION_MODEL不支持: " + model + " (仅支持 BACHELIER/BLACK76)");
     }
 
+    private String resolveSettleType() {
+        String settleType = StringUtils.defaultIfBlank(swaptionInfo.settleType, "PHYSICAL");
+        if (!"PHYSICAL".equalsIgnoreCase(settleType)) {
+            throw new IllegalArgumentException("SETTLE_TYPE 当前仅支持 PHYSICAL: " + settleType);
+        }
+        return "PHYSICAL";
+    }
+
     public void getFrtb() {
         List<FrtbSenes> list = new ArrayList<>();
         HashMap<String,String> map  = new HashMap<>();
         map.put(swaptionInfo.discountCurve, swaptionInfo.currencyCode);
+        if (!isExerciseDate()) {
+            map.put(swaptionInfo.referenceCurve, swaptionInfo.currencyCode);
+        }
         List<FrtbDependency> girrDeltaDependencies = FrtbSensitivityBuilder.buildGirrDeltaDependencies(map);
-        List<FrtbDependency> girrVegaDependencies = FrtbSensitivityBuilder.buildGirrVegaDependencies(
-                swaptionInfo.volatilitySurface,
-                swaptionInfo.currencyCode,
-                resolveGirrVegaSecondaryVertex());
+        List<FrtbDependency> girrVegaDependencies = isExerciseDate()
+                ? Collections.emptyList()
+                : FrtbSensitivityBuilder.buildGirrVegaDependencies(
+                        swaptionInfo.volatilitySurface,
+                        swaptionInfo.currencyCode,
+                        resolveGirrVegaSecondaryVertex());
         List<FrtbSenes> girrSensitivities = FrtbSensitivityBuilder.buildGirrSensitivities(
                 marketData,
                 dataDate,
@@ -295,7 +319,7 @@ public class Swaption {
             throw new IllegalArgumentException("波动率曲面不存在或为空: " + swaptionInfo.volatilitySurface);
         }
         IrVol irVol = new IrVol(volInfo);
-        List<Map<String, Object>> volSlice = irVol.getVolCur(optionDays);
+        List<VolSurfacePoint> volSlice = irVol.getVolCur(optionDays);
         if (volSlice == null || volSlice.isEmpty()) {
             throw new IllegalArgumentException("波动率切片为空: optionDays=" + optionDays);
         }
@@ -319,8 +343,23 @@ public class Swaption {
         return null;
     }
 
-    private boolean isMaturedOrExpired() {
-        return !dataDate.isBefore(swaptionInfo.maturityDate);
+    private boolean isExerciseDate() {
+        return dataDate.equals(swaptionInfo.maturityDate);
+    }
+
+    private boolean isExpired() {
+        return dataDate.isAfter(swaptionInfo.maturityDate);
+    }
+
+    private double resolveExerciseFixingRate(MarketData md) {
+        if (StringUtils.isBlank(swaptionInfo.fixingId)) {
+            throw new IllegalArgumentException("行权日 FIXING_ID 不能为空: instrumentId=" + swaptionInfo.instrumentId);
+        }
+        Fixing.FixingInfo fixingInfo = md.fixingRate == null ? null : md.fixingRate.get(swaptionInfo.fixingId);
+        if (fixingInfo == null) {
+            throw new IllegalArgumentException("行权日定盘利率数据缺失: fixingId=" + swaptionInfo.fixingId);
+        }
+        return new Fixing(fixingInfo).getRate(swaptionInfo.maturityDate);
     }
 
     private SwaptionMeasure buildMaturedMeasure() {
@@ -342,7 +381,7 @@ public class Swaption {
 
         measure.logs = new ArrayList<>();
         measure.detail = new LinkedHashMap<>();
-        if (!dataDate.isBefore(swaptionInfo.maturityDate)) {
+        if (isExpired()) {
             measure.detail.put("MATURED", true);
             measure.detail.put("MATURED_DATE", swaptionInfo.maturityDate);
             measure.detail.put("MATURED_INFO", "已到期");
@@ -409,7 +448,7 @@ public class Swaption {
 
     /**
      * 产品内 greek 仍保留单一 Vega 指标，但不再依赖旧的 MarketData GIRR Vega API。
-     * 这里仅对当前交易所用利率波动率曲面构造一层相对 0.001 的 shock 增量面。
+     * 这里仅对当前交易所用利率波动率曲面构造一层绝对波动率 shock 增量面。
      */
     private MarketData buildShiftedIrVolMarketData(MarketData baseMarketData, double shiftRatio) {
         if (baseMarketData == null
@@ -431,16 +470,14 @@ public class Swaption {
 
         IrVol.IrVolInfo baseVolInfo = baseMarketData.irVol.get(swaptionInfo.volatilitySurface);
         IrVol.IrVolInfo shockedVolInfo = CommUtils.deepCopy(baseVolInfo);
-        List<Map<String, Object>> shockCurveData = new ArrayList<>();
+        List<VolSurfacePoint> shockCurveData = new ArrayList<>();
         if (baseVolInfo.curveData != null) {
-            for (Map<String, Object> point : baseVolInfo.curveData) {
+            for (VolSurfacePoint point : baseVolInfo.curveData) {
                 if (point == null) {
                     continue;
                 }
-                Map<String, Object> shockPoint = new HashMap<>(point);
-                double baseVol = Convert.toDouble(point.get("VOLATILITY_RATE"));
-                shockPoint.put("VOLATILITY_RATE", baseVol * shiftRatio);
-                shockCurveData.add(shockPoint);
+                shockCurveData.add(point.withVolatilityRate(
+                        shiftRatio));
             }
         }
         shockedVolInfo.shockCurveData = shockCurveData;
@@ -467,6 +504,12 @@ public class Swaption {
         if (swaptionInfo.underlyingStartDate == null || swaptionInfo.underlyingMaturityDate == null) {
             throw new IllegalArgumentException("标的起止日期为空: instrumentId=" + swaptionInfo.instrumentId);
         }
+        if (swaptionInfo.maturityDate.isAfter(swaptionInfo.underlyingStartDate)) {
+            throw new IllegalArgumentException("MATURITY_DATE 不能晚于 UNDERLYING_START_DATE");
+        }
+        if (!swaptionInfo.underlyingStartDate.isBefore(swaptionInfo.underlyingMaturityDate)) {
+            throw new IllegalArgumentException("UNDERLYING_START_DATE 必须早于 UNDERLYING_MATURITY_DATE");
+        }
         requireText(swaptionInfo.underlyingFreq, "UNDERLYING_FREQ");
         requireFinite(swaptionInfo.fixedRate, "FIXED_RATE");
         requireText(swaptionInfo.fixedDayCountBasis, "FIXED_DAY_COUNT_BASIS");
@@ -475,14 +518,19 @@ public class Swaption {
         requireText(swaptionInfo.referenceCurve, "REFERENCE_CURVE");
         requireText(swaptionInfo.volatilitySurface, "VOLATILITY_SURFACE");
         resolveValuationModel();
+        resolveSettleType();
         if (md == null) {
             throw new IllegalArgumentException("市场数据为空: instrumentId=" + swaptionInfo.instrumentId);
         }
-        if (isMaturedOrExpired()) {
+        if (isExpired()) {
             return;
         }
         if (md.irSpot == null || md.irSpot.get(swaptionInfo.discountCurve) == null) {
             throw new IllegalArgumentException("折现曲线不存在: " + swaptionInfo.discountCurve);
+        }
+        if (isExerciseDate()) {
+            resolveExerciseFixingRate(md);
+            return;
         }
         if (md.irSpot.get(swaptionInfo.referenceCurve) == null) {
             throw new IllegalArgumentException("参考曲线不存在: " + swaptionInfo.referenceCurve);
@@ -490,8 +538,11 @@ public class Swaption {
         if (md.irVol == null || md.irVol.get(swaptionInfo.volatilitySurface) == null) {
             throw new IllegalArgumentException("波动率曲面不存在: " + swaptionInfo.volatilitySurface);
         }
-        for (Map<String, Object> row : md.irVol.get(swaptionInfo.volatilitySurface).curveData) {
-            if (row.get("OPTION_TERM") == null || row.get("UNDERLYING_TERM") == null || row.get("VOLATILITY_RATE") == null) {
+        for (VolSurfacePoint row : md.irVol.get(swaptionInfo.volatilitySurface).curveData) {
+            if (row == null
+                    || row.getOptionTerm() < 0
+                    || !Double.isFinite(row.getAxis2Value())
+                    || !Double.isFinite(row.getVolatilityRate())) {
                 throw new IllegalArgumentException(
                         "波动率曲面字段缺失，仅支持 OPTION_TERM/UNDERLYING_TERM/VOLATILITY_RATE 标准格式");
             }
@@ -558,10 +609,14 @@ public class Swaption {
         @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_FREQ")
         public String underlyingFreq;
+        @ProductInputField
         @JSONField(name = "UNDERLYING_SETTLE_CALENDAR")
         public String underlyingSettleCalendar;
+        @ProductInputField(allowedValues = {"Regular_Preceding", "Modified_Preceding",
+                "Regular_Following", "Modified_Following"}, ignoreCase = true)
         @JSONField(name = "UNDERLYING_SETTLE_RULE")
         public String underlyingSettleRule;
+        @ProductInputField(min = "0")
         @JSONField(name = "UNDERLYING_SETTLE_DAYOFF")
         public Integer underlyingSettleDayoff;
         @ProductInputField(required = true, finite = true)
@@ -570,10 +625,14 @@ public class Swaption {
         @ProductInputField(required = true)
         @JSONField(name = "FIXED_DAY_COUNT_BASIS")
         public String fixedDayCountBasis = "actual/365";
+        @ProductInputField
         @JSONField(name = "FIXING_CALENDAR")
         public String fixingCalendar;
+        @ProductInputField(allowedValues = {"Regular_Preceding", "Modified_Preceding",
+                "Regular_Following", "Modified_Following"}, ignoreCase = true)
         @JSONField(name = "FIXING_RULE")
         public String fixingRule;
+        @ProductInputField(min = "0")
         @JSONField(name = "FIXING_DAYOFF")
         public Integer fixingDayoff;
         @ProductInputField(required = true)
@@ -593,6 +652,12 @@ public class Swaption {
         @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")
         public String referenceCurve;
+        @ProductInputField
+        @JSONField(name = "FIXING_ID")
+        public String fixingId;
+        @ProductInputField(allowedValues = {"PHYSICAL"}, ignoreCase = true)
+        @JSONField(name = "SETTLE_TYPE")
+        public String settleType = "PHYSICAL";
     }
 }
 

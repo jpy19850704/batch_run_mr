@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 import static java.lang.Math.abs;
 
 /**
- * 固息债、浮息债估值类
+ * 结构化现金流生成与计息类
  *
  * @author lsd
  * @version 1.0
@@ -77,7 +77,7 @@ public class StructuredCashflow {
         }
         validateAdjustedCashflowDates();
 
-        // 浮息债生成利率重置日期；key值为每次的付息日期
+        // 浮息现金流生成利率重置日期；key值为每次的付息日期
         resetDateInfosMap = new HashMap<>();
         if (!"fixed".equalsIgnoreCase(scfInfo.interestType)) {
             Period payFreq = CashflowUtils.convertFreq(scfInfo.payFreq);
@@ -107,21 +107,16 @@ public class StructuredCashflow {
 
     public ScfMeasure calc(MarketData marketData) {
         this.marketData = marketData;
-        warnings.clear();
-        // 利率曲线变动、定盘曲线变动
-        LinkedList<Cashflow> cashflows = generateCashflow(dataDate, cfDatelist, resetDateInfosMap);
-        this.cashflowList = cashflows;
-
-        ScfMeasure scfMeasure = new ScfMeasure();
-        scfMeasure.cashFlowList = cashflowList;
-        return scfMeasure;
+        return calculate();
     }
 
     public ScfMeasure calc() {
+        return calculate();
+    }
+
+    private ScfMeasure calculate() {
         warnings.clear();
-        // 利率曲线变动、定盘曲线变动
-        LinkedList<Cashflow> cashflows = generateCashflow(dataDate, cfDatelist, resetDateInfosMap);
-        this.cashflowList = cashflows;
+        this.cashflowList = generateCashflow(dataDate, cfDatelist, resetDateInfosMap);
 
         ScfMeasure scfMeasure = new ScfMeasure();
         scfMeasure.cashFlowList = cashflowList;
@@ -166,11 +161,12 @@ public class StructuredCashflow {
                 break;
 
             LinkedList<ResetDateInfo> resetDates = resetDateMap.get(cfDate.get(i + 1));
-            HashMap<String, Double> rst = findScfCashflow(simDate, cfDate.get(i), cfDate.get(i + 1), resetDates,
+            InterestCalculation interestCalculation = findScfCashflow(
+                    simDate, cfDate.get(i), cfDate.get(i + 1), resetDates,
                     referenceCurve, blankReferenceCurve);
 
-            Double r = rst.get("r");
-            Double cf = rst.get("cashflow");
+            double r = interestCalculation.rate;
+            double cf = interestCalculation.cashflowFactor;
 
             // 期初支付（advance）时利息支付日为期初，期末支付（arrear）时为期末
             boolean isAdvance = "advance".equalsIgnoreCase(scfInfo.paymentTiming);
@@ -189,7 +185,7 @@ public class StructuredCashflow {
             cashflow.theoPrePaymentDate = cfDatelistOri.get(i);
             cashflow.paymentType = scfInfo.interestType;
 
-            // 浮动债保存远期利率起止时间
+            // 浮动现金流保存远期利率起止时间
             if (resetDates != null && resetDates.size() > 0) {
                 cashflow.fwdStartDate = resetDates.get(0).fwdStart;
                 cashflow.fwdEndDate = resetDates.get(0).fwdEnd;
@@ -298,23 +294,23 @@ public class StructuredCashflow {
 
     /**
      * 统一解释本金规则：
-     * 1. 空值默认视为 END，表示到期归还本金
+     * 1. 空值采用产品默认值 NONE，不生成本金交换现金流
      * 2. 允许值：START / END / START_END / NONE
-     * 3. 非法值退化为 END，避免因脏数据丢失本金现金流
+     * 3. 非法非空值直接报错
      */
     private static String resolveNotionalRule(String notionalFlag) {
         String normalized = StringUtils.trimToEmpty(notionalFlag).toUpperCase();
         if (StringUtils.isBlank(normalized)) {
-            return "END";
+            return "NONE";
         }
         if ("START".equals(normalized) || "END".equals(normalized)
                 || "START_END".equals(normalized) || "NONE".equals(normalized)) {
             return normalized;
         }
-        return "END";
+        throw new IllegalArgumentException("NOTIONAL_FLAG 仅支持 START/END/START_END/NONE: " + notionalFlag);
     }
 
-    private HashMap<String, Double> findScfCashflow(LocalDate simDate,
+    private InterestCalculation findScfCashflow(LocalDate simDate,
             LocalDate prePaymentDate,
             LocalDate paymentDay,
             LinkedList<ResetDateInfo> resetdays,
@@ -377,10 +373,10 @@ public class StructuredCashflow {
                     throw new IllegalArgumentException("重置日期数据缺失: paymentDay=" + paymentDay);
                 }
                 if (isAverageAggregationMethod()) {
-                    r = calcResetShorterThanPayAverageRate(simDate, resetdays, refCurve, frq, dcb,
+                    r = calcResetShorterThanPayAverageRate(simDate, resetdays, refCurve, dcb,
                             blankReferenceCurve, missingReferenceCurve);
                 } else {
-                    r = calcResetShorterThanPayRate(simDate, resetdays, refCurve, frq, dcb,
+                    r = calcResetShorterThanPayRate(simDate, resetdays, refCurve, dcb,
                             blankReferenceCurve, missingReferenceCurve);
                     spreadIncluded = true;
                 }
@@ -396,7 +392,7 @@ public class StructuredCashflow {
 
         Period period = CashflowUtils.convertFreq(scfInfo.payFreq);
         if (period == null) {
-            // 零息债券
+            // 到期一次性支付
             period = Period.ZERO;
         }
         if (abs(ChronoUnit.DAYS.between(cfdate1.plus(period), cfdate2)) < 10 &&
@@ -407,10 +403,17 @@ public class StructuredCashflow {
             cf = r * CurveFunc.timeFactor(cfdate1, cfdate2, scfInfo.dayCountBasis);
         }
 
-        HashMap<String, Double> rst = new HashMap<>();
-        rst.put("r", r);
-        rst.put("cashflow", cf);
-        return rst;
+        return new InterestCalculation(r, cf);
+    }
+
+    private static class InterestCalculation {
+        private final double rate;
+        private final double cashflowFactor;
+
+        private InterestCalculation(double rate, double cashflowFactor) {
+            this.rate = rate;
+            this.cashflowFactor = cashflowFactor;
+        }
     }
 
     private boolean isAverageAggregationMethod() {
@@ -429,7 +432,6 @@ public class StructuredCashflow {
     private double calcResetShorterThanPayAverageRate(LocalDate simDate,
             LinkedList<ResetDateInfo> resetdays,
             IrSpot refCurve,
-            String frq,
             String dcb,
             boolean blankReferenceCurve,
             boolean missingReferenceCurve) {
@@ -443,7 +445,9 @@ public class StructuredCashflow {
         double interestFactor = 0.0;
         LocalDate futureStart = null;
         LocalDate futureAccrualStart = null;
-        for (ResetDateInfo resetDateInfo : resetdays) {
+        int futureResetIndex = -1;
+        for (int i = 0; i < resetdays.size(); i++) {
+            ResetDateInfo resetDateInfo = resetdays.get(i);
             LocalDate fixingStart = resetDateInfo.fixingStart;
             LocalDate accrualStart = resetDateInfo.accrualStart;
             LocalDate accrualEnd = resetDateInfo.accrualEnd;
@@ -454,6 +458,7 @@ public class StructuredCashflow {
             if (blankReferenceCurve) {
                 futureStart = fixingStart;
                 futureAccrualStart = accrualStart;
+                futureResetIndex = i;
                 break;
             }
             if (!fixingStart.isAfter(simDate)) {
@@ -462,18 +467,22 @@ public class StructuredCashflow {
             } else {
                 futureStart = fixingStart;
                 futureAccrualStart = accrualStart;
+                futureResetIndex = i;
                 break;
             }
         }
 
         if (!blankReferenceCurve && !missingReferenceCurve && futureStart != null
                 && futureAccrualStart != null && futureAccrualStart.isBefore(end)) {
+            int futureResetCount = countValidResetPeriods(resetdays, futureResetIndex);
             long remainingDays = ChronoUnit.DAYS.between(futureAccrualStart, end);
             LocalDate futureRateEnd = futureStart.plusDays(remainingDays);
-            double forwardRate = refCurve.fwdRate(futureStart, futureRateEnd);
-            forwardRate = CurveFunc.convertIrRate(forwardRate, futureStart, futureRateEnd,
-                    refCurve.getIrSpotInfo().freq, refCurve.getIrSpotInfo().dayCount, frq, dcb);
-            interestFactor += forwardRate * CurveFunc.timeFactor(futureAccrualStart, end, dcb);
+            double forwardDiscount = refCurve.fwdDiscount(futureStart, futureRateEnd);
+            if (!Double.isFinite(forwardDiscount) || forwardDiscount <= 0.0) {
+                throw new ArithmeticException("未定盘区间远期折现因子异常: start=" + futureStart
+                        + ", end=" + futureRateEnd + ", forwardDiscount=" + forwardDiscount);
+            }
+            interestFactor += approximateAverageInterestFactor(1.0 / forwardDiscount, futureResetCount);
         }
         if (!Double.isFinite(interestFactor)) {
             throw new ArithmeticException("浮息平均计息因子计算异常: interestFactor=" + interestFactor);
@@ -481,10 +490,34 @@ public class StructuredCashflow {
         return interestFactor / fullTimeFactor;
     }
 
+    private int countValidResetPeriods(LinkedList<ResetDateInfo> resetdays, int startIndex) {
+        int count = 0;
+        for (int i = startIndex; i < resetdays.size(); i++) {
+            ResetDateInfo resetDateInfo = resetdays.get(i);
+            if (resetDateInfo.accrualStart != null && resetDateInfo.accrualEnd != null
+                    && resetDateInfo.accrualEnd.isAfter(resetDateInfo.accrualStart)) {
+                count++;
+            }
+        }
+        if (count == 0) {
+            throw new IllegalArgumentException("未定盘重置区间数据缺失");
+        }
+        return count;
+    }
+
+    static double approximateAverageInterestFactor(double accumulationFactor, int resetCount) {
+        if (!Double.isFinite(accumulationFactor) || accumulationFactor <= 0.0) {
+            throw new ArithmeticException("未定盘区间累计因子异常: accumulationFactor=" + accumulationFactor);
+        }
+        if (resetCount <= 0) {
+            throw new IllegalArgumentException("未定盘重置次数必须大于0: resetCount=" + resetCount);
+        }
+        return resetCount * Math.expm1(Math.log(accumulationFactor) / resetCount);
+    }
+
     private double calcResetShorterThanPayRate(LocalDate simDate,
             LinkedList<ResetDateInfo> resetdays,
             IrSpot refCurve,
-            String frq,
             String dcb,
             boolean blankReferenceCurve,
             boolean missingReferenceCurve) {
@@ -497,6 +530,8 @@ public class StructuredCashflow {
 
         double accumulationFactor = 1.0;
         double spread = scfInfo.spread != null ? scfInfo.spread : 0.0;
+        LocalDate futureRateStart = null;
+        LocalDate futureAccrualStart = null;
         for (ResetDateInfo resetDateInfo : resetdays) {
             LocalDate fixingStart = resetDateInfo.fixingStart;
             LocalDate accrualStart = resetDateInfo.accrualStart;
@@ -512,19 +547,35 @@ public class StructuredCashflow {
                         "重置期计息因子异常: start=" + accrualStart + ", end=" + accrualEnd);
             }
 
-            double baseRate = 0.0;
-            if (!blankReferenceCurve) {
-                if (!fixingStart.isAfter(simDate)) {
-                    baseRate = findFixingRate(fixingStart);
-                } else if (!missingReferenceCurve) {
-                    LocalDate rateEnd = resetDateInfo.rateEnd;
-                    baseRate = refCurve.fwdRate(fixingStart, rateEnd);
-                    baseRate = CurveFunc.convertIrRate(baseRate, fixingStart, rateEnd,
-                            refCurve.getIrSpotInfo().freq, refCurve.getIrSpotInfo().dayCount, frq, dcb);
-                }
+            if (!blankReferenceCurve && !fixingStart.isAfter(simDate)) {
+                double baseRate = findFixingRate(fixingStart);
+                accumulationFactor *= 1.0 + (baseRate + spread) * timeFactor;
+                continue;
             }
 
-            accumulationFactor *= 1.0 + (baseRate + spread) * timeFactor;
+            futureRateStart = fixingStart;
+            futureAccrualStart = accrualStart;
+            break;
+        }
+
+        if (futureRateStart != null && futureAccrualStart != null && futureAccrualStart.isBefore(end)) {
+            double futureTimeFactor = CurveFunc.timeFactor(futureAccrualStart, end, dcb);
+            if (futureTimeFactor <= 0.0) {
+                throw new ArithmeticException(
+                        "未定盘区间计息因子异常: start=" + futureAccrualStart + ", end=" + end);
+            }
+            double futureAccumulationFactor = 1.0;
+            if (!blankReferenceCurve && !missingReferenceCurve) {
+                long remainingDays = ChronoUnit.DAYS.between(futureAccrualStart, end);
+                LocalDate futureRateEnd = futureRateStart.plusDays(remainingDays);
+                double forwardDiscount = refCurve.fwdDiscount(futureRateStart, futureRateEnd);
+                if (!Double.isFinite(forwardDiscount) || forwardDiscount <= 0.0) {
+                    throw new ArithmeticException("未定盘区间远期折现因子异常: start=" + futureRateStart
+                            + ", end=" + futureRateEnd + ", forwardDiscount=" + forwardDiscount);
+                }
+                futureAccumulationFactor = 1.0 / forwardDiscount;
+            }
+            accumulationFactor *= futureAccumulationFactor + spread * futureTimeFactor;
         }
 
         double interestFactor = accumulationFactor - 1.0;
@@ -561,25 +612,7 @@ public class StructuredCashflow {
             throw new IllegalArgumentException("定盘利率数据为空: fixingId=" + scfInfo.fixingId);
         }
 
-        // 只允许使用 fixingDate 当日或之前最近一个点，禁止使用未来 Fixing。
-        LocalDate floorDate = null;
-        for (LocalDate d : fixingInfo.curveData.keySet().stream().sorted().collect(Collectors.toList())) {
-            if (!d.isAfter(fixingDate)) {
-                floorDate = d;
-            } else {
-                break;
-            }
-        }
-
-        if (floorDate == null) {
-            throw new IllegalArgumentException("定盘利率数据缺失: fixingId=" + scfInfo.fixingId
-                    + ", fixingDate=" + fixingDate + ", 不存在日期小于等于定盘日的Fixing");
-        }
-        Double rate = fixingInfo.curveData.get(floorDate);
-        if (rate == null) {
-            throw new IllegalArgumentException("定盘利率数据缺失: date=" + floorDate + ", fixingId=" + scfInfo.fixingId);
-        }
-        return rate;
+        return new Fixing(fixingInfo).getRate(fixingDate);
     }
 
     public HashMap<LocalDate, LinkedList<ResetDateInfo>> generateResetDays(LinkedList<LocalDate> cfDate) {
@@ -838,7 +871,6 @@ public class StructuredCashflow {
         }
     }
 
-    // 债券内部类，封装计量指标
     static public class ScfMeasure {
         @JSONField(name = "INSTRUMENT_ID")
         public String instrumentId;
@@ -902,7 +934,6 @@ public class StructuredCashflow {
         }
     }
 
-    // 债券内部类，封装基本信息
     static public class ScfInfo {
         @JSONField(name = "DATA_DATE", format = "yyyy-MM-dd")
         public LocalDate dataDate;
@@ -952,7 +983,8 @@ public class StructuredCashflow {
         @JSONField(name = "RESET_FREQ")
         public String resetFreq;
         @JSONField(name = "NOTIONAL_FLAG")
-        public String notionalFlag;
+        // 产品默认不交换本金；需要本金现金流时必须明确指定 START、END 或 START_END。
+        public String notionalFlag = "NONE";
         @JSONField(name = "INCLUDE_TODAY_CASHFLOW", deserializeUsing = BooleanInputReader.class)
         public Boolean includeTodayCashflow = true;
         @JSONField(name = "COUPON_PRORATED", deserializeUsing = BooleanInputReader.class)

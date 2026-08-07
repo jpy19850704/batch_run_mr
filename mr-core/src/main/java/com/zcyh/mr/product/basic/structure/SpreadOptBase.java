@@ -6,6 +6,7 @@ import com.alibaba.fastjson2.annotation.JSONField;
 import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.validation.BooleanInputReader;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
@@ -51,7 +52,7 @@ public abstract class SpreadOptBase<T extends SpreadOptBase.SpreadOptBaseTradeIn
     private double mS, mRd, mRf, mT, mTs;
     private double mK1, mK2, mRebate;
     private boolean mCall, mCash, mVvFlag;
-    private List<Map<String, Object>> mVolCurve;
+    private List<VolSurfacePoint> mVolCurve;
 
     protected SpreadOptBase(LocalDate dataDate, T info, MarketData marketData) {
         this.dataDate = dataDate;
@@ -695,7 +696,7 @@ public abstract class SpreadOptBase<T extends SpreadOptBase.SpreadOptBaseTradeIn
     public static class MarketContext {
         public double s, f, rd, rf, fxToCny;
         public boolean call, cash;
-        public List<Map<String, Object>> volCurve;
+        public List<VolSurfacePoint> volCurve;
     }
 
     /** 公共字段基类 */

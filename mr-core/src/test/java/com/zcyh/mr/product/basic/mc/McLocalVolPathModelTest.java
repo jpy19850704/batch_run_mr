@@ -1,18 +1,14 @@
 package com.zcyh.mr.product.basic.mc;
 
-import com.zcyh.mr.support.Convert;
 import com.zcyh.mr.marketdata.FxVol;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 import com.zcyh.mr.marketdata.VolUtil;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -29,22 +25,23 @@ class McLocalVolPathModelTest {
 
     @Test
     void termInterpolationUsesAxis2UnionBeforeVarianceInterpolation() {
-        List<Map<String, Object>> result = VolUtil.getVolCur(45, unevenAxis2VertexVol(), "linear");
+        List<VolSurfacePoint> result = VolUtil.getVolCur(45, unevenAxis2VertexVol(), "linear");
 
         assertEquals(3, result.size());
-        assertEquals(0.9, Convert.toDouble(result.get(0).get("VERTEX2")), 1e-12);
-        assertEquals(1.0, Convert.toDouble(result.get(1).get("VERTEX2")), 1e-12);
-        assertEquals(1.1, Convert.toDouble(result.get(2).get("VERTEX2")), 1e-12);
+        assertEquals(0.9, result.get(0).getAxis2Value(), 1e-12);
+        assertEquals(1.0, result.get(1).getAxis2Value(), 1e-12);
+        assertEquals(1.1, result.get(2).getAxis2Value(), 1e-12);
         assertEquals(Math.sqrt((0.2 * 0.2 * 30 * 0.5 + 0.3 * 0.3 * 60 * 0.5) / 45),
-                Convert.toDouble(result.get(1).get("VOLATILITY_RATE")), 1e-12);
+                result.get(1).getVolatilityRate(), 1e-12);
     }
 
     @Test
     void shockTermInterpolationUsesAxis2Union() {
-        List<Map<String, Object>> result = VolUtil.getShockVolCurByLinearOptionTerm(45, unevenAxis2VertexVol(), "linear");
+        List<VolSurfacePoint> result = VolUtil.getShockVolCurByLinearOptionTerm(
+                45, unevenAxis2VertexVol(), "linear");
 
         assertEquals(3, result.size());
-        assertEquals(0.25, Convert.toDouble(result.get(1).get("VOLATILITY_RATE")), 1e-12);
+        assertEquals(0.25, result.get(1).getVolatilityRate(), 1e-12);
     }
 
     @Test
@@ -56,11 +53,11 @@ class McLocalVolPathModelTest {
         info.axis2InterpolateType = "linear";
         info.curveData = strikeVolCurveData();
 
-        List<Map<String, Object>> result = new FxVol(info).getVolCur(30);
+        List<VolSurfacePoint> result = new FxVol(info).getVolCur(30);
 
         assertEquals(2, result.size());
-        assertTrue(result.get(0).containsKey("STRIKE"));
-        assertFalse(result.get(0).containsKey("DELTA"));
+        assertEquals("STRIKE", info.axis2Type);
+        assertEquals(90.0, result.get(0).getAxis2Value(), 1e-12);
     }
 
     @Test
@@ -143,89 +140,59 @@ class McLocalVolPathModelTest {
         assertEquals(0.2, result.factor("LOCAL_VOL")[1][0], 1e-12);
     }
 
-    private static List<Map<String, Object>> localVolCurveData() {
-        List<Map<String, Object>> data = new ArrayList<>();
-        data.add(point(30, 1.0, 0.20));
-        data.add(point(30, 1.1, 0.30));
-        data.add(point(60, 1.0, 0.22));
-        data.add(point(60, 1.1, 0.32));
-        return data;
+    private static List<VolSurfacePoint> localVolCurveData() {
+        return List.of(
+                point(30, 1.0, 0.20),
+                point(30, 1.1, 0.30),
+                point(60, 1.0, 0.22),
+                point(60, 1.1, 0.32));
     }
 
-    private static List<Map<String, Object>> localVolCurveDataWithoutAxis2() {
-        List<Map<String, Object>> data = new ArrayList<>();
-        data.add(pointWithoutAxis2(30, 0.20));
-        data.add(pointWithoutAxis2(60, 0.22));
-        return data;
+    private static List<VolSurfacePoint> localVolCurveDataWithoutAxis2() {
+        return List.of(pointWithoutAxis2(30, 0.20), pointWithoutAxis2(60, 0.22));
     }
 
-    private static List<Map<String, Object>> deltaVolCurveData() {
-        List<Map<String, Object>> data = new ArrayList<>();
-        data.add(deltaPoint(30, 0.5, 0.20));
-        return data;
+    private static List<VolSurfacePoint> deltaVolCurveData() {
+        return List.of(deltaPoint(30, 0.5, 0.20));
     }
 
-    private static List<Map<String, Object>> deltaVolCurveDataWithSmile() {
-        List<Map<String, Object>> data = new ArrayList<>();
-        data.add(deltaPoint(30, 0.25, 0.18));
-        data.add(deltaPoint(30, 0.5, 0.20));
-        data.add(deltaPoint(30, 0.75, 0.22));
-        return data;
+    private static List<VolSurfacePoint> deltaVolCurveDataWithSmile() {
+        return List.of(
+                deltaPoint(30, 0.25, 0.18),
+                deltaPoint(30, 0.5, 0.20),
+                deltaPoint(30, 0.75, 0.22));
     }
 
-    private static List<Map<String, Object>> strikeVolCurveData() {
-        List<Map<String, Object>> data = new ArrayList<>();
-        data.add(strikePoint(30, 90.0, 0.20));
-        data.add(strikePoint(30, 110.0, 0.30));
-        return data;
+    private static List<VolSurfacePoint> strikeVolCurveData() {
+        return List.of(strikePoint(30, 90.0, 0.20), strikePoint(30, 110.0, 0.30));
     }
 
-    private static List<Map<String, Object>> unevenAxis2VertexVol() {
-        List<Map<String, Object>> data = new ArrayList<>();
-        data.add(vertexPoint(30, 0.9, 0.10));
-        data.add(vertexPoint(30, 1.0, 0.20));
-        data.add(vertexPoint(60, 1.0, 0.30));
-        data.add(vertexPoint(60, 1.1, 0.40));
-        return data;
+    private static List<VolSurfacePoint> unevenAxis2VertexVol() {
+        return List.of(
+                vertexPoint(30, 0.9, 0.10),
+                vertexPoint(30, 1.0, 0.20),
+                vertexPoint(60, 1.0, 0.30),
+                vertexPoint(60, 1.1, 0.40));
     }
 
-    private static Map<String, Object> point(int optionTerm, double moneyness, double vol) {
-        Map<String, Object> point = new HashMap<>();
-        point.put("OPTION_TERM", optionTerm);
-        point.put("MONEYNESS", moneyness);
-        point.put("VOLATILITY_RATE", vol);
-        return point;
+    private static VolSurfacePoint point(int optionTerm, double moneyness, double vol) {
+        return new VolSurfacePoint(optionTerm, moneyness, vol);
     }
 
-    private static Map<String, Object> pointWithoutAxis2(int optionTerm, double vol) {
-        Map<String, Object> point = new HashMap<>();
-        point.put("OPTION_TERM", optionTerm);
-        point.put("VOLATILITY_RATE", vol);
-        return point;
+    private static VolSurfacePoint pointWithoutAxis2(int optionTerm, double vol) {
+        return new VolSurfacePoint(optionTerm, 0.0, vol);
     }
 
-    private static Map<String, Object> deltaPoint(int optionTerm, double delta, double vol) {
-        Map<String, Object> point = new HashMap<>();
-        point.put("OPTION_TERM", optionTerm);
-        point.put("DELTA", delta);
-        point.put("VOLATILITY_RATE", vol);
-        return point;
+    private static VolSurfacePoint deltaPoint(int optionTerm, double delta, double vol) {
+        return new VolSurfacePoint(optionTerm, delta, vol);
     }
 
-    private static Map<String, Object> strikePoint(int optionTerm, double strike, double vol) {
-        Map<String, Object> point = new HashMap<>();
-        point.put("OPTION_TERM", optionTerm);
-        point.put("STRIKE", strike);
-        point.put("VOLATILITY_RATE", vol);
-        return point;
+    private static VolSurfacePoint strikePoint(int optionTerm, double strike, double vol) {
+        return new VolSurfacePoint(optionTerm, strike, vol);
     }
 
-    private static Map<String, Object> vertexPoint(int term, double axis2, double vol) {
-        Map<String, Object> point = new HashMap<>();
-        point.put("VERTEX1", term);
-        point.put("VERTEX2", axis2);
-        point.put("VOLATILITY_RATE", vol);
-        return point;
+    private static VolSurfacePoint vertexPoint(int term, double axis2, double vol) {
+        return new VolSurfacePoint(term, axis2, vol);
     }
 
     private static int[] termDays() {

@@ -3,6 +3,7 @@ package com.zcyh.mr.product.basic.option;
 import com.zcyh.mr.support.Convert;
 import com.zcyh.mr.math.Interpolation;
 import com.zcyh.mr.marketdata.VolUtil;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 import org.apache.commons.math3.distribution.NormalDistribution;
 
 import java.util.List;
@@ -58,7 +59,7 @@ public class AmOptUtil {
      */
     public AmOptUtil(boolean call, boolean cash, double s, double k,
             double rd, double rf, double maturityT, double settleT,
-            List<Map<String, Object>> vol) {
+            List<VolSurfacePoint> vol) {
         this(call, cash, s, k, rd, rf, maturityT, settleT,
                 defaultPhysicalDiscountFactor(cash, rd, maturityT, settleT),
                 defaultPhysicalForwardRatio(cash, rd, rf, maturityT, settleT), vol,
@@ -68,7 +69,7 @@ public class AmOptUtil {
     public AmOptUtil(boolean call, boolean cash, double s, double k,
             double rd, double rf, double maturityT, double settleT,
             double physicalDiscountFactor, double physicalForwardRatio,
-            List<Map<String, Object>> vol) {
+            List<VolSurfacePoint> vol) {
         this(call, cash, s, k, rd, rf, maturityT, settleT,
                 physicalDiscountFactor, physicalForwardRatio, vol,
                 VolUtil.requireAxis2InterpolateType(vol));
@@ -76,7 +77,7 @@ public class AmOptUtil {
 
     public AmOptUtil(boolean call, boolean cash, double s, double k,
             double rd, double rf, double maturityT, double settleT,
-            List<Map<String, Object>> vol, String volInterpolateType) {
+            List<VolSurfacePoint> vol, String volInterpolateType) {
         this(call, cash, s, k, rd, rf, maturityT, settleT,
                 defaultPhysicalDiscountFactor(cash, rd, maturityT, settleT),
                 defaultPhysicalForwardRatio(cash, rd, rf, maturityT, settleT),
@@ -86,7 +87,7 @@ public class AmOptUtil {
     public AmOptUtil(boolean call, boolean cash, double s, double k,
             double rd, double rf, double maturityT, double settleT,
             double physicalDiscountFactor, double physicalForwardRatio,
-            List<Map<String, Object>> vol, String volInterpolateType) {
+            List<VolSurfacePoint> vol, String volInterpolateType) {
         this.call = call;
         this.cash = cash;
         this.s = s;
@@ -297,7 +298,7 @@ public class AmOptUtil {
     /**
      * 迭代求解隐含波动率（Goal Seek）
      */
-    public double goalSeek(List<Map<String, Object>> vol) {
+    public double goalSeek(List<VolSurfacePoint> vol) {
         if (volInterpolateType == null || volInterpolateType.trim().isEmpty()) {
             throw new IllegalStateException("美式期权未通过波动率曲线构造，无法执行曲线插值");
         }
@@ -305,8 +306,8 @@ public class AmOptUtil {
         double pricingStrike = cash ? k : k / physicalForwardRatio;
         double deltainit = 0.5;
         double epsilon = 0.001;
-        Double[] x1 = vol.stream().map(e -> Convert.toDouble(e.get("DELTA"))).toArray(Double[]::new);
-        Double[] y1 = vol.stream().map(e -> Convert.toDouble(e.get("VOLATILITY_RATE"))).toArray(Double[]::new);
+        Double[] x1 = vol.stream().map(VolSurfacePoint::getAxis2Value).toArray(Double[]::new);
+        Double[] y1 = vol.stream().map(VolSurfacePoint::getVolatilityRate).toArray(Double[]::new);
         double sig = Interpolation.interpolate(x1, y1, deltainit, volInterpolateType);
         double val = epsilon / (f / s);
 

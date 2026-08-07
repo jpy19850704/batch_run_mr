@@ -10,7 +10,6 @@ import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
 import com.zcyh.mr.product.basic.option.AsianBase;
-import com.zcyh.mr.product.basic.option.EurOptUtil;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -62,7 +61,7 @@ public class CommAsian extends AsianBase<CommAsian.CommAsianTradeInfo, CommAsian
         CommVol commVol = new CommVol(md.commVol.get(info.volatilitySurface));
 
         double spot = commSpot.fwdPrice(dataDate);
-        double rd = cash ? discountIr.spotRate(info.maturityDate) : discountIr.spotRate(info.settleDate);
+        double rd = discountIr.spotRate(info.maturityDate);
         double maturityForward = commSpot.fwdPrice(info.maturityDate);
         double rf = rd;
         if (Double.isFinite(spot) && spot > 0.0
@@ -71,20 +70,18 @@ public class CommAsian extends AsianBase<CommAsian.CommAsianTradeInfo, CommAsian
             rf = -Math.log(maturityForward / spot) / maturityT + rd;
         }
 
-        List<Map<String, Object>> volCurve = commVol.getVolCur(maturityDays);
-        EurOptUtil util = new EurOptUtil(
-                call,
-                cash,
-                spot,
-                info.strikePrice,
-                rd,
-                rf,
-                maturityT,
-                settleT,
-                volCurve,
-                "black");
-        double sigma = util.getSigma();
-        return new MarketFactors(spot, rd, rf, sigma);
+        List<VolSurfacePoint> volCurve = commVol.getVolCur(maturityDays);
+        double paymentDiscountFactor = discountIr.discount(info.settleDate);
+        double physicalForwardRatio = 1.0;
+        if (!cash) {
+            double settleForward = commSpot.fwdPrice(info.settleDate);
+            if (Math.abs(maturityForward) <= 1e-15) {
+                throw new IllegalArgumentException("商品到期远期价格必须为非零有限数");
+            }
+            physicalForwardRatio = settleForward / maturityForward;
+        }
+        return new MarketFactors(
+                spot, rd, rf, volCurve, paymentDiscountFactor, physicalForwardRatio);
     }
 
     @Override

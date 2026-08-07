@@ -1,11 +1,11 @@
 package com.zcyh.mr.product.basic.mc;
 
-import com.zcyh.mr.support.Convert;
 import com.zcyh.mr.math.Interpolation;
 import com.zcyh.mr.marketdata.CommVol;
 import com.zcyh.mr.marketdata.EqVol;
 import com.zcyh.mr.marketdata.FxVol;
 import com.zcyh.mr.marketdata.VolUtil;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 import org.apache.commons.math3.distribution.NormalDistribution;
 
 import java.util.ArrayList;
@@ -24,14 +24,14 @@ public final class LocalVolSurfaceResolver implements McPricingContext.LocalVolR
     private final String axis2Type;
     private final String termInterpolateType;
     private final String axis2InterpolateType;
-    private final List<Map<String, Object>> vertexVol;
+    private final List<VolSurfacePoint> vertexVol;
 
     private LocalVolSurfaceResolver(
             String curveCode,
             String axis2Type,
             String termInterpolateType,
             String axis2InterpolateType,
-            List<Map<String, Object>> curveData,
+            List<VolSurfacePoint> curveData,
             double initialSpot,
             int[] termDays,
             double[] dt1,
@@ -47,7 +47,7 @@ public final class LocalVolSurfaceResolver implements McPricingContext.LocalVolR
             this.vertexVol = convertDeltaSurfaceToStrike(curveData, initialSpot, termContexts);
         } else {
             this.axis2Type = normalizedAxis2Type;
-            this.vertexVol = renameToVertex(curveData, this.axis2Type);
+            this.vertexVol = new ArrayList<VolSurfacePoint>(curveData);
         }
     }
 
@@ -70,7 +70,7 @@ public final class LocalVolSurfaceResolver implements McPricingContext.LocalVolR
     }
 
     static LocalVolSurfaceResolver createForTest(String curveCode, String axis2Type, String axis2InterpolateType,
-            List<Map<String, Object>> curveData, double initialSpot, int[] termDays, double[] dt1,
+            List<VolSurfacePoint> curveData, double initialSpot, int[] termDays, double[] dt1,
             double[] rd, double[] rf) {
         return new LocalVolSurfaceResolver(curveCode, axis2Type, null, axis2InterpolateType,
                 curveData, initialSpot, termDays, dt1, rd, rf);
@@ -123,7 +123,7 @@ public final class LocalVolSurfaceResolver implements McPricingContext.LocalVolR
     }
 
     private double resolveByAxis(int days, double axis2Value) {
-        List<Map<String, Object>> termSlice = VolUtil.getVolCur(days, vertexVol,
+        List<VolSurfacePoint> termSlice = VolUtil.getVolCur(days, vertexVol,
                 termInterpolateType, axis2InterpolateType);
         if ("NONE".equals(axis2Type)) {
             return firstVol(termSlice);
@@ -131,33 +131,8 @@ public final class LocalVolSurfaceResolver implements McPricingContext.LocalVolR
         return interpolateAxis2(termSlice, axis2Value);
     }
 
-    private static List<Map<String, Object>> renameToVertex(List<Map<String, Object>> curveData, String axis2Type) {
-        if (curveData == null || curveData.isEmpty()) {
-            throw new IllegalArgumentException("LOCAL_VOL 曲面数据为空");
-        }
-        String axis2Field = VolUtil.resolveAxis2Field(axis2Type);
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (Map<String, Object> row : curveData) {
-            Object optionTerm = row.get("OPTION_TERM");
-            Object volRate = row.get("VOLATILITY_RATE");
-            if (optionTerm == null || volRate == null) {
-                throw new IllegalArgumentException("LOCAL_VOL 曲面点位缺少 OPTION_TERM/VOLATILITY_RATE");
-            }
-            Object axis2 = "NONE".equals(axis2Type) ? 0.0 : row.get(axis2Field);
-            if (!"NONE".equals(axis2Type) && axis2 == null) {
-                throw new IllegalArgumentException("LOCAL_VOL 曲面点位缺少 OPTION_TERM/"
-                        + axis2Field + "/VOLATILITY_RATE");
-            }
-            Map<String, Object> newMap = new HashMap<>(row);
-            newMap.put("VERTEX1", optionTerm);
-            newMap.put("VERTEX2", axis2);
-            result.add(newMap);
-        }
-        return result;
-    }
-
-    private List<Map<String, Object>> convertDeltaSurfaceToStrike(
-            List<Map<String, Object>> curveData,
+    private List<VolSurfacePoint> convertDeltaSurfaceToStrike(
+            List<VolSurfacePoint> curveData,
             double initialSpot,
             Map<Integer, TermContext> termContexts) {
         validateSpot(initialSpot, "初始标的价格");
@@ -167,28 +142,18 @@ public final class LocalVolSurfaceResolver implements McPricingContext.LocalVolR
         if (termContexts.isEmpty()) {
             throw new IllegalArgumentException("LOCAL_VOL 曲线 [" + curveCode + "] 缺少期限上下文");
         }
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (Map<String, Object> row : curveData) {
-            Object optionTerm = row.get("OPTION_TERM");
-            Object deltaValue = row.get("DELTA");
-            Object volRate = row.get("VOLATILITY_RATE");
-            if (optionTerm == null || deltaValue == null || volRate == null) {
-                throw new IllegalArgumentException("LOCAL_VOL delta 曲面点位缺少 OPTION_TERM/DELTA/VOLATILITY_RATE");
-            }
-            int days = Convert.toInt(optionTerm);
+        List<VolSurfacePoint> result = new ArrayList<VolSurfacePoint>();
+        for (VolSurfacePoint row : curveData) {
+            int days = row.getOptionTerm();
             TermContext termContext = termContexts.get(days);
             if (termContext == null) {
                 throw new IllegalArgumentException("LOCAL_VOL 曲线 [" + curveCode + "] 缺少期限上下文: " + days);
             }
-            double vol = Convert.toDouble(volRate);
-            double delta = Convert.toDouble(deltaValue);
+            double vol = row.getVolatilityRate();
+            double delta = row.getAxis2Value();
             double forward = initialSpot * Math.exp((termContext.rd - termContext.rf) * termContext.t);
             double strike = deltaToStrike(forward, vol, termContext.t, termContext.rf, delta);
-            Map<String, Object> newMap = new HashMap<>(row);
-            newMap.put("VERTEX1", days);
-            newMap.put("VERTEX2", strike);
-            newMap.put("STRIKE", strike);
-            result.add(newMap);
+            result.add(new VolSurfacePoint(days, strike, vol));
         }
         return result;
     }
@@ -207,11 +172,11 @@ public final class LocalVolSurfaceResolver implements McPricingContext.LocalVolR
         return result;
     }
 
-    private double interpolateAxis2(List<Map<String, Object>> termSlice, double axis2Value) {
+    private double interpolateAxis2(List<VolSurfacePoint> termSlice, double axis2Value) {
         TreeMap<Double, Double> points = new TreeMap<>();
-        for (Map<String, Object> row : termSlice) {
-            double axis2 = Convert.toDouble(row.get("VERTEX2"));
-            double vol = Convert.toDouble(row.get("VOLATILITY_RATE"));
+        for (VolSurfacePoint row : termSlice) {
+            double axis2 = row.getAxis2Value();
+            double vol = row.getVolatilityRate();
             if (Double.isFinite(axis2) && Double.isFinite(vol)) {
                 points.put(axis2, vol);
             }
@@ -228,11 +193,11 @@ public final class LocalVolSurfaceResolver implements McPricingContext.LocalVolR
         return Interpolation.interpolate(x, y, axis2Value, axis2InterpolateType);
     }
 
-    private static double firstVol(List<Map<String, Object>> termSlice) {
+    private static double firstVol(List<VolSurfacePoint> termSlice) {
         if (termSlice == null || termSlice.isEmpty()) {
             throw new IllegalArgumentException("LOCAL_VOL 曲面切片无有效点位");
         }
-        return Convert.toDouble(termSlice.get(0).get("VOLATILITY_RATE"));
+        return termSlice.get(0).getVolatilityRate();
     }
 
     private static void validateSpot(double spot, String name) {

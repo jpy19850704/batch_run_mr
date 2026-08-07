@@ -17,6 +17,7 @@ import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.ReflectionUtils;
 import com.zcyh.mr.calc.FrtbCalcControl;
 import com.zcyh.mr.calendar.Calendar;
+import com.zcyh.mr.calendar.CashflowUtils;
 import com.zcyh.mr.marketdata.CurveFunc;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
@@ -89,6 +90,7 @@ public class Cds implements FrtbDrcInterface {
         localScf.calc(marketData);
         LinkedList<StructuredCashflow.Cashflow> cashFlowFilterD = new LinkedList<>();
         LinkedList<StructuredCashflow.Cashflow> cashflows = localScf.getCashflowList();
+        LocalDate maturityPaymentDate = adjustSettlementDate(cdsInfo.maturityDate);
         int units = cdsInfo.buyOrSell.equalsIgnoreCase("B") ? 1 : -1;
         for (StructuredCashflow.Cashflow cashflow : cashflows) {
             // 所有的现金流金额统一设置为notional*(1-rr)
@@ -96,14 +98,14 @@ public class Cds implements FrtbDrcInterface {
             // units乘到现金流金额上notional*(1-rr)
             cashflow.cf = cashflow.cf * units;
             if (cashflow.paymentDate.compareTo(this.dataDate) > 0
-                    && cashflow.paymentDate.compareTo(cdsInfo.maturityDate) < 0) {
+                    && cashflow.paymentDate.compareTo(maturityPaymentDate) < 0) {
                 cashFlowFilterD.add(cashflow);
             }
         }
         // 仅当 CDS 到期日不超过债券到期日时才插入，债券已到期则无违约支付
         if (!cdsInfo.maturityDate.isAfter(bondInfo.maturityDate)) {
             StructuredCashflow.Cashflow insertCashFlow = new StructuredCashflow.Cashflow();
-            insertCashFlow.paymentDate = cdsInfo.maturityDate;
+            insertCashFlow.paymentDate = maturityPaymentDate;
             insertCashFlow.cf = units * cdsInfo.notional * (1 - cdsInfo.recoveryRate);
             cashFlowFilterD.add(insertCashFlow);
         }
@@ -524,7 +526,7 @@ public class Cds implements FrtbDrcInterface {
         bondInfo.fixingId = null;
         bondInfo.spread = null;
         bondInfo.fixingFreq = null;
-        bondInfo.settleRule = null;
+        applySettlementConvention(bondInfo, cdsInfo);
         bondInfo.resetRule = null;
         bondInfo.resetDayoff = null;
         bondInfo.resetFreq = null;
@@ -543,8 +545,23 @@ public class Cds implements FrtbDrcInterface {
         bondInfoSF.interestRate = cdsInfo.fixedRate;
         bondInfoSF.payFreq = cdsInfo.payFreq;
         bondInfoSF.dayCountBasis = cdsInfo.dayCountBasis;
-        bondInfoSF.settleCalendar = cdsInfo.settleCalendar;
+        applySettlementConvention(bondInfoSF, cdsInfo);
         return bondInfoSF;
+    }
+
+    private LocalDate adjustSettlementDate(LocalDate date) {
+        if (StringUtils.isBlank(cdsInfo.settleRule)) {
+            return date;
+        }
+        int settleDayoff = cdsInfo.settleDayoff == null ? 0 : cdsInfo.settleDayoff;
+        return cal.getBusinessDay(cdsInfo.settleCalendar, date,
+                CashflowUtils.attr2BusinessDayConvention(cdsInfo.settleRule), settleDayoff);
+    }
+
+    static void applySettlementConvention(Bond.BondTradeInfo bondInfo, CdsTradeInfo cdsInfo) {
+        bondInfo.settleCalendar = cdsInfo.settleCalendar;
+        bondInfo.settleRule = StringUtils.trimToNull(cdsInfo.settleRule);
+        bondInfo.settleDayoff = cdsInfo.settleDayoff == null ? 0 : cdsInfo.settleDayoff;
     }
 
     @Override
@@ -661,6 +678,13 @@ public class Cds implements FrtbDrcInterface {
         public String interestStub;
         @JSONField(name = "SETTLE_CALENDAR")
         public String settleCalendar;
+        @ProductInputField(allowedValues = {"Regular_Preceding", "Modified_Preceding",
+                "Regular_Following", "Modified_Following"})
+        @JSONField(name = "SETTLE_RULE")
+        public String settleRule;
+        @ProductInputField(min = "0")
+        @JSONField(name = "SETTLE_DAYOFF")
+        public Integer settleDayoff = 0;
         @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;

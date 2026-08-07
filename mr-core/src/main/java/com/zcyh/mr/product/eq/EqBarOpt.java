@@ -52,7 +52,7 @@ public class EqBarOpt extends BarOptBase<EqBarOpt.EqBarOptTradeInfo> {
     }
 
     @Override
-    protected List<Map<String, Object>> getVolCur(MarketData md, int days) {
+    protected List<VolSurfacePoint> getVolCur(MarketData md, int days) {
         EqVol eqVol = new EqVol(md.eqVol.get(info.volatilitySurface));
         return eqVol.getVolCur(days);
     }

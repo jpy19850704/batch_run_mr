@@ -1,6 +1,5 @@
 package com.zcyh.mr.loader;
 
-import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.math.Interpolation;
 import com.zcyh.mr.marketdata.CommSpot;
@@ -8,7 +7,9 @@ import com.zcyh.mr.marketdata.EqSpot;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.marketdata.input.MarketDataInputs;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Locale;
 
@@ -33,28 +34,17 @@ final class SpotMarketDataProcessor {
             MarketData target,
             boolean firstFxContainer,
             JSONObject marketJson,
-            JSONArray curveData,
             String curveType) {
-        if (curveData == null || curveData.isEmpty()) {
-            validationCollector.error(curveType, "", "CURVE_DATA 为空");
-            return firstFxContainer;
-        }
-
         FxSpot.FxSpotInfo fxSpotInfo = MarketDataInputMapper.parseCurveMeta(
                 marketJson, FxSpot.FxSpotInfo.class);
+        MarketDataInputs.FxSpotInput input = marketJson.to(MarketDataInputs.FxSpotInput.class);
         if (firstFxContainer) {
             target.fxSpot = fxSpotInfo;
             firstFxContainer = false;
         }
 
-        for (Object pointObj : curveData) {
-            JSONObject pointJson = (JSONObject) pointObj;
-            String currency = pointJson.getString("CURRENCY");
-            Object rate = pointJson.get("RATE");
-            if (currency == null || currency.isEmpty()) {
-                validationCollector.error(curveType, "", "CURRENCY 为空, 点位被剔除");
-                continue;
-            }
+        for (MarketDataInputs.FxSpotPointInput point : input.curveData) {
+            String currency = point.currency;
             String normalizedCurrency = normalizeCurrencyPair(currency);
             if (normalizedCurrency == null) {
                 validationCollector.error(curveType, currency, "CURRENCY 货币对格式错误, 点位被剔除");
@@ -71,23 +61,10 @@ final class SpotMarketDataProcessor {
                         + fxSpotBaseCurrency + ", 点位被剔除");
                 continue;
             }
-            if (rate == null) {
-                validationCollector.error(curveType, normalizedCurrency, "RATE 为空, 点位被剔除");
-                continue;
-            }
-            if (!(rate instanceof Number)) {
-                try {
-                    Double.parseDouble(rate.toString());
-                } catch (NumberFormatException ex) {
-                    validationCollector.error(curveType, normalizedCurrency,
-                            "RATE 不是数字: " + rate + ", 点位被剔除");
-                    continue;
-                }
-            }
-            double rateValue = pointJson.getDoubleValue("RATE");
+            double rateValue = point.rate.doubleValue();
             if (Double.isNaN(rateValue) || Double.isInfinite(rateValue) || rateValue <= 0) {
                 validationCollector.error(curveType, normalizedCurrency,
-                        "RATE 必须大于 0: " + rate + ", 点位被剔除");
+                        "RATE 必须大于 0: " + point.rate + ", 点位被剔除");
                 continue;
             }
             String reverseCurrency = currencies[1] + "/" + currencies[0];
@@ -107,7 +84,6 @@ final class SpotMarketDataProcessor {
     void processIrSpot(
             MarketData target,
             JSONObject marketJson,
-            JSONArray curveData,
             String curveType) {
         String curveId = marketJson.getString("CURVE_ID");
         if (curveId == null || curveId.isEmpty()) {
@@ -123,34 +99,16 @@ final class SpotMarketDataProcessor {
             validationCollector.error(curveType, curveId, ex.getMessage());
             return;
         }
-        for (Object pointObj : curveData) {
-            JSONObject pointJson = (JSONObject) pointObj;
-            Object term = pointJson.get("TERM");
-            Object rate = pointJson.get("RATE");
-            if (term == null || rate == null) {
-                validationCollector.error(curveType, curveId, "TERM 或 RATE 为空, 点位被剔除");
-                continue;
+        if ("CREDIT_SPOT".equals(curveType)) {
+            MarketDataInputs.CreditSpotInput input = marketJson.to(MarketDataInputs.CreditSpotInput.class);
+            for (MarketDataInputs.CreditSpotPointInput point : input.curveData) {
+                addRatePoint(irSpotInfo, point.term, point.rate, curveType, curveId);
             }
-            if (!(term instanceof Number)) {
-                validationCollector.error(curveType, curveId,
-                        "TERM 不是整数: " + term + ", 点位被剔除");
-                continue;
+        } else {
+            MarketDataInputs.IrSpotInput input = marketJson.to(MarketDataInputs.IrSpotInput.class);
+            for (MarketDataInputs.IrSpotPointInput point : input.curveData) {
+                addRatePoint(irSpotInfo, point.term, point.rate, curveType, curveId);
             }
-            if (!(rate instanceof Number)) {
-                try {
-                    Double.parseDouble(rate.toString());
-                } catch (NumberFormatException ex) {
-                    validationCollector.error(curveType, curveId,
-                            "RATE 不是数字: " + rate + " (TERM=" + term + "), 点位被剔除");
-                    continue;
-                }
-            }
-            double rateValue = pointJson.getDoubleValue("RATE");
-            if (rateValue > 1) {
-                validationCollector.warning(curveType, curveId,
-                        "RATE 值大于 1: " + rateValue + " (TERM=" + term + "), 请确认是否正确");
-            }
-            irSpotInfo.curveData.put(pointJson.getInteger("TERM"), rateValue);
         }
         irSpotInfo.pDataDate = dataDate;
         target.irSpot.put(curveId, irSpotInfo);
@@ -159,7 +117,6 @@ final class SpotMarketDataProcessor {
     void processCommSpot(
             MarketData target,
             JSONObject marketJson,
-            JSONArray curveData,
             String curveType) {
         String curveId = marketJson.getString("CURVE_ID");
         if (curveId == null || curveId.isEmpty()) {
@@ -175,31 +132,9 @@ final class SpotMarketDataProcessor {
             validationCollector.error(curveType, curveId, ex.getMessage());
             return;
         }
-        for (Object pointObj : curveData) {
-            JSONObject pointJson = (JSONObject) pointObj;
-            Object term = pointJson.get("TERM");
-            Object price = pointJson.get("COMM_PRICE");
-            if (term == null || price == null) {
-                validationCollector.error(curveType, curveId,
-                        "TERM 或 COMM_PRICE 为空, 点位被剔除");
-                continue;
-            }
-            if (!(term instanceof Number)) {
-                validationCollector.error(curveType, curveId,
-                        "TERM 不是整数: " + term + ", 点位被剔除");
-                continue;
-            }
-            if (!(price instanceof Number)) {
-                try {
-                    Double.parseDouble(price.toString());
-                } catch (NumberFormatException ex) {
-                    validationCollector.error(curveType, curveId,
-                            "COMM_PRICE 不是数字: " + price + " (TERM=" + term + "), 点位被剔除");
-                    continue;
-                }
-            }
-            commSpotInfo.curveData.put(
-                    pointJson.getInteger("TERM"), pointJson.getDoubleValue("COMM_PRICE"));
+        MarketDataInputs.CommSpotInput input = marketJson.to(MarketDataInputs.CommSpotInput.class);
+        for (MarketDataInputs.CommSpotPointInput point : input.curveData) {
+            commSpotInfo.curveData.put(point.term, point.price.doubleValue());
         }
         commSpotInfo.pDataDate = dataDate;
         target.commSpot.put(curveId, commSpotInfo);
@@ -208,7 +143,6 @@ final class SpotMarketDataProcessor {
     void processEqSpot(
             MarketData target,
             JSONObject marketJson,
-            JSONArray curveData,
             String curveType) {
         String curveId = marketJson.getString("CURVE_ID");
         if (curveId == null || curveId.isEmpty()) {
@@ -224,34 +158,26 @@ final class SpotMarketDataProcessor {
             validationCollector.error(curveType, curveId, ex.getMessage());
             return;
         }
-        for (Object pointObj : curveData) {
-            JSONObject pointJson = (JSONObject) pointObj;
-            Object term = pointJson.get("TERM");
-            Object price = pointJson.get("EQ_PRICE");
-            if (term == null || price == null) {
-                validationCollector.error(curveType, curveId,
-                        "TERM 或 EQ_PRICE 为空, 点位被剔除");
-                continue;
-            }
-            if (!(term instanceof Number)) {
-                validationCollector.error(curveType, curveId,
-                        "TERM 不是整数: " + term + ", 点位被剔除");
-                continue;
-            }
-            if (!(price instanceof Number)) {
-                try {
-                    Double.parseDouble(price.toString());
-                } catch (NumberFormatException ex) {
-                    validationCollector.error(curveType, curveId,
-                            "EQ_PRICE 不是数字: " + price + " (TERM=" + term + "), 点位被剔除");
-                    continue;
-                }
-            }
-            eqSpotInfo.curveData.put(
-                    pointJson.getInteger("TERM"), pointJson.getDoubleValue("EQ_PRICE"));
+        MarketDataInputs.EqSpotInput input = marketJson.to(MarketDataInputs.EqSpotInput.class);
+        for (MarketDataInputs.EqSpotPointInput point : input.curveData) {
+            eqSpotInfo.curveData.put(point.term, point.price.doubleValue());
         }
         eqSpotInfo.pDataDate = dataDate;
         target.eqSpot.put(curveId, eqSpotInfo);
+    }
+
+    private void addRatePoint(
+            IrSpot.IrSpotInfo info,
+            Integer term,
+            BigDecimal rate,
+            String curveType,
+            String curveId) {
+        double rateValue = rate.doubleValue();
+        if (rateValue > 1) {
+            validationCollector.warning(curveType, curveId,
+                    "RATE 值大于 1: " + rateValue + " (TERM=" + term + "), 请确认是否正确");
+        }
+        info.curveData.put(term, rateValue);
     }
 
     private String normalizeCurrencyPair(String currencyPair) {

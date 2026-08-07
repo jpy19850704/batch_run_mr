@@ -103,6 +103,7 @@
       "INTEREST_STUB": "LongEnd",
       "RECOVERY_RATE": 0.4,
       "DAY_COUNT_BASIS": "Actual/365",
+      "SETTLE_DAYOFF": 0,
       "UNDERLYING_ISSUER_ID" : "null",
       "FIXED_RATE" : 0
 

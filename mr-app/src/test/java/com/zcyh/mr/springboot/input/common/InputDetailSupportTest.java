@@ -42,6 +42,19 @@ class InputDetailSupportTest {
         assertTrue(hasIssue(detail.getJSONArray("issues"), "", "JSON_PARSE_ERROR", false));
     }
 
+    @Test
+    void allowedValuesAreComparedCaseInsensitively() {
+        JSONObject content = JSONObject.of("INTERPOLATE_TYPE", "linear");
+        JSONObject definition = JSONObject.of("fields", JSONArray.of(
+                field("INTERPOLATE_TYPE", "String", false, "LINEAR|FORWARD")));
+
+        JSONObject detail = InputDetailSupport.build("MARKET", new JSONObject(),
+                content.toJSONString(), content, definition, List.of(), List.of());
+
+        assertFalse(hasIssue(detail.getJSONArray("issues"),
+                "INTERPOLATE_TYPE", "OUT_OF_DOMAIN", false));
+    }
+
     private static JSONObject field(String path, String type, boolean required, String allowedValues) {
         JSONObject field = new JSONObject();
         field.put("path", path);

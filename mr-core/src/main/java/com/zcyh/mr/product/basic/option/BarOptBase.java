@@ -10,6 +10,7 @@ import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.marketdata.VolUtil;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
@@ -124,7 +125,7 @@ public abstract class BarOptBase<I extends BarOptBase.BarOptBaseTradeInfo> {
         String type = resolveBarrierType();
         double k = "Single_Barrier".equalsIgnoreCase(type) ? h : fwd;
 
-        List<Map<String, Object>> volCur = getVolCur(md, days);
+        List<VolSurfacePoint> volCur = getVolCur(md, days);
         double sigma;
         if (isDoubleBarrier()) {
             sigma = interpolateAtmVol(volCur);
@@ -200,15 +201,15 @@ public abstract class BarOptBase<I extends BarOptBase.BarOptBaseTradeInfo> {
      * 直接从波动率曲线按 Delta=0.5 插值取 ATM vol，不进行 goalSeek 迭代。
      * 双障碍产品和三层蛋糕产品使用此方法。
      */
-    protected static double interpolateAtmVol(List<Map<String, Object>> volCur) {
+    protected static double interpolateAtmVol(List<VolSurfacePoint> volCur) {
         if (volCur == null || volCur.isEmpty()) {
             return 0.2;
         }
         Double[] deltas = volCur.stream()
-                .map(e -> com.zcyh.mr.support.Convert.toDouble(e.get("DELTA")))
+                .map(VolSurfacePoint::getAxis2Value)
                 .toArray(Double[]::new);
         Double[] vols = volCur.stream()
-                .map(e -> com.zcyh.mr.support.Convert.toDouble(e.get("VOLATILITY_RATE")))
+                .map(VolSurfacePoint::getVolatilityRate)
                 .toArray(Double[]::new);
         double sigma = com.zcyh.mr.math.Interpolation.interpolate(deltas, vols, 0.5,
                 VolUtil.requireAxis2InterpolateType(volCur));
@@ -593,7 +594,7 @@ public abstract class BarOptBase<I extends BarOptBase.BarOptBaseTradeInfo> {
     protected abstract double getRf(MarketData md, double s, double rd, double t);
 
     /** 获取波动率曲线 */
-    protected abstract List<Map<String, Object>> getVolCur(MarketData md, int days);
+    protected abstract List<VolSurfacePoint> getVolCur(MarketData md, int days);
 
     /** 获取折现利率 */
     protected abstract double getDiscountRate(MarketData md);

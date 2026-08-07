@@ -50,7 +50,7 @@ public class CommRangeAccureOpt extends RangeAccureOptBase<CommRangeAccureOpt.Co
     }
 
     @Override
-    protected List<Map<String, Object>> getVolCurve(MarketData md, int days) {
+    protected List<VolSurfacePoint> getVolCurve(MarketData md, int days) {
         CommVol commVol = new CommVol(md.commVol.get(rangeAccureInfo.volatilitySurface));
         return commVol.getVolCur(days);
     }

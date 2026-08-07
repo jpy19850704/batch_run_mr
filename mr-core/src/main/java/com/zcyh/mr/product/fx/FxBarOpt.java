@@ -53,7 +53,7 @@ public class FxBarOpt extends BarOptBase<FxBarOpt.FxBarOptTradeInfo> {
     }
 
     @Override
-    protected List<Map<String, Object>> getVolCur(MarketData md, int days) {
+    protected List<VolSurfacePoint> getVolCur(MarketData md, int days) {
         FxVol fxVol = new FxVol(md.fxVol.get(info.volatilitySurface));
         return fxVol.getVolCur(days);
     }
@@ -146,7 +146,7 @@ public class FxBarOpt extends BarOptBase<FxBarOpt.FxBarOptTradeInfo> {
         double k = "Single_Barrier".equalsIgnoreCase(type) ? h : fwd;
 
         FxVol fxVol = new FxVol(md.fxVol.get(info.volatilitySurface));
-        List<Map<String, Object>> volCur = fxVol.getVolCur(days);
+        List<VolSurfacePoint> volCur = fxVol.getVolCur(days);
         double sigma;
         if (isDoubleBarrier()) {
             // 双障碍与主流程统一：直接取 Delta=0.5 的 ATM 波动率，不走 goalSeek。

@@ -10,7 +10,6 @@ import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
 import com.zcyh.mr.product.basic.option.AsianBase;
-import com.zcyh.mr.product.basic.option.EurOptUtil;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -64,34 +63,23 @@ public class FxAsian extends AsianBase<FxAsian.FxAsianTradeInfo, FxAsian.FxAsian
         IrSpot underIr = new IrSpot(md.irSpot.get(info.underlyingDiscountCurve));
         IrSpot baseIr = new IrSpot(md.irSpot.get(info.baseDiscountCurve));
 
-        double rd;
-        double rf;
-        if (cash) {
-            rd = baseIr.spotRate(info.maturityDate);
-            rf = underIr.spotRate(info.maturityDate);
-        } else {
-            rd = baseIr.spotRate(info.settleDate);
-            rf = underIr.spotRate(info.settleDate);
-        }
+        double rd = baseIr.spotRate(info.maturityDate);
+        double rf = underIr.spotRate(info.maturityDate);
 
         FxSpot fxSpot = new FxSpot(EngineConfiguration.getInstance().getValue(EngineConstants.CFG.FX_BASE_CODE), md.fxSpot);
         double spot = fxSpot.getFxrate(info.baseCurrencyCode, info.underlyingCurrencyCode);
         FxVol fxVol = new FxVol(md.fxVol.get(info.volatilitySurface));
 
-        List<Map<String, Object>> volCurve = fxVol.getVolCur(maturityDays);
-        EurOptUtil util = new EurOptUtil(
-                call,
-                cash,
-                spot,
-                info.strikePrice,
-                rd,
-                rf,
-                maturityT,
-                settleT,
-                volCurve,
-                "black");
-        double sigma = util.getSigma();
-        return new MarketFactors(spot, rd, rf, sigma);
+        List<VolSurfacePoint> volCurve = fxVol.getVolCur(maturityDays);
+        double paymentDiscountFactor = baseIr.discount(info.settleDate);
+        double physicalForwardRatio = 1.0;
+        if (!cash) {
+            double baseForwardDiscount = baseIr.fwdDiscount(info.maturityDate, info.settleDate);
+            physicalForwardRatio = underIr.fwdDiscount(info.maturityDate, info.settleDate)
+                    / baseForwardDiscount;
+        }
+        return new MarketFactors(
+                spot, rd, rf, volCurve, paymentDiscountFactor, physicalForwardRatio);
     }
 
     @Override

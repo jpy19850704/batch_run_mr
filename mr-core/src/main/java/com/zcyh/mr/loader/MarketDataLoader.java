@@ -6,12 +6,12 @@ import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.marketdata.input.MarketInputValidator;
 
 import java.time.LocalDate;
 import java.util.Locale;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -79,56 +79,54 @@ public class MarketDataLoader {
                 continue;
             }
 
-            JSONArray curveData = marketJson.getJSONArray("CURVE_DATA");
-            if (EngineConstants.RF_TYPE.FX_SPOT.equals(curveType)) {
-                firstFxContainer = spotProcessor.processFxSpot(
-                        target, firstFxContainer, marketJson, curveData, curveType);
+            MarketInputValidator.LoadValidationResult validation =
+                    MarketInputValidator.validateForLoading(marketJson);
+            for (String error : validation.getPointErrors()) {
+                validationCollector.error(curveType, curveId == null ? "" : curveId,
+                        error + ", 点位被剔除");
+            }
+            if (!validation.getOuterErrors().isEmpty()) {
+                for (String error : validation.getOuterErrors()) {
+                    validationCollector.error(curveType, curveId == null ? "" : curveId, error);
+                }
                 continue;
             }
-            processNonFxMarketData(target, marketJson, curveData, curveType, curveId);
+            JSONObject validMarketJson = validation.getValidInput();
+
+            if (EngineConstants.RF_TYPE.FX_SPOT.equals(curveType)) {
+                firstFxContainer = spotProcessor.processFxSpot(
+                        target, firstFxContainer, validMarketJson, curveType);
+                continue;
+            }
+            processNonFxMarketData(target, validMarketJson, curveType, curveId);
         }
     }
 
     private void processNonFxMarketData(
             MarketData target,
             JSONObject marketJson,
-            JSONArray curveData,
             String curveType,
             String curveId) {
-        boolean volType = isVolType(curveType);
-        if (!volType && (curveData == null || curveData.isEmpty())) {
-            validationCollector.error(
-                    curveType, Objects.toString(marketJson.get("CURVE_ID"), ""), "CURVE_DATA 为空");
-            return;
-        }
-
         if (EngineConstants.RF_TYPE.IR_SPOT.equals(curveType)
                 || EngineConstants.RF_TYPE.CREDIT_SPOT.equals(curveType)) {
-            spotProcessor.processIrSpot(target, marketJson, curveData, curveType);
+            spotProcessor.processIrSpot(target, marketJson, curveType);
         } else if (EngineConstants.RF_TYPE.FIXING.equals(curveType)) {
-            fixingProcessor.process(target, marketJson, curveData, curveType);
+            fixingProcessor.process(target, marketJson, curveType);
         } else if (EngineConstants.RF_TYPE.COMM_SPOT.equals(curveType)) {
-            spotProcessor.processCommSpot(target, marketJson, curveData, curveType);
+            spotProcessor.processCommSpot(target, marketJson, curveType);
         } else if (EngineConstants.RF_TYPE.EQ_SPOT.equals(curveType)) {
-            spotProcessor.processEqSpot(target, marketJson, curveData, curveType);
+            spotProcessor.processEqSpot(target, marketJson, curveType);
         } else if (EngineConstants.RF_TYPE.COMM_VOL.equals(curveType)) {
-            volProcessor.processCommVol(target, marketJson, curveData, curveType);
+            volProcessor.processCommVol(target, marketJson, curveType);
         } else if (EngineConstants.RF_TYPE.FX_VOL.equals(curveType)) {
-            volProcessor.processFxVol(target, marketJson, curveData, curveType);
+            volProcessor.processFxVol(target, marketJson, curveType);
         } else if (EngineConstants.RF_TYPE.IR_VOL.equals(curveType)) {
-            volProcessor.processIrVol(target, marketJson, curveData, curveType);
+            volProcessor.processIrVol(target, marketJson, curveType);
         } else if (EngineConstants.RF_TYPE.EQ_VOL.equals(curveType)) {
-            volProcessor.processEqVol(target, marketJson, curveData, curveType);
+            volProcessor.processEqVol(target, marketJson, curveType);
         } else {
             validationCollector.error(curveType, curveId == null ? "" : curveId, "不支持的 CURVE_TYPE");
         }
-    }
-
-    private boolean isVolType(String curveType) {
-        return EngineConstants.RF_TYPE.FX_VOL.equals(curveType)
-                || EngineConstants.RF_TYPE.IR_VOL.equals(curveType)
-                || EngineConstants.RF_TYPE.EQ_VOL.equals(curveType)
-                || EngineConstants.RF_TYPE.COMM_VOL.equals(curveType);
     }
 
     private void validateLoadedTypes(JSONArray marketDataArray, MarketData marketData) {

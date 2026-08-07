@@ -8,6 +8,7 @@ import com.zcyh.mr.product.basic.validation.ProductInputField;
 import com.zcyh.mr.product.basic.validation.BooleanInputReader;
 import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
@@ -654,7 +655,7 @@ public abstract class WeddingCakeBase<T extends WeddingCakeBase.WeddingCakeBaseT
         public double t;
         public double ts;
         public double fxToCny;
-        public List<java.util.Map<String, Object>> volCurve;
+        public List<VolSurfacePoint> volCurve;
     }
 
     public static class WeddingCakeBaseTradeInfo implements TradeInfo {

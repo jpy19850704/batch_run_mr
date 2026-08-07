@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS MR_AUDIT_LOG (
     engine_code VARCHAR(64),
     success_flag SMALLINT NOT NULL,
     error_code VARCHAR(64),
-    message VARCHAR(2048),
+    message TEXT,
     remote_ip VARCHAR(64),
     request_uri VARCHAR(512),
     http_method VARCHAR(16),

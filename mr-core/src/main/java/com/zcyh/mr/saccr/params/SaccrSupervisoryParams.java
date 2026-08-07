@@ -117,9 +117,6 @@ public final class SaccrSupervisoryParams {
     /** 乘数（multiplier）下限 */
     public static final double MULTIPLIER_FLOOR = 0.05;
 
-    /** BA-CVA 聚合相关系数 ρ_CVA */
-    public static final double CVA_RHO = 0.50;
-
     // ==================== MPOR 标准值（工作日） ====================
 
     /** 集中清算 MPOR 下限（工作日） */

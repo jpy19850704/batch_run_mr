@@ -3,6 +3,7 @@ package com.zcyh.mr.product.basic.option;
 import com.zcyh.mr.support.Convert;
 import com.zcyh.mr.math.Interpolation;
 import com.zcyh.mr.marketdata.VolUtil;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 
 import java.util.List;
 import java.util.Map;
@@ -53,7 +54,7 @@ public class RangeAccureUtil {
     private double df; // 到期日折现因子
     private double df1; // 观察日折现因子（用于 deltaK 缩放）
     private double f; // 远期价格（由调用方根据标的类型计算传入）
-    private List<Map<String, Object>> vol; // 波动率曲线数据
+    private List<VolSurfacePoint> vol; // 波动率曲线数据
     private String model; // 定价模型，只有 bachelier 走 normal 口径，其它按 black
 
     private boolean calibrated = false; // sigma 是否已校准
@@ -77,12 +78,12 @@ public class RangeAccureUtil {
      * @param vol    波动率曲线
      */
     public RangeAccureUtil(boolean call, boolean cash, double s, double k, double rebate, double rd, double rf,
-            double rebase, double t, double t2, double df, double df1, double f, List<Map<String, Object>> vol) {
+            double rebase, double t, double t2, double df, double df1, double f, List<VolSurfacePoint> vol) {
         this(call, cash, s, k, rebate, rd, rf, rebase, t, t2, df, df1, f, vol, "black");
     }
 
     public RangeAccureUtil(boolean call, boolean cash, double s, double k, double rebate, double rd, double rf,
-            double rebase, double t, double t2, double df, double df1, double f, List<Map<String, Object>> vol,
+            double rebase, double t, double t2, double df, double df1, double f, List<VolSurfacePoint> vol,
             String model) {
         this.call = call;
         this.cash = cash;
@@ -212,15 +213,15 @@ public class RangeAccureUtil {
         return "bachelier".equalsIgnoreCase(model == null ? "" : model.trim());
     }
 
-    private double interpolateAtmVol(List<Map<String, Object>> volCur) {
+    private double interpolateAtmVol(List<VolSurfacePoint> volCur) {
         if (volCur == null || volCur.isEmpty()) {
             throw new IllegalArgumentException("bachelier 模型缺少波动率曲线");
         }
         Double[] deltas = volCur.stream()
-                .map(e -> Convert.toDouble(e.get("DELTA")))
+                .map(VolSurfacePoint::getAxis2Value)
                 .toArray(Double[]::new);
         Double[] vols = volCur.stream()
-                .map(e -> Convert.toDouble(e.get("VOLATILITY_RATE")))
+                .map(VolSurfacePoint::getVolatilityRate)
                 .toArray(Double[]::new);
         double atmVol = Interpolation.interpolate(deltas, vols, 0.5, VolUtil.requireAxis2InterpolateType(volCur));
         if (!Double.isFinite(atmVol) || atmVol <= 0.0) {

@@ -30,24 +30,30 @@ public class Fixing implements Serializable {
             }
         }
     }
-    private FixingInfo fixingInfo;
+    private final FixingInfo fixingInfo;
+    private final Interpolation.PreparedInterpolator preparedInterpolator;
 
     public Fixing(FixingInfo fixingInfo) {
+        if (fixingInfo == null || fixingInfo.pDataDate == null
+                || fixingInfo.curveData == null || fixingInfo.curveData.isEmpty()) {
+            throw new IllegalArgumentException("定盘曲线数据不完整");
+        }
         this.fixingInfo = fixingInfo;
-    }
-
-    public double getRate(LocalDate date) {
-        int days = (int) ChronoUnit.DAYS.between(this.fixingInfo.pDataDate, date);
         Series<Integer, Double> curveData = new Series<>(Integer.class, Double.class);
-        for (LocalDate date1 : this.fixingInfo.curveData.keySet()) {
-            int term = (int) ChronoUnit.DAYS.between(this.fixingInfo.pDataDate, date1);
-            curveData.put(term, this.fixingInfo.curveData.get(date1));
+        for (LocalDate date : fixingInfo.curveData.keySet()) {
+            int term = (int) ChronoUnit.DAYS.between(fixingInfo.pDataDate, date);
+            curveData.put(term, fixingInfo.curveData.get(date));
         }
         String interpolateType = fixingInfo.interpolateType;
         if (interpolateType == null || interpolateType.trim().isEmpty()) {
             interpolateType = Interpolation.Type.FORWARD.name();
         }
-        return Interpolation.interpolate(curveData, days, interpolateType);
+        this.preparedInterpolator = Interpolation.prepare(curveData, interpolateType);
+    }
+
+    public double getRate(LocalDate date) {
+        int days = (int) ChronoUnit.DAYS.between(this.fixingInfo.pDataDate, date);
+        return preparedInterpolator.interpolate(days);
     }
 
     public static class FixingInfo implements Serializable {

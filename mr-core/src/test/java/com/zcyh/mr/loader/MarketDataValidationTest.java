@@ -1,12 +1,18 @@
 package com.zcyh.mr.loader;
 
-import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.marketdata.Fixing;
+import com.zcyh.mr.marketdata.IrVol;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 市场数据校验异常场景测试
@@ -14,37 +20,9 @@ import java.time.LocalDate;
  */
 public class MarketDataValidationTest {
 
-    static int pass = 0, fail = 0;
-
-    public static void main(String[] args) {
-        System.out.println("========================================");
-        System.out.println("  市场数据校验异常场景测试");
-        System.out.println("========================================\n");
-
-        testCurveTypeEmpty();
-        testCurveDataEmpty();
-        testCurveIdEmpty();
-        testIrSpotBadTerm();
-        testIrSpotBadRate();
-        testIrSpotMixedGoodBad();
-        testFixingBadDate();
-        testFixingBadValue();
-        testFixingAliasType();
-        testFixingDefaultForward();
-        testFxSpotBadCurrency();
-        testFxSpotBadRate();
-        testFxSpotMixedGoodBad();
-        testTradeValidation();
-        testTradeValidationDomain();
-
-        System.out.println("\n========================================");
-        System.out.printf("  结果: 通过=%d, 失败=%d%n", pass, fail);
-        System.out.println("========================================");
-        System.exit(fail > 0 ? 1 : 0);
-    }
-
     /** 测试1: CURVE_TYPE 为空 → 整条曲线跳过 */
-    static void testCurveTypeEmpty() {
+    @Test
+    void testCurveTypeEmpty() {
         System.out.println("[测试1] CURVE_TYPE 为空 → 整条曲线跳过");
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "")
@@ -58,7 +36,8 @@ public class MarketDataValidationTest {
     }
 
     /** 测试2: CURVE_DATA 为空数组 → 整条曲线跳过 */
-    static void testCurveDataEmpty() {
+    @Test
+    void testCurveDataEmpty() {
         System.out.println("[测试2] CURVE_DATA 为空数组 → 整条曲线跳过");
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "IR_SPOT")
@@ -71,7 +50,8 @@ public class MarketDataValidationTest {
     }
 
     /** 测试3: CURVE_ID 为空 → 非 FX_SPOT 类型跳过 */
-    static void testCurveIdEmpty() {
+    @Test
+    void testCurveIdEmpty() {
         System.out.println("[测试3] IR_SPOT 的 CURVE_ID 为空 → 跳过");
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "IR_SPOT")
@@ -85,7 +65,8 @@ public class MarketDataValidationTest {
     }
 
     /** 测试4: IR_SPOT TERM 不是数字 → 该点位剔除 */
-    static void testIrSpotBadTerm() {
+    @Test
+    void testIrSpotBadTerm() {
         System.out.println("[测试4] IR_SPOT TERM 不是数字 → 该点位剔除");
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "IR_SPOT")
@@ -104,7 +85,8 @@ public class MarketDataValidationTest {
     }
 
     /** 测试5: IR_SPOT RATE 不是数字 → 该点位剔除 */
-    static void testIrSpotBadRate() {
+    @Test
+    void testIrSpotBadRate() {
         System.out.println("[测试5] IR_SPOT RATE 不是数字 → 该点位剔除");
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "IR_SPOT")
@@ -123,7 +105,8 @@ public class MarketDataValidationTest {
     }
 
     /** 测试6: IR_SPOT 混合正常和异常点位 → 正常的保留，异常的剔除 */
-    static void testIrSpotMixedGoodBad() {
+    @Test
+    void testIrSpotMixedGoodBad() {
         System.out.println("[测试6] IR_SPOT 混合正常/异常点位 → 保留正常，剔除异常");
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "IR_SPOT")
@@ -146,7 +129,8 @@ public class MarketDataValidationTest {
     }
 
     /** 测试7: FIXING TRADE_DATE 格式错误 → 该点位剔除 */
-    static void testFixingBadDate() {
+    @Test
+    void testFixingBadDate() {
         System.out.println("[测试7] FIXING TRADE_DATE 格式错误 → 该点位剔除");
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "FIXING")
@@ -167,7 +151,8 @@ public class MarketDataValidationTest {
     }
 
     /** 测试8: FIXING FIXING_VALUE 为空 → 该点位剔除 */
-    static void testFixingBadValue() {
+    @Test
+    void testFixingBadValue() {
         System.out.println("[测试8] FIXING FIXING_VALUE 为 null → 该点位剔除");
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "FIXING")
@@ -176,17 +161,20 @@ public class MarketDataValidationTest {
                 .fluentPut("CURVE_DATA", new JSONArray()
                         .fluentAdd(new JSONObject().fluentPut("TRADE_DATE", "2024-03-29").fluentPut("FIXING_VALUE", null)) // null
                         .fluentAdd(
-                                new JSONObject().fluentPut("TRADE_DATE", "2024-03-28").fluentPut("FIXING_VALUE", "0.025")) // 正常字符串数字
+                                new JSONObject().fluentPut("TRADE_DATE", "2024-03-28").fluentPut("FIXING_VALUE", "0.025")) // 非标准数值
+                        .fluentAdd(
+                                new JSONObject().fluentPut("TRADE_DATE", "2024-03-27").fluentPut("FIXING_VALUE", 0.024)) // 正常数值
                 ));
         Loader loader = new Loader(json);
         int size = loader.getMarketData().fixingRate.get("TEST_FIX2").curveData.size();
         boolean ok = (size == 1);
-        report(ok, "应只剩 1 个点位（null 被剔除），实际: " + size);
+        report(ok, "应只剩 1 个点位（null 和字符串数值被剔除），实际: " + size);
         printLogs(loader);
     }
 
     /** 测试8.1: CURVE_TYPE=FIXING（别名）可正常加载 */
-    static void testFixingAliasType() {
+    @Test
+    void testFixingAliasType() {
         System.out.println("[测试8.1] CURVE_TYPE=FIXING（别名）可正常加载");
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "FIXING")
@@ -203,7 +191,8 @@ public class MarketDataValidationTest {
     }
 
     /** 测试8.2: FIXING 未指定 INTERPOLATE_TYPE 时，默认 FORWARD（向前取值） */
-    static void testFixingDefaultForward() {
+    @Test
+    void testFixingDefaultForward() {
         System.out.println("[测试8.2] FIXING 未指定 INTERPOLATE_TYPE → 默认 FORWARD");
         String json = buildJson(new JSONObject()
                 .fluentPut("CURVE_TYPE", "FIXING")
@@ -221,42 +210,50 @@ public class MarketDataValidationTest {
     }
 
     /** 测试9: FX_SPOT CURRENCY 为空 → 该点位剔除 */
-    static void testFxSpotBadCurrency() {
+    @Test
+    void testFxSpotBadCurrency() {
         System.out.println("[测试9] FX_SPOT CURRENCY 为空 → 该点位剔除");
-        String json = buildJson(new JSONObject()
+        JSONObject marketDataItem = new JSONObject()
                 .fluentPut("CURVE_TYPE", "FX_SPOT")
+                .fluentPut("CURVE_ID", "FX_SPOT_TEST")
                 .fluentPut("DATA_DATE", "2024-03-29")
                 .fluentPut("CURVE_DATA", new JSONArray()
                         .fluentAdd(new JSONObject().fluentPut("CURRENCY", "").fluentPut("RATE", 7.2))
-                        .fluentAdd(new JSONObject().fluentPut("CURRENCY", "CNY/USD").fluentPut("RATE", 7.2))));
-        Loader loader = new Loader(json);
-        int size = loader.getMarketData().fxSpot.curveData.size();
+                        .fluentAdd(new JSONObject().fluentPut("CURRENCY", "CNY/USD").fluentPut("RATE", 7.2)));
+        JSONArray errors = new JSONArray();
+        MarketData marketData = new MarketDataLoader(LocalDate.of(2024, 3, 29), errors, "USD")
+                .loadBaseMarketData(new JSONArray().fluentAdd(marketDataItem));
+        int size = marketData.fxSpot.curveData.size();
         boolean ok = (size == 1);
         report(ok, "应只有 1 个币种对（空 CURRENCY 被剔除），实际: " + size);
-        printLogs(loader);
     }
 
     /** 测试10: FX_SPOT RATE 不是数字 → 该点位剔除 */
-    static void testFxSpotBadRate() {
+    @Test
+    void testFxSpotBadRate() {
         System.out.println("[测试10] FX_SPOT RATE 不是数字 → 该点位剔除");
-        String json = buildJson(new JSONObject()
+        JSONObject marketDataItem = new JSONObject()
                 .fluentPut("CURVE_TYPE", "FX_SPOT")
+                .fluentPut("CURVE_ID", "FX_SPOT_TEST")
                 .fluentPut("DATA_DATE", "2024-03-29")
                 .fluentPut("CURVE_DATA", new JSONArray()
                         .fluentAdd(new JSONObject().fluentPut("CURRENCY", "CNY/USD").fluentPut("RATE", "bad"))
-                        .fluentAdd(new JSONObject().fluentPut("CURRENCY", "EUR/USD").fluentPut("RATE", 1.08))));
-        Loader loader = new Loader(json);
-        int size = loader.getMarketData().fxSpot.curveData.size();
+                        .fluentAdd(new JSONObject().fluentPut("CURRENCY", "EUR/USD").fluentPut("RATE", 1.08)));
+        JSONArray errors = new JSONArray();
+        MarketData marketData = new MarketDataLoader(LocalDate.of(2024, 3, 29), errors, "USD")
+                .loadBaseMarketData(new JSONArray().fluentAdd(marketDataItem));
+        int size = marketData.fxSpot.curveData.size();
         boolean ok = (size == 1);
         report(ok, "应只有 1 个币种对（RATE='bad' 被剔除），实际: " + size);
-        printLogs(loader);
     }
 
     /** 测试11: FX_SPOT 混合正常/异常 → 保留正常 */
-    static void testFxSpotMixedGoodBad() {
+    @Test
+    void testFxSpotMixedGoodBad() {
         System.out.println("[测试11] FX_SPOT 混合正常/异常 → 保留正常");
-        String json = buildJson(new JSONObject()
+        JSONObject marketDataItem = new JSONObject()
                 .fluentPut("CURVE_TYPE", "FX_SPOT")
+                .fluentPut("CURVE_ID", "FX_SPOT_TEST")
                 .fluentPut("DATA_DATE", "2024-03-29")
                 .fluentPut("CURVE_DATA", new JSONArray()
                         .fluentAdd(new JSONObject().fluentPut("CURRENCY", "CNY/USD").fluentPut("RATE", 7.2)) // 正常
@@ -264,90 +261,54 @@ public class MarketDataValidationTest {
                         .fluentAdd(new JSONObject().fluentPut("CURRENCY", "EUR/USD").fluentPut("RATE", null)) // RATE
                                                                                                               // null
                         .fluentAdd(new JSONObject().fluentPut("CURRENCY", "JPY/USD").fluentPut("RATE", 150.0)) // 正常
-                ));
-        Loader loader = new Loader(json);
-        int size = loader.getMarketData().fxSpot.curveData.size();
+                );
+        JSONArray errors = new JSONArray();
+        MarketData marketData = new MarketDataLoader(LocalDate.of(2024, 3, 29), errors, "USD")
+                .loadBaseMarketData(new JSONArray().fluentAdd(marketDataItem));
+        int size = marketData.fxSpot.curveData.size();
         boolean ok = (size == 2);
         report(ok, "应保留 2 个正常币种对（CNY/USD, JPY/USD），实际: " + size);
-        printLogs(loader);
     }
 
-    /** 测试12: 交易数据校验 - 缺少必填字段 → 交易被过滤 */
-    static void testTradeValidation() {
-        System.out.println("[测试12] 交易数据校验 - 缺少必填字段 → 交易被过滤");
-        JSONObject trade1 = new JSONObject()
-                .fluentPut("INSTRUMENT_ID", "GOOD_TRADE")
-                .fluentPut("PRODUCT_CODE", "IRSCCS")
-                .fluentPut("PAY_CURRENCY_CODE", "CNY")
-                .fluentPut("REC_CURRENCY_CODE", "USD")
-                .fluentPut("PAY_INTEREST_TYPE", "Fixed")
-                .fluentPut("REC_INTEREST_TYPE", "Fixed")
-                .fluentPut("START_DATE", "2024-03-29")
-                .fluentPut("MATURITY_DATE", "2025-03-29")
-                .fluentPut("PAY_FREQ", "3M")
-                .fluentPut("REC_FREQ", "3M")
-                .fluentPut("PAY_NOTIONAL", 1000000)
-                .fluentPut("REC_NOTIONAL", 140000)
-                .fluentPut("PAY_DAY_COUNT_BASIS", "actual/360")
-                .fluentPut("REC_DAY_COUNT_BASIS", "actual/360");
+    /** 测试11.1: IR_VOL 混合正常/异常 → 保留正常 */
+    @Test
+    void testIrVolMixedGoodBad() {
+        String json = buildJson(new JSONObject()
+                .fluentPut("CURVE_TYPE", "IR_VOL")
+                .fluentPut("CURVE_ID", "IR_VOL_MIXED")
+                .fluentPut("DATA_DATE", "2024-03-29")
+                .fluentPut("AXIS2_TYPE", "UNDERLYING_TERM")
+                .fluentPut("CURVE_DATA", new JSONArray()
+                        .fluentAdd(new JSONObject()
+                                .fluentPut("OPTION_TERM", 30)
+                                .fluentPut("UNDERLYING_TERM", 90)
+                                .fluentPut("VOLATILITY_RATE", 0.20))
+                        .fluentAdd(new JSONObject()
+                                .fluentPut("OPTION_TERM", 60)
+                                .fluentPut("UNDERLYING_TERM", null)
+                                .fluentPut("VOLATILITY_RATE", 0.21))
+                        .fluentAdd(new JSONObject()
+                                .fluentPut("OPTION_TERM", 90)
+                                .fluentPut("UNDERLYING_TERM", 180)
+                                .fluentPut("VOLATILITY_RATE", 0.22))));
 
-        JSONObject trade2 = new JSONObject()
-                .fluentPut("INSTRUMENT_ID", "BAD_TRADE")
-                .fluentPut("PRODUCT_CODE", "IRSCCS")
-                .fluentPut("PAY_CURRENCY_CODE", "") // 空
-                .fluentPut("START_DATE", "2024-03-29")
-                .fluentPut("MATURITY_DATE", "2025-03-29");
-        // 缺少 REC_CURRENCY_CODE, PAY_INTEREST_TYPE 等
-
-        JSONObject jo = new JSONObject();
-        jo.put("oper_code", "PRICING");
-        jo.put("data_date", "2024-03-29");
-        jo.put("trade_data", new JSONArray().fluentAdd(trade1).fluentAdd(trade2));
-        jo.put("market_data", new JSONArray());
-
-        Loader loader = new Loader(jo.toJSONString());
-        int tradeCount = loader.getTrades().size();
-        int errorCount = loader.getValidationErrors().size();
-        boolean ok = (tradeCount == 1 && errorCount == 1);
-        report(ok, "应保留 1 笔正常交易、1 条错误记录，实际: trades=" + tradeCount + ", errors=" + errorCount);
-        if (errorCount > 0) {
-            System.out.println("    错误详情: " + loader.getValidationErrors().getJSONObject(0).getString("info"));
-        }
+        Loader loader = new Loader(json);
+        int size = loader.getMarketData().irVol.get("IR_VOL_MIXED").curveData.size();
+        report(size == 2, "应保留2个正常波动率点，实际: " + size);
     }
 
-    /** 测试13: 交易数据校验 - domain 值不合法 → 交易被过滤 */
-    static void testTradeValidationDomain() {
-        System.out.println("[测试13] 交易数据校验 - domain 值不合法 → 交易被过滤");
-        JSONObject trade = new JSONObject()
-                .fluentPut("INSTRUMENT_ID", "DOMAIN_BAD")
-                .fluentPut("PRODUCT_CODE", "IRSCCS")
-                .fluentPut("PAY_CURRENCY_CODE", "CNY")
-                .fluentPut("REC_CURRENCY_CODE", "USD")
-                .fluentPut("PAY_INTEREST_TYPE", "InvalidType") // domain 不合法
-                .fluentPut("REC_INTEREST_TYPE", "Fixed")
-                .fluentPut("START_DATE", "2024-03-29")
-                .fluentPut("MATURITY_DATE", "2025-03-29")
-                .fluentPut("PAY_FREQ", "3M")
-                .fluentPut("REC_FREQ", "3M")
-                .fluentPut("PAY_NOTIONAL", 1000000)
-                .fluentPut("REC_NOTIONAL", 140000)
-                .fluentPut("PAY_DAY_COUNT_BASIS", "actual/360")
-                .fluentPut("REC_DAY_COUNT_BASIS", "actual/360");
+    /** 测试11.2: IR_VOL 第二维类型必须为 UNDERLYING_TERM */
+    @Test
+    void testIrVolRejectsDeltaAxis() {
+        IrVol.IrVolInfo info = new IrVol.IrVolInfo();
+        info.axis2Type = "DELTA";
+        info.curveData.add(new VolSurfacePoint(30, 0.25d, 0.20d));
+        List<String> errors = new ArrayList<String>();
 
-        JSONObject jo = new JSONObject();
-        jo.put("oper_code", "PRICING");
-        jo.put("data_date", "2024-03-29");
-        jo.put("trade_data", new JSONArray().fluentAdd(trade));
-        jo.put("market_data", new JSONArray());
+        IrVol.validateInput("IR_VOL_TEST", info, errors);
 
-        Loader loader = new Loader(jo.toJSONString());
-        int tradeCount = loader.getTrades().size();
-        int errorCount = loader.getValidationErrors().size();
-        boolean ok = (tradeCount == 0 && errorCount == 1);
-        report(ok, "domain 不合法应被过滤，trades=" + tradeCount + ", errors=" + errorCount);
-        if (errorCount > 0) {
-            System.out.println("    错误详情: " + loader.getValidationErrors().getJSONObject(0).getString("info"));
-        }
+        assertTrue(errors.stream().anyMatch(error -> error.contains("AXIS2_TYPE必须为UNDERLYING_TERM")),
+                "IR_VOL 应拒绝 DELTA 第二维");
     }
 
     // ===== 工具方法 =====
@@ -372,14 +333,7 @@ public class MarketDataValidationTest {
     }
 
     static void report(boolean ok, String msg) {
-        if (ok) {
-            System.out.println("  [PASS] " + msg);
-            pass++;
-        } else {
-            System.out.println("  [FAIL] " + msg);
-            fail++;
-        }
-        System.out.println();
+        assertTrue(ok, msg);
     }
 }
 

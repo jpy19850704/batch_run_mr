@@ -1,10 +1,10 @@
 package com.zcyh.mr.loader;
 
-import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.zcyh.mr.math.Interpolation;
 import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.marketdata.input.MarketDataInputs;
 
 import java.time.LocalDate;
 
@@ -23,7 +23,6 @@ final class FixingMarketDataProcessor {
     void process(
             MarketData target,
             JSONObject marketJson,
-            JSONArray curveData,
             String curveType) {
         String fixingId = marketJson.getString("FIXING_ID");
         if (fixingId == null || fixingId.isEmpty()) {
@@ -39,27 +38,9 @@ final class FixingMarketDataProcessor {
             validationCollector.error(curveType, fixingId, ex.getMessage());
             return;
         }
-        for (Object pointObj : curveData) {
-            JSONObject pointJson = (JSONObject) pointObj;
-            String fixDateText = pointJson.getString("TRADE_DATE");
-            Object fixingValue = pointJson.get("FIXING_VALUE");
-            if (fixDateText == null || fixDateText.isEmpty()) {
-                validationCollector.error(curveType, fixingId,
-                        "TRADE_DATE 为空, 点位被剔除");
-                continue;
-            }
-            if (fixingValue == null) {
-                validationCollector.error(curveType, fixingId,
-                        "FIXING_VALUE 为空 (TRADE_DATE=" + fixDateText + "), 点位被剔除");
-                continue;
-            }
-            try {
-                LocalDate tradeDate = LocalDate.parse(fixDateText);
-                fixingInfo.curveData.put(tradeDate, pointJson.getDoubleValue("FIXING_VALUE"));
-            } catch (Exception ex) {
-                validationCollector.error(curveType, fixingId,
-                        "TRADE_DATE 格式错误: " + fixDateText + ", 点位被剔除");
-            }
+        MarketDataInputs.FixingInput input = marketJson.to(MarketDataInputs.FixingInput.class);
+        for (MarketDataInputs.FixingPointInput point : input.curveData) {
+            fixingInfo.curveData.put(point.tradeDate, point.fixingValue.doubleValue());
         }
         fixingInfo.pDataDate = dataDate;
         target.fixingRate.put(fixingId, fixingInfo);

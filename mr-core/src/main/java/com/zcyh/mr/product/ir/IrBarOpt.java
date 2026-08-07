@@ -57,7 +57,7 @@ public class IrBarOpt extends BarOptBase<IrBarOpt.IrBarOptTradeInfo> {
     }
 
     @Override
-    protected List<Map<String, Object>> getVolCur(MarketData md, int days) {
+    protected List<VolSurfacePoint> getVolCur(MarketData md, int days) {
         IrVol irVol = new IrVol(md.irVol.get(info.volatilitySurface));
         return irVol.getVolCur(days);
     }

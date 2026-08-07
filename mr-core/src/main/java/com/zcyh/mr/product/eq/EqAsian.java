@@ -10,7 +10,6 @@ import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
 import com.zcyh.mr.product.basic.option.AsianBase;
-import com.zcyh.mr.product.basic.option.EurOptUtil;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -62,23 +61,16 @@ public class EqAsian extends AsianBase<EqAsian.EqAsianTradeInfo, EqAsian.EqAsian
         EqVol eqVol = new EqVol(md.eqVol.get(info.volatilitySurface));
 
         double spot = eqSpot.fwdPrice(dataDate);
-        double rd = cash ? discountIr.spotRate(info.maturityDate) : discountIr.spotRate(info.settleDate);
+        double rd = discountIr.spotRate(info.maturityDate);
         double rf = 0.0;
 
-        List<Map<String, Object>> volCurve = eqVol.getVolCur(maturityDays);
-        EurOptUtil util = new EurOptUtil(
-                call,
-                cash,
-                spot,
-                info.strikePrice,
-                rd,
-                rf,
-                maturityT,
-                settleT,
-                volCurve,
-                "black");
-        double sigma = util.getSigma();
-        return new MarketFactors(spot, rd, rf, sigma);
+        List<VolSurfacePoint> volCurve = eqVol.getVolCur(maturityDays);
+        double paymentDiscountFactor = discountIr.discount(info.settleDate);
+        double physicalForwardRatio = cash
+                ? 1.0
+                : 1.0 / discountIr.fwdDiscount(info.maturityDate, info.settleDate);
+        return new MarketFactors(
+                spot, rd, rf, volCurve, paymentDiscountFactor, physicalForwardRatio);
     }
 
     @Override

@@ -1,23 +1,21 @@
 package com.zcyh.mr.loader;
 
-import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.CommVol;
 import com.zcyh.mr.marketdata.EqVol;
 import com.zcyh.mr.marketdata.FxVol;
 import com.zcyh.mr.marketdata.IrVol;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 import com.zcyh.mr.marketdata.VolUtil;
+import com.zcyh.mr.marketdata.input.MarketDataInputs;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Iterator;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.function.Function;
 
-/**
- * 波动率曲面市场数据处理器。
- */
 final class VolMarketDataProcessor {
     private final LocalDate dataDate;
     private final MarketDataValidationCollector validationCollector;
@@ -27,202 +25,141 @@ final class VolMarketDataProcessor {
         this.validationCollector = validationCollector;
     }
 
-    void processCommVol(MarketData target, JSONObject marketJson, JSONArray curveData, String curveType) {
+    void processCommVol(MarketData target, JSONObject marketJson, String curveType) {
         String curveId = marketJson.getString("CURVE_ID");
-        if (!validateCurveId(curveType, curveId)) {
-            return;
-        }
         CommVol.CommVolInfo info = MarketDataInputMapper.parseCurveMeta(
                 marketJson, CommVol.CommVolInfo.class);
-        try {
-            normalizeVolSurfaceMeta(info);
-        } catch (IllegalArgumentException ex) {
-            validationCollector.error(curveType, curveId, ex.getMessage());
+        if (!normalizeVolSurfaceMeta(info, curveType, curveId, "DELTA")) {
             return;
         }
-        info.curveData = MarketDataInputMapper.toCurveDataList(curveData);
-        validateVolCurveData(info.curveData, curveType, curveId, info.axis2Type);
+        MarketDataInputs.CommVolInput input = marketJson.to(MarketDataInputs.CommVolInput.class);
+        info.curveData = toVolSurfacePoints(input.curveData, point -> point.delta);
+        collectVolWarnings(info.curveData, curveType, curveId);
         info.pDataDate = dataDate;
         target.commVol.put(curveId, info);
     }
 
-    void processFxVol(MarketData target, JSONObject marketJson, JSONArray curveData, String curveType) {
+    void processFxVol(MarketData target, JSONObject marketJson, String curveType) {
         String curveId = marketJson.getString("CURVE_ID");
-        if (!validateCurveId(curveType, curveId)) {
-            return;
-        }
         FxVol.FxVolInfo info = MarketDataInputMapper.parseCurveMeta(
                 marketJson, FxVol.FxVolInfo.class);
-        try {
-            normalizeVolSurfaceMeta(info);
-        } catch (IllegalArgumentException ex) {
-            validationCollector.error(curveType, curveId, ex.getMessage());
+        if (!normalizeVolSurfaceMeta(info, curveType, curveId, "DELTA")) {
             return;
         }
-        info.curveData = MarketDataInputMapper.toCurveDataList(curveData);
-        validateVolCurveData(info.curveData, curveType, curveId, info.axis2Type);
+        MarketDataInputs.FxVolInput input = marketJson.to(MarketDataInputs.FxVolInput.class);
+        info.curveData = toVolSurfacePoints(input.curveData, point -> point.delta);
+        collectVolWarnings(info.curveData, curveType, curveId);
         info.pDataDate = dataDate;
         target.fxVol.put(curveId, info);
     }
 
-    void processIrVol(MarketData target, JSONObject marketJson, JSONArray curveData, String curveType) {
+    void processIrVol(MarketData target, JSONObject marketJson, String curveType) {
         String curveId = marketJson.getString("CURVE_ID");
-        if (!validateCurveId(curveType, curveId)) {
-            return;
-        }
         IrVol.IrVolInfo info = MarketDataInputMapper.parseCurveMeta(
                 marketJson, IrVol.IrVolInfo.class);
-        try {
-            normalizeVolSurfaceMeta(info);
-        } catch (IllegalArgumentException ex) {
-            validationCollector.error(curveType, curveId, ex.getMessage());
+        if (!normalizeVolSurfaceMeta(info, curveType, curveId, "UNDERLYING_TERM")) {
             return;
         }
-        info.curveData = MarketDataInputMapper.toCurveDataList(curveData);
-        validateVolCurveData(info.curveData, curveType, curveId, info.axis2Type);
+        MarketDataInputs.IrVolInput input = marketJson.to(MarketDataInputs.IrVolInput.class);
+        info.curveData = toVolSurfacePoints(input.curveData, point -> point.underlyingTerm);
+        collectVolWarnings(info.curveData, curveType, curveId);
         info.pDataDate = dataDate;
         target.irVol.put(curveId, info);
     }
 
-    void processEqVol(MarketData target, JSONObject marketJson, JSONArray curveData, String curveType) {
+    void processEqVol(MarketData target, JSONObject marketJson, String curveType) {
         String curveId = marketJson.getString("CURVE_ID");
-        if (!validateCurveId(curveType, curveId)) {
-            return;
-        }
         EqVol.EqVolInfo info = MarketDataInputMapper.parseCurveMeta(
                 marketJson, EqVol.EqVolInfo.class);
-        try {
-            normalizeVolSurfaceMeta(info);
-        } catch (IllegalArgumentException ex) {
-            validationCollector.error(curveType, curveId, ex.getMessage());
+        if (!normalizeVolSurfaceMeta(info, curveType, curveId, "DELTA")) {
             return;
         }
-        info.curveData = MarketDataInputMapper.toCurveDataList(curveData);
-        validateVolCurveData(info.curveData, curveType, curveId, info.axis2Type);
+        MarketDataInputs.EqVolInput input = marketJson.to(MarketDataInputs.EqVolInput.class);
+        info.curveData = toVolSurfacePoints(input.curveData, point -> point.delta);
+        collectVolWarnings(info.curveData, curveType, curveId);
         info.pDataDate = dataDate;
         target.eqVol.put(curveId, info);
     }
 
-    private boolean validateCurveId(String curveType, String curveId) {
-        if (curveId == null || curveId.isEmpty()) {
-            validationCollector.error(curveType, "", "CURVE_ID 为空");
-            return false;
-        }
-        return true;
-    }
-
-    private void validateVolCurveData(
-            List<Map<String, Object>> curveData,
+    private boolean normalizeVolSurfaceMeta(
+            Object info,
             String curveType,
             String curveId,
-            String axis2Type) {
-        if (curveData != null) {
-            Iterator<Map<String, Object>> iterator = curveData.iterator();
-            while (iterator.hasNext()) {
-                Map<String, Object> point = iterator.next();
-                Object optionTerm = point.get("OPTION_TERM");
-                if (optionTerm == null) {
-                    validationCollector.error(curveType, curveId,
-                            "OPTION_TERM 为空, 点位被剔除");
-                    iterator.remove();
-                    continue;
-                }
-                if (!isNumber(optionTerm)) {
-                    validationCollector.error(curveType, curveId,
-                            "OPTION_TERM 不是数字: " + optionTerm + ", 点位被剔除");
-                    iterator.remove();
-                    continue;
-                }
-
-                String axis2Field = resolveVolAxis2Field(curveType, axis2Type);
-                Object axis2 = axis2Field == null ? null : point.get(axis2Field);
-                if (axis2Field != null && axis2 == null) {
-                    validationCollector.error(curveType, curveId,
-                            axis2Field + " 为空 (OPTION_TERM=" + optionTerm + "), 点位被剔除");
-                    iterator.remove();
-                    continue;
-                }
-                if (axis2Field != null && !isNumber(axis2)) {
-                    validationCollector.error(curveType, curveId,
-                            axis2Field + " 不是数字: " + axis2
-                                    + " (OPTION_TERM=" + optionTerm + "), 点位被剔除");
-                    iterator.remove();
-                    continue;
-                }
-
-                Object volRate = point.get("VOLATILITY_RATE");
-                if (volRate == null) {
-                    validationCollector.error(curveType, curveId,
-                            "VOLATILITY_RATE 为空, 点位被剔除");
-                    iterator.remove();
-                    continue;
-                }
-                if (!isNumber(volRate)) {
-                    validationCollector.error(curveType, curveId,
-                            "VOLATILITY_RATE 不是数字: " + volRate
-                                    + " (OPTION_TERM=" + optionTerm + "), 点位被剔除");
-                    iterator.remove();
-                    continue;
-                }
-                double volValue = Double.parseDouble(volRate.toString());
-                if (volValue > 1) {
-                    validationCollector.warning(curveType, curveId,
-                            "VOLATILITY_RATE 值大于 1: " + volValue
-                                    + " (OPTION_TERM=" + optionTerm + "), 请确认是否正确");
-                }
-            }
-        }
-        if (curveData == null || curveData.isEmpty()) {
-            validationCollector.error(curveType, curveId, "CURVE_DATA 为空");
-        }
-    }
-
-    private boolean isNumber(Object value) {
-        if (value instanceof Number) {
-            return true;
-        }
+            String defaultAxis2Type) {
         try {
-            Double.parseDouble(value.toString());
+            if (info instanceof IrVol.IrVolInfo) {
+                IrVol.IrVolInfo value = (IrVol.IrVolInfo) info;
+                normalize(value, defaultAxis2Type);
+            } else if (info instanceof FxVol.FxVolInfo) {
+                FxVol.FxVolInfo value = (FxVol.FxVolInfo) info;
+                normalize(value, defaultAxis2Type);
+            } else if (info instanceof EqVol.EqVolInfo) {
+                EqVol.EqVolInfo value = (EqVol.EqVolInfo) info;
+                normalize(value, defaultAxis2Type);
+            } else if (info instanceof CommVol.CommVolInfo) {
+                CommVol.CommVolInfo value = (CommVol.CommVolInfo) info;
+                normalize(value, defaultAxis2Type);
+            }
             return true;
-        } catch (NumberFormatException ex) {
+        } catch (IllegalArgumentException ex) {
+            validationCollector.error(curveType, curveId, ex.getMessage());
             return false;
         }
     }
 
-    private String resolveVolAxis2Field(String curveType, String axis2Type) {
-        if (EngineConstants.RF_TYPE.IR_VOL.equals(curveType)) {
-            return VolUtil.resolveAxis2Field(axis2Type == null ? "UNDERLYING_TERM" : axis2Type);
+    private void normalize(IrVol.IrVolInfo info, String defaultAxis2Type) {
+        info.termInterpolateType = VolUtil.normalizeTermInterpolateType(info.termInterpolateType);
+        info.axis2Type = normalizeAxis2Type(info.axis2Type, defaultAxis2Type);
+        info.axis2InterpolateType = VolUtil.normalizeAxis2InterpolateType(info.axis2InterpolateType);
+    }
+
+    private void normalize(FxVol.FxVolInfo info, String defaultAxis2Type) {
+        info.termInterpolateType = VolUtil.normalizeTermInterpolateType(info.termInterpolateType);
+        info.axis2Type = normalizeAxis2Type(info.axis2Type, defaultAxis2Type);
+        info.axis2InterpolateType = VolUtil.normalizeAxis2InterpolateType(info.axis2InterpolateType);
+    }
+
+    private void normalize(EqVol.EqVolInfo info, String defaultAxis2Type) {
+        info.termInterpolateType = VolUtil.normalizeTermInterpolateType(info.termInterpolateType);
+        info.axis2Type = normalizeAxis2Type(info.axis2Type, defaultAxis2Type);
+        info.axis2InterpolateType = VolUtil.normalizeAxis2InterpolateType(info.axis2InterpolateType);
+    }
+
+    private void normalize(CommVol.CommVolInfo info, String defaultAxis2Type) {
+        info.termInterpolateType = VolUtil.normalizeTermInterpolateType(info.termInterpolateType);
+        info.axis2Type = normalizeAxis2Type(info.axis2Type, defaultAxis2Type);
+        info.axis2InterpolateType = VolUtil.normalizeAxis2InterpolateType(info.axis2InterpolateType);
+    }
+
+    private String normalizeAxis2Type(String axis2Type, String defaultAxis2Type) {
+        String value = MarketDataInputMapper.isBlank(axis2Type) ? defaultAxis2Type : axis2Type;
+        return VolUtil.normalizeAxis2Type(value);
+    }
+
+    private <T extends MarketDataInputs.VolPointInput> List<VolSurfacePoint> toVolSurfacePoints(
+            List<T> inputPoints,
+            Function<T, BigDecimal> axis2Extractor) {
+        List<VolSurfacePoint> result = new ArrayList<VolSurfacePoint>(inputPoints.size());
+        for (T point : inputPoints) {
+            BigDecimal axis2Value = axis2Extractor.apply(point);
+            result.add(new VolSurfacePoint(
+                    point.optionTerm,
+                    axis2Value.doubleValue(),
+                    point.volatilityRate.doubleValue()));
         }
-        if (EngineConstants.RF_TYPE.FX_VOL.equals(curveType)
-                || EngineConstants.RF_TYPE.EQ_VOL.equals(curveType)
-                || EngineConstants.RF_TYPE.COMM_VOL.equals(curveType)) {
-            return VolUtil.resolveAxis2Field(axis2Type);
+        return result;
+    }
+
+    private void collectVolWarnings(
+            List<VolSurfacePoint> curveData,
+            String curveType,
+            String curveId) {
+        for (VolSurfacePoint point : curveData) {
+            if (point.getVolatilityRate() > 1.0d) {
+                validationCollector.warning(curveType, curveId,
+                        "VOLATILITY_RATE值大于1: " + point.getVolatilityRate()
+                                + " (OPTION_TERM=" + point.getOptionTerm() + ")，请确认是否正确");
+            }
         }
-        return null;
-    }
-
-    private void normalizeVolSurfaceMeta(FxVol.FxVolInfo info) {
-        info.termInterpolateType = VolUtil.normalizeTermInterpolateType(info.termInterpolateType);
-        info.axis2Type = VolUtil.normalizeAxis2Type(info.axis2Type);
-        info.axis2InterpolateType = VolUtil.normalizeAxis2InterpolateType(info.axis2InterpolateType);
-    }
-
-    private void normalizeVolSurfaceMeta(IrVol.IrVolInfo info) {
-        info.termInterpolateType = VolUtil.normalizeTermInterpolateType(info.termInterpolateType);
-        info.axis2Type = MarketDataInputMapper.isBlank(info.axis2Type)
-                ? "UNDERLYING_TERM" : VolUtil.normalizeAxis2Type(info.axis2Type);
-        info.axis2InterpolateType = VolUtil.normalizeAxis2InterpolateType(info.axis2InterpolateType);
-    }
-
-    private void normalizeVolSurfaceMeta(EqVol.EqVolInfo info) {
-        info.termInterpolateType = VolUtil.normalizeTermInterpolateType(info.termInterpolateType);
-        info.axis2Type = VolUtil.normalizeAxis2Type(info.axis2Type);
-        info.axis2InterpolateType = VolUtil.normalizeAxis2InterpolateType(info.axis2InterpolateType);
-    }
-
-    private void normalizeVolSurfaceMeta(CommVol.CommVolInfo info) {
-        info.termInterpolateType = VolUtil.normalizeTermInterpolateType(info.termInterpolateType);
-        info.axis2Type = VolUtil.normalizeAxis2Type(info.axis2Type);
-        info.axis2InterpolateType = VolUtil.normalizeAxis2InterpolateType(info.axis2InterpolateType);
     }
 }

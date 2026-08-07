@@ -12,7 +12,6 @@ import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
 import com.zcyh.mr.product.basic.frtb.FrtbSensitivityBuilder;
 import com.zcyh.mr.product.basic.frtb.MeasureValuation;
-import com.zcyh.mr.marketdata.FrtbMarketData;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
@@ -32,7 +31,7 @@ import java.util.Map;
 /**
  * 标准利率互换（STD_IRS）估值类
  *
- * 基于 PrimeNCD1Y 的标准化利率互换合约，现金结算。
+ * 标准化利率互换合约，现金结算。
  * 估值公式：V = (远期利率 − 成交价) × 名义本金 × DCF × 方向
  * 无折现。
  */
@@ -62,19 +61,10 @@ public class StdIrs {
         measure.pv01 = shiftedMeasure.valuation - measure.valuation;
 
         // FRTB GIRR Delta 敏感度
-        measure.logs = new ArrayList<>();
         measure.sensitivityList = calcFrtbSens(measure);
 
-
-        measure.productCode = tradeInfo.productCode;
-        measure.dataDate = dataDate;
-        measure.instrumentId = tradeInfo.instrumentId;
-        measure.position = resolvePosition();
-        measure.valuationCcy = tradeInfo.currencyCode;
-        measure.valuationUnit = measure.position == 0.0 ? 0.0 : measure.valuation / measure.position;
-        measure.status = "SUCCESS";
         Map<String, Object> detail = new LinkedHashMap<>();
-        detail.put("valuation_marity_date", tradeInfo.maturityDate.toString());
+        detail.put("valuation_maturity_date", tradeInfo.maturityDate.toString());
         measure.detail = detail;
 
         return measure;
@@ -220,11 +210,6 @@ public class StdIrs {
         return sensitivities;
     }
 
-    private double resolvePosition() {
-        int direction = "B".equalsIgnoreCase(tradeInfo.buyOrSell) ? 1 : -1;
-        return direction * tradeInfo.notional;
-    }
-
     private void validateInputs(MarketData md) {
         if (tradeInfo == null) {
             throw new IllegalArgumentException("交易信息为空");
@@ -359,7 +344,7 @@ public class StdIrs {
 
         @ProductInputField(required = true)
         @JSONField(name = "TERM_CODE")
-        public String termCode = "1Y";
+        public String termCode;
 
         @ProductInputField(required = true)
         @JSONField(name = "REFERENCE_CURVE")

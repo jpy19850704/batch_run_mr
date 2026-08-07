@@ -3,6 +3,7 @@ package com.zcyh.mr.product.basic.option;
 import com.zcyh.mr.support.Convert;
 import com.zcyh.mr.math.Interpolation;
 import com.zcyh.mr.marketdata.VolUtil;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 import org.apache.commons.math3.distribution.NormalDistribution;
 
 import java.util.List;
@@ -31,16 +32,16 @@ public class EurOptUtil {
     private final double settleT;   // 交割年化期限
     private final String model;     // 定价模型: black / bachelier
     private final String volInterpolateType; // 波动率曲线插值类型
-    private final List<Map<String, Object>> vol; // 波动率曲线
+    private final List<VolSurfacePoint> vol; // 波动率曲线
 
     public EurOptUtil(boolean call, boolean cash, double s, double k, double rd,
-            double rf, double maturityT, double settleT, List<Map<String, Object>> vol, String model) {
+            double rf, double maturityT, double settleT, List<VolSurfacePoint> vol, String model) {
         this(call, cash, s, k, rd, rf, maturityT, settleT, vol, model,
                 VolUtil.requireAxis2InterpolateType(vol));
     }
 
     public EurOptUtil(boolean call, boolean cash, double s, double k, double rd,
-            double rf, double maturityT, double settleT, List<Map<String, Object>> vol, String model,
+            double rf, double maturityT, double settleT, List<VolSurfacePoint> vol, String model,
             String volInterpolateType) {
         this.call = call;
         this.cash = cash;
@@ -99,7 +100,7 @@ public class EurOptUtil {
     /**
      * 使用传入波动率曲线先反解 sigma，再定价。
      */
-    public double getValue(List<Map<String, Object>> vol) {
+    public double getValue(List<VolSurfacePoint> vol) {
         double sigma = goalSeek(vol);
         return bs(call, s, rd, rf, sigma);
     }
@@ -165,14 +166,14 @@ public class EurOptUtil {
     /**
      * 仅波动率曲线变化时反解 sigma。
      */
-    public Double goalSeek(List<Map<String, Object>> vol) {
+    public Double goalSeek(List<VolSurfacePoint> vol) {
         return goalSeek(s, rd, rf, vol);
     }
 
     /**
      * 利率与波动率曲线同时变化时反解 sigma。
      */
-    public Double goalSeek(double rd, double rf, List<Map<String, Object>> vol) {
+    public Double goalSeek(double rd, double rf, List<VolSurfacePoint> vol) {
         return goalSeek(s, rd, rf, vol);
     }
 
@@ -205,7 +206,7 @@ public class EurOptUtil {
         }
     }
 
-    private Double goalSeek(double s, double rd, double rf, List<Map<String, Object>> vol) {
+    private Double goalSeek(double s, double rd, double rf, List<VolSurfacePoint> vol) {
         double f;
         if (cash)
             f = s * Math.exp((rd - rf) * maturityT);
@@ -213,8 +214,8 @@ public class EurOptUtil {
             f = s * Math.exp((rd - rf) * settleT);
         double deltainit = 0.5;
         double epsilon = 0.001;
-        Double[] x1 = vol.stream().map(e -> Convert.toDouble(e.get("DELTA"))).toArray(Double[]::new);
-        Double[] y1 = vol.stream().map(e -> Convert.toDouble(e.get("VOLATILITY_RATE"))).toArray(Double[]::new);
+        Double[] x1 = vol.stream().map(VolSurfacePoint::getAxis2Value).toArray(Double[]::new);
+        Double[] y1 = vol.stream().map(VolSurfacePoint::getVolatilityRate).toArray(Double[]::new);
         double sigma = Interpolation.interpolate(x1, y1, deltainit, volInterpolateType);
         double val = epsilon / (f / s);
 

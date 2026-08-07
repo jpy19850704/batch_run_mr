@@ -53,7 +53,7 @@ public class FxDigOpt extends DigOptBase<FxDigOpt.FxDigOptTradeInfo> {
     }
 
     @Override
-    protected List<Map<String, Object>> getVolCur(MarketData md, int days) {
+    protected List<VolSurfacePoint> getVolCur(MarketData md, int days) {
         FxVol fxVol = new FxVol(md.fxVol.get(info.volatilitySurface));
         return fxVol.getVolCur(days);
     }
@@ -133,7 +133,7 @@ public class FxDigOpt extends DigOptBase<FxDigOpt.FxDigOptTradeInfo> {
         double fwd = Math.exp((rd - rf) * t) * s;
         boolean call = "Call".equalsIgnoreCase(info.callOrPut);
         FxVol fxVol = new FxVol(md.fxVol.get(info.volatilitySurface));
-        List<Map<String, Object>> volCur = fxVol.getVolCur(days);
+        List<VolSurfacePoint> volCur = fxVol.getVolCur(days);
         EurOptUtil optUtil = new EurOptUtil(call, true, s, k, rd, rf, t, t, volCur, "black");
         double sigma = optUtil.getSigma();
         boolean vvFlag = Boolean.TRUE.equals(info.vvFlag);

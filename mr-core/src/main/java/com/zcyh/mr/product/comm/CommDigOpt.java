@@ -58,7 +58,7 @@ public class CommDigOpt extends DigOptBase<CommDigOpt.CommDigOptTradeInfo> {
     }
 
     @Override
-    protected List<Map<String, Object>> getVolCur(MarketData md, int days) {
+    protected List<VolSurfacePoint> getVolCur(MarketData md, int days) {
         CommVol commVol = new CommVol(md.commVol.get(info.volatilitySurface));
         return commVol.getVolCur(days);
     }

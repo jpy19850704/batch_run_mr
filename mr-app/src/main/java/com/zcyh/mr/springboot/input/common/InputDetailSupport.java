@@ -104,7 +104,8 @@ public final class InputDetailSupport {
                 }
                 for (InputJsonSupport.PathValue value : InputJsonSupport.readPathValues(content,
                         field.getString("path"))) {
-                    if (value.getValue() == null || allowedValues.contains(value.getValue().toString())) {
+                    if (value.getValue() == null
+                            || containsIgnoreCase(allowedValues, value.getValue().toString())) {
                         continue;
                     }
                     addIssue(issues, issueKeys, issue(value.getPath(), "OUT_OF_DOMAIN",
@@ -113,6 +114,15 @@ public final class InputDetailSupport {
             }
         }
         return issues;
+    }
+
+    private static boolean containsIgnoreCase(JSONArray allowedValues, String value) {
+        for (Object allowedValue : allowedValues) {
+            if (allowedValue != null && allowedValue.toString().equalsIgnoreCase(value)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void addIssue(JSONArray issues, Set<String> issueKeys, JSONObject issue) {

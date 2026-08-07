@@ -4,6 +4,7 @@ import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.VolUtil;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -33,7 +34,7 @@ public class WeddingCakeUtil {
     private final double rebase;
     private final double t;
     private final double ts;
-    private final List<Map<String, Object>> volCurve;
+    private final List<VolSurfacePoint> volCurve;
 
     private final double outerLower;
     private final double outerUpper;
@@ -46,7 +47,7 @@ public class WeddingCakeUtil {
     private final boolean vvFlag;
 
     public WeddingCakeUtil(double s, double rd, double rf, double rebase,
-            double t, double ts, List<Map<String, Object>> volCurve,
+            double t, double ts, List<VolSurfacePoint> volCurve,
             double outerLower, double outerUpper, double innerLower, double innerUpper,
             double outRate, double midRate, double innerRate, boolean vvFlag) {
         this.s = s;
@@ -277,7 +278,7 @@ public class WeddingCakeUtil {
      * 直接从波动率曲线按 Delta=0.5 插值取 ATM vol，不进行 Delta 迭代。
      * 双障碍类产品（WeddingCake / DoubleBarrier）统一使用此方式。
      */
-    private static double calibratePairSigma(List<Map<String, Object>> volCurve,
+    private static double calibratePairSigma(List<VolSurfacePoint> volCurve,
             double s, double rd, double rf, double t, double ts,
             double lower, double upper) {
         return Math.max(MIN_SIGMA, interpolateAtmVol(volCurve));
@@ -286,15 +287,15 @@ public class WeddingCakeUtil {
     /**
      * 从波动率曲线按 Delta=0.5 插值取 ATM 波动率。
      */
-    private static double interpolateAtmVol(List<Map<String, Object>> volCurve) {
+    private static double interpolateAtmVol(List<VolSurfacePoint> volCurve) {
         if (volCurve == null || volCurve.isEmpty()) {
             throw new IllegalArgumentException("WeddingCake 波动率曲线不能为空");
         }
         Double[] deltas = volCurve.stream()
-                .map(e -> com.zcyh.mr.support.Convert.toDouble(e.get("DELTA")))
+                .map(VolSurfacePoint::getAxis2Value)
                 .toArray(Double[]::new);
         Double[] vols = volCurve.stream()
-                .map(e -> com.zcyh.mr.support.Convert.toDouble(e.get("VOLATILITY_RATE")))
+                .map(VolSurfacePoint::getVolatilityRate)
                 .toArray(Double[]::new);
         double sigma = com.zcyh.mr.math.Interpolation.interpolate(deltas, vols, 0.5,
                 VolUtil.requireAxis2InterpolateType(volCurve));

@@ -7,6 +7,7 @@ import com.zcyh.mr.support.Series;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.product.basic.common.ScfCashFlow;
 import com.zcyh.mr.product.ir.IrsCcs;
 import com.zcyh.mr.product.ir.StdIrs;
 import org.junit.jupiter.api.Assertions;
@@ -92,6 +93,31 @@ public class IrSwapInputValidationTest {
     }
 
     @Test
+    public void testStdIrsRejectsMissingTermCode() {
+        StdIrs.StdIrsTradeInfo info = buildStdIrsInfo();
+        info.termCode = null;
+
+        IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
+                () -> new StdIrs(DATA_DATE, info, buildMarketData(), new Calendar())
+                        .calcWithMarketData(buildMarketData()));
+
+        Assertions.assertTrue(exception.getMessage().contains("TERM_CODE"));
+    }
+
+    @Test
+    public void testStdIrsKeepsProductAccrualAndPaymentDates() {
+        StdIrs.StdIrsTradeInfo info = buildStdIrsInfo();
+        StdIrs.StdIrsMeasure result = new StdIrs(
+                DATA_DATE, info, buildMarketData(), new Calendar()).calcWithMarketData(buildMarketData());
+
+        ScfCashFlow cashflow = (ScfCashFlow) result.cashFlowList.get(0);
+        LocalDate accrualStart = info.maturityDate.plusDays(1);
+        Assertions.assertEquals(info.maturityDate, cashflow.paymentDate);
+        Assertions.assertEquals(accrualStart, cashflow.fwdStartDat);
+        Assertions.assertEquals(accrualStart.plusYears(1), cashflow.fwdEndDate);
+    }
+
+    @Test
     public void testIrsCcsRejectsInvalidSwapType() {
         IrsCcs.IrsCcsTradeInfo info = buildIrsCcsInfo();
         info.swapType = "OTHER";
@@ -139,6 +165,28 @@ public class IrSwapInputValidationTest {
         Assertions.assertEquals("COMPOUNDING", info.recInterestAggregationMethod);
     }
 
+    @Test
+    public void testIrsCcsRejectsInvalidInterestAggregationMethod() {
+        IrsCcs.IrsCcsTradeInfo info = buildIrsCcsInfo();
+        info.payInterestAggregationMethod = "INVALID";
+
+        IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
+                () -> new IrsCcs(DATA_DATE, info, buildMarketData(), new Calendar()).calc(buildMarketData()));
+
+        Assertions.assertTrue(exception.getMessage().contains("PAY_INTEREST_AGGREGATION_METHOD"));
+    }
+
+    @Test
+    public void testIrsCcsRejectsNonIncreasingDates() {
+        IrsCcs.IrsCcsTradeInfo info = buildIrsCcsInfo();
+        info.maturityDate = info.startDate;
+
+        IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class,
+                () -> new IrsCcs(DATA_DATE, info, buildMarketData(), new Calendar()).calc(buildMarketData()));
+
+        Assertions.assertTrue(exception.getMessage().contains("START_DATE"));
+    }
+
     private StdIrs.StdIrsTradeInfo buildStdIrsInfo() {
         StdIrs.StdIrsTradeInfo info = new StdIrs.StdIrsTradeInfo();
         info.instrumentId = "UT_STD_IRS_001";
@@ -148,6 +196,7 @@ public class IrSwapInputValidationTest {
         info.tradePrice = 0.03;
         info.notional = 1_000_000.0;
         info.maturityDate = DATA_DATE.plusMonths(3);
+        info.termCode = "1Y";
         info.referenceCurve = "IR_USD";
         return info;
     }

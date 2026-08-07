@@ -54,6 +54,7 @@ public class Bond implements FrtbDrcInterface {
     StructuredCashflow scf;
     private BondMeasure bondMeasure;
     Double spreadOverYield = null;
+    private boolean valuationStatePrepared;
 
     LinkedList<StructuredCashflow.Cashflow> cashflowList;
 
@@ -77,16 +78,7 @@ public class Bond implements FrtbDrcInterface {
     }
 
     public BondMeasure calc() {
-        validateInputs(marketData);
-        // 含权债：在 SOY 校准前选取最优行权日
-        if (bondInfo.optionBondFlag) {
-            resolveCallPutMaturity();
-        }
-
-        // 仅首次校准：null 表示未校准，非 null（含通过 setSpreadOverYield 预设的值）跳过
-        if (spreadOverYield == null) {
-            spreadOverYield = this.spreadOverYield();
-        }
+        prepareValuationState();
         bondMeasure = this.calcInternal(marketData);
         bondMeasure.spreadOverYield = spreadOverYield;
 
@@ -117,6 +109,70 @@ public class Bond implements FrtbDrcInterface {
             bondMeasure.sensitivityList = new ArrayList<>();
         }
         return bondMeasure;
+    }
+
+    /**
+     * 创建债券未来时点估值上下文，只生成债券现金流并准备估值状态，不计算风险指标。
+     */
+    public ForwardProjection createForwardProjection(MarketData projectionMarketData) {
+        prepareValuationState();
+        validateInputs(projectionMarketData);
+        scf.calc(projectionMarketData);
+        return new ForwardProjection(
+                projectionMarketData,
+                new LinkedList<>(scf.getCashflowList()),
+                new ArrayList<>(scf.getWarnings()));
+    }
+
+    private void prepareValuationState() {
+        if (valuationStatePrepared) {
+            return;
+        }
+        validateInputs(marketData);
+        if (bondInfo.optionBondFlag) {
+            resolveCallPutMaturity();
+        }
+        if (spreadOverYield == null) {
+            spreadOverYield = this.spreadOverYield();
+        }
+        valuationStatePrepared = true;
+    }
+
+    public final class ForwardProjection {
+        private final MarketData projectionMarketData;
+        private final LinkedList<StructuredCashflow.Cashflow> cashflows;
+        private final List<String> warnings;
+
+        private ForwardProjection(
+                MarketData projectionMarketData,
+                LinkedList<StructuredCashflow.Cashflow> cashflows,
+                List<String> warnings) {
+            this.projectionMarketData = projectionMarketData;
+            this.cashflows = cashflows;
+            this.warnings = warnings;
+        }
+
+        public double valueAt(LocalDate valuationDate) {
+            if (valuationDate == null) {
+                throw new IllegalArgumentException("债券未来估值日不能为空");
+            }
+            double value = 0.0;
+            for (StructuredCashflow.Cashflow cashflow : cashflows) {
+                if (cashflow.paymentDate != null && cashflow.paymentDate.isAfter(valuationDate)) {
+                    value += cashflow.cf * adjustedForwardDiscount(
+                            projectionMarketData, valuationDate, cashflow.paymentDate);
+                }
+            }
+            return value;
+        }
+
+        public LinkedList<StructuredCashflow.Cashflow> getCashflows() {
+            return new LinkedList<>(cashflows);
+        }
+
+        public List<String> getWarnings() {
+            return new ArrayList<>(warnings);
+        }
     }
 
     /**

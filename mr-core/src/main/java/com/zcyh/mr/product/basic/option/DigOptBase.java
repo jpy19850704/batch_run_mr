@@ -9,6 +9,7 @@ import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
 import com.zcyh.mr.product.basic.frtb.FrtbSenes;
@@ -85,7 +86,7 @@ public abstract class DigOptBase<I extends DigOptBase.DigOptBaseTradeInfo> {
         boolean call = "Call".equalsIgnoreCase(info.callOrPut);
         double rebate = info.payoffLower;
 
-        List<Map<String, Object>> volCur = getVolCur(md, days);
+        List<VolSurfacePoint> volCur = getVolCur(md, days);
         EurOptUtil optUtil = new EurOptUtil(call, true, s, k, rd, rf, t, t, volCur, "black");
         double sigma = optUtil.getSigma();
 
@@ -513,7 +514,7 @@ public abstract class DigOptBase<I extends DigOptBase.DigOptBaseTradeInfo> {
     protected abstract double getRf(MarketData md, double s, double rd, double t);
 
     /** 获取波动率曲线 */
-    protected abstract List<Map<String, Object>> getVolCur(MarketData md, int days);
+    protected abstract List<VolSurfacePoint> getVolCur(MarketData md, int days);
 
     /** 获取折现利率 */
     protected abstract double getDiscountRate(MarketData md);

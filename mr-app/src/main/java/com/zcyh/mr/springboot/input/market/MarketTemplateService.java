@@ -2,6 +2,12 @@ package com.zcyh.mr.springboot.input.market;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.zcyh.mr.marketdata.input.MarketDataType;
+import com.zcyh.mr.marketdata.input.MarketFieldDefinition;
+import com.zcyh.mr.marketdata.input.MarketFieldType;
+import com.zcyh.mr.marketdata.input.MarketInputDefinition;
+import com.zcyh.mr.marketdata.input.MarketInputDefinitionRegistry;
+import com.zcyh.mr.marketdata.input.MarketInputValidator;
 import com.zcyh.mr.springboot.input.common.ExcelTemplateFile;
 import com.zcyh.mr.springboot.input.common.InputJsonSupport;
 import org.apache.poi.ss.usermodel.Row;
@@ -62,6 +68,16 @@ public class MarketTemplateService {
             result.put("conversionType", normalizedConversionType);
         }
         result.put("fields", fieldArray);
+        if (!"CURVE_GENERATION".equals(normalized)) {
+            JSONArray containers = new JSONArray();
+            for (MarketFieldDefinition field
+                    : MarketInputDefinitionRegistry.get(normalized).getFields()) {
+                if (field.getType() == MarketFieldType.JSON) {
+                    containers.add(descriptor(field.getName(), field).toJson());
+                }
+            }
+            result.put("jsonContainers", containers);
+        }
         return result;
     }
 
@@ -75,6 +91,10 @@ public class MarketTemplateService {
 
     public List<String> validateFieldValues(String marketDataType, JSONObject marketData) {
         String normalized = normalizeDefinitionType(marketDataType);
+        if (!"CURVE_GENERATION".equals(normalized)) {
+            return MarketInputValidator.validateFieldValues(
+                    marketData, MarketDataType.parse(normalized));
+        }
         String conversionType = marketData == null ? null : marketData.getString("CONVERSION_TYPE");
         String normalizedConversionType = normalizeConversionType(normalized, conversionType);
         Map<String, FieldDescriptor> fields = collectFieldDescriptors(normalized, normalizedConversionType);
@@ -97,22 +117,29 @@ public class MarketTemplateService {
         if ("CURVE_GENERATION".equals(marketDataType)) {
             return collectRawFieldDescriptors(conversionType);
         }
-        List<String> columns = MarketImportSchema.columns(marketDataType);
+        MarketInputDefinition definition = MarketInputDefinitionRegistry.get(marketDataType);
         LinkedHashMap<String, FieldDescriptor> fields = new LinkedHashMap<>();
-        String identifierField = "FIXING".equals(marketDataType) ? "FIXING_ID" : "CURVE_ID";
-        addField(fields, identifierField, "String", true, "不能为空");
-        addCommonStoredFields(fields);
-        boolean pointField = false;
-        for (String column : columns) {
-            if ("CURVE_DATA_START".equals(column)) {
-                pointField = true;
+        for (MarketFieldDefinition field : definition.getFields()) {
+            if (field.getType() == MarketFieldType.JSON) {
+                for (MarketFieldDefinition pointField : definition.getPointFields()) {
+                    String path = field.getName() + "[0]." + pointField.getName();
+                    fields.put(path, descriptor(path, pointField));
+                }
                 continue;
             }
-            String path = pointField ? "CURVE_DATA[0]." + column : column;
-            fields.put(path, new FieldDescriptor(path, resolveType(column), identifierField.equals(column),
-                    identifierField.equals(column) ? "不能为空" : ""));
+            fields.put(field.getName(), descriptor(field.getName(), field));
         }
         return fields;
+    }
+
+    private static FieldDescriptor descriptor(String path, MarketFieldDefinition field) {
+        String rule = field.isRequired() ? "不能为空" : "";
+        return new FieldDescriptor(
+                path,
+                resolveType(field.getType()),
+                field.isRequired(),
+                rule,
+                String.join("|", field.getAllowedValues()));
     }
 
     private static LinkedHashMap<String, FieldDescriptor> collectRawFieldDescriptors(String conversionType) {
@@ -168,11 +195,6 @@ public class MarketTemplateService {
         }
     }
 
-    private static void addCommonStoredFields(Map<String, FieldDescriptor> fields) {
-        addField(fields, "DATA_DATE", "String", false, "");
-        addField(fields, "CURVE_TYPE", "String", false, "");
-    }
-
     private static void addField(Map<String, FieldDescriptor> fields, String path, String type,
             boolean required, String rule) {
         fields.putIfAbsent(path, new FieldDescriptor(path, type, required, rule));
@@ -191,6 +213,21 @@ public class MarketTemplateService {
             return "Integer";
         }
         return "String";
+    }
+
+    private static String resolveType(MarketFieldType fieldType) {
+        switch (fieldType) {
+            case INTEGER:
+                return "Integer";
+            case NUMBER:
+                return "BigDecimal";
+            case JSON:
+                return "JSON";
+            case DATE:
+            case TEXT:
+            default:
+                return "String";
+        }
     }
 
     private static void validateFieldValue(JSONObject marketData, FieldDescriptor field, List<String> errors) {
@@ -345,12 +382,18 @@ public class MarketTemplateService {
         final String type;
         final boolean required;
         final String rule;
+        final String allowedValues;
 
         FieldDescriptor(String path, String type, boolean required, String rule) {
+            this(path, type, required, rule, "");
+        }
+
+        FieldDescriptor(String path, String type, boolean required, String rule, String allowedValues) {
             this.path = path;
             this.type = type;
             this.required = required;
             this.rule = rule;
+            this.allowedValues = allowedValues;
         }
 
         JSONObject toJson() {
@@ -358,7 +401,7 @@ public class MarketTemplateService {
             result.put("path", path);
             result.put("type", type);
             result.put("required", required);
-            result.put("allowedValues", "");
+            result.put("allowedValues", allowedValues);
             result.put("rule", rule);
             return result;
         }

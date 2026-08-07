@@ -13,12 +13,10 @@ import java.util.*;
 public class FxAsianTest {
 
     @Test
-    public void testDefaultCashAndDetailFields() {
+    public void testCashAndDetailFields() {
         LocalDate dataDate = LocalDate.of(2026, 1, 10);
         FxAsian.FxAsianTradeInfo info = buildBaseInfo(dataDate);
-        info.settleType = null;
-        info.obsStartDate = LocalDate.of(2026, 1, 5);
-        info.obsEndDate = LocalDate.of(2026, 1, 15);
+        info.obsDates = dailyDates(LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 15));
         info.fixingId = "FX_ASIAN_FIX";
 
         MarketData marketData = buildMarketData(dataDate);
@@ -54,8 +52,7 @@ public class FxAsianTest {
     public void testFutureOnlyNoFixingRequired() {
         LocalDate dataDate = LocalDate.of(2026, 1, 10);
         FxAsian.FxAsianTradeInfo info = buildBaseInfo(dataDate);
-        info.obsStartDate = LocalDate.of(2026, 1, 11);
-        info.obsEndDate = LocalDate.of(2026, 1, 20);
+        info.obsDates = dailyDates(LocalDate.of(2026, 1, 11), LocalDate.of(2026, 1, 20));
         info.fixingId = null;
 
         MarketData marketData = buildMarketData(dataDate);
@@ -68,6 +65,110 @@ public class FxAsianTest {
         Assertions.assertNull(measure.detail.get("AVERAGE_PAST"));
     }
 
+    @Test
+    public void testMissingSettleTypeIsRejected() {
+        LocalDate dataDate = LocalDate.of(2026, 1, 10);
+        FxAsian.FxAsianTradeInfo info = buildBaseInfo(dataDate);
+        info.settleType = null;
+        info.obsDates = dailyDates(LocalDate.of(2026, 1, 11), LocalDate.of(2026, 1, 20));
+
+        FxAsian.FxAsianMeasure measure = new FxAsian(
+                dataDate, info, buildMarketData(dataDate)).calc();
+
+        Assertions.assertEquals("ERROR", measure.status);
+        Assertions.assertTrue(measure.logs.get(0).message.contains("SETTLE_TYPE"));
+    }
+
+    @Test
+    public void testOnlyConfiguredObservationDatesAreUsed() {
+        LocalDate dataDate = LocalDate.of(2026, 1, 10);
+        FxAsian.FxAsianTradeInfo info = buildBaseInfo(dataDate);
+        info.obsDates = "2026-01-08,2026-01-10,2026-01-15";
+        info.fixingId = "FX_ASIAN_FIX";
+
+        FxAsian.FxAsianMeasure measure = new FxAsian(
+                dataDate, info, buildMarketData(dataDate)).calc();
+
+        Assertions.assertEquals("SUCCESS", measure.status);
+        Assertions.assertEquals(1.0945, (Double) measure.detail.get("AVERAGE_PAST"), 1e-12);
+        Assertions.assertEquals(2.0 / 3.0, (Double) measure.detail.get("PAST_WEIGHT"), 1e-12);
+        Assertions.assertEquals(1.0 / 3.0, (Double) measure.detail.get("FUTURE_WEIGHT"), 1e-12);
+    }
+
+    @Test
+    public void testPhysicalSettlementUsesForwardRatio() {
+        LocalDate dataDate = LocalDate.of(2026, 1, 10);
+        MarketData marketData = buildMarketData(dataDate);
+
+        FxAsian.FxAsianTradeInfo physicalInfo = buildBaseInfo(dataDate);
+        physicalInfo.settleType = "PHYSICAL";
+        physicalInfo.obsDates = dailyDates(LocalDate.of(2026, 1, 11), LocalDate.of(2026, 1, 20));
+
+        IrSpot baseIr = new IrSpot(marketData.irSpot.get(physicalInfo.baseDiscountCurve));
+        IrSpot underIr = new IrSpot(marketData.irSpot.get(physicalInfo.underlyingDiscountCurve));
+        double forwardRatio = underIr.fwdDiscount(physicalInfo.maturityDate, physicalInfo.settleDate)
+                / baseIr.fwdDiscount(physicalInfo.maturityDate, physicalInfo.settleDate);
+
+        FxAsian.FxAsianTradeInfo adjustedCashInfo = buildBaseInfo(dataDate);
+        adjustedCashInfo.strikePrice = physicalInfo.strikePrice / forwardRatio;
+        adjustedCashInfo.obsDates = physicalInfo.obsDates;
+
+        FxAsian.FxAsianMeasure physical = new FxAsian(
+                dataDate, physicalInfo, marketData).calc(marketData);
+        FxAsian.FxAsianMeasure adjustedCash = new FxAsian(
+                dataDate, adjustedCashInfo, marketData).calc(marketData);
+
+        Assertions.assertEquals(
+                adjustedCash.valuationUnit * forwardRatio,
+                physical.valuationUnit,
+                1e-10);
+    }
+
+    @Test
+    public void testMaturityDateCanEqualDataDate() {
+        LocalDate dataDate = LocalDate.of(2026, 1, 10);
+        FxAsian.FxAsianTradeInfo info = buildBaseInfo(dataDate);
+        info.maturityDate = dataDate;
+        info.settleDate = dataDate.plusDays(2);
+        info.strikePrice = 1.08;
+        info.obsDates = "2026-01-08,2026-01-09,2026-01-10";
+        info.fixingId = "FX_ASIAN_FIX";
+
+        MarketData marketData = buildMarketData(dataDate);
+        FxAsian.FxAsianMeasure measure = new FxAsian(dataDate, info, marketData).calc();
+
+        double average = (1.094 + 1.0945 + 1.095) / 3.0;
+        double discount = new IrSpot(marketData.irSpot.get(info.baseDiscountCurve))
+                .discount(info.settleDate);
+        Assertions.assertEquals("SUCCESS", measure.status);
+        Assertions.assertEquals(discount * (average - info.strikePrice), measure.valuationUnit, 1e-12);
+    }
+
+    @Test
+    public void testGreeksAreIndependentOfPosition() {
+        LocalDate dataDate = LocalDate.of(2026, 1, 10);
+        MarketData marketData = buildMarketData(dataDate);
+
+        FxAsian.FxAsianTradeInfo buyInfo = buildBaseInfo(dataDate);
+        buyInfo.obsDates = dailyDates(LocalDate.of(2026, 1, 11), LocalDate.of(2026, 1, 20));
+
+        FxAsian.FxAsianTradeInfo sellInfo = buildBaseInfo(dataDate);
+        sellInfo.buyOrSell = "S";
+        sellInfo.contractSize = buyInfo.contractSize * 2.0;
+        sellInfo.obsDates = buyInfo.obsDates;
+
+        FxAsian.FxAsianMeasure buy = new FxAsian(dataDate, buyInfo, marketData).calc();
+        FxAsian.FxAsianMeasure sell = new FxAsian(dataDate, sellInfo, marketData).calc();
+
+        Assertions.assertEquals("SUCCESS", buy.status);
+        Assertions.assertEquals("SUCCESS", sell.status);
+        Assertions.assertEquals(buy.delta, sell.delta, 1e-12);
+        Assertions.assertEquals(buy.gamma, sell.gamma, 1e-12);
+        Assertions.assertEquals(buy.vega, sell.vega, 1e-12);
+        Assertions.assertEquals(buy.theta, sell.theta, 1e-12);
+        Assertions.assertEquals(-2.0 * buy.valuation, sell.valuation, 1e-6);
+    }
+
     private FxAsian.FxAsianTradeInfo buildBaseInfo(LocalDate dataDate) {
         FxAsian.FxAsianTradeInfo info = new FxAsian.FxAsianTradeInfo();
         info.productCode = EngineConstants.PRODUCT_CODE.FX_ASIAN;
@@ -78,6 +179,7 @@ public class FxAsianTest {
         info.strikePrice = 1.10;
         info.maturityDate = dataDate.plusMonths(6);
         info.settleDate = dataDate.plusMonths(6).plusDays(2);
+        info.settleType = "CASH";
         info.baseCurrencyCode = "USD";
         info.underlyingCurrencyCode = "EUR";
         info.baseDiscountCurve = "IR_USD";
@@ -139,12 +241,16 @@ public class FxAsianTest {
         return info;
     }
 
-    private Map<String, Object> volPoint(int optionTerm, double delta, double volRate) {
-        Map<String, Object> point = new LinkedHashMap<>();
-        point.put("OPTION_TERM", optionTerm);
-        point.put("DELTA", delta);
-        point.put("VOLATILITY_RATE", volRate);
-        return point;
+    private VolSurfacePoint volPoint(int optionTerm, double delta, double volRate) {
+        return new VolSurfacePoint(optionTerm, delta, volRate);
+    }
+
+    private String dailyDates(LocalDate start, LocalDate end) {
+        List<String> dates = new ArrayList<>();
+        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
+            dates.add(date.toString());
+        }
+        return String.join(",", dates);
     }
 
     private Fixing.FixingInfo buildFixing(LocalDate dataDate) {

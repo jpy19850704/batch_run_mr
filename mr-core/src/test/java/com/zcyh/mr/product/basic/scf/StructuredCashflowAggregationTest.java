@@ -25,6 +25,26 @@ class StructuredCashflowAggregationTest {
     }
 
     @Test
+    void scfInfo_whenNotionalFlagNotProvided_shouldDefaultToNone() {
+        Assertions.assertEquals("NONE", new StructuredCashflow.ScfInfo().notionalFlag);
+    }
+
+    @Test
+    void generateCashflow_whenNotionalFlagInvalid_shouldFail() {
+        LocalDate dataDate = LocalDate.of(2025, 12, 31);
+        StructuredCashflow.ScfInfo info = buildFloatingInfo(
+                LocalDate.of(2026, 1, 5), LocalDate.of(2026, 4, 5), "3M", "3M", "3M");
+        info.notionalFlag = "INVALID";
+        StructuredCashflow cashflow = new StructuredCashflow(
+                dataDate, info, buildMarketData(dataDate), new Calendar());
+
+        IllegalArgumentException error = Assertions.assertThrows(
+                IllegalArgumentException.class, cashflow::calc);
+
+        Assertions.assertTrue(error.getMessage().contains("NOTIONAL_FLAG"));
+    }
+
+    @Test
     void resolveRateEnd_whenResetSegmentIsStub_shouldStillUseFixingTenor() {
         LocalDate fixingStart = LocalDate.of(2026, 1, 5);
 
@@ -132,7 +152,7 @@ class StructuredCashflowAggregationTest {
     }
 
     @Test
-    void generateCashflow_whenResetIsShorterThanPay_shouldUsePaymentAccrualDcf() {
+    void generateCashflow_whenResetIsShorterThanPay_shouldUseWholePaymentAccrualDcf() {
         LocalDate dataDate = LocalDate.of(2026, 1, 1);
         StructuredCashflow.ScfInfo info = buildFloatingInfo(
                 LocalDate.of(2026, 1, 31), LocalDate.of(2026, 4, 30), "3M", "1M", "1M");
@@ -142,18 +162,12 @@ class StructuredCashflowAggregationTest {
         StructuredCashflow cashflow = new StructuredCashflow(
                 dataDate, info, buildMarketData(dataDate), new Calendar());
 
-        LinkedList<StructuredCashflow.ResetDateInfo> resets = cashflow.resetDateInfosMap
-                .get(cashflow.getCfDatelist().get(1));
-        double accumulationFactor = 1.0;
-        for (StructuredCashflow.ResetDateInfo reset : resets) {
-            double accrualDcf = CurveFunc.timeFactor(
-                    reset.accrualStart, reset.accrualEnd, info.dayCountBasis);
-            accumulationFactor *= 1.0 + info.spread * accrualDcf;
-        }
+        double fullTimeFactor = CurveFunc.timeFactor(
+                info.issueDate, info.maturityDate, info.dayCountBasis);
 
         StructuredCashflow.Cashflow interest = cashflow.calc().cashFlowList.get(0);
 
-        Assertions.assertEquals(info.notional * (accumulationFactor - 1.0), interest.cf, 1e-12);
+        Assertions.assertEquals(info.notional * info.spread * fullTimeFactor, interest.cf, 1e-12);
     }
 
     @Test
@@ -171,7 +185,7 @@ class StructuredCashflowAggregationTest {
     }
 
     @Test
-    void generateCashflow_whenOnlyFutureFixingExists_shouldRejectLookAhead() {
+    void generateCashflow_whenOnlyLaterFixingExists_shouldUseNearestLaterValue() {
         LocalDate simDate = LocalDate.of(2026, 1, 5);
         StructuredCashflow.ScfInfo info = buildFloatingInfo(
                 simDate, LocalDate.of(2026, 4, 5), "3M", "3M", "5Y");
@@ -179,10 +193,9 @@ class StructuredCashflowAggregationTest {
         marketData.fixingRate.put("FIX", buildFixing(simDate, simDate.plusDays(1), 0.0123));
 
         StructuredCashflow cashflow = new StructuredCashflow(simDate, info, marketData, new Calendar());
-        IllegalArgumentException exception = Assertions.assertThrows(
-                IllegalArgumentException.class, cashflow::calc);
+        StructuredCashflow.Cashflow interest = cashflow.calc().cashFlowList.get(0);
 
-        Assertions.assertTrue(exception.getMessage().contains("不存在日期小于等于定盘日的Fixing"));
+        Assertions.assertEquals(0.0123, interest.rate, 1e-12);
     }
 
     @Test
@@ -220,6 +233,117 @@ class StructuredCashflowAggregationTest {
         cashflow.calc();
 
         Assertions.assertEquals(1, referenceData.entrySetCount);
+    }
+
+    @Test
+    void generateCashflow_whenSevenDayResetsAreFuture_shouldUseWholeUnfixedInterval() {
+        LocalDate dataDate = LocalDate.of(2025, 12, 31);
+        LocalDate startDate = LocalDate.of(2026, 1, 5);
+        LocalDate endDate = LocalDate.of(2026, 4, 5);
+        StructuredCashflow.ScfInfo info = buildFloatingInfo(
+                startDate, endDate, "3M", "7D", "7D");
+        MarketData marketData = buildMarketData(dataDate);
+        StructuredCashflow cashflow = new StructuredCashflow(dataDate, info, marketData, new Calendar());
+
+        StructuredCashflow.Cashflow interest = cashflow.calc().cashFlowList.get(0);
+        LinkedList<StructuredCashflow.ResetDateInfo> resets = cashflow.resetDateInfosMap.get(endDate);
+        StructuredCashflow.ResetDateInfo lastReset = resets.getLast();
+        IrSpot referenceCurve = new IrSpot(marketData.irSpot.get("REF"));
+        double expectedInterestFactor = 1.0 / referenceCurve.fwdDiscount(startDate, endDate) - 1.0;
+
+        Assertions.assertEquals(13, resets.size());
+        Assertions.assertEquals(6,
+                ChronoUnit.DAYS.between(lastReset.accrualStart, lastReset.accrualEnd));
+        Assertions.assertEquals(info.notional * expectedInterestFactor, interest.cf, 1e-12);
+    }
+
+    @Test
+    void generateCashflow_whenSevenDayResetsArePartlyFixed_shouldAggregateFutureIntervalOnce() {
+        LocalDate dataDate = LocalDate.of(2026, 1, 20);
+        LocalDate startDate = LocalDate.of(2026, 1, 5);
+        LocalDate endDate = LocalDate.of(2026, 4, 5);
+        StructuredCashflow.ScfInfo info = buildFloatingInfo(
+                startDate, endDate, "3M", "7D", "7D");
+        MarketData marketData = buildMarketData(dataDate);
+        Fixing.FixingInfo fixingInfo = buildFixing(dataDate, startDate, 0.011);
+        fixingInfo.curveData.put(startDate.plusDays(7), 0.012);
+        fixingInfo.curveData.put(startDate.plusDays(14), 0.013);
+        marketData.fixingRate.put("FIX", fixingInfo);
+        StructuredCashflow cashflow = new StructuredCashflow(dataDate, info, marketData, new Calendar());
+
+        StructuredCashflow.Cashflow interest = cashflow.calc().cashFlowList.get(0);
+        double sevenDayDcf = CurveFunc.timeFactor(
+                startDate, startDate.plusDays(7), info.dayCountBasis);
+        double fixedFactor = (1.0 + 0.011 * sevenDayDcf)
+                * (1.0 + 0.012 * sevenDayDcf)
+                * (1.0 + 0.013 * sevenDayDcf);
+        LocalDate futureStart = startDate.plusDays(21);
+        IrSpot referenceCurve = new IrSpot(marketData.irSpot.get("REF"));
+        double expectedInterestFactor = fixedFactor
+                / referenceCurve.fwdDiscount(futureStart, endDate) - 1.0;
+
+        Assertions.assertEquals(info.notional * expectedInterestFactor, interest.cf, 1e-12);
+    }
+
+    @Test
+    void generateCashflow_whenAverageSevenDayResetsAreFuture_shouldAdjustWholeIntervalByResetCount() {
+        LocalDate dataDate = LocalDate.of(2025, 12, 31);
+        LocalDate startDate = LocalDate.of(2026, 1, 5);
+        LocalDate endDate = LocalDate.of(2026, 4, 5);
+        StructuredCashflow.ScfInfo info = buildFloatingInfo(
+                startDate, endDate, "3M", "7D", "7D");
+        info.interestAggregationMethod = "AVERAGE";
+        MarketData marketData = buildMarketData(dataDate);
+        StructuredCashflow cashflow = new StructuredCashflow(dataDate, info, marketData, new Calendar());
+
+        StructuredCashflow.Cashflow interest = cashflow.calc().cashFlowList.get(0);
+        LinkedList<StructuredCashflow.ResetDateInfo> resets = cashflow.resetDateInfosMap.get(endDate);
+        IrSpot referenceCurve = new IrSpot(marketData.irSpot.get("REF"));
+        double accumulationFactor = 1.0 / referenceCurve.fwdDiscount(startDate, endDate);
+        double expectedInterestFactor = resets.size()
+                * Math.expm1(Math.log(accumulationFactor) / resets.size());
+
+        Assertions.assertEquals(13, resets.size());
+        Assertions.assertEquals(info.notional * expectedInterestFactor, interest.cf, 1e-12);
+        Assertions.assertTrue(expectedInterestFactor < accumulationFactor - 1.0);
+    }
+
+    @Test
+    void generateCashflow_whenAverageSevenDayResetsArePartlyFixed_shouldOnlyAdjustFuturePeriods() {
+        LocalDate dataDate = LocalDate.of(2026, 1, 20);
+        LocalDate startDate = LocalDate.of(2026, 1, 5);
+        LocalDate endDate = LocalDate.of(2026, 4, 5);
+        StructuredCashflow.ScfInfo info = buildFloatingInfo(
+                startDate, endDate, "3M", "7D", "7D");
+        info.interestAggregationMethod = "AVERAGE";
+        MarketData marketData = buildMarketData(dataDate);
+        Fixing.FixingInfo fixingInfo = buildFixing(dataDate, startDate, 0.011);
+        fixingInfo.curveData.put(startDate.plusDays(7), 0.012);
+        fixingInfo.curveData.put(startDate.plusDays(14), 0.013);
+        marketData.fixingRate.put("FIX", fixingInfo);
+        StructuredCashflow cashflow = new StructuredCashflow(dataDate, info, marketData, new Calendar());
+
+        StructuredCashflow.Cashflow interest = cashflow.calc().cashFlowList.get(0);
+        double sevenDayDcf = CurveFunc.timeFactor(
+                startDate, startDate.plusDays(7), info.dayCountBasis);
+        double fixedInterestFactor = (0.011 + 0.012 + 0.013) * sevenDayDcf;
+        LocalDate futureStart = startDate.plusDays(21);
+        IrSpot referenceCurve = new IrSpot(marketData.irSpot.get("REF"));
+        double futureAccumulationFactor = 1.0 / referenceCurve.fwdDiscount(futureStart, endDate);
+        int futureResetCount = 10;
+        double futureInterestFactor = futureResetCount
+                * Math.expm1(Math.log(futureAccumulationFactor) / futureResetCount);
+
+        Assertions.assertEquals(info.notional * (fixedInterestFactor + futureInterestFactor), interest.cf, 1e-12);
+    }
+
+    @Test
+    void approximateAverageInterestFactor_whenOneReset_shouldKeepWholeIntervalResult() {
+        double accumulationFactor = 1.00375;
+
+        double actual = StructuredCashflow.approximateAverageInterestFactor(accumulationFactor, 1);
+
+        Assertions.assertEquals(accumulationFactor - 1.0, actual, 1e-15);
     }
 
     private StructuredCashflow.ScfInfo buildFloatingInfo(LocalDate issueDate, LocalDate maturityDate,

@@ -9,6 +9,7 @@ import com.zcyh.mr.support.EngineConfiguration;
 import com.zcyh.mr.support.EngineConstants;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.marketdata.VolUtil;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
@@ -63,7 +64,7 @@ public abstract class SharkFinBase<T extends SharkFinBase.SharkFinBaseTradeInfo,
     private double mS, mRd, mRf, mRebase, mT, mTs;
     private int mDays;
     private boolean mIsDouble, mIsUp, mVvFlag;
-    private List<Map<String, Object>> mVolCurve;
+    private List<VolSurfacePoint> mVolCurve;
 
     /**
      * 主估值结果对象：只承载本次主路径需要写入 detail 的诊断量。
@@ -891,15 +892,15 @@ public abstract class SharkFinBase<T extends SharkFinBase.SharkFinBaseTradeInfo,
     /**
      * 双边障碍腿 sigma 口径：按 Delta=0.5 从波动率曲线插值获取 ATM sigma。
      */
-    private static double resolveAtmSigma(List<Map<String, Object>> volCurve) {
+    private static double resolveAtmSigma(List<VolSurfacePoint> volCurve) {
         if (volCurve == null || volCurve.isEmpty()) {
             return 0.2;
         }
         Double[] deltas = volCurve.stream()
-                .map(e -> com.zcyh.mr.support.Convert.toDouble(e.get("DELTA")))
+                .map(VolSurfacePoint::getAxis2Value)
                 .toArray(Double[]::new);
         Double[] vols = volCurve.stream()
-                .map(e -> com.zcyh.mr.support.Convert.toDouble(e.get("VOLATILITY_RATE")))
+                .map(VolSurfacePoint::getVolatilityRate)
                 .toArray(Double[]::new);
         double sigma = com.zcyh.mr.math.Interpolation.interpolate(deltas, vols, 0.5,
                 VolUtil.requireAxis2InterpolateType(volCurve));
@@ -908,12 +909,12 @@ public abstract class SharkFinBase<T extends SharkFinBase.SharkFinBaseTradeInfo,
         }
         double sum = 0.0;
         int count = 0;
-        for (Map<String, Object> item : volCurve) {
+        for (VolSurfacePoint item : volCurve) {
             if (item == null) {
                 continue;
             }
-            Double vol = com.zcyh.mr.support.Convert.toDouble(item.get("VOLATILITY_RATE"));
-            if (vol != null && Double.isFinite(vol) && vol > 0.0) {
+            double vol = item.getVolatilityRate();
+            if (Double.isFinite(vol) && vol > 0.0) {
                 sum += vol;
                 count++;
             }
@@ -1066,7 +1067,7 @@ public abstract class SharkFinBase<T extends SharkFinBase.SharkFinBaseTradeInfo,
         public double rf;
         public double rebase;
         public double fxToCny;
-        public List<Map<String, Object>> volCurve;
+        public List<VolSurfacePoint> volCurve;
     }
 
     public static class SharkFinBaseTradeInfo implements TradeInfo {

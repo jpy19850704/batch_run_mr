@@ -66,7 +66,7 @@ public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccur
     /**
      * 获取指定天数对应的波动率曲线
      */
-    protected abstract List<Map<String, Object>> getVolCurve(MarketData md, int days);
+    protected abstract List<VolSurfacePoint> getVolCurve(MarketData md, int days);
 
     /**
      * 构建每个观察日的差异化参数（rd, rf, f）
@@ -649,7 +649,7 @@ public abstract class RangeAccureOptBase<T extends RangeAccureOptBase.RangeAccur
                 if (fwd == null) {
                     fwd = p.f;
                 }
-                List<Map<String, Object>> volCur = getVolCurve(marketData, days);
+                List<VolSurfacePoint> volCur = getVolCurve(marketData, days);
 
                 RangeAccureUtil util1, util2;
                 double direction = 1.0;

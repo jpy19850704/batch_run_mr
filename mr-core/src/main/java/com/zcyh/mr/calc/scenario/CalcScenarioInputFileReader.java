@@ -349,6 +349,9 @@ final class CalcScenarioInputFileReader {
                     n.curveType = curveType;
                     n.curveCode = curveCode;
                     n.pDataDate = dataDate;
+                    n.termInterpolateType = "LINERVAR";
+                    n.axis2Type = "DELTA";
+                    n.axis2InterpolateType = "linear";
                     return n;
                 });
                 addFxLikeVolPoint(info.curveData, row, changedRate);
@@ -360,6 +363,9 @@ final class CalcScenarioInputFileReader {
                     n.curveType = curveType;
                     n.curveCode = curveCode;
                     n.pDataDate = dataDate;
+                    n.termInterpolateType = "LINERVAR";
+                    n.axis2Type = "UNDERLYING_TERM";
+                    n.axis2InterpolateType = "linear";
                     return n;
                 });
                 addIrVolPoint(info.curveData, row, changedRate);
@@ -371,6 +377,9 @@ final class CalcScenarioInputFileReader {
                     n.curveType = curveType;
                     n.curveCode = curveCode;
                     n.pDataDate = dataDate;
+                    n.termInterpolateType = "LINERVAR";
+                    n.axis2Type = "DELTA";
+                    n.axis2InterpolateType = "linear";
                     return n;
                 });
                 addFxLikeVolPoint(info.curveData, row, changedRate);
@@ -382,6 +391,9 @@ final class CalcScenarioInputFileReader {
                     n.curveType = curveType;
                     n.curveCode = curveCode;
                     n.pDataDate = dataDate;
+                    n.termInterpolateType = "LINERVAR";
+                    n.axis2Type = "DELTA";
+                    n.axis2InterpolateType = "linear";
                     return n;
                 });
                 addFxLikeVolPoint(info.curveData, row, changedRate);
@@ -409,7 +421,7 @@ final class CalcScenarioInputFileReader {
     /**
      * 还原 FX/EQ/COMM 波动率曲面点，第二维使用 delta。
      */
-    private static void addFxLikeVolPoint(List<Map<String, Object>> curveData, JSONObject row, double changedRate) {
+    private static void addFxLikeVolPoint(List<VolSurfacePoint> curveData, JSONObject row, double changedRate) {
         Integer optionTerm = parseTermDays(row);
         String delta = parseVolAxis2(row);
         if (optionTerm == null) {
@@ -418,17 +430,13 @@ final class CalcScenarioInputFileReader {
         if (delta == null) {
             throw new IllegalArgumentException("波动率场景记录缺少 DIMENSION2，无法替换情景市场数据");
         }
-        Map<String, Object> point = new LinkedHashMap<>();
-        point.put("OPTION_TERM", optionTerm);
-        point.put("DELTA", parseNumericAxis(delta));
-        point.put("VOLATILITY_RATE", changedRate);
-        curveData.add(point);
+        curveData.add(new VolSurfacePoint(optionTerm, parseNumericAxis(delta), changedRate));
     }
 
     /**
      * 还原 IR 波动率曲面点，第二维使用 underlying term。
      */
-    private static void addIrVolPoint(List<Map<String, Object>> curveData, JSONObject row, double changedRate) {
+    private static void addIrVolPoint(List<VolSurfacePoint> curveData, JSONObject row, double changedRate) {
         Integer optionTerm = parseTermDays(row);
         String underlyingTerm = parseVolAxis2(row);
         if (optionTerm == null) {
@@ -437,11 +445,8 @@ final class CalcScenarioInputFileReader {
         if (underlyingTerm == null) {
             throw new IllegalArgumentException("IR_VOL 场景记录缺少 DIMENSION2，无法替换情景市场数据");
         }
-        Map<String, Object> point = new LinkedHashMap<>();
-        point.put("OPTION_TERM", optionTerm);
-        point.put("UNDERLYING_TERM", parseNumericAxis(underlyingTerm));
-        point.put("VOLATILITY_RATE", changedRate);
-        curveData.add(point);
+        curveData.add(new VolSurfacePoint(
+                optionTerm, parseNumericAxis(underlyingTerm), changedRate));
     }
 
     /**
@@ -454,15 +459,15 @@ final class CalcScenarioInputFileReader {
     /**
      * 第二维允许是数字或字符串，优先恢复为数值，便于波动率插值工具直接使用。
      */
-    private static Object parseNumericAxis(String value) {
+    private static double parseNumericAxis(String value) {
         String normalized = firstNonBlank(value);
         if (normalized == null) {
-            return null;
+            throw new IllegalArgumentException("DIMENSION2不能为空");
         }
         try {
             return Double.parseDouble(normalized);
-        } catch (NumberFormatException ignored) {
-            return normalized;
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("DIMENSION2必须为数值: " + value, ex);
         }
     }
 

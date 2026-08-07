@@ -10,6 +10,7 @@ import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.FxVol;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 import com.zcyh.mr.product.all.GenericMc.GenericMcTradeInfo;
 
 import java.time.LocalDate;
@@ -227,7 +228,7 @@ public final class McPricingContext {
         return paymentDates;
     }
 
-    private static double pickVol(List<Map<String, Object>> volCurve) {
+    private static double pickVol(List<VolSurfacePoint> volCurve) {
         if (volCurve == null || volCurve.isEmpty()) {
             return 0.0;
         }
@@ -235,9 +236,9 @@ public final class McPricingContext {
         double bestDistance = Double.MAX_VALUE;
         double[] left = null;
         double[] right = null;
-        for (Map<String, Object> row : volCurve) {
-            double delta = toDouble(row.get("DELTA"));
-            double vol = toDouble(row.get("VOLATILITY_RATE"));
+        for (VolSurfacePoint row : volCurve) {
+            double delta = row.getAxis2Value();
+            double vol = row.getVolatilityRate();
             if (!Double.isFinite(delta) || !Double.isFinite(vol)) {
                 continue;
             }

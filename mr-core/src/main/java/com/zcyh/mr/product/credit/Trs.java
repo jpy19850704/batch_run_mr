@@ -18,10 +18,12 @@ import com.zcyh.mr.support.ReflectionUtils;
 import com.zcyh.mr.calc.FrtbCalcControl;
 import com.zcyh.mr.calendar.Calendar;
 import com.zcyh.mr.marketdata.CurveFunc;
+import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.FxSpot;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.product.basic.validation.ProductInputField;
+import com.zcyh.mr.product.basic.validation.TradeValidationCollector;
 import com.zcyh.mr.product.basic.common.BaseCashFlow;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.scf.StructuredCashflow;
@@ -101,7 +103,7 @@ public class Trs implements FrtbDrcInterface {
         }
 
         // TRS到期后按0返回，避免产生空JTD
-        if (trsInfo.maturityDate != null && !trsInfo.maturityDate.isAfter(dataDate)) {
+        if (trsInfo.maturityDate != null && trsInfo.maturityDate.isBefore(dataDate)) {
             trsMeasure.valuation = 0.0;
             trsMeasure.valuationCny = 0.0;
             trsMeasure.cashFlowList = new ArrayList<>();
@@ -157,12 +159,12 @@ public class Trs implements FrtbDrcInterface {
             Bond.BondTradeInfo bondCopy = ReflectionUtils.bean2Bean(bondInfo, Bond.BondTradeInfo.class);
             bondCopy.notional = underlyingNotional;
             bondCopy.includeTodayCashflow = true;
-            StructuredCashflow.ScfInfo bondLocalScfInfo = ReflectionUtils.bean2Bean(bondCopy, StructuredCashflow.ScfInfo.class);
-            bondLocalScfInfo.fixingCalendar = bondLocalScfInfo.settleCalendar;
-            StructuredCashflow bondScf = new StructuredCashflow(dataDate, bondLocalScfInfo, marketData, cal);
-            bondScf.calc(marketData);
-            appendScfWarnings(trsMeasure, "债券腿", bondScf);
-            LinkedList<StructuredCashflow.Cashflow> bondCashflows = bondScf.getCashflowList();
+            bondCopy.discountCurve = effectiveAssetDiscountCurve;
+            bondCopy.creditSpreadCurve = effectiveCreditSpreadCurve;
+            Bond bondProjectionModel = new Bond(dataDate, bondCopy, this.marketData, cal);
+            Bond.ForwardProjection bondProjection = bondProjectionModel.createForwardProjection(marketData);
+            appendWarnings(trsMeasure, "债券腿", bondProjection.getWarnings());
+            LinkedList<StructuredCashflow.Cashflow> bondCashflows = bondProjection.getCashflows();
 
             // 融资腿现金流
             StructuredCashflow.ScfInfo fundingScfInfo = buildFundingScfInfo();
@@ -182,9 +184,11 @@ public class Trs implements FrtbDrcInterface {
             }
             double fxRateUnderlyingToFunding = fxRateUnderlyingToBase / fxRateFundingToBase;
 
-            // 计算债券腿PV（融资币种）
-            List<TrsCashFlow> bondLegCfs = buildBondLegCashFlows(
-                    bondCashflows, irSpotFund, irSpotAsset, creditSpreadSpot, fxRateUnderlyingToFunding, underlyingNotional);
+            // 标的总收益与融资腿使用同一结算周期
+            List<TrsCashFlow> bondLegCfs = buildUnderlyingReturnCashFlows(
+                    bondProjection, bondCashflows, fundingCashflows, marketData,
+                    irSpotFund, irSpotAsset, creditSpreadSpot,
+                    fxRateUnderlyingToFunding, underlyingNotional);
 
             // 计算融资腿PV（融资币种）
             List<TrsCashFlow> fundingLegCfs = buildFundingLegCashFlows(fundingCashflows, irSpotFund);
@@ -222,56 +226,141 @@ public class Trs implements FrtbDrcInterface {
         }
     }
 
-    /**
-     * 构建债券腿现金流列表，使用跨币种折现因子 D_xccy = D_fund² / D_asset，以融资币种计价。
-     */
-    private List<TrsCashFlow> buildBondLegCashFlows(
+    private List<TrsCashFlow> buildUnderlyingReturnCashFlows(
+            Bond.ForwardProjection bondProjection,
             LinkedList<StructuredCashflow.Cashflow> bondCashflows,
-            IrSpot irSpotFund, IrSpot irSpotAsset, IrSpot creditSpreadSpot,
-            double fxRateUnderlyingToFunding,
+            LinkedList<StructuredCashflow.Cashflow> fundingCashflows,
+            MarketData md,
+            IrSpot irSpotFund,
+            IrSpot irSpotAsset,
+            IrSpot creditSpreadSpot,
+            double spotFxRate,
             double underlyingNotional) {
 
         List<TrsCashFlow> result = new ArrayList<>();
-        double prevQ = 0.0;
-
-        for (StructuredCashflow.Cashflow cashflow : bondCashflows) {
-            if (!cashflow.paymentDate.isAfter(dataDate)) {
+        for (StructuredCashflow.Cashflow fundingCashflow : fundingCashflows) {
+            if (!"interest".equalsIgnoreCase(fundingCashflow.cashType)
+                    || fundingCashflow.paymentDate.isBefore(dataDate)) {
                 continue;
             }
-            double dFund = irSpotFund.discount(cashflow.paymentDate);
-            double dAsset = irSpotAsset.discount(cashflow.paymentDate);
-            double dAssetCredit = combinedDiscount(irSpotAsset, creditSpreadSpot, cashflow.paymentDate);
 
-            // 跨币种折现因子 D_xccy(t) = D_fund(t)^2 / D_asset(t)
-            double dXccy = (dAsset > 1e-15) ? dFund * dFund / dAsset : 0.0;
+            LocalDate periodStart = fundingCashflow.prePaymentDate;
+            LocalDate periodEnd = fundingCashflow.paymentDate;
+            double startSurvival = survivalProbability(periodStart, irSpotAsset, creditSpreadSpot);
+            double endSurvival = survivalProbability(periodEnd, irSpotAsset, creditSpreadSpot);
+            double startValue = underlyingValue(
+                    periodStart, bondProjection, md, underlyingNotional);
+            double endValue = underlyingValue(
+                    periodEnd, bondProjection, md, underlyingNotional);
+            double startFx = underlyingFxRate(periodStart, md, irSpotFund, irSpotAsset, spotFxRate);
+            double endFx = underlyingFxRate(periodEnd, md, irSpotFund, irSpotAsset, spotFxRate);
 
-            // 累计违约概率 q(t) = (1 - D_asset_credit/D_asset) / (1-RR)
-            // 约束在 [0, 1]：q > 1 代表信用利差极高（实际已视为必然违约），
-            // 若不封顶则 prevQ 超过 1，后续 marginalQ 仍正，回收总额超名义本金，经济含义错误
-            double q = (dAsset > 1e-15 && trsInfo.recoveryRate < 1.0 - 1e-10)
-                    ? Math.min(1.0, Math.max(0.0, (1.0 - dAssetCredit / dAsset) / (1.0 - trsInfo.recoveryRate)))
-                    : 0.0;
-            // 生存概率 Q(t) = 1 - q(t)，恒在 [0, 1]
-            double Q = 1.0 - q;
-
-            // 边际违约概率：q 已封顶，此处保护性 max(0) 防止曲线数据倒挂
-            double marginalQ = Math.max(0.0, q - prevQ);
-            prevQ = q;
-
-            // 存活加权现金流PV + 违约回收PV（均转换为融资币种）
-            double survivalPv = cashflow.cf * Q * dXccy * fxRateUnderlyingToFunding;
-            double recoveryPv = trsInfo.recoveryRate * underlyingNotional * marginalQ * dXccy * fxRateUnderlyingToFunding;
+            double distribution = expectedDistribution(
+                    periodStart, periodEnd, bondCashflows, irSpotAsset, creditSpreadSpot);
+            double recovery = trsInfo.recoveryRate * underlyingNotional
+                    * Math.max(0.0, startSurvival - endSurvival);
+            double returnCashflow = endValue * endSurvival * endFx
+                    - startValue * startSurvival * startFx
+                    + (distribution + recovery) * endFx;
 
             TrsCashFlow legCf = new TrsCashFlow();
-            legCf.paymentDate = cashflow.paymentDate;
-            legCf.cashflow = cashflow.cf * fxRateUnderlyingToFunding;
-            legCf.discountFactor = dXccy;
-            legCf.survivalProb = Q;
-            legCf.pv = survivalPv + recoveryPv;
-            legCf.cashflowType = "bond_" + cashflow.cashType;
+            legCf.paymentDate = periodEnd;
+            legCf.cashflow = returnCashflow;
+            legCf.discountFactor = irSpotFund.discount(periodEnd);
+            legCf.survivalProb = endSurvival;
+            legCf.pv = returnCashflow * legCf.discountFactor;
+            legCf.cashflowType = "underlying_total_return";
             result.add(legCf);
         }
         return result;
+    }
+
+    private double underlyingValue(
+            LocalDate resetDate,
+            Bond.ForwardProjection bondProjection,
+            MarketData md,
+            double underlyingNotional) {
+        if (!resetDate.isAfter(dataDate)) {
+            return findHistoricalFixing(md, trsInfo.underlyingFixingId, resetDate, "标的债券价格")
+                    * underlyingNotional / 100.0;
+        }
+        return bondProjection.valueAt(resetDate);
+    }
+
+    private double expectedDistribution(
+            LocalDate periodStart,
+            LocalDate periodEnd,
+            LinkedList<StructuredCashflow.Cashflow> bondCashflows,
+            IrSpot irSpotAsset,
+            IrSpot creditSpreadSpot) {
+        double distribution = 0.0;
+        for (StructuredCashflow.Cashflow cashflow : bondCashflows) {
+            if (cashflow.paymentDate.isAfter(periodStart)
+                    && !cashflow.paymentDate.isAfter(periodEnd)) {
+                distribution += cashflow.cf
+                        * survivalProbability(cashflow.paymentDate, irSpotAsset, creditSpreadSpot);
+            }
+        }
+        return distribution;
+    }
+
+    private double survivalProbability(LocalDate date, IrSpot irSpotAsset, IrSpot creditSpreadSpot) {
+        if (!date.isAfter(dataDate)) {
+            return 1.0;
+        }
+        double dAsset = irSpotAsset.discount(date);
+        double dAssetCredit = combinedDiscount(irSpotAsset, creditSpreadSpot, date);
+        double defaultProbability = (dAsset > 1e-15 && trsInfo.recoveryRate < 1.0 - 1e-10)
+                ? (1.0 - dAssetCredit / dAsset) / (1.0 - trsInfo.recoveryRate)
+                : 0.0;
+        return 1.0 - Math.min(1.0, Math.max(0.0, defaultProbability));
+    }
+
+    private double underlyingFxRate(
+            LocalDate resetDate,
+            MarketData md,
+            IrSpot irSpotFund,
+            IrSpot irSpotAsset,
+            double spotFxRate) {
+        if (StringUtils.equalsIgnoreCase(trsInfo.currencyCode, trsInfo.underlyingCurrencyCode)) {
+            return 1.0;
+        }
+        if (!resetDate.isAfter(dataDate)) {
+            return findHistoricalFixing(md, trsInfo.fxFixingId, resetDate, "跨币种汇率");
+        }
+        double fundingDiscount = irSpotFund.discount(resetDate);
+        if (Math.abs(fundingDiscount) <= 1e-15) {
+            throw new IllegalArgumentException("融资折现因子非法: resetDate=" + resetDate
+                    + " (INSTRUMENT_ID=" + trsInfo.instrumentId + ")");
+        }
+        return spotFxRate * irSpotAsset.discount(resetDate) / fundingDiscount;
+    }
+
+    private double findHistoricalFixing(MarketData md, String fixingId, LocalDate targetDate, String fieldLabel) {
+        if (md.fixingRate == null) {
+            throw new IllegalArgumentException(fieldLabel + "定盘数据缺失: fixingRate为null");
+        }
+        Fixing.FixingInfo fixingInfo = md.fixingRate.get(fixingId);
+        if (fixingInfo == null || fixingInfo.curveData == null || fixingInfo.curveData.isEmpty()) {
+            throw new IllegalArgumentException(fieldLabel + "定盘数据不存在: FIXING_ID=" + fixingId);
+        }
+
+        LocalDate fixingDate = null;
+        for (LocalDate date : fixingInfo.curveData.keySet()) {
+            if (!date.isAfter(targetDate) && (fixingDate == null || date.isAfter(fixingDate))) {
+                fixingDate = date;
+            }
+        }
+        if (fixingDate == null) {
+            throw new IllegalArgumentException(fieldLabel + "定盘数据缺失: FIXING_ID=" + fixingId
+                    + ", targetDate=" + targetDate + ", 不存在目标日或更早的Fixing");
+        }
+        Double value = fixingInfo.curveData.get(fixingDate);
+        if (value == null || !Double.isFinite(value)) {
+            throw new IllegalArgumentException(fieldLabel + "定盘值非法: FIXING_ID=" + fixingId
+                    + ", fixingDate=" + fixingDate);
+        }
+        return value;
     }
 
     private double combinedDiscount(IrSpot discountCurve, IrSpot creditSpreadCurve, LocalDate date) {
@@ -292,7 +381,7 @@ public class Trs implements FrtbDrcInterface {
             if (!"interest".equalsIgnoreCase(cashflow.cashType)) {
                 continue;
             }
-            if (!cashflow.paymentDate.isAfter(dataDate)) {
+            if (cashflow.paymentDate.isBefore(dataDate)) {
                 continue;
             }
             double dFund = irSpotFund.discount(cashflow.paymentDate);
@@ -317,19 +406,38 @@ public class Trs implements FrtbDrcInterface {
         scfInfo.maturityDate = trsInfo.maturityDate;
         scfInfo.notional = trsInfo.notional;
         scfInfo.currencyCode = trsInfo.currencyCode;
+        scfInfo.discountCurve = trsInfo.discountCurve;
         scfInfo.interestType = trsInfo.interestType;
         scfInfo.interestRate = trsInfo.interestRate;
         scfInfo.referenceCurve = trsInfo.referenceCurve;
+        scfInfo.fixingId = trsInfo.fixingId;
+        scfInfo.spread = "floating".equalsIgnoreCase(trsInfo.interestType) ? trsInfo.interestRate : 0.0;
+        scfInfo.interestAggregationMethod = trsInfo.interestAggregationMethod;
         scfInfo.payFreq = trsInfo.payFreq;
+        scfInfo.resetFreq = StringUtils.defaultIfBlank(trsInfo.resetFreq, trsInfo.payFreq);
+        scfInfo.fixingFreq = StringUtils.defaultIfBlank(trsInfo.fixingFreq, scfInfo.resetFreq);
         scfInfo.dayCountBasis = trsInfo.dayCountBasis;
         scfInfo.interestStub = trsInfo.interestStub;
         scfInfo.settleCalendar = trsInfo.settleCalendar;
-        scfInfo.fixingCalendar = trsInfo.settleCalendar;
+        scfInfo.settleRule = trsInfo.settleRule;
+        scfInfo.settleDayoff = trsInfo.settleDayoff;
+        scfInfo.fixingCalendar = StringUtils.defaultIfBlank(trsInfo.fixingCalendar, trsInfo.settleCalendar);
+        scfInfo.resetRule = trsInfo.fixingRule;
+        scfInfo.resetDayoff = trsInfo.fixingDayoff;
+        scfInfo.notionalFlag = "NONE";
+        scfInfo.allowMissingReferenceCurveAsZeroForward = false;
         return scfInfo;
     }
 
     private double pv01(MarketData marketData, double baseValuation) {
-        MarketData shockedMd = buildShiftedIrMarketData(marketData, trsInfo.discountCurve, 0.0001);
+        LinkedHashSet<String> curveIds = new LinkedHashSet<>();
+        curveIds.add(trsInfo.discountCurve);
+        curveIds.add(trsInfo.underlyingCurrencyDiscountCurve);
+        if ("floating".equalsIgnoreCase(trsInfo.interestType)) {
+            curveIds.add(trsInfo.referenceCurve);
+        }
+        curveIds.removeIf(StringUtils::isBlank);
+        MarketData shockedMd = buildShiftedIrMarketData(marketData, curveIds, 0.0001);
         TrsMeasure shockedMeasure = calc(shockedMd);
         if (!isSuccess(shockedMeasure)) {
             return 0.0;
@@ -340,7 +448,7 @@ public class Trs implements FrtbDrcInterface {
     /**
      * 仅复制需要冲击的折现曲线，构造局部替换后的市场数据。
      */
-    private MarketData buildShiftedIrMarketData(MarketData baseMarketData, String curveId, double shift) {
+    private MarketData buildShiftedIrMarketData(MarketData baseMarketData, Collection<String> curveIds, double shift) {
         MarketData shockedMarketData = new MarketData();
         shockedMarketData.irSpot = new HashMap<>(baseMarketData.irSpot);
         shockedMarketData.irVol = new HashMap<>(baseMarketData.irVol);
@@ -352,16 +460,15 @@ public class Trs implements FrtbDrcInterface {
         shockedMarketData.fixingRate = new HashMap<>(baseMarketData.fixingRate);
         shockedMarketData.fxSpot = baseMarketData.fxSpot;
 
-        if (curveId == null || curveId.trim().isEmpty()) {
-            return shockedMarketData;
+        for (String curveId : curveIds) {
+            IrSpot.IrSpotInfo curveInfo = baseMarketData.irSpot.get(curveId);
+            if (curveInfo == null) {
+                continue;
+            }
+            IrSpot.IrSpotInfo shockedCurve = CommUtils.deepCopy(curveInfo);
+            shockedCurve.shift(shift);
+            shockedMarketData.irSpot.put(curveId, shockedCurve);
         }
-        IrSpot.IrSpotInfo curveInfo = baseMarketData.irSpot.get(curveId);
-        if (curveInfo == null) {
-            return shockedMarketData;
-        }
-        IrSpot.IrSpotInfo shockedCurve = CommUtils.deepCopy(curveInfo);
-        shockedCurve.shift(shift);
-        shockedMarketData.irSpot.put(curveId, shockedCurve);
         return shockedMarketData;
     }
 
@@ -387,9 +494,13 @@ public class Trs implements FrtbDrcInterface {
         // GIRR敏感性：融资折现曲线（融资币种bucket）+ 标的折现曲线（标的币种bucket）
         HashMap<String, String> girrMap = new HashMap<>();
         girrMap.put(trsInfo.discountCurve, trsInfo.currencyCode);
+        if ("floating".equalsIgnoreCase(trsInfo.interestType)
+                && StringUtils.isNotBlank(trsInfo.referenceCurve)) {
+            girrMap.put(trsInfo.referenceCurve, trsInfo.currencyCode);
+        }
 
         // 跨币种折现曲线退化检查：
-        // 跨币种且两条曲线代码相同时，D_xccy shock方向仍正确，但bucket归属存在歧义，
+        // 跨币种且两条曲线代码相同时，bucket归属存在歧义，
         // 输出WARN并复用融资币种bucket（girrMap已有该条目，无需重复添加）
         if (isCrossCurrency && effectiveAssetDiscountCurve.equals(trsInfo.discountCurve)) {
             measure.addWarningLog("TRS跨币种折现曲线退化：标的折现曲线(" + effectiveAssetDiscountCurve
@@ -517,7 +628,14 @@ public class Trs implements FrtbDrcInterface {
         if (measure == null || scf == null) {
             return;
         }
-        for (String warning : scf.getWarnings()) {
+        appendWarnings(measure, legName, scf.getWarnings());
+    }
+
+    private void appendWarnings(TrsMeasure measure, String legName, List<String> warnings) {
+        if (measure == null || warnings == null) {
+            return;
+        }
+        for (String warning : warnings) {
             if (StringUtils.isBlank(warning)) {
                 continue;
             }
@@ -550,8 +668,8 @@ public class Trs implements FrtbDrcInterface {
         if (trsInfo.startDate == null || trsInfo.maturityDate == null) {
             return "START_DATE / MATURITY_DATE 不能为空: INSTRUMENT_ID=" + trsInfo.instrumentId;
         }
-        if (trsInfo.maturityDate.isBefore(trsInfo.startDate)) {
-            return "MATURITY_DATE 不能早于 START_DATE: INSTRUMENT_ID=" + trsInfo.instrumentId;
+        if (!trsInfo.startDate.isBefore(trsInfo.maturityDate)) {
+            return "START_DATE 必须早于 MATURITY_DATE: INSTRUMENT_ID=" + trsInfo.instrumentId;
         }
         if (StringUtils.isBlank(trsInfo.currencyCode)) {
             return "CURRENCY_CODE 不能为空: INSTRUMENT_ID=" + trsInfo.instrumentId;
@@ -568,9 +686,37 @@ public class Trs implements FrtbDrcInterface {
         if (StringUtils.isBlank(trsInfo.underlyingBondId)) {
             return "UNDERLYING_BOND_ID 不能为空: INSTRUMENT_ID=" + trsInfo.instrumentId;
         }
+        if (StringUtils.isBlank(trsInfo.underlyingFixingId)) {
+            return "UNDERLYING_FIXING_ID 不能为空: INSTRUMENT_ID=" + trsInfo.instrumentId;
+        }
+        if (!StringUtils.equalsIgnoreCase(trsInfo.currencyCode, trsInfo.underlyingCurrencyCode)
+                && StringUtils.isBlank(trsInfo.fxFixingId)) {
+            return "跨币种TRS的 FX_FIXING_ID 不能为空: INSTRUMENT_ID=" + trsInfo.instrumentId;
+        }
         if (trsInfo.underlyingNotional == null || !Double.isFinite(trsInfo.underlyingNotional)
                 || trsInfo.underlyingNotional < 0.0) {
             return "UNDERLYING_NOTIONAL 必须为非负有限数: INSTRUMENT_ID=" + trsInfo.instrumentId;
+        }
+        if (!"fixed".equalsIgnoreCase(trsInfo.interestType)
+                && !"floating".equalsIgnoreCase(trsInfo.interestType)) {
+            return "INTEREST_TYPE 仅支持 FIXED/FLOATING: INSTRUMENT_ID=" + trsInfo.instrumentId;
+        }
+        if (trsInfo.interestRate == null || !Double.isFinite(trsInfo.interestRate)) {
+            return "INTEREST_RATE 必须为有限数: INSTRUMENT_ID=" + trsInfo.instrumentId;
+        }
+        if (StringUtils.isBlank(trsInfo.payFreq)) {
+            return "PAY_FREQ 不能为空: INSTRUMENT_ID=" + trsInfo.instrumentId;
+        }
+        if (StringUtils.isBlank(trsInfo.dayCountBasis)) {
+            return "DAY_COUNT_BASIS 不能为空: INSTRUMENT_ID=" + trsInfo.instrumentId;
+        }
+        if ("floating".equalsIgnoreCase(trsInfo.interestType)
+                && StringUtils.isBlank(trsInfo.referenceCurve)) {
+            return "浮息融资腿 REFERENCE_CURVE 不能为空: INSTRUMENT_ID=" + trsInfo.instrumentId;
+        }
+        if ("floating".equalsIgnoreCase(trsInfo.interestType)
+                && StringUtils.isBlank(trsInfo.fixingId)) {
+            return "浮息融资腿 FIXING_ID 不能为空: INSTRUMENT_ID=" + trsInfo.instrumentId;
         }
         return null;
     }
@@ -646,11 +792,20 @@ public class Trs implements FrtbDrcInterface {
         @JSONField(name = "UNDERLYING_CURRENCY_DISCOUNT_CURVE")
         public String underlyingCurrencyDiscountCurve;
         /** 信用利差曲线（保留输入字段，计量口径使用底层债券 creditSpreadCurve） */
+        @ProductInputField
         @JSONField(name = "CREDIT_SPREAD_CURVE")
         public String creditSpreadCurve;
         @ProductInputField(required = true)
         @JSONField(name = "UNDERLYING_BOND_ID")
         public String underlyingBondId;
+        /** 标的债券含息价格定盘标识 */
+        @ProductInputField(required = true)
+        @JSONField(name = "UNDERLYING_FIXING_ID")
+        public String underlyingFixingId;
+        /** 跨币种历史转换汇率定盘标识 */
+        @ProductInputField
+        @JSONField(name = "FX_FIXING_ID")
+        public String fxFixingId;
         /** 标的类型，当前支持 BOND */
         @ProductInputField(allowedValues = {"BOND"}, ignoreCase = true)
         @JSONField(name = "UNDERLYING_TYPE")
@@ -679,11 +834,57 @@ public class Trs implements FrtbDrcInterface {
         @ProductInputField(required = true)
         @JSONField(name = "INTEREST_STUB")
         public String interestStub;
+        @ProductInputField
         @JSONField(name = "SETTLE_CALENDAR")
         public String settleCalendar;
+        @ProductInputField(allowedValues = {"Regular_Preceding", "Modified_Preceding",
+                "Regular_Following", "Modified_Following"}, ignoreCase = true)
+        @JSONField(name = "SETTLE_RULE")
+        public String settleRule;
+        @ProductInputField(min = "0")
+        @JSONField(name = "SETTLE_DAYOFF")
+        public Integer settleDayoff;
+        @ProductInputField
+        @JSONField(name = "FIXING_ID")
+        public String fixingId;
+        @ProductInputField
+        @JSONField(name = "FIXING_CALENDAR")
+        public String fixingCalendar;
+        @ProductInputField(allowedValues = {"Regular_Preceding", "Modified_Preceding",
+                "Regular_Following", "Modified_Following"}, ignoreCase = true)
+        @JSONField(name = "FIXING_RULE")
+        public String fixingRule;
+        @ProductInputField(min = "0")
+        @JSONField(name = "FIXING_DAYOFF")
+        public Integer fixingDayoff;
+        @ProductInputField
+        @JSONField(name = "RESET_FREQ")
+        public String resetFreq;
+        @ProductInputField
+        @JSONField(name = "FIXING_FREQ")
+        public String fixingFreq;
+        @ProductInputField(allowedValues = {"AVERAGE", "COMPOUNDING"}, ignoreCase = true)
+        @JSONField(name = "INTEREST_AGGREGATION_METHOD")
+        public String interestAggregationMethod = "COMPOUNDING";
         @ProductInputField(required = true)
         @JSONField(name = "PRODUCT_CODE")
         public String productCode;
+
+        @Override
+        public void validateBusinessRules(TradeValidationCollector errors) {
+            if (StringUtils.isNotBlank(currencyCode)
+                    && StringUtils.isNotBlank(underlyingCurrencyCode)
+                    && !StringUtils.equalsIgnoreCase(currencyCode, underlyingCurrencyCode)
+                    && StringUtils.isBlank(fxFixingId)) {
+                errors.add("FX_FIXING_ID", "标的债券币种与结算币种不同时必填");
+            }
+            if ("FLOATING".equalsIgnoreCase(interestType) && StringUtils.isBlank(fixingId)) {
+                errors.add("FIXING_ID", "浮息融资腿必填");
+            }
+            if ("FLOATING".equalsIgnoreCase(interestType) && StringUtils.isBlank(referenceCurve)) {
+                errors.add("REFERENCE_CURVE", "浮息融资腿必填");
+            }
+        }
     }
 
     public static class TrsMeasure extends Measure {

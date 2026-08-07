@@ -7,6 +7,7 @@ import com.zcyh.mr.support.Series;
 import com.zcyh.mr.marketdata.FxVol;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 import com.zcyh.mr.marketdata.curvegeneration.converter.FxImpliedCurveConstruct;
 import com.zcyh.mr.marketdata.curvegeneration.converter.VolRrbf2Delta;
 import com.zcyh.mr.marketdata.curvegeneration.converter.ZeroCurveBootstrap;
@@ -306,14 +307,14 @@ public class CurveGeneration {
                 info.curveCode = first.curveId;
                 info.dataDate = first.dataDate;
                 info.pDataDate = first.dataDate;
+                info.termInterpolateType = "LINERVAR";
+                info.axis2Type = "DELTA";
+                info.axis2InterpolateType = "linear";
 
-                List<Map<String, Object>> curveData = new ArrayList<>();
+                List<VolSurfacePoint> curveData = new ArrayList<>();
                 for (DeltaTermVol pt : points) {
-                    Map<String, Object> row = new LinkedHashMap<>();
-                    row.put("OPTION_TERM", (int) pt.termDays);
-                    row.put("DELTA", pt.delta);
-                    row.put("VOLATILITY_RATE", pt.fxVol);
-                    curveData.add(row);
+                    curveData.add(new VolSurfacePoint(
+                            (int) pt.termDays, pt.delta, pt.fxVol));
                 }
                 info.curveData = curveData;
 

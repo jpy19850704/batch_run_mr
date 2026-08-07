@@ -55,7 +55,7 @@ public class EqRangeAccureOpt extends RangeAccureOptBase<EqRangeAccureOpt.EqRang
     }
 
     @Override
-    protected List<Map<String, Object>> getVolCurve(MarketData md, int days) {
+    protected List<VolSurfacePoint> getVolCurve(MarketData md, int days) {
         EqVol eqVol = new EqVol(md.eqVol.get(rangeAccureInfo.volatilitySurface));
         return eqVol.getVolCur(days);
     }

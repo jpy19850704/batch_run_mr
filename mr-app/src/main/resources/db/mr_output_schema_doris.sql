@@ -942,3 +942,92 @@ PROPERTIES (
     "replication_allocation" = "tag.location.default: 1",
     "enable_unique_key_merge_on_write" = "true"
 );
+
+-- BA-CVA组合结果
+CREATE TABLE IF NOT EXISTS TB_OUT_CVA_RESULT (
+    ID                       BIGINT AUTO_INCREMENT,
+    BATCH_ID                 VARCHAR(64) COMMENT '批次ID',
+    DATA_DATE                DATE NOT NULL COMMENT '计算基准日期',
+    CALCULATION_MODE         VARCHAR(16) COMMENT 'FULL/REDUCED',
+    REDUCTION_REASON          VARCHAR(32) COMMENT 'FULL_BA_CVA/NOTIONAL_THRESHOLD/NO_ELIGIBLE_HEDGE',
+    DERIVATIVE_NOTIONAL_CNY   DECIMAL(38,10) COMMENT '纳入CVA范围的衍生工具名义本金合计',
+    COUNTERPARTY_COUNT       INT COMMENT '交易对手数量',
+    NETTING_SET_COUNT        INT COMMENT '净额集合数量',
+    HEDGE_COUNT              INT COMMENT '合格对冲数量',
+    K_REDUCED                 DECIMAL(38,10) COMMENT '简化版BA-CVA资本要求',
+    K_HEDGED                  DECIMAL(38,10) COMMENT '考虑合格对冲的资本要求',
+    K_FULL                    DECIMAL(38,10) COMMENT '完整版BA-CVA资本要求',
+    CVA_CAPITAL_REQUIREMENT   DECIMAL(38,10) COMMENT 'CVA资本要求',
+    CVA_RWA                   DECIMAL(38,10) COMMENT 'CVA风险加权资产',
+    CREATE_TIME               DATETIME(3) COMMENT '落库时间'
+)
+UNIQUE KEY(ID)
+DISTRIBUTED BY HASH(ID) BUCKETS 4
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
+-- BA-CVA交易对手明细
+CREATE TABLE IF NOT EXISTS TB_OUT_CVA_COUNTERPARTY_DETAIL (
+    ID                       BIGINT AUTO_INCREMENT,
+    BATCH_ID                 VARCHAR(64) COMMENT '批次ID',
+    DATA_DATE                DATE NOT NULL COMMENT '计算基准日期',
+    COUNTERPARTY_ID          VARCHAR(128) COMMENT '交易对手ID',
+    SCVA                     DECIMAL(38,10) COMMENT '单独交易对手CVA资本',
+    SINGLE_NAME_HEDGE        DECIMAL(38,10) COMMENT '单名对冲抵减量SNH',
+    HEDGING_MISALIGNMENT     DECIMAL(38,10) COMMENT '对冲错位项HMA',
+    CREATE_TIME              DATETIME(3) COMMENT '落库时间'
+)
+UNIQUE KEY(ID)
+DISTRIBUTED BY HASH(ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
+-- BA-CVA净额集合明细
+CREATE TABLE IF NOT EXISTS TB_OUT_CVA_NETTING_SET_DETAIL (
+    ID                       BIGINT AUTO_INCREMENT,
+    BATCH_ID                 VARCHAR(64) COMMENT '批次ID',
+    DATA_DATE                DATE NOT NULL COMMENT '计算基准日期',
+    NETTING_SET_ID           VARCHAR(128) COMMENT '净额集合ID',
+    COUNTERPARTY_ID          VARCHAR(128) COMMENT '交易对手ID',
+    EFFECTIVE_MATURITY_YEARS DECIMAL(38,10) COMMENT 'M_NS',
+    EAD                      DECIMAL(38,10) COMMENT 'SA-CCR EAD',
+    RISK_WEIGHT              DECIMAL(18,10) COMMENT 'CVA风险权重',
+    DISCOUNT_FACTOR           DECIMAL(38,10) COMMENT '监管折现因子',
+    SCVA_CONTRIBUTION         DECIMAL(38,10) COMMENT '净额集合SCVA贡献',
+    CREATE_TIME               DATETIME(3) COMMENT '落库时间'
+)
+UNIQUE KEY(ID)
+DISTRIBUTED BY HASH(ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);
+
+-- BA-CVA对冲明细
+CREATE TABLE IF NOT EXISTS TB_OUT_CVA_HEDGE_DETAIL (
+    ID                       BIGINT AUTO_INCREMENT,
+    BATCH_ID                 VARCHAR(64) COMMENT '批次ID',
+    DATA_DATE                DATE NOT NULL COMMENT '计算基准日期',
+    HEDGE_ID                 VARCHAR(128) COMMENT '对冲交易ID',
+    HEDGE_TYPE               VARCHAR(32) COMMENT '对冲类型',
+    COUNTERPARTY_ID          VARCHAR(128) COMMENT '单名对冲对应交易对手',
+    RISK_WEIGHT              DECIMAL(18,10) COMMENT '对冲风险权重',
+    CORRELATION               DECIMAL(18,10) COMMENT '对冲相关系数',
+    REMAINING_MATURITY_YEARS DECIMAL(38,10) COMMENT '对冲剩余期限',
+    NOTIONAL_CNY             DECIMAL(38,10) COMMENT '对冲名义本金',
+    DISCOUNT_FACTOR           DECIMAL(38,10) COMMENT '监管折现因子',
+    SINGLE_NAME_HEDGE        DECIMAL(38,10) COMMENT 'SNH贡献',
+    INDEX_HEDGE              DECIMAL(38,10) COMMENT 'IH贡献',
+    HEDGING_MISALIGNMENT     DECIMAL(38,10) COMMENT 'HMA贡献',
+    CREATE_TIME              DATETIME(3) COMMENT '落库时间'
+)
+UNIQUE KEY(ID)
+DISTRIBUTED BY HASH(ID) BUCKETS 8
+PROPERTIES (
+    "replication_allocation" = "tag.location.default: 1",
+    "enable_unique_key_merge_on_write" = "true"
+);

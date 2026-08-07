@@ -16,6 +16,7 @@ import com.zcyh.mr.marketdata.Fixing;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.MarketData;
 import com.zcyh.mr.marketdata.VolUtil;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 import com.zcyh.mr.product.basic.common.Measure;
 import com.zcyh.mr.product.basic.common.OptionMeasure;
 import com.zcyh.mr.product.basic.frtb.FrtbDependency;
@@ -718,15 +719,15 @@ public abstract class StepUpOptBase<T, M extends OptionMeasure> {
         return "bachelier".equalsIgnoreCase(modelType == null ? "" : modelType.trim());
     }
 
-    private double interpolateAtmVol(List<Map<String, Object>> volCur) {
+    private double interpolateAtmVol(List<VolSurfacePoint> volCur) {
         if (volCur == null || volCur.isEmpty()) {
             throw new IllegalArgumentException("bachelier 模型缺少波动率曲线");
         }
         Double[] deltas = volCur.stream()
-                .map(e -> Convert.toDouble(e.get("DELTA")))
+                .map(VolSurfacePoint::getAxis2Value)
                 .toArray(Double[]::new);
         Double[] vols = volCur.stream()
-                .map(e -> Convert.toDouble(e.get("VOLATILITY_RATE")))
+                .map(VolSurfacePoint::getVolatilityRate)
                 .toArray(Double[]::new);
         double sigma = Interpolation.interpolate(deltas, vols, 0.5, VolUtil.requireAxis2InterpolateType(volCur));
         if (!Double.isFinite(sigma) || sigma <= 0.0) {
@@ -775,7 +776,7 @@ public abstract class StepUpOptBase<T, M extends OptionMeasure> {
         public double rebate1;
         public double rebate2;
         public double rebate3;
-        public List<Map<String, Object>> volCur;
+        public List<VolSurfacePoint> volCur;
     }
 
     /**

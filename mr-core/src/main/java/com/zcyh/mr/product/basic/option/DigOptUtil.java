@@ -1,5 +1,7 @@
 package com.zcyh.mr.product.basic.option;
 
+import com.zcyh.mr.marketdata.VolSurfacePoint;
+
 import java.util.List;
 import java.util.Map;
 
@@ -28,18 +30,18 @@ public class DigOptUtil extends OptUtil {
     private double t2;
     private String model;
 
-    private List<Map<String, Object>> vol;
+    private List<VolSurfacePoint> vol;
     private boolean vvFlag;
 
     public DigOptUtil(boolean call, boolean cash, double s, double k, double rebate,
             double rd, double rf, double rebase, double t, double t2,
-            List<Map<String, Object>> vol, double sigma, String model) {
+            List<VolSurfacePoint> vol, double sigma, String model) {
         this(call, cash, s, k, rebate, rd, rf, rebase, t, t2, vol, sigma, model, false);
     }
 
     public DigOptUtil(boolean call, boolean cash, double s, double k, double rebate,
             double rd, double rf, double rebase, double t, double t2,
-            List<Map<String, Object>> vol, double sigma, String model, boolean vvFlag) {
+            List<VolSurfacePoint> vol, double sigma, String model, boolean vvFlag) {
         this.call = call;
         this.cash = cash;
         this.s = s;

@@ -2,6 +2,7 @@ package com.zcyh.mr.product.basic.option;
 
 import com.zcyh.mr.math.Interpolation;
 import com.zcyh.mr.marketdata.VolUtil;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 
 import java.util.List;
 import java.util.Map;
@@ -42,7 +43,7 @@ public class VannaVolgaAdjuster extends OptUtil {
      */
     public static double adjust(double s, double k,
             double rd, double rf, double sigma, double t,
-            List<Map<String, Object>> volCur,
+            List<VolSurfacePoint> volCur,
             boolean isDouble, double noTouchProb) {
         return adjustInternal(s, k, rd, rf, sigma, t, volCur, isDouble, noTouchProb, null);
     }
@@ -57,7 +58,7 @@ public class VannaVolgaAdjuster extends OptUtil {
      */
     public static double adjustWithExoticGreeks(double s, double k,
             double rd, double rf, double sigma, double t,
-            List<Map<String, Object>> volCur,
+            List<VolSurfacePoint> volCur,
             boolean isDouble, double noTouchProb,
             double exoticVega, double exoticVanna, double exoticVolga) {
         double[] exoticGreeks = new double[] { exoticVega, exoticVanna, exoticVolga };
@@ -71,7 +72,7 @@ public class VannaVolgaAdjuster extends OptUtil {
      */
     private static double adjustInternal(double s, double k,
             double rd, double rf, double sigma, double t,
-            List<Map<String, Object>> volCur,
+            List<VolSurfacePoint> volCur,
             boolean isDouble, double noTouchProb,
             double[] exoticGreeksOverride) {
         if (t <= 0 || sigma <= 0 || volCur == null || volCur.isEmpty()
@@ -202,14 +203,14 @@ public class VannaVolgaAdjuster extends OptUtil {
      * 从波动率曲线按 Delta 插值 sigma。
      * 波动率曲线格式：[{DELTA: 0.25, VOLATILITY_RATE: 0.12}, ...]
      */
-    public static double interpolateSigmaAtDelta(List<Map<String, Object>> volCur, double targetDelta) {
+    public static double interpolateSigmaAtDelta(List<VolSurfacePoint> volCur, double targetDelta) {
         if (volCur == null || volCur.isEmpty())
             return 0.0;
 
         TreeMap<Double, Double> points = new TreeMap<>();
-        for (Map<String, Object> row : volCur) {
-            double delta = toDouble(row.get("DELTA"));
-            double vol = toDouble(row.get("VOLATILITY_RATE"));
+        for (VolSurfacePoint row : volCur) {
+            double delta = row.getAxis2Value();
+            double vol = row.getVolatilityRate();
             if (Double.isFinite(delta) && Double.isFinite(vol) && vol > 0.0) {
                 points.put(delta, vol);
             }

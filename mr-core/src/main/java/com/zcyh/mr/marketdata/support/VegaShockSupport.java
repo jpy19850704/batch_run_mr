@@ -8,9 +8,7 @@ import com.zcyh.mr.marketdata.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Vega FRTB shock 支持类。
@@ -32,12 +30,8 @@ public final class VegaShockSupport {
         if (marketData == null || dataDate == null || !hasText(riskFactorClass) || !hasText(volatilitySurface)) {
             return frtbMarketDataList;
         }
-        List<Map<String, Object>> baseCurveData = getVegaCurveData(marketData, riskFactorClass, volatilitySurface);
+        List<VolSurfacePoint> baseCurveData = getVegaCurveData(marketData, riskFactorClass, volatilitySurface);
         if (baseCurveData == null || baseCurveData.isEmpty()) {
-            return frtbMarketDataList;
-        }
-        List<Map<String, Object>> baseCurveByVertex = renameVegaCurveToVertex(baseCurveData, riskFactorClass);
-        if (baseCurveByVertex.isEmpty()) {
             return frtbMarketDataList;
         }
         String[] tenorCodes = FrtbParamsCache.getVegaTenorCodes();
@@ -46,9 +40,8 @@ public final class VegaShockSupport {
         int[] tenorDays = CommUtils.tranfToDays(dataDate, tenorCodes);
         for (int i = 0; i < tenorDays.length; i++) {
             MarketData marketNew = CommUtils.deepCopy(marketData);
-            List<Map<String, Object>> shockCurveData = renameVegaCurveFromVertex(
-                    VolUtil.buildSingleTenorShockCurve(baseCurveByVertex, tenorDays, tenorDays[i], shockRatio),
-                    riskFactorClass);
+            List<VolSurfacePoint> shockCurveData = VolUtil.buildSingleTenorShockCurve(
+                    baseCurveData, tenorDays, tenorDays[i], shockRatio);
             if (!applyVegaShockCurve(marketNew, riskFactorClass, volatilitySurface, shockCurveData)) {
                 continue;
             }
@@ -66,7 +59,7 @@ public final class VegaShockSupport {
         return frtbMarketDataList;
     }
 
-    private static List<Map<String, Object>> getVegaCurveData(
+    private static List<VolSurfacePoint> getVegaCurveData(
             MarketData marketData,
             String riskFactorClass,
             String volatilitySurface) {
@@ -93,7 +86,7 @@ public final class VegaShockSupport {
             MarketData marketData,
             String riskFactorClass,
             String volatilitySurface,
-            List<Map<String, Object>> shockCurveData) {
+            List<VolSurfacePoint> shockCurveData) {
         if (EngineConstants.FRTB.SA.RISK_CLASS.GIRR.equalsIgnoreCase(riskFactorClass)) {
             IrVol.IrVolInfo info = marketData.irVol.get(volatilitySurface);
             if (info == null) {
@@ -127,40 +120,6 @@ public final class VegaShockSupport {
             return true;
         }
         return false;
-    }
-
-    private static List<Map<String, Object>> renameVegaCurveToVertex(
-            List<Map<String, Object>> curveData,
-            String riskFactorClass) {
-        Map<String, String> rules = new HashMap<>();
-        rules.put("OPTION_TERM", "VERTEX1");
-        if (EngineConstants.FRTB.SA.RISK_CLASS.GIRR.equalsIgnoreCase(riskFactorClass)) {
-            rules.put("UNDERLYING_TERM", "VERTEX2");
-        } else {
-            rules.put("DELTA", "VERTEX2");
-        }
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (Map<String, Object> curveDatum : curveData) {
-            result.add(CommUtils.mapKeyRename(new LinkedHashMap<>(curveDatum), rules));
-        }
-        return result;
-    }
-
-    private static List<Map<String, Object>> renameVegaCurveFromVertex(
-            List<Map<String, Object>> curveData,
-            String riskFactorClass) {
-        Map<String, String> rules = new HashMap<>();
-        rules.put("VERTEX1", "OPTION_TERM");
-        if (EngineConstants.FRTB.SA.RISK_CLASS.GIRR.equalsIgnoreCase(riskFactorClass)) {
-            rules.put("VERTEX2", "UNDERLYING_TERM");
-        } else {
-            rules.put("VERTEX2", "DELTA");
-        }
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (Map<String, Object> curveDatum : curveData) {
-            result.add(CommUtils.mapKeyRename(new LinkedHashMap<>(curveDatum), rules));
-        }
-        return result;
     }
 
     private static String resolveVegaRiskFactorType(String riskFactorClass) {

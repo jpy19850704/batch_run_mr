@@ -13,6 +13,7 @@ import com.zcyh.mr.marketdata.FxVol;
 import com.zcyh.mr.marketdata.IrSpot;
 import com.zcyh.mr.marketdata.IrVol;
 import com.zcyh.mr.marketdata.MarketData;
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -403,13 +404,8 @@ public class SubsetScenarioRunner {
         return copy;
     }
 
-    private List<Map<String, Object>> deepCopyCurveRows(List<Map<String, Object>> src) {
-        List<Map<String, Object>> copy = new ArrayList<>();
-        if (src == null) return copy;
-        for (Map<String, Object> row : src) {
-            copy.add(row == null ? new HashMap<>() : new HashMap<>(row));
-        }
-        return copy;
+    private List<VolSurfacePoint> deepCopyCurveRows(List<VolSurfacePoint> src) {
+        return src == null ? new ArrayList<VolSurfacePoint>() : new ArrayList<VolSurfacePoint>(src);
     }
 
     private EqSpot.EqSpotInfo copyEqSpotInfo(EqSpot.EqSpotInfo src) {

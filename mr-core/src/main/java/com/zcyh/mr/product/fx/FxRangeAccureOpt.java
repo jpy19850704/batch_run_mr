@@ -70,7 +70,7 @@ public class FxRangeAccureOpt extends RangeAccureOptBase<FxRangeAccureOpt.FxRang
     }
 
     @Override
-    protected List<Map<String, Object>> getVolCurve(MarketData md, int days) {
+    protected List<VolSurfacePoint> getVolCurve(MarketData md, int days) {
         FxVol vol = new FxVol(md.fxVol.get(rangeAccureInfo.volatilitySurface));
         return vol.getVolCur(days);
     }

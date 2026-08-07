@@ -58,7 +58,7 @@ public class IrRangeAccureOpt extends RangeAccureOptBase<IrRangeAccureOpt.IrRang
     }
 
     @Override
-    protected List<Map<String, Object>> getVolCurve(MarketData md, int days) {
+    protected List<VolSurfacePoint> getVolCurve(MarketData md, int days) {
         IrVol irVol = new IrVol(md.irVol.get(rangeAccureInfo.volatilitySurface));
         return irVol.getVolCur(days);
     }

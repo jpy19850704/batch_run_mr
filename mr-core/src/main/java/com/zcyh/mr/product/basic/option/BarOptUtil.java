@@ -1,6 +1,9 @@
 package com.zcyh.mr.product.basic.option;
 
+import com.zcyh.mr.marketdata.VolSurfacePoint;
 import org.apache.commons.math3.distribution.NormalDistribution;
+
+import java.util.List;
 
 public class BarOptUtil {
     private static final double MIN_SHIFT = 1e-6;
@@ -26,7 +29,7 @@ public class BarOptUtil {
 
     /** VV 相关字段 */
     private boolean vvFlag;
-    private java.util.List<java.util.Map<String, Object>> volCurve;
+    private List<VolSurfacePoint> volCurve;
     private double vvStrike;
     private boolean isDouble;
 
@@ -52,7 +55,7 @@ public class BarOptUtil {
     /** 含 VV 参数的完整构造函数 */
     public BarOptUtil(double s, double rebate, double h, double l, double u, double rd, double rf, double rebase,
             double sigma, double t, String barrierDirection, boolean knockout, boolean barrierHit, String type,
-            boolean vvFlag, java.util.List<java.util.Map<String, Object>> volCurve, double vvStrike, boolean isDouble) {
+            boolean vvFlag, List<VolSurfacePoint> volCurve, double vvStrike, boolean isDouble) {
         this.s = s;
         this.rebate = rebate;
         this.h = h;
@@ -452,7 +455,7 @@ public class BarOptUtil {
             double h, double l, double u, double rebate,
             double rd, double rf, double rebase, double sigma, double t,
             String barrierDirection, boolean knockout, boolean barrierHit, String type,
-            java.util.List<java.util.Map<String, Object>> volCurve,
+            List<VolSurfacePoint> volCurve,
             boolean isDouble, double noTouchProb) {
         if (!Double.isFinite(s) || s <= 0 || !Double.isFinite(strike) || strike <= 0
                 || !Double.isFinite(rebate) || rebate == 0.0
